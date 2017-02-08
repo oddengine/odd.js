@@ -1,0 +1,46 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+	<title>PLAYEASE.JS</title>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+	<script type='text/javascript' src='../cn/studease/playease.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.endian.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.css.js'></script>
+	<script type='text/javascript' src='../cn/studease/events/playease.events.js'></script>
+	<script type='text/javascript' src='../cn/studease/events/playease.events.eventdispatcher.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.loader.js'></script>
+	<script type='text/javascript' src='../cn/studease/api/playease.api.js'></script>
+	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.js'></script>
+	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.AMF.js'></script>
+	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.SPS.js'></script>
+	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.flv.js'></script>
+	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.mp4.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/playease.core.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/playease.core.states.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.modes.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/skins/playease.core.renders.skins.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/skins/playease.core.renders.skins.modes.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/skins/playease.core.renders.skins.def.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/playease.core.entity.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/playease.core.model.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/playease.core.view.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/playease.core.controller.js'></script>
+	<script type='text/javascript' src='../cn/studease/embed/playease.embed.js'></script>
+	<script type='text/javascript' src='../cn/studease/embed/playease.embed.config.js'></script>
+	<script type='text/javascript' src='../cn/studease/embed/playease.embed.embedder.js'></script>
+</head>
+<body>
+	<div id='player'></div>
+	
+	<script type="text/javascript">
+		playease('player').setup({
+			url: '/vod/sample.flv',
+			width: 960,
+			height: 540,
+			cors: 'no-cors'
+		});
+	</script>
+</body>
