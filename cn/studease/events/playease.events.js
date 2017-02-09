@@ -35,6 +35,7 @@
 		PLAYEASE_AVC_CONFIG_RECORD: 'playeaseAVCConfigRecord',
 		PLAYEASE_AVC_SAMPLE: 'playeaseAVCSample',
 		PLAYEASE_AAC_SAMPLE: 'playeaseAACSample',
-		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment'
+		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment',
+		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream'
 	};
 })(playease);

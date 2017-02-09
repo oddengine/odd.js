@@ -47,6 +47,7 @@
 			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
 			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
 			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
+			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
 			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
 			
 			_remuxer = new muxer.mp4();
@@ -85,7 +86,7 @@
 						break;
 					}
 					
-					
+					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
 					break;
 				case TAG.VIDEO:
 					if (e.codec && e.codec != CODECS.AVC) {
@@ -123,6 +124,10 @@
 		
 		function _onAACSample(e) {
 			
+		}
+		
+		function _onEndOfStream(e) {
+			view.endOfStream();
 		}
 		
 		function _onDemuxerError(e) {
