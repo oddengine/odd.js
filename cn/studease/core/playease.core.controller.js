@@ -46,6 +46,7 @@
 			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
 			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
 			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
+			_demuxer.addEventListener(events.PLAYEASE_AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
 			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
 			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
 			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
@@ -122,8 +123,13 @@
 			_remuxer.getVideoSegment(e.data);
 		}
 		
+		function _onAACSpecificConfig(e) {
+			_remuxer.setAudioMeta(e.data);
+			//_remuxer.getInitSegment(e.data);
+		}
+		
 		function _onAACSample(e) {
-			
+			_remuxer.getAudioSegment(e.data);
 		}
 		
 		function _onEndOfStream(e) {
