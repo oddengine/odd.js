@@ -15,7 +15,6 @@
 			_render,
 			_video,
 			_mediainfo,
-			_mimeType,
 			_ms,
 			_sb,
 			_segments,
@@ -134,9 +133,6 @@
 		
 		_this.setMediaInfo = function(info) {
 			_mediainfo = info;
-			
-			_mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
-					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 		};
 		
 		_this.endOfStream = function() {
@@ -151,7 +147,7 @@
 				return;
 			}
 			
-			var typeName = _mimeType || 'video/mp4; codecs="avc1.42E01E"';
+			var typeName = _mediainfo.mimeType || 'video/mp4; codecs="avc1.42E01E"';
 			var issurpported = MediaSource.isTypeSupported(typeName);
 			if (!issurpported) {
 				utils.log('Mime type is not surpported: ' + typeName + '.');
@@ -205,7 +201,7 @@
 		}
 		
 		function _onSourceBufferError(e) {
-			utils.log('buffer error');
+			utils.log('source buffer error');
 		}
 		
 		function _onMediaSourceEnded(e) {
@@ -217,7 +213,7 @@
 		}
 		
 		function _onMediaSourceError(e) {
-			utils.log('source error');
+			utils.log('media source error');
 		}
 		
 		function _onPlay(e) {

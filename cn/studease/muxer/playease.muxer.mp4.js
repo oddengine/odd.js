@@ -238,6 +238,7 @@
 			_dtsBase = -1,
 			_videoNextDts,
 			_videoMeta,
+			_audioMeta,
 			_videoseginfolist,
 			
 			_types = {
@@ -431,6 +432,10 @@
 			});
 		};
 		
+		_this.getAudioSegment = function(track) {
+			
+		};
+		
 		_mergeBoxes = function(moof, mdat) {
 			var res = new Uint8Array(moof.byteLength + mdat.byteLength);
 			res.set(moof, 0);
@@ -441,6 +446,10 @@
 		
 		_this.setVideoMeta = function(meta) {
 			_videoMeta = meta;
+		};
+		
+		_this.setAudioMeta = function(meta) {
+			_audioMeta = meta;
 		};
 		
 		
