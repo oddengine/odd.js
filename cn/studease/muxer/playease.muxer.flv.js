@@ -48,6 +48,22 @@
 				END_OF_SEQUENCE: 0x02
 			}
 		},
+		AAC = {
+			types: {
+				SPECIFIC_CONFIG: 0x00,
+				RAW_FRAME_DATA:  0x01
+			},
+			audioObjectType: {
+				NULL:          0x00,
+				AAC_MAIN:      0x01,
+				AAC_LC:        0x02,
+				AAC_SSR:       0x03, // Scalable Sample Rate
+				AAC_LTP:       0x04, // Long Term Prediction
+				AAC_HE_OR_SBR: 0x05, // Spectral Band Replication
+				AAC_SCALABLE:  0x06
+			},
+			samplingRates: [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350]
+		},
 		rates = [5500, 11025, 22050, 44100],
 		states = {
 			START:  1, // just enum values
@@ -296,13 +312,15 @@
 							var buf = new Uint8Array(datasize);
 							buf.position = 0;
 							
+							var subarr;
 							while (_cachedchunks.length) {
 								var chk = _cachedchunks.shift();
-								var arr = new Uint8Array(chk.data.slice(chk.offset));
-								buf.set(arr, buf.position);
+								subarr = new Uint8Array(chk.data.slice(chk.offset));
+								buf.set(subarr, buf.position);
 								buf.position += chk.data.byteLength - chk.offset;
 							}
-							buf.set(chunk.slice(0, pos), buf.position);
+							subarr = new Uint8Array(chunk.slice(0, pos));
+							buf.set(subarr, buf.position);
 							
 							data.data = buf.buffer;
 							data.offset = 0;
@@ -353,7 +371,7 @@
 					_parseAVCVideoData(arrayBuffer, dataOffset + pos, dataSize - pos, timestamp, frameType, cts);
 					break;
 				case AVC.types.END_OF_SEQUENCE:
-					// nothing to do.
+					_this.dispatchEvent(events.PLAYEASE_END_OF_STREAM);
 					break;
 				default:
 					_this.dispatchEvent(events.ERROR, { message: 'Unknown AVC video packet type ' + type + '.' });
@@ -498,8 +516,8 @@
 			var pos = 0, length = 0;
 			while (pos < dataSize) {
 				if (pos + 4 >= dataSize) {
-					utils.log('Malformed Nalus near timestamp ' + dts + '.');
-					break;
+					_this.dispatchEvent(events.ERROR, { message: 'Data not enough for next NALU.' });
+					return;
 				}
 				
 				var nalusize = v.getUint32(pos);
@@ -533,7 +551,7 @@
 			var avcsample = {
 				units: units,
 				length: length,
-				keyframe: keyframe,
+				isKeyframe: keyframe,
 				cts: cts,
 				dts: dts,
 				pts: cts + dts
@@ -547,6 +565,133 @@
 			
 			_this.dispatchEvent(events.PLAYEASE_AVC_SAMPLE, { data: _videoTrack });
 		}
+		
+		
+		_this.parseAACAudioPacket = function(arrayBuffer, dataOffset, dataSize, timestamp, rate, samplesize, sampletype) {
+			if (dataSize < 2) {
+				_this.dispatchEvent(events.ERROR, { message: 'Data not enough while parsing AAC audio packet.' });
+				return;
+			}
+			
+			var v = new DataView(arrayBuffer, dataOffset, dataSize);
+			
+			var pos = 1; // skip format & rate & samplesize & sampletype
+			var type = v.getUint8(pos++);
+			
+			switch (type) {
+				case AAC.types.SPECIFIC_CONFIG:
+					_parseAACAudioSpecificConfig(arrayBuffer, dataOffset + pos, dataSize - pos, rate, sampletype);
+					break;
+				case AAC.types.RAW_FRAME_DATA:
+					_parseAACAudioData(arrayBuffer, dataOffset + pos, dataSize - pos);
+					break;
+				default:
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown AAC audio packet type ' + type + '.' });
+			}
+		};
+		
+		function _parseAACAudioSpecificConfig(arrayBuffer, dataOffset, dataSize, rate, sampletype) {
+			if (dataSize < 5) {
+				_this.dispatchEvent(events.ERROR, { message: 'Data not enough while parsing AAC audio specific config.' });
+				return;
+			}
+			
+			var track = _audioTrack;
+			var audiometa = {
+				type: track.type,
+				id: track.id,
+				timescale: 1000,
+				duration: _metadata.duration * 1000 || 0
+			};
+			
+			audiometa.audioSampleRate = rate;
+			audiometa.channelCount = sampletype === 0 ? 1 : 2;
+			audiometa.refSampleDuration = Math.floor(1024 / audiometa.audioSampleRate * audiometa.timescale);
+			audiometa.codec = 'mp4a.40.5';
+			
+			var v = new DataView(arrayBuffer, dataOffset, dataSize);
+			
+			var pos = 0;
+			
+      var audioObjectType = AAC.audioObjectType.NULL;
+      var originalAudioObjectType = 0;
+      var audioExtensionObjectType = null;
+      var samplingIndex = 0;
+      var extensionSamplingIndex = null;
+
+      // 5 bits
+      audioObjectType = originalAudioObjectType = array[0] >>> 3;
+      // 4 bits
+      samplingIndex = (array[0] & 0x07) << 1 | array[1] >>> 7;
+      if (samplingIndex < 0 || samplingIndex >= mpegSamplingRates.length) {
+          this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: AAC invalid sampling frequency index!');
+          return;
+      }
+
+      var samplingFrequence = mpegSamplingRates[samplingIndex];
+
+      // 4 bits
+      var channelConfig = (array[1] & 0x78) >>> 3;
+      if (channelConfig < 0 || channelConfig >= 8) {
+          this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: AAC invalid channel configuration');
+          return;
+      }
+
+      if (audioObjectType === 5) {
+          // HE-AAC?
+          // 4 bits
+          extensionSamplingIndex = (array[1] & 0x07) << 1 | array[2] >>> 7;
+          // 5 bits
+          audioExtensionObjectType = (array[2] & 0x7C) >>> 2;
+      }
+			
+			
+			var misc = aacdata.data;
+			meta.audioSampleRate = misc.samplingRate;
+			meta.channelCount = misc.channelCount;
+			meta.codec = misc.codec;
+			meta.config = misc.config;
+			// The decode result of an aac sample is 1024 PCM samples
+			meta.refSampleDuration = Math.floor(1024 / meta.audioSampleRate * meta.timescale);
+			_logger2.default.v(this.TAG, 'Parsed AudioSpecificConfig');
+			
+			if (this._isInitialMetadataDispatched()) {
+				// Non-initial metadata, force dispatch (or flush) parsed frames to remuxer
+				if (this._dispatch && (this._audioTrack.length || this._videoTrack.length)) {
+					this._onDataAvailable(this._audioTrack, this._videoTrack);
+				}
+			} else {
+				this._audioInitialMetadataDispatched = true;
+			}
+			
+			// then notify new metadata
+			this._dispatch = false;
+			this._onTrackMetadata('audio', meta);
+			
+			var mi = this._mediaInfo;
+			mi.audioCodec = 'mp4a.40.' + misc.originalAudioObjectType;
+			mi.audioSampleRate = meta.audioSampleRate;
+			mi.audioChannelCount = meta.channelCount;
+			if (mi.hasVideo) {
+				if (mi.videoCodec != null) {
+					mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + ',' + mi.audioCodec + '"';
+				}
+			} else {
+				mi.mimeType = 'video/x-flv; codecs="' + mi.audioCodec + '"';
+			}
+			
+			if (mi.isComplete()) {
+				this._onMediaInfo(mi);
+			}
+		}
+		
+		function _parseAACAudioData(arrayBuffer, dataOffset, dataSize) {
+			var dts = this._timestampBase + tagTimestamp;
+			var aacSample = { unit: aacdata.data, dts: dts, pts: dts };
+			track.samples.push(aacSample);
+			track.length += aacdata.data.length;
+		}
+		
 		
 		_this.probe = function(buffer) {
 			var data = new Uint8Array(buffer);

@@ -288,15 +288,18 @@
 				return;
 			}
 			
+			var pos = 0;
+			
 			var bytes = 8 + track.length;
 			var mdatbox = new Uint8Array(bytes);
-			mdatbox[0] = bytes >>> 24 & 0xFF;
-			mdatbox[1] = bytes >>> 16 & 0xFF;
-			mdatbox[2] = bytes >>>  8 & 0xFF;
-			mdatbox[3] = bytes & 0xFF;
-			mdatbox.set(_types.mdat, 4);
+			mdatbox[pos++] = bytes >>> 24 & 0xFF;
+			mdatbox[pos++] = bytes >>> 16 & 0xFF;
+			mdatbox[pos++] = bytes >>>  8 & 0xFF;
+			mdatbox[pos++] = bytes & 0xFF;
 			
-			var pos = 8;
+			mdatbox.set(_types.mdat, pos);
+			pos += 4;
+			
 			var mp4Samples = [];
 			var seginfo = new segmentinfo();
 			
