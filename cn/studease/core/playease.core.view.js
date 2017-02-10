@@ -93,6 +93,7 @@
 				_render.addEventListener(events.PLAYEASE_VIEW_SEEK, _onSeek);
 				_render.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
 				_render.addEventListener(events.PLAYEASE_VIEW_VOLUNE, _onVolume);
+				_render.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
 				_render.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
 				_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 				
@@ -234,6 +235,10 @@
 		}
 		
 		function _onVolume(e) {
+			_forward(e);
+		}
+		
+		function _onMute(e) {
 			_forward(e);
 		}
 		

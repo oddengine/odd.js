@@ -27,6 +27,7 @@
 			_this.seek = _controller.seek;
 			_this.stop = _controller.stop;
 			_this.volume = _controller.volume;
+			_this.mute = _controller.mute;
 			_this.fullscreen = _controller.fullscreen;
 			_this.resize = _view.resize;
 		}
