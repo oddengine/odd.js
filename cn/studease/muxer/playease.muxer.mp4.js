@@ -3,7 +3,8 @@
 		events = playease.events,
 		muxer = playease.muxer,
 		
-		FRAMES = muxer.flv.FRAMES;
+		FRAMES = muxer.flv.FRAMES,
+		AAC = muxer.flv.AAC;
 	
 	var datas = {};
 	
@@ -77,6 +78,24 @@
 		0x00, 0x00, 0x00, 0x00, // opcolor: 3 * 2 bytes
 		0x00, 0x00
 	]);
+	
+	AAC.getSilentFrame = function(channelCount) {
+		if (channelCount === 1) {
+			return new Uint8Array([0x00, 0xc8, 0x00, 0x80, 0x23, 0x80]);
+		} else if (channelCount === 2) {
+			return new Uint8Array([0x21, 0x00, 0x49, 0x90, 0x02, 0x19, 0x00, 0x23, 0x80]);
+		} else if (channelCount === 3) {
+			return new Uint8Array([0x00, 0xc8, 0x00, 0x80, 0x20, 0x84, 0x01, 0x26, 0x40, 0x08, 0x64, 0x00, 0x8e]);
+		} else if (channelCount === 4) {
+			return new Uint8Array([0x00, 0xc8, 0x00, 0x80, 0x20, 0x84, 0x01, 0x26, 0x40, 0x08, 0x64, 0x00, 0x80, 0x2c, 0x80, 0x08, 0x02, 0x38]);
+		} else if (channelCount === 5) {
+			return new Uint8Array([0x00, 0xc8, 0x00, 0x80, 0x20, 0x84, 0x01, 0x26, 0x40, 0x08, 0x64, 0x00, 0x82, 0x30, 0x04, 0x99, 0x00, 0x21, 0x90, 0x02, 0x38]);
+		} else if (channelCount === 6) {
+			return new Uint8Array([0x00, 0xc8, 0x00, 0x80, 0x20, 0x84, 0x01, 0x26, 0x40, 0x08, 0x64, 0x00, 0x82, 0x30, 0x04, 0x99, 0x00, 0x21, 0x90, 0x02, 0x00, 0xb2, 0x00, 0x20, 0x08, 0xe0]);
+		}
+		
+		return null;
+	};
 	
 	
 	var sampleinfo = function(dts, pts, duration, originalDts, isSync) {
@@ -237,9 +256,12 @@
 			},
 			_dtsBase = -1,
 			_videoNextDts,
+			_audioNextDts,
 			_videoMeta,
 			_audioMeta,
 			_videoseginfolist,
+			_audioseginfolist,
+			_fillSilentAfterSeek,
 			
 			_types = {
 				avc1: [], avcC: [], btrt: [], dinf: [],
@@ -266,6 +288,9 @@
 			}
 			
 			_videoseginfolist = new segmentinfolist('video');
+			_audioseginfolist = new segmentinfolist('audio');
+			
+			_fillSilentAfterSeek = false;
 		}
 		
 		_this.getInitSegment = function(meta) {
@@ -276,7 +301,7 @@
 			seg.set(ftyp, 0);
 			seg.set(moov, ftyp.byteLength);
 			
-			_this.dispatchEvent(events.PLAYEASE_MP4_SEGMENT, { data: seg });
+			_this.dispatchEvent(events.PLAYEASE_MP4_INIT_SEGMENT, { tp: meta.type, data: seg });
 		};
 		
 		_this.getVideoSegment = function(track) {
@@ -426,6 +451,7 @@
 			track.length = 0;
 			
 			_this.dispatchEvent(events.PLAYEASE_MP4_SEGMENT, {
+				tp: 'video',
 				data: _mergeBoxes(moofbox, mdatbox),
 				sampleCount: mp4Samples.length,
 				info: seginfo
@@ -433,8 +459,204 @@
 		};
 		
 		_this.getAudioSegment = function(track) {
+			var samples = track.samples;
+			var dtsCorrection = undefined;
+			var firstDts = -1, lastDts = -1;
+			var lastPts = -1;
 			
+			var remuxSilentFrame = false;
+			var silentFrameDuration = -1;
+			
+			if (!samples || samples.length === 0) {
+				return;
+			}
+			
+			var pos = 0;
+			
+			var bytes = 8 + track.length;
+			var mdatbox = new Uint8Array(bytes);
+			mdatbox[pos++] = bytes >>> 24 & 0xFF;
+			mdatbox[pos++] = bytes >>> 16 & 0xFF;
+			mdatbox[pos++] = bytes >>>  8 & 0xFF;
+			mdatbox[pos++] = bytes & 0xFF;
+			
+			mdatbox.set(_types.mdat, pos);
+			pos += 4;
+			
+			var mp4Samples = [];
+			
+			while (samples.length) {
+				var aacSample = samples.shift();
+				var unit = aacSample.unit;
+				var originalDts = aacSample.dts - _dtsBase;
+				
+				if (dtsCorrection == undefined) {
+					if (_audioNextDts == undefined) {
+						if (_audioseginfolist.isEmpty()) {
+							dtsCorrection = 0;
+							if (_fillSilentAfterSeek && !_videoseginfolist.isEmpty()) {
+								remuxSilentFrame = true;
+							}
+						} else {
+							var lastSample = _audioseginfolist.getLastSampleBefore(originalDts);
+							if (lastSample != null) {
+								var distance = originalDts - (lastSample.originalDts + lastSample.duration);
+								if (distance <= 3) {
+									distance = 0;
+								}
+								var expectedDts = lastSample.dts + lastSample.duration + distance;
+								dtsCorrection = originalDts - expectedDts;
+							} else {
+								// lastSample == null
+								dtsCorrection = 0;
+							}
+						}
+					} else {
+						dtsCorrection = originalDts - _audioNextDts;
+					}
+				}
+				
+				var dts = originalDts - dtsCorrection;
+				if (remuxSilentFrame) {
+					// align audio segment beginDts to match with current video segment's beginDts
+					var videoSegment = _videoseginfolist.getLastSegmentBefore(originalDts);
+					if (videoSegment != null && videoSegment.beginDts < dts) {
+						silentFrameDuration = dts - videoSegment.beginDts;
+						dts = videoSegment.beginDts;
+					} else {
+						remuxSilentFrame = false;
+					}
+				}
+				if (firstDts === -1) {
+					firstDts = dts;
+				}
+				
+				if (remuxSilentFrame) {
+					remuxSilentFrame = false;
+					samples.unshift(aacSample);
+					
+					var frame = _generateSilentAudio(dts, silentFrameDuration);
+					if (frame == null) {
+						continue;
+					}
+					var mp4Spl = frame.mp4Sample;
+					var unt = frame.unit;
+					mp4Samples.push(mp4Spl);
+					
+					// re-allocate mdatbox buffer with new size, to fit with this silent frame
+					pos = 0;
+					
+					bytes += unt.byteLength;
+					mdatbox = new Uint8Array(bytes);
+					mdatbox[pos++] = bytes >>> 24 & 0xFF;
+					mdatbox[pos++] = bytes >>> 16 & 0xFF;
+					mdatbox[pos++] = bytes >>>  8 & 0xFF;
+					mdatbox[pos++] = bytes & 0xFF;
+					
+					mdatbox.set(_types.mdat, pos);
+					pos += 4;
+					
+					mdatbox.set(unt, pos);
+					pos += unt.byteLength;
+					
+					continue;
+				}
+				
+				var sampleDuration = 0;
+				
+				if (samples.length >= 1) {
+					var nextDts = samples[0].dts - _dtsBase - dtsCorrection;
+					sampleDuration = nextDts - dts;
+				} else {
+					if (mp4Samples.length >= 1) {
+						// use second last sample duration
+						sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
+					} else {
+						// the only one sample, use reference sample duration
+						sampleDuration = _audioMeta.refSampleDuration;
+					}
+				}
+				
+				var mp4Sample = {
+					dts: dts,
+					pts: dts,
+					cts: 0,
+					size: unit.byteLength,
+					duration: sampleDuration,
+					originalDts: originalDts,
+					flags: {
+						isLeading: 0,
+						dependsOn: 1,
+						isDependedOn: 0,
+						hasRedundancy: 0
+					}
+				};
+				
+				mp4Samples.push(mp4Sample);
+				mdatbox.set(unit, pos);
+				pos += unit.byteLength;
+			}
+			
+			var latest = mp4Samples[mp4Samples.length - 1];
+			lastDts = latest.dts + latest.duration;
+			_audioNextDts = lastDts;
+			
+			// fill media segment info & add to info list
+			var seginfo = new segmentinfo();
+			seginfo.beginDts = firstDts;
+			seginfo.endDts = lastDts;
+			seginfo.beginPts = firstDts;
+			seginfo.endPts = lastDts;
+			seginfo.originalBeginDts = mp4Samples[0].originalDts;
+			seginfo.originalEndDts = latest.originalDts + latest.duration;
+			seginfo.firstSample = new sampleinfo(mp4Samples[0].dts, mp4Samples[0].pts, mp4Samples[0].duration, mp4Samples[0].originalDts, false);
+			seginfo.lastSample = new sampleinfo(latest.dts, latest.pts, latest.duration, latest.originalDts, false);
+			if (!_this.config.islive) {
+				_audioseginfolist.append(seginfo);
+			}
+			
+			track.samples = mp4Samples;
+			track.sequenceNumber++;
+			
+			var moofbox = _this.moof(track, firstDts);
+			track.samples = [];
+			track.length = 0;
+			
+			_this.dispatchEvent(events.PLAYEASE_MP4_SEGMENT, {
+				tp: 'audio',
+				data: _mergeBoxes(moofbox, mdatbox),
+				sampleCount: mp4Samples.length,
+				info: seginfo
+			});
 		};
+		
+		function _generateSilentAudio(dts, frameDuration) {
+			var unit = AAC.getSilentFrame(_audioMeta.channelCount);
+			if (unit == null) {
+				utils.log('Cannot generate silent aac frame, channelCount: ' + _audioMeta.channelCount + '.');
+				return null;
+			}
+			
+			var mp4Sample = {
+				dts: dts,
+				pts: dts,
+				cts: 0,
+				size: unit.byteLength,
+				duration: frameDuration,
+				originalDts: dts,
+				flags: {
+					isLeading: 0,
+					dependsOn: 1,
+					isDependedOn: 0,
+					hasRedundancy: 0
+				}
+			};
+			
+			return {
+				unit: unit,
+				mp4Sample: mp4Sample
+			};
+		}
 		
 		_mergeBoxes = function(moof, mdat) {
 			var res = new Uint8Array(moof.byteLength + mdat.byteLength);

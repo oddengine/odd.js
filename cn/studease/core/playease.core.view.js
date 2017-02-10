@@ -16,15 +16,12 @@
 			_video,
 			_mediainfo,
 			_ms,
-			_sb,
+			_sbs,
 			_segments,
-			_updateend = false,
 			_endOfStream = false,
 			_errorState = false;
 		
 		function _init() {
-			_segments = [];
-			
 			_wrapper = utils.createElement('div', WRAP_CLASS);
 			_wrapper.id = entity.id;
 			_wrapper.tabIndex = 0;
@@ -38,6 +35,11 @@
 				else 
 					_this.resize();
 			};
+			
+			window.MediaSource = window.MediaSource || window.WebKitMediaSource;
+			
+			_sbs = { audio: null, video: null };
+			_segments = { audio: [], video: [] };
 		}
 		
 		_this.setup = function() {
@@ -56,18 +58,18 @@
 			_video.autoplay = 'autoplay';
 			_wrapper.appendChild(_video);
 			
-			_ms = new MediaSource() || new WebKitMediaSource();
+			_ms = new MediaSource();
 			_ms.addEventListener('sourceopen', _onMediaSourceOpen);
 			_ms.addEventListener('sourceended', _onMediaSourceEnded);
 			_ms.addEventListener('sourceclose', _onMediaSourceClose);
 			_ms.addEventListener('error', _onMediaSourceError);
 			
-			//_ms = new WebKitMediaSource();
-			//_ms.addEventListener('webkitsourceopen', _onMediaSourceOpen);
+			_ms.addEventListener('webkitsourceopen', _onMediaSourceOpen);
+			_ms.addEventListener('webkitsourceended', _onMediaSourceEnded);
+			_ms.addEventListener('webkitsourceclose', _onMediaSourceClose);
+			_ms.addEventListener('webkiterror', _onMediaSourceError);
 			
-			setTimeout(function() {
-				_this.dispatchEvent(events.PLAYEASE_READY, { id: entity.id });
-			}, 0);
+			_video.src = window.URL.createObjectURL(_ms);
 		};
 		
 		function _setupRender() {
@@ -98,8 +100,30 @@
 			}
 		}
 		
-		_this.decode = function(seg) {
-			var state = model.getState();
+		_this.appendInitSegment = function(type, seg) {
+			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
+			var issurpported = MediaSource.isTypeSupported(mimetype);
+			if (!issurpported) {
+				utils.log('Mime type is not surpported: ' + mimetype + '.');
+				model.state = states.ERROR;
+				return;
+			}
+			utils.log('Mime type: ' + mimetype + '.');
+			
+			if (_ms.readyState == 'closed') {
+				model.state = states.ERROR;
+				return;
+			}
+			
+			var sb = _sbs[type] = _ms.addSourceBuffer(mimetype);
+			sb.type = type;
+			sb.addEventListener('updateend', _onUpdateEnd);
+			sb.addEventListener('error', _onSourceBufferError);
+			sb.appendBuffer(seg);
+		};
+		
+		_this.appendSegment = function(type, seg) {
+			/*var state = model.getState();
 			switch (state) {
 				case states.BUFFERING:
 				case states.PLAYING:
@@ -110,25 +134,24 @@
 					
 					break;
 				case states.STOPPED:
-					_video.src = window.URL.createObjectURL(_ms);
-					model.state = states.BUFFERING;
+					
 					break;
 				case states.ERROR:
 					
 					break;
 				default:
 					utils.log('Unknown model state ' + state);
-			}
+			}*/
 			
-			_segments.push(seg);
+			_segments[type].push(seg);
 			
-			if (_updateend == false) {
+			var sb = _sbs[type];
+			if (sb.updating) {
 				return;
 			}
 			
-			var seg = _segments.shift();
-			_updateend = false;
-			_sb.appendBuffer(seg);
+			var seg = _segments[type].shift();
+			sb.appendBuffer(seg);
 		};
 		
 		_this.setMediaInfo = function(info) {
@@ -142,59 +165,37 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('source open');
 			
-			if (_ms.sourceBuffers.length > 0) {
-				model.state = states.ERROR;
-				return;
-			}
-			
-			var typeName = _mediainfo.mimeType || 'video/mp4; codecs="avc1.42E01E"';
-			var issurpported = MediaSource.isTypeSupported(typeName);
-			if (!issurpported) {
-				utils.log('Mime type is not surpported: ' + typeName + '.');
-				model.state = states.ERROR;
-				return;
-			}
-			utils.log('Mime type: ' + typeName + '.');
-			
-			if (_ms.readyState == 'closed') {
-				model.state = states.ERROR;
-				return;
-			}
-			
-			_sb = _ms.addSourceBuffer(typeName);
-			_sb.addEventListener('updateend', _onUpdateEnd);
-			_sb.addEventListener('error', _onSourceBufferError);
-			
-			if (_segments.length == 0) {
-				return;
-			}
-			
-			var seg = _segments.shift();
-			_updateend = false;
-			_sb.appendBuffer(seg);
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: entity.id });
 		}
 		
 		function _onUpdateEnd(e) {
 			utils.log('update end');
 			
-			_updateend = true;
+			var type = e.target.type;
 			
-			if (_segments.length == 0) {
-				if (_endOfStream) {
-					if (!_ms || _ms.readyState !== 'open') {
-						return;
-					}
-					
-					_ms.endOfStream();
+			if (_endOfStream) {
+				if (!_ms || _ms.readyState !== 'open') {
+					return;
 				}
 				
+				if (!_segments.audio.length && !_segments.video.length) {
+					_ms.endOfStream();
+					return;
+				}
+			}
+			
+			if (_segments[type].length == 0) {
 				return;
 			}
 			
-			var seg = _segments.shift();
-			_updateend = false;
+			var sb = _sbs[type];
+			if (sb.updating) {
+				return;
+			}
+			
+			var seg = _segments[type].shift();
 			try {
-				_sb.appendBuffer(seg);
+				sb.appendBuffer(seg);
 			} catch (e) {
 				utils.log(e);
 			}
