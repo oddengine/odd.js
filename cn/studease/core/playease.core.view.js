@@ -54,8 +54,14 @@
 			}
 			*/
 			_video = utils.createElement('video');
-			_video.controls = 'controls';
-			_video.autoplay = 'autoplay';
+			if (model.controls) {
+				_video.controls = 'controls';
+			}
+			if (model.autoplay) {
+				_video.autoplay = 'autoplay';
+			} else {
+				_video.addEventListener('play', _onVideoPlay);
+			}
 			_wrapper.appendChild(_video);
 			
 			_ms = new MediaSource();
@@ -71,6 +77,11 @@
 			
 			_video.src = window.URL.createObjectURL(_ms);
 		};
+		
+		function _onVideoPlay(e) {
+			_video.removeEventListener('play', _onVideoPlay);
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+		}
 		
 		function _setupRender() {
 			switch (model.render.name) {
