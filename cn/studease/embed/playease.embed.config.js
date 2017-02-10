@@ -10,7 +10,10 @@
 			url: 'http://' + window.location.host + '/vod/sample.flv',
 			width: 960,
 			height: 540,
+			cors: 'no-cors',
 			bufferTime: .1,
+			controls: true,
+			autoplay: true,
 			render: {
 				name: renderModes.DEFAULT,
 				skin: {

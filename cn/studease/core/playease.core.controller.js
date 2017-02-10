@@ -208,7 +208,9 @@
 				_ready = true;
 				_forward(e);
 				
-				_this.play();
+				if (model.autoplay) {
+					_this.play();
+				}
 				
 				window.onbeforeunload = function(ev) {
 					
