@@ -19,8 +19,8 @@ The example below will find the element with an id of player and render a video 
 ...
 playease('player').setup({
 	url: '/vod/sample.flv',
-	width: 960,
-	height: 540,
+	width: 640,
+	height: 360,
 	cors: 'no-cors'
 });
 ```
@@ -32,8 +32,8 @@ Please have a look at cn/studease/embed/playease.embed.config.js.
 ```js
 _defaults = {
 	url: 'http://' + window.location.host + '/vod/sample.flv',
-	width: 960,
-	height: 540,
+	width: 640,
+	height: 360,
 	cors: 'no-cors',
 	bufferTime: .1,
 	controls: true,

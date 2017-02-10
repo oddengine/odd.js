@@ -54,6 +54,8 @@
 			}
 			*/
 			_video = utils.createElement('video');
+			_video.width = model.width;
+			_video.height = model.height;
 			if (model.controls) {
 				_video.controls = 'controls';
 			}

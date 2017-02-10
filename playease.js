@@ -3492,6 +3492,8 @@ playease.version = '0.0.06';
 			}
 			*/
 			_video = utils.createElement('video');
+			_video.width = model.width;
+			_video.height = model.height;
 			if (model.controls) {
 				_video.controls = 'controls';
 			}
@@ -4103,8 +4105,8 @@ playease.version = '0.0.06';
 	embed.config = function(config) {
 		var _defaults = {
 			url: 'http://' + window.location.host + '/vod/sample.flv',
-			width: 960,
-			height: 540,
+			width: 640,
+			height: 360,
 			cors: 'no-cors',
 			bufferTime: .1,
 			controls: true,
