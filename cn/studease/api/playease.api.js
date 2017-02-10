@@ -13,6 +13,7 @@
 			onSeek: events.PLAYEASE_SEEK,
 			onStop: events.PLAYEASE_STOP,
 			onVolume: events.PLAYEASE_VIEW_VOLUME,
+			onMute: events.PLAYEASE_VIEW_MUTE,
 			onFullscreen: events.PLAYEASE_VIEW_FULLSCREEN
 		};
 	
@@ -55,6 +56,7 @@
 			_this.seek = _entity.seek;
 			_this.stop = _entity.stop;
 			_this.volume = _entity.volume;
+			_this.mute = _entity.mute;
 			_this.fullscreen = _entity.fullscreen;
 			
 			_this.resize = _entity.resize;

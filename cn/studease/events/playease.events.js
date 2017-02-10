@@ -23,6 +23,7 @@
 		PLAYEASE_VIEW_SEEK: 'playeaseViewSeek',
 		PLAYEASE_VIEW_STOP: 'playeaseViewStop',
 		PLAYEASE_VIEW_VOLUME: 'playeaseViewVolume',
+		PLAYEASE_VIEW_MUTE: 'playeaseViewMute',
 		PLAYEASE_VIEW_FULLSCREEN: 'playeaseViewFullscreen',
 		
 		// Loader Events
