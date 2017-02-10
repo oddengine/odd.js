@@ -14,6 +14,7 @@
 			bufferTime: .1,
 			controls: true,
 			autoplay: true,
+			poster: null,
 			render: {
 				name: renderModes.DEFAULT,
 				skin: {

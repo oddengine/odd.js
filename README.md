@@ -21,7 +21,8 @@ playease('player').setup({
 	url: '/vod/sample.flv',
 	width: 640,
 	height: 360,
-	cors: 'no-cors'
+	cors: 'no-cors',
+	poster: 'sample.png'
 });
 ```
 
@@ -38,6 +39,7 @@ _defaults = {
 	bufferTime: .1,
 	controls: true,
 	autoplay: true,
+	poster: null,
 	render: {
 		name: renderModes.DEFAULT,
 		skin: {

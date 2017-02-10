@@ -56,12 +56,10 @@
 			_video = utils.createElement('video');
 			_video.width = model.width;
 			_video.height = model.height;
-			if (model.controls) {
-				_video.controls = 'controls';
-			}
-			if (model.autoplay) {
-				_video.autoplay = 'autoplay';
-			} else {
+			_video.controls = model.controls;
+			_video.autoplay = model.autoplay;
+			_video.poster = model.poster;
+			if (!model.autoplay) {
 				_video.addEventListener('play', _onVideoPlay);
 			}
 			_wrapper.appendChild(_video);
