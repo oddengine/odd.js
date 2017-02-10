@@ -483,7 +483,7 @@
 		}
 		
 		function _copyVideoInfo(metadata, info) {
-			_mediainfo.hasAudio = !_hasAudio;
+			_mediainfo.hasAudio = _hasAudio;
 			_mediainfo.hasVideo = _hasVideo;
 			_mediainfo.duration = _metadata.duration * 1000;
 			_mediainfo.metadata = _metadata;
@@ -501,9 +501,9 @@
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			if (_mediainfo.isComplete()) {
+			//if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			}
+			//}
 		}
 		
 		function _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, timestamp, frameType, cts) {
@@ -591,7 +591,7 @@
 		};
 		
 		function _parseAACAudioSpecificConfig(arrayBuffer, dataOffset, dataSize, rate, sampletype) {
-			if (dataSize < 5) {
+			if (dataSize < 3) {
 				_this.dispatchEvent(events.ERROR, { message: 'Data not enough while parsing AAC audio specific config.' });
 				return;
 			}
@@ -692,9 +692,9 @@
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			if (_mediainfo.isComplete()) {
+			//if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			}
+			//}
 		}
 		
 		function _parseAACAudioData(arrayBuffer, dataOffset, dataSize, timestamp) {
@@ -780,4 +780,5 @@
 	muxer.flv.FRAMES = FRAMES;
 	muxer.flv.CODECS = CODECS;
 	muxer.flv.AVC = AVC;
+	muxer.flv.AAC = AAC;
 })(playease);

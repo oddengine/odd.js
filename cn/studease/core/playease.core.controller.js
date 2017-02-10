@@ -52,6 +52,7 @@
 			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
 			
 			_remuxer = new muxer.mp4();
+			_remuxer.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
 			_remuxer.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
 			_remuxer.addEventListener(events.ERROR, _onRemuxerError);
 		}
@@ -125,7 +126,7 @@
 		
 		function _onAACSpecificConfig(e) {
 			_remuxer.setAudioMeta(e.data);
-			//_remuxer.getInitSegment(e.data);
+			_remuxer.getInitSegment(e.data);
 		}
 		
 		function _onAACSample(e) {
@@ -140,8 +141,12 @@
 			utils.log(e.message);
 		}
 		
+		function _onMP4InitSegment(e) {
+			view.appendInitSegment(e.tp, e.data);
+		}
+		
 		function _onMP4Segment(e) {
-			view.decode(e.data);
+			view.appendSegment(e.tp, e.data);
 		}
 		
 		function _onRemuxerError(e) {
