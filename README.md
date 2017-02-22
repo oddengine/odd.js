@@ -41,10 +41,10 @@ _defaults = {
 	autoplay: true,
 	poster: null,
 	render: {
-		name: renderModes.DEFAULT,
-		skin: {
-			name: skinModes.DEFAULT
-		}
+		name: renderModes.DEFAULT
+	},
+	skin: {
+		name: skinModes.DEFAULT
 	}
 };
 ```

@@ -29,11 +29,16 @@
 			_this.volume = _controller.volume;
 			_this.mute = _controller.mute;
 			_this.fullscreen = _controller.fullscreen;
+			
+			_this.getState = _model.getState;
+			
 			_this.resize = _view.resize;
 		}
 		
 		_this.setup = function() {
-			_view.setup();
+			setTimeout(function() {
+				_view.setup();
+			}, 0);
 		};
 		
 		function _forward(e) {

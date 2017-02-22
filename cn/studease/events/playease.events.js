@@ -9,6 +9,7 @@
 		PLAYEASE_RENDER_ERROR: 'playeaseRenderError',
 		
 		PLAYEASE_STATE: 'playeaseState',
+		CHATEASE_PROPERTY: 'chateaseProperty',
 		PLAYEASE_METADATA: 'playeaseMetaData',
 		
 		PLAYEASE_BUFFER: 'playeaseBuffer',

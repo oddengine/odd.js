@@ -1,5 +1,5 @@
 ﻿(function(playease) {
-	playease.core.renders.skins.modes = {
+	playease.core.skins.modes = {
 		DEFAULT: 'def'
 	};
 })(playease);

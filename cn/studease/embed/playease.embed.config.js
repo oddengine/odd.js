@@ -2,8 +2,8 @@
 	var utils = playease.utils,
 		events = playease.events,
 		embed = playease.embed,
-		renderModes = playease.core.renders.modes,
-		skinModes = playease.core.renders.skins.modes;
+		rendermodes = playease.core.renders.modes,
+		skinmodes = playease.core.skins.modes;
 	
 	embed.config = function(config) {
 		var _defaults = {
@@ -16,10 +16,10 @@
 			autoplay: true,
 			poster: null,
 			render: {
-				name: renderModes.DEFAULT,
-				skin: {
-					name: skinModes.DEFAULT
-				}
+				name: rendermodes.DEFAULT
+			},
+			skin: {
+				name: skinmodes.DEFAULT
 			}
 		},
 		
