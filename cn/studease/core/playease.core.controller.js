@@ -21,13 +21,15 @@
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
+			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
+			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
 			view.addEventListener(events.PLAYEASE_VIEW_SEEK, _onSeek);
 			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
 			view.addEventListener(events.PLAYEASE_VIEW_VOLUNE, _onVolume);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
-			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
+			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
 			var loaderconfig = {};
@@ -58,7 +60,7 @@
 		}
 		
 		_this.play = function() {
-			_loader.load(model.url);
+			_loader.load(model.config.url);
 		};
 		
 		function _onContenLength(e) {
@@ -112,7 +114,7 @@
 		}
 		
 		function _onMediaInfo(e) {
-			view.setMediaInfo(e.info);
+			view.render.setMediaInfo(e.info);
 		}
 		
 		function _onAVCConfigRecord(e) {
@@ -134,7 +136,7 @@
 		}
 		
 		function _onEndOfStream(e) {
-			view.endOfStream();
+			view.render.endOfStream();
 		}
 		
 		function _onDemuxerError(e) {
@@ -142,11 +144,11 @@
 		}
 		
 		function _onMP4InitSegment(e) {
-			view.appendInitSegment(e.tp, e.data);
+			view.render.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
-			view.appendSegment(e.tp, e.data);
+			view.render.appendSegment(e.tp, e.data);
 		}
 		
 		function _onRemuxerError(e) {
@@ -208,7 +210,7 @@
 				_ready = true;
 				_forward(e);
 				
-				if (model.autoplay) {
+				if (model.config.autoplay) {
 					_this.play();
 				}
 				

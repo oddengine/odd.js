@@ -2,8 +2,7 @@
 	var utils = playease.utils,
 		events = playease.events,
 		embed = playease.embed,
-		core = playease.core,
-		renderModes = core.renders.modes;
+		core = playease.core;
 	
 	embed.embedder = function(api, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('embed.embedder'));

@@ -7,26 +7,38 @@
 	core.model = function(config) {
 		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
 		 	_defaults = {},
-		 	_attributes = {};
+		 	_state = states.STOPPED,
+		 	_properties;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
-			utils.extend(_this, {
-				id: config.id,
-				state: states.STOPPED
-			}, _this.config);
+			
+			_properties = {
+				
+			};
 		}
 		
 		_this.setState = function(state) {
-			if (state === _this.state) {
+			if (state === _state) {
 				return;
 			}
-			_this.state = state;
+			_state = state;
 			_this.dispatchEvent(events.PLAYEASE_STATE, { state: state });
 		};
 		
 		_this.getState = function() {
-			return _this.state;
+			return _state;
+		};
+		
+		_this.setProperty = function(key, value) {
+			if (_properties.hasOwnProperty(key) == true) {
+				_properties[key] = value;
+				_this.dispatchEvent(events.PLAYEASE_PROPERTY, { key: key, value: value });
+			}
+		};
+		
+		_this.getProperty = function(key) {
+			return _properties[key];
 		};
 		
 		_this.getConfig = function(name) {

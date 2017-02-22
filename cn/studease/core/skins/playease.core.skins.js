@@ -1,3 +1,3 @@
 ﻿(function(playease) {
-	playease.core.renders.skins = {};
+	playease.core.skins = {};
 })(playease);
