@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.07';
+playease.version = '1.0.08';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3256,7 +3256,8 @@ playease.version = '1.0.07';
 
 (function(playease) {
 	playease.core.renders.modes = {
-		DEFAULT: 'def'
+		DEFAULT: 'def',
+		FLV: 'flv'
 	};
 })(playease);
 
@@ -3282,8 +3283,109 @@ playease.version = '1.0.07';
 	renders.def = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
 			_defaults = {},
-			_defaultLayout = '[play elapsed duration][time][hd volume fullscreen]',
+			_video;
+		
+		function _init() {
+			_this.name = rendermodes.DEFAULT;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_video = utils.createElement('video');
+			_video.width = _this.config.width;
+			_video.height = _this.config.height;
+			_video.controls = _this.config.controls;
+			_video.autoplay = _this.config.autoplay;
+			_video.poster = _this.config.poster;
+			if (!_this.config.autoplay) {
+				_video.addEventListener('play', _onVideoPlay);
+			}
+		}
+		
+		_this.setup = function() {
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+		};
+		
+		_this.play = function() {
+			_video.src = config.url;
+		};
+		
+		_this.pause = function() {
+			
+		};
+		
+		_this.seek = function(time) {
+			
+		};
+		
+		_this.stop = function() {
+			
+		};
+		
+		_this.volume = function(vol) {
+			
+		};
+		
+		_this.mute = function(bool) {
+			bool = !!bool;
+		};
+		
+		_this.fullscreen = function(esc) {
+			
+		};
+		
+		function _onVideoPlay(e) {
+			_video.removeEventListener('play', _onVideoPlay);
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+		}
+		
+		_this.element = function() {
+			return _video;
+		};
+		
+		_this.resize = function(width, height) {
+			
+		};
+		
+		_this.destroy = function() {
+			
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		muxer = playease.muxer,
+		renders = core.renders,
+		rendermodes = renders.modes,
+		css = utils.css,
+		
+		AMF = muxer.AMF,
+		TAG = muxer.flv.TAG,
+		FORMATS = muxer.flv.FORMATS,
+		CODECS = muxer.flv.CODECS,
+		
+		RENDER_CLASS = 'pla-render',
+		
+		// For all api instances
+		CSS_SMOOTH_EASE = 'opacity .25s ease',
+		CSS_100PCT = '100%',
+		CSS_ABSOLUTE = 'absolute',
+		CSS_IMPORTANT = ' !important',
+		CSS_HIDDEN = 'hidden',
+		CSS_NONE = 'none',
+		CSS_BLOCK = 'block';
+	
+	renders.flv = function(view, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
+			_defaults = {},
 			_video,
+			_loader,
+			_demuxer,
+			_remuxer,
 			_mediainfo,
 			_ms,
 			_sbs,
@@ -3308,6 +3410,34 @@ playease.version = '1.0.07';
 				_video.addEventListener('play', _onVideoPlay);
 			}
 			
+			_initMuxer();
+			_initMSE();
+		}
+		
+		function _initMuxer() {
+			_loader = new utils.loader(config.loader);
+			_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+			_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+			_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+			_loader.addEventListener(events.ERROR, _onLoaderError);
+			
+			_demuxer = new muxer.flv();
+			_demuxer.addEventListener(events.PLAYEASE_FLV_TAG, _onFLVTag);
+			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
+			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
+			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
+			_demuxer.addEventListener(events.PLAYEASE_AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
+			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
+			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
+			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
+			
+			_remuxer = new muxer.mp4();
+			_remuxer.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
+			_remuxer.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
+			_remuxer.addEventListener(events.ERROR, _onRemuxerError);
+		}
+		
+		function _initMSE() {
 			window.MediaSource = window.MediaSource || window.WebKitMediaSource;
 			
 			_ms = new MediaSource();
@@ -3326,19 +3456,152 @@ playease.version = '1.0.07';
 			_video.src = window.URL.createObjectURL(_ms);
 		};
 		
+		_this.play = function() {
+			_loader.load(config.url);
+		};
+		
+		_this.pause = function() {
+			
+		};
+		
+		_this.seek = function(time) {
+			
+		};
+		
+		_this.stop = function() {
+			
+		};
+		
+		_this.volume = function(vol) {
+			
+		};
+		
+		_this.mute = function(bool) {
+			bool = !!bool;
+		};
+		
+		_this.fullscreen = function(esc) {
+			
+		};
+		
 		function _onVideoPlay(e) {
 			_video.removeEventListener('play', _onVideoPlay);
 			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 		}
 		
+		/**
+		 * Loader
+		 */
+		function _onContenLength(e) {
+			utils.log('onContenLength: ' + e.length);
+		}
+		
+		function _onLoaderProgress(e) {
+			//utils.log('onLoaderProgress: ' + e.data.byteLength);
+			_demuxer.parse(e.data);
+		}
+		
+		function _onLoaderComplete(e) {
+			utils.log('onLoaderComplete');
+		}
+		
+		function _onLoaderError(e) {
+			utils.log(e.message);
+		}
+		
+		/**
+		 * Demuxer
+		 */
+		function _onFLVTag(e) {
+			//utils.log('onFlvTag { tag: ' + e.tag + ', offset: ' + e.offset + ', size: ' + e.size + ' }');
+			
+			switch (e.tag) {
+				case TAG.AUDIO:
+					if (e.format && e.format != FORMATS.AAC) {
+						utils.log('Unsupported audio format(' + e.format + ').');
+						break;
+					}
+					
+					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
+					break;
+				case TAG.VIDEO:
+					if (e.codec && e.codec != CODECS.AVC) {
+						utils.log('Unsupported video codec(' + e.codec + ').');
+						break;
+					}
+					
+					_demuxer.parseAVCVideoPacket(e.data, e.offset, e.size, e.timestamp, e.frametype);
+					break;
+				case TAG.SCRIPT:
+					var data = AMF.parse(e.data, e.offset, e.size);
+					utils.log(data.key + ': ' + JSON.stringify(data.value));
+					
+					if (data.key == 'onMetaData') {
+						_demuxer.setMetaData(data.value);
+					}
+					break;
+				default:
+					utils.log('Skipping unknown tag type ' + e.tag);
+			}
+		}
+		
+		function _onMediaInfo(e) {
+			_mediainfo = e.info;
+		}
+		
+		function _onAVCConfigRecord(e) {
+			_remuxer.setVideoMeta(e.data);
+			_remuxer.getInitSegment(e.data);
+		}
+		
+		function _onAVCSample(e) {
+			_remuxer.getVideoSegment(e.data);
+		}
+		
+		function _onAACSpecificConfig(e) {
+			_remuxer.setAudioMeta(e.data);
+			_remuxer.getInitSegment(e.data);
+		}
+		
+		function _onAACSample(e) {
+			_remuxer.getAudioSegment(e.data);
+		}
+		
+		function _onEndOfStream(e) {
+			_endOfStream = true;
+		}
+		
+		function _onDemuxerError(e) {
+			utils.log(e.message);
+		}
+		
+		/**
+		 * Remuxer
+		 */
+		function _onMP4InitSegment(e) {
+			_this.appendInitSegment(e.tp, e.data);
+		}
+		
+		function _onMP4Segment(e) {
+			_this.appendSegment(e.tp, e.data);
+		}
+		
+		function _onRemuxerError(e) {
+			utils.log(e.message);
+		}
+		
+		/**
+		 * MSE
+		 */
 		_this.appendInitSegment = function(type, seg) {
 			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
+			utils.log('Mime type: ' + mimetype + '.');
+			
 			var issurpported = MediaSource.isTypeSupported(mimetype);
 			if (!issurpported) {
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Mime type is not surpported: ' + mimetype + '.' });
 				return;
 			}
-			utils.log('Mime type: ' + mimetype + '.');
 			
 			if (_ms.readyState == 'closed') {
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource is closed while appending init segment.' });
@@ -3364,14 +3627,6 @@ playease.version = '1.0.07';
 			sb.appendBuffer(seg);
 		};
 		
-		_this.setMediaInfo = function(info) {
-			_mediainfo = info;
-		};
-		
-		_this.endOfStream = function() {
-			_endOfStream = true;
-		};
-		
 		function _onMediaSourceOpen(e) {
 			utils.log('source open');
 			
@@ -3379,7 +3634,7 @@ playease.version = '1.0.07';
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -3427,9 +3682,6 @@ playease.version = '1.0.07';
 			utils.log('media source error');
 		}
 		
-		_this.display = function(icon, message) {
-			
-		};
 		
 		_this.element = function() {
 			return _video;
@@ -3585,6 +3837,7 @@ playease.version = '1.0.07';
 	
 	core.view = function(entity, model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
+			_defaultLayout = '[play elapsed duration][time][hd volume fullscreen]',
 			_wrapper,
 			_renderLayer,
 			_posterLayer,
@@ -3625,11 +3878,15 @@ playease.version = '1.0.07';
 		function _initRender() {
 			var cfg = utils.extend({}, model.getConfig('render'), {
 				id: entity.id,
+				url: model.config.url,
 				width: model.config.width,
 				height: model.config.height,
 				controls: model.config.controls,
 				autoplay: model.config.autoplay,
-				poster: model.config.poster
+				poster: model.config.poster,
+				loader: {
+					mode: model.config.cors
+				}
 			});
 			
 			try {
@@ -3700,9 +3957,7 @@ playease.version = '1.0.07';
 		}
 		
 		_this.display = function(icon, message) {
-			if (_render) {
-				_render.display(icon, message);
-			}
+			
 		};
 		
 		_this.resize = function(width, height) {
@@ -3739,20 +3994,11 @@ playease.version = '1.0.07';
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core,
-		muxer = playease.muxer,
-		states = core.states,
-		
-		AMF = muxer.AMF,
-		TAG = muxer.flv.TAG,
-		FORMATS = muxer.flv.FORMATS,
-		CODECS = muxer.flv.CODECS;
+		states = core.states;
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
-			_ready = false,
-			_loader,
-			_demuxer,
-			_remuxer;
+			_ready = false;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -3769,152 +4015,18 @@ playease.version = '1.0.07';
 			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
-			var loaderconfig = {};
-			if (model.config.cors) {
-				loaderconfig.mode = model.config.cors;
-			}
-			
-			_loader = new utils.loader(loaderconfig);
-			_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-			_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-			_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-			_loader.addEventListener(events.ERROR, _onLoaderError);
-			
-			_demuxer = new muxer.flv();
-			_demuxer.addEventListener(events.PLAYEASE_FLV_TAG, _onFLVTag);
-			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
-			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
-			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
-			
-			_remuxer = new muxer.mp4();
-			_remuxer.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
-			_remuxer.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_remuxer.addEventListener(events.ERROR, _onRemuxerError);
+			_initializeAPI();
 		}
 		
-		_this.play = function() {
-			_loader.load(model.config.url);
-		};
-		
-		function _onContenLength(e) {
-			utils.log('onContenLength ' + e.length);
+		function _initializeAPI() {
+			_this.play = view.render.play;
+			_this.pause = view.render.pause;
+			_this.seek = view.render.seek;
+			_this.stop = view.render.stop;
+			_this.volume = view.render.volume;
+			_this.mute = view.render.mute;
+			_this.fullscreen = view.render.fullscreen;
 		}
-		
-		function _onLoaderProgress(e) {
-			utils.log('onLoaderProgress ' + e.data.byteLength);
-			_demuxer.parse(e.data);
-		}
-		
-		function _onLoaderComplete(e) {
-			utils.log('onLoaderComplete');
-		}
-		
-		function _onLoaderError(e) {
-			utils.log(e.message);
-		}
-		
-		function _onFLVTag(e) {
-			utils.log('onFlvTag { tag: ' + e.tag + ', offset: ' + e.offset + ', size: ' + e.size + ' }');
-			
-			switch (e.tag) {
-				case TAG.AUDIO:
-					if (e.format && e.format != FORMATS.AAC) {
-						utils.log('Unsupported audio format(' + e.format + ').');
-						break;
-					}
-					
-					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
-					break;
-				case TAG.VIDEO:
-					if (e.codec && e.codec != CODECS.AVC) {
-						utils.log('Unsupported video codec(' + e.codec + ').');
-						break;
-					}
-					
-					_demuxer.parseAVCVideoPacket(e.data, e.offset, e.size, e.timestamp, e.frametype);
-					break;
-				case TAG.SCRIPT:
-					var data = AMF.parse(e.data, e.offset, e.size);
-					utils.log(data.key + ': ' + JSON.stringify(data.value));
-					
-					if (data.key == 'onMetaData') {
-						_demuxer.setMetaData(data.value);
-					}
-					break;
-				default:
-					utils.log('Skipping unknown tag type ' + e.tag);
-			}
-		}
-		
-		function _onMediaInfo(e) {
-			view.render.setMediaInfo(e.info);
-		}
-		
-		function _onAVCConfigRecord(e) {
-			_remuxer.setVideoMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAVCSample(e) {
-			_remuxer.getVideoSegment(e.data);
-		}
-		
-		function _onAACSpecificConfig(e) {
-			_remuxer.setAudioMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAACSample(e) {
-			_remuxer.getAudioSegment(e.data);
-		}
-		
-		function _onEndOfStream(e) {
-			view.render.endOfStream();
-		}
-		
-		function _onDemuxerError(e) {
-			utils.log(e.message);
-		}
-		
-		function _onMP4InitSegment(e) {
-			view.render.appendInitSegment(e.tp, e.data);
-		}
-		
-		function _onMP4Segment(e) {
-			view.render.appendSegment(e.tp, e.data);
-		}
-		
-		function _onRemuxerError(e) {
-			utils.log(e.message);
-		}
-		
-		_this.pause = function() {
-			
-		};
-		
-		_this.seek = function(time) {
-			
-		};
-		
-		_this.stop = function() {
-			
-		};
-		
-		_this.volume = function(vol) {
-			
-		};
-		
-		_this.mute = function(bool) {
-			bool = !!bool;
-		};
-		
-		_this.fullscreen = function(esc) {
-			
-		};
 		
 		function _modelStateHandler(e) {
 			switch (e.state) {
@@ -3944,6 +4056,8 @@ playease.version = '1.0.07';
 		
 		function _onReady(e) {
 			if (!_ready) {
+				utils.log('Player ready!');
+				
 				_ready = true;
 				_forward(e);
 				

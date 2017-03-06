@@ -22,7 +22,11 @@ playease('player').setup({
 	width: 640,
 	height: 360,
 	cors: 'no-cors',
-	poster: 'sample.png'
+	autoplay: true,
+	poster: 'sample.png',
+	render: {
+		name: 'flv'
+	}
 });
 ```
 
