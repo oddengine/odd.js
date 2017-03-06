@@ -25,6 +25,7 @@
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.modes.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.entity.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.model.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.view.js'></script>
@@ -42,7 +43,11 @@
 			width: 640,
 			height: 360,
 			cors: 'no-cors',
-			poster: 'sample.png'
+			autoplay: true,
+			poster: 'sample.png',
+			render: {
+				name: 'flv'
+			}
 		});
 	</script>
 </body>

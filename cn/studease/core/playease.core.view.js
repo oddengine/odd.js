@@ -18,6 +18,7 @@
 	
 	core.view = function(entity, model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
+			_defaultLayout = '[play elapsed duration][time][hd volume fullscreen]',
 			_wrapper,
 			_renderLayer,
 			_posterLayer,
@@ -58,11 +59,15 @@
 		function _initRender() {
 			var cfg = utils.extend({}, model.getConfig('render'), {
 				id: entity.id,
+				url: model.config.url,
 				width: model.config.width,
 				height: model.config.height,
 				controls: model.config.controls,
 				autoplay: model.config.autoplay,
-				poster: model.config.poster
+				poster: model.config.poster,
+				loader: {
+					mode: model.config.cors
+				}
 			});
 			
 			try {
@@ -133,9 +138,7 @@
 		}
 		
 		_this.display = function(icon, message) {
-			if (_render) {
-				_render.display(icon, message);
-			}
+			
 		};
 		
 		_this.resize = function(width, height) {

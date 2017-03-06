@@ -2,20 +2,11 @@
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core,
-		muxer = playease.muxer,
-		states = core.states,
-		
-		AMF = muxer.AMF,
-		TAG = muxer.flv.TAG,
-		FORMATS = muxer.flv.FORMATS,
-		CODECS = muxer.flv.CODECS;
+		states = core.states;
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
-			_ready = false,
-			_loader,
-			_demuxer,
-			_remuxer;
+			_ready = false;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -32,152 +23,18 @@
 			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
-			var loaderconfig = {};
-			if (model.config.cors) {
-				loaderconfig.mode = model.config.cors;
-			}
-			
-			_loader = new utils.loader(loaderconfig);
-			_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-			_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-			_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-			_loader.addEventListener(events.ERROR, _onLoaderError);
-			
-			_demuxer = new muxer.flv();
-			_demuxer.addEventListener(events.PLAYEASE_FLV_TAG, _onFLVTag);
-			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
-			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
-			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
-			
-			_remuxer = new muxer.mp4();
-			_remuxer.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
-			_remuxer.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_remuxer.addEventListener(events.ERROR, _onRemuxerError);
+			_initializeAPI();
 		}
 		
-		_this.play = function() {
-			_loader.load(model.config.url);
-		};
-		
-		function _onContenLength(e) {
-			utils.log('onContenLength ' + e.length);
+		function _initializeAPI() {
+			_this.play = view.render.play;
+			_this.pause = view.render.pause;
+			_this.seek = view.render.seek;
+			_this.stop = view.render.stop;
+			_this.volume = view.render.volume;
+			_this.mute = view.render.mute;
+			_this.fullscreen = view.render.fullscreen;
 		}
-		
-		function _onLoaderProgress(e) {
-			utils.log('onLoaderProgress ' + e.data.byteLength);
-			_demuxer.parse(e.data);
-		}
-		
-		function _onLoaderComplete(e) {
-			utils.log('onLoaderComplete');
-		}
-		
-		function _onLoaderError(e) {
-			utils.log(e.message);
-		}
-		
-		function _onFLVTag(e) {
-			utils.log('onFlvTag { tag: ' + e.tag + ', offset: ' + e.offset + ', size: ' + e.size + ' }');
-			
-			switch (e.tag) {
-				case TAG.AUDIO:
-					if (e.format && e.format != FORMATS.AAC) {
-						utils.log('Unsupported audio format(' + e.format + ').');
-						break;
-					}
-					
-					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
-					break;
-				case TAG.VIDEO:
-					if (e.codec && e.codec != CODECS.AVC) {
-						utils.log('Unsupported video codec(' + e.codec + ').');
-						break;
-					}
-					
-					_demuxer.parseAVCVideoPacket(e.data, e.offset, e.size, e.timestamp, e.frametype);
-					break;
-				case TAG.SCRIPT:
-					var data = AMF.parse(e.data, e.offset, e.size);
-					utils.log(data.key + ': ' + JSON.stringify(data.value));
-					
-					if (data.key == 'onMetaData') {
-						_demuxer.setMetaData(data.value);
-					}
-					break;
-				default:
-					utils.log('Skipping unknown tag type ' + e.tag);
-			}
-		}
-		
-		function _onMediaInfo(e) {
-			view.render.setMediaInfo(e.info);
-		}
-		
-		function _onAVCConfigRecord(e) {
-			_remuxer.setVideoMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAVCSample(e) {
-			_remuxer.getVideoSegment(e.data);
-		}
-		
-		function _onAACSpecificConfig(e) {
-			_remuxer.setAudioMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAACSample(e) {
-			_remuxer.getAudioSegment(e.data);
-		}
-		
-		function _onEndOfStream(e) {
-			view.render.endOfStream();
-		}
-		
-		function _onDemuxerError(e) {
-			utils.log(e.message);
-		}
-		
-		function _onMP4InitSegment(e) {
-			view.render.appendInitSegment(e.tp, e.data);
-		}
-		
-		function _onMP4Segment(e) {
-			view.render.appendSegment(e.tp, e.data);
-		}
-		
-		function _onRemuxerError(e) {
-			utils.log(e.message);
-		}
-		
-		_this.pause = function() {
-			
-		};
-		
-		_this.seek = function(time) {
-			
-		};
-		
-		_this.stop = function() {
-			
-		};
-		
-		_this.volume = function(vol) {
-			
-		};
-		
-		_this.mute = function(bool) {
-			bool = !!bool;
-		};
-		
-		_this.fullscreen = function(esc) {
-			
-		};
 		
 		function _modelStateHandler(e) {
 			switch (e.state) {
@@ -207,6 +64,8 @@
 		
 		function _onReady(e) {
 			if (!_ready) {
+				utils.log('Player ready!');
+				
 				_ready = true;
 				_forward(e);
 				
