@@ -37,7 +37,7 @@
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendermodes.DEFAULT;
+			_this.name = rendermodes.FLV;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -97,15 +97,32 @@
 		}
 		
 		_this.setup = function() {
-			_video.src = window.URL.createObjectURL(_ms);
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
-		_this.play = function() {
-			_loader.load(config.url);
+		_this.play = function(url) {
+			if (url) {
+				config.url = url;
+			}
+			
+			if (url || _video.src != config.url) {
+				_segments.audio = [];
+				_segments.video = [];
+				
+				_loader.abort();
+				_demuxer.reset();
+				_remuxer.reset();
+				
+				_video.pause();
+				_video.src = URL.createObjectURL(_ms);
+				_video.load();
+			}
+			
+			_video.play();
 		};
 		
 		_this.pause = function() {
-			
+			_video.pause();
 		};
 		
 		_this.seek = function(time) {
@@ -113,7 +130,13 @@
 		};
 		
 		_this.stop = function() {
+			_segments.audio = [];
+			_segments.video = [];
 			
+			_loader.abort();
+			
+			_video.pause();
+			_video.src = null;
 		};
 		
 		_this.volume = function(vol) {
@@ -272,13 +295,13 @@
 		};
 		
 		function _onMediaSourceOpen(e) {
-			utils.log('source open');
+			utils.log('media source open');
 			
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			_loader.load(config.url);
 		}
 		
 		function _onUpdateEnd(e) {
-			//utils.log('update end');
+			utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -305,8 +328,8 @@
 			var seg = _segments[type].shift();
 			try {
 				sb.appendBuffer(seg);
-			} catch (e) {
-				utils.log(e);
+			} catch (err) {
+				utils.log(err);
 			}
 		}
 		
@@ -315,11 +338,11 @@
 		}
 		
 		function _onMediaSourceEnded(e) {
-			utils.log('source ended');
+			utils.log('media source ended');
 		}
 		
 		function _onMediaSourceClose(e) {
-			utils.log('source close');
+			utils.log('media source close');
 		}
 		
 		function _onMediaSourceError(e) {

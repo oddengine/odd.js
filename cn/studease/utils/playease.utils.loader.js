@@ -27,6 +27,7 @@
 		
 		_this.load = function(uri) {
 			_uri = uri;
+			_aborted = false;
 			
 			if (!fetch) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: Fetch is not supported.' });

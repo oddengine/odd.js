@@ -38,7 +38,7 @@
 	<div id='player'></div>
 	
 	<script type="text/javascript">
-		playease('player').setup({
+		var player = playease('player').setup({
 			url: '/vod/sample.flv',
 			width: 640,
 			height: 360,
@@ -49,5 +49,13 @@
 				name: 'flv'
 			}
 		});
+		
+		/*setTimeout(function() {
+			player.stop();
+		}, 2000);
+		
+		setTimeout(function() {
+			playease('player').play('/vod/sample.2.flv');
+		}, 5000);*/
 	</script>
 </body>

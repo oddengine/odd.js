@@ -7,7 +7,7 @@
 	
 	embed.config = function(config) {
 		var _defaults = {
-			url: 'http://' + window.location.host + '/vod/sample.flv',
+			url: 'http://' + window.location.host + '/vod/sample.mp4',
 			width: 640,
 			height: 360,
 			cors: 'no-cors',
