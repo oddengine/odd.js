@@ -64,7 +64,7 @@
 			},
 			samplingRates: [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350]
 		},
-		rates = [5500, 11025, 22050, 44100],
+		rates = [5500, 11025, 22050, 44100, 48000],
 		states = {
 			START:  1, // just enum values
 			HEADER: 2,
@@ -224,6 +224,24 @@
 			_lengthSizeMinusOne = 0;
 			_timestampBase = 0;
 		}
+		
+		_this.reset = function() {
+			_offset = 0;
+			_length = 0;
+			
+			_state = states.START;
+			
+			_header.position = 0;
+			_cachedchunks = [];
+			
+			_mediainfo = new mediainfo();
+			
+			_videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0 };
+			_audioTrack = { type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0 };
+			
+			_lengthSizeMinusOne = 0;
+			_timestampBase = 0;
+		};
 		
 		_this.parse = function(chunk) {
 			var dv = new Uint8Array(chunk);
@@ -596,19 +614,6 @@
 				return;
 			}
 			
-			var track = _audioTrack;
-			var audiometa = {
-				type: track.type,
-				id: track.id,
-				timescale: 1000,
-				duration: _metadata.duration * 1000 || 0
-			};
-			
-			audiometa.audioSampleRate = rate;
-			audiometa.channelCount = sampletype === 0 ? 1 : 2;
-			audiometa.refSampleDuration = Math.floor(1024 / audiometa.audioSampleRate * audiometa.timescale);
-			audiometa.codec = 'mp4a.40.5';
-			
 			var v = new DataView(arrayBuffer, dataOffset, dataSize);
 			var pos = 0;
 			
@@ -619,7 +624,16 @@
 				return;
 			}
 			
-			var samplingFrequence = AAC.samplingRates[samplingIndex];
+			var track = _audioTrack;
+			var audiometa = {
+				type: track.type,
+				id: track.id,
+				timescale: 1000,
+				duration: _metadata.duration * 1000 || 0
+			};
+			
+			audiometa.audioSampleRate = AAC.samplingRates[samplingIndex];
+			audiometa.refSampleDuration = Math.floor(1024 / audiometa.audioSampleRate * audiometa.timescale);
 			
 			var channelConfig = (v.getUint8(pos) & 0x78) >>> 3; // 4 bits
 			if (channelConfig < 0 || channelConfig >= 8) {
@@ -657,7 +671,7 @@
 				if (samplingIndex >= AAC.audioObjectTypes.AAC_SCALABLE) {
 					extensionSamplingIndex = samplingIndex - 3;
 				} else if (channelConfig === 1) { // Mono channel
-					audioObjectType = 2;
+					audioObjectType = AAC.audioObjectTypes.AAC_LC;
 					extensionSamplingIndex = samplingIndex;
 					config = new Array(2);
 				}
@@ -676,6 +690,7 @@
 				config[3] = 0;
 			}
 			
+			audiometa.channelCount = channelConfig;
 			audiometa.codec = 'mp4a.40.' + audioObjectType;
 			audiometa.config = config;
 			
@@ -737,6 +752,12 @@
 		_this.setMetaData = function(metadata) {
 			_metadata = metadata;
 			
+			if (typeof _metadata.audiodatarate === 'number') {
+				_mediainfo.audioDataRate = _metadata.audiodatarate;
+			}
+			if (typeof _metadata.videodatarate === 'number') {
+				_mediainfo.videoDataRate = _metadata.videodatarate;
+			}
 			if (typeof _metadata.framerate === 'number') {
 				var fps_num = Math.floor(_metadata.framerate * 1000);
 				if (fps_num > 0) {

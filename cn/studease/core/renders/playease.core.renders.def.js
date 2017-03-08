@@ -42,12 +42,22 @@
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
-		_this.play = function() {
-			_video.src = config.url;
+		_this.play = function(url) {
+			if (url) {
+				config.url = url;
+			}
+			
+			if (url || _video.src != config.url) {
+				_video.pause();
+				_video.src = config.url;
+				_video.load();
+			}
+			
+			_video.play();
 		};
 		
 		_this.pause = function() {
-			
+			_video.pause();
 		};
 		
 		_this.seek = function(time) {
@@ -55,7 +65,8 @@
 		};
 		
 		_this.stop = function() {
-			
+			_video.pause();
+			_video.src = null;
 		};
 		
 		_this.volume = function(vol) {

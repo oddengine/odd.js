@@ -140,12 +140,15 @@
 	var segmentinfolist = function(type) {
 		var _this = this,
 			_type = type,
-			_list = [],
-			_lastAppendLocation = -1;
+			_list,
+			_lastAppendLocation;
 		
 		function _init() {
-			
+			_list = [];
+			_lastAppendLocation = -1;
 		}
+		
+		_this.reset = _init;
 		
 		_this.searchNearestSegmentBefore = function(originalBeginDts) {
 			if (_list.length === 0) {
@@ -254,7 +257,7 @@
 			_defaults = {
 				islive: false
 			},
-			_dtsBase = -1,
+			_dtsBase,
 			_videoNextDts,
 			_audioNextDts,
 			_videoMeta,
@@ -287,11 +290,25 @@
 				];
 			}
 			
+			_dtsBase = 0;
+			
 			_videoseginfolist = new segmentinfolist('video');
 			_audioseginfolist = new segmentinfolist('audio');
 			
 			_fillSilentAfterSeek = false;
 		}
+		
+		_this.reset = function() {
+			_dtsBase = 0;
+			
+			_videoNextDts = undefined;
+			_audioNextDts = undefined;
+			
+			_videoseginfolist.reset();
+			_audioseginfolist.reset();
+			
+			_fillSilentAfterSeek = false;
+		};
 		
 		_this.getInitSegment = function(meta) {
 			var ftyp = _this.box(_types.ftyp, datas.FTYP);
@@ -383,11 +400,9 @@
 					sampleDuration = nextDts - dts;
 				} else {
 					if (mp4Samples.length >= 1) {
-						// lastest sample, use second last duration
 						sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
 					} else {
-						// the only one sample, use reference duration
-						sampleDuration = _videoMeta.refSampleDuration;
+						sampleDuration = _videoMeta.refSampleDuration + dtsCorrection;
 					}
 				}
 				
@@ -462,7 +477,6 @@
 			var samples = track.samples;
 			var dtsCorrection = undefined;
 			var firstDts = -1, lastDts = -1;
-			var lastPts = -1;
 			
 			var remuxSilentFrame = false;
 			var silentFrameDuration = -1;
@@ -569,11 +583,9 @@
 					sampleDuration = nextDts - dts;
 				} else {
 					if (mp4Samples.length >= 1) {
-						// use second last sample duration
 						sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
 					} else {
-						// the only one sample, use reference sample duration
-						sampleDuration = _audioMeta.refSampleDuration;
+						sampleDuration = _audioMeta.refSampleDuration + dtsCorrection;
 					}
 				}
 				

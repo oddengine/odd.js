@@ -36,7 +36,7 @@ Please have a look at cn/studease/embed/playease.embed.config.js.
 
 ```js
 _defaults = {
-	url: 'http://' + window.location.host + '/vod/sample.flv',
+	url: 'http://' + window.location.host + '/vod/sample.mp4',
 	width: 640,
 	height: 360,
 	cors: 'no-cors',
@@ -87,13 +87,13 @@ _eventMapping = {
 
 ### Interface
 
-* **play()**
+* **play(url)**
 * **pause()**
-* **seek(time)**
+* **seek(offset)**
 * **stop()**
-* **volume()**
+* **volume(vol)**
 * **mute(bool)**
-* **fullscreen(esc)**
+* **fullscreen(bool)**
 * **resize(width, height)**
 
 

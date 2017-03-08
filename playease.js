@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.08';
+playease.version = '1.0.09';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -463,6 +463,7 @@ playease.version = '1.0.08';
 		
 		_this.load = function(uri) {
 			_uri = uri;
+			_aborted = false;
 			
 			if (!fetch) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: Fetch is not supported.' });
@@ -1320,7 +1321,7 @@ playease.version = '1.0.08';
 			},
 			samplingRates: [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350]
 		},
-		rates = [5500, 11025, 22050, 44100],
+		rates = [5500, 11025, 22050, 44100, 48000],
 		states = {
 			START:  1, // just enum values
 			HEADER: 2,
@@ -1480,6 +1481,24 @@ playease.version = '1.0.08';
 			_lengthSizeMinusOne = 0;
 			_timestampBase = 0;
 		}
+		
+		_this.reset = function() {
+			_offset = 0;
+			_length = 0;
+			
+			_state = states.START;
+			
+			_header.position = 0;
+			_cachedchunks = [];
+			
+			_mediainfo = new mediainfo();
+			
+			_videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0 };
+			_audioTrack = { type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0 };
+			
+			_lengthSizeMinusOne = 0;
+			_timestampBase = 0;
+		};
 		
 		_this.parse = function(chunk) {
 			var dv = new Uint8Array(chunk);
@@ -1852,19 +1871,6 @@ playease.version = '1.0.08';
 				return;
 			}
 			
-			var track = _audioTrack;
-			var audiometa = {
-				type: track.type,
-				id: track.id,
-				timescale: 1000,
-				duration: _metadata.duration * 1000 || 0
-			};
-			
-			audiometa.audioSampleRate = rate;
-			audiometa.channelCount = sampletype === 0 ? 1 : 2;
-			audiometa.refSampleDuration = Math.floor(1024 / audiometa.audioSampleRate * audiometa.timescale);
-			audiometa.codec = 'mp4a.40.5';
-			
 			var v = new DataView(arrayBuffer, dataOffset, dataSize);
 			var pos = 0;
 			
@@ -1875,7 +1881,16 @@ playease.version = '1.0.08';
 				return;
 			}
 			
-			var samplingFrequence = AAC.samplingRates[samplingIndex];
+			var track = _audioTrack;
+			var audiometa = {
+				type: track.type,
+				id: track.id,
+				timescale: 1000,
+				duration: _metadata.duration * 1000 || 0
+			};
+			
+			audiometa.audioSampleRate = AAC.samplingRates[samplingIndex];
+			audiometa.refSampleDuration = Math.floor(1024 / audiometa.audioSampleRate * audiometa.timescale);
 			
 			var channelConfig = (v.getUint8(pos) & 0x78) >>> 3; // 4 bits
 			if (channelConfig < 0 || channelConfig >= 8) {
@@ -1913,7 +1928,7 @@ playease.version = '1.0.08';
 				if (samplingIndex >= AAC.audioObjectTypes.AAC_SCALABLE) {
 					extensionSamplingIndex = samplingIndex - 3;
 				} else if (channelConfig === 1) { // Mono channel
-					audioObjectType = 2;
+					audioObjectType = AAC.audioObjectTypes.AAC_LC;
 					extensionSamplingIndex = samplingIndex;
 					config = new Array(2);
 				}
@@ -1932,6 +1947,7 @@ playease.version = '1.0.08';
 				config[3] = 0;
 			}
 			
+			audiometa.channelCount = channelConfig;
 			audiometa.codec = 'mp4a.40.' + audioObjectType;
 			audiometa.config = config;
 			
@@ -1993,6 +2009,12 @@ playease.version = '1.0.08';
 		_this.setMetaData = function(metadata) {
 			_metadata = metadata;
 			
+			if (typeof _metadata.audiodatarate === 'number') {
+				_mediainfo.audioDataRate = _metadata.audiodatarate;
+			}
+			if (typeof _metadata.videodatarate === 'number') {
+				_mediainfo.videoDataRate = _metadata.videodatarate;
+			}
 			if (typeof _metadata.framerate === 'number') {
 				var fps_num = Math.floor(_metadata.framerate * 1000);
 				if (fps_num > 0) {
@@ -2181,12 +2203,15 @@ playease.version = '1.0.08';
 	var segmentinfolist = function(type) {
 		var _this = this,
 			_type = type,
-			_list = [],
-			_lastAppendLocation = -1;
+			_list,
+			_lastAppendLocation;
 		
 		function _init() {
-			
+			_list = [];
+			_lastAppendLocation = -1;
 		}
+		
+		_this.reset = _init;
 		
 		_this.searchNearestSegmentBefore = function(originalBeginDts) {
 			if (_list.length === 0) {
@@ -2295,7 +2320,7 @@ playease.version = '1.0.08';
 			_defaults = {
 				islive: false
 			},
-			_dtsBase = -1,
+			_dtsBase,
 			_videoNextDts,
 			_audioNextDts,
 			_videoMeta,
@@ -2328,11 +2353,25 @@ playease.version = '1.0.08';
 				];
 			}
 			
+			_dtsBase = 0;
+			
 			_videoseginfolist = new segmentinfolist('video');
 			_audioseginfolist = new segmentinfolist('audio');
 			
 			_fillSilentAfterSeek = false;
 		}
+		
+		_this.reset = function() {
+			_dtsBase = 0;
+			
+			_videoNextDts = undefined;
+			_audioNextDts = undefined;
+			
+			_videoseginfolist.reset();
+			_audioseginfolist.reset();
+			
+			_fillSilentAfterSeek = false;
+		};
 		
 		_this.getInitSegment = function(meta) {
 			var ftyp = _this.box(_types.ftyp, datas.FTYP);
@@ -2424,11 +2463,9 @@ playease.version = '1.0.08';
 					sampleDuration = nextDts - dts;
 				} else {
 					if (mp4Samples.length >= 1) {
-						// lastest sample, use second last duration
 						sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
 					} else {
-						// the only one sample, use reference duration
-						sampleDuration = _videoMeta.refSampleDuration;
+						sampleDuration = _videoMeta.refSampleDuration + dtsCorrection;
 					}
 				}
 				
@@ -2503,7 +2540,6 @@ playease.version = '1.0.08';
 			var samples = track.samples;
 			var dtsCorrection = undefined;
 			var firstDts = -1, lastDts = -1;
-			var lastPts = -1;
 			
 			var remuxSilentFrame = false;
 			var silentFrameDuration = -1;
@@ -2610,11 +2646,9 @@ playease.version = '1.0.08';
 					sampleDuration = nextDts - dts;
 				} else {
 					if (mp4Samples.length >= 1) {
-						// use second last sample duration
 						sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
 					} else {
-						// the only one sample, use reference sample duration
-						sampleDuration = _audioMeta.refSampleDuration;
+						sampleDuration = _audioMeta.refSampleDuration + dtsCorrection;
 					}
 				}
 				
@@ -3305,12 +3339,22 @@ playease.version = '1.0.08';
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
-		_this.play = function() {
-			_video.src = config.url;
+		_this.play = function(url) {
+			if (url) {
+				config.url = url;
+			}
+			
+			if (url || _video.src != config.url) {
+				_video.pause();
+				_video.src = config.url;
+				_video.load();
+			}
+			
+			_video.play();
 		};
 		
 		_this.pause = function() {
-			
+			_video.pause();
 		};
 		
 		_this.seek = function(time) {
@@ -3318,7 +3362,8 @@ playease.version = '1.0.08';
 		};
 		
 		_this.stop = function() {
-			
+			_video.pause();
+			_video.src = null;
 		};
 		
 		_this.volume = function(vol) {
@@ -3393,7 +3438,7 @@ playease.version = '1.0.08';
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendermodes.DEFAULT;
+			_this.name = rendermodes.FLV;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -3453,15 +3498,32 @@ playease.version = '1.0.08';
 		}
 		
 		_this.setup = function() {
-			_video.src = window.URL.createObjectURL(_ms);
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
-		_this.play = function() {
-			_loader.load(config.url);
+		_this.play = function(url) {
+			if (url) {
+				config.url = url;
+			}
+			
+			if (url || _video.src != config.url) {
+				_segments.audio = [];
+				_segments.video = [];
+				
+				_loader.abort();
+				_demuxer.reset();
+				_remuxer.reset();
+				
+				_video.pause();
+				_video.src = URL.createObjectURL(_ms);
+				_video.load();
+			}
+			
+			_video.play();
 		};
 		
 		_this.pause = function() {
-			
+			_video.pause();
 		};
 		
 		_this.seek = function(time) {
@@ -3469,7 +3531,13 @@ playease.version = '1.0.08';
 		};
 		
 		_this.stop = function() {
+			_segments.audio = [];
+			_segments.video = [];
 			
+			_loader.abort();
+			
+			_video.pause();
+			_video.src = null;
 		};
 		
 		_this.volume = function(vol) {
@@ -3628,13 +3696,13 @@ playease.version = '1.0.08';
 		};
 		
 		function _onMediaSourceOpen(e) {
-			utils.log('source open');
+			utils.log('media source open');
 			
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			_loader.load(config.url);
 		}
 		
 		function _onUpdateEnd(e) {
-			//utils.log('update end');
+			utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -3661,8 +3729,8 @@ playease.version = '1.0.08';
 			var seg = _segments[type].shift();
 			try {
 				sb.appendBuffer(seg);
-			} catch (e) {
-				utils.log(e);
+			} catch (err) {
+				utils.log(err);
 			}
 		}
 		
@@ -3671,11 +3739,11 @@ playease.version = '1.0.08';
 		}
 		
 		function _onMediaSourceEnded(e) {
-			utils.log('source ended');
+			utils.log('media source ended');
 		}
 		
 		function _onMediaSourceClose(e) {
-			utils.log('source close');
+			utils.log('media source close');
 		}
 		
 		function _onMediaSourceError(e) {
@@ -4202,7 +4270,7 @@ playease.version = '1.0.08';
 	
 	embed.config = function(config) {
 		var _defaults = {
-			url: 'http://' + window.location.host + '/vod/sample.flv',
+			url: 'http://' + window.location.host + '/vod/sample.mp4',
 			width: 640,
 			height: 360,
 			cors: 'no-cors',
