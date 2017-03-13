@@ -609,7 +609,7 @@
 		};
 		
 		function _parseAACAudioSpecificConfig(arrayBuffer, dataOffset, dataSize, rate, sampletype) {
-			if (dataSize < 3) {
+			if (dataSize < 2) {
 				_this.dispatchEvent(events.ERROR, { message: 'Data not enough while parsing AAC audio specific config.' });
 				return;
 			}
@@ -643,6 +643,11 @@
 			
 			var extensionSamplingIndex, audioExtensionObjectType;
 			if (audioObjectType === AAC.audioObjectTypes.AAC_HE_OR_SBR) {
+				if (dataSize < 3) {
+					_this.dispatchEvent(events.ERROR, { message: 'Data not enough while parsing AAC_HE_OR_SBR audio specific config.' });
+					return;
+				}
+				
 				extensionSamplingIndex = (v.getUint8(pos++) & 0x07) << 1 | v.getUint8(pos) >>> 7; // 4 bits
 				audioExtensionObjectType = (v.getUint8(pos) & 0x7C) >>> 2;                        // 5 bits
 			}
