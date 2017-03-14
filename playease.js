@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.11';
+playease.version = '1.0.12';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -1321,7 +1321,7 @@ playease.version = '1.0.11';
 			},
 			samplingRates: [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350]
 		},
-		rates = [5500, 11025, 22050, 44100, 48000],
+		rates = [5500, 11025, 22050, 44100],
 		states = {
 			START:  1, // just enum values
 			HEADER: 2,
