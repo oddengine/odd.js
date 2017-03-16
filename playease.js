@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.12';
+playease.version = '1.0.13';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3336,7 +3336,11 @@ playease.version = '1.0.12';
 			_video.autoplay = _this.config.autoplay;
 			_video.poster = _this.config.poster;
 			if (!_this.config.autoplay) {
-				_video.addEventListener('play', _onVideoPlay);
+				try {
+					_video.addEventListener('play', _onVideoPlay);
+				} catch(err) {
+					_video.attachEvent('onplay', _onVideoPlay);
+				}
 			}
 		}
 		
@@ -3384,7 +3388,12 @@ playease.version = '1.0.12';
 		};
 		
 		function _onVideoPlay(e) {
-			_video.removeEventListener('play', _onVideoPlay);
+			try {
+				_video.removeEventListener('play', _onVideoPlay);
+			} catch(err) {
+				_video.detachEvent('onplay', _onVideoPlay);
+			}
+			
 			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 		}
 		
