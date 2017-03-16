@@ -34,7 +34,11 @@
 			_video.autoplay = _this.config.autoplay;
 			_video.poster = _this.config.poster;
 			if (!_this.config.autoplay) {
-				_video.addEventListener('play', _onVideoPlay);
+				try {
+					_video.addEventListener('play', _onVideoPlay);
+				} catch(err) {
+					_video.attachEvent('onplay', _onVideoPlay);
+				}
 			}
 		}
 		
@@ -82,7 +86,12 @@
 		};
 		
 		function _onVideoPlay(e) {
-			_video.removeEventListener('play', _onVideoPlay);
+			try {
+				_video.removeEventListener('play', _onVideoPlay);
+			} catch(err) {
+				_video.detachEvent('onplay', _onVideoPlay);
+			}
+			
 			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 		}
 		
