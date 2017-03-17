@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.13';
+playease.version = '1.0.14';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3334,6 +3334,7 @@ playease.version = '1.0.13';
 			_video.height = _this.config.height;
 			_video.controls = _this.config.controls;
 			_video.autoplay = _this.config.autoplay;
+			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
 			_video.poster = _this.config.poster;
 			if (!_this.config.autoplay) {
 				try {
@@ -3965,6 +3966,7 @@ playease.version = '1.0.13';
 				height: model.config.height,
 				controls: model.config.controls,
 				autoplay: model.config.autoplay,
+				playsinline: model.config.playsinline,
 				poster: model.config.poster,
 				loader: {
 					mode: model.config.cors
@@ -4291,6 +4293,7 @@ playease.version = '1.0.13';
 			bufferTime: .1,
 			controls: true,
 			autoplay: true,
+			playsinline: true,
 			poster: null,
 			render: {
 				name: rendermodes.DEFAULT

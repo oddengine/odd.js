@@ -32,6 +32,7 @@
 			_video.height = _this.config.height;
 			_video.controls = _this.config.controls;
 			_video.autoplay = _this.config.autoplay;
+			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
 			_video.poster = _this.config.poster;
 			if (!_this.config.autoplay) {
 				try {
