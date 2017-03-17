@@ -14,6 +14,7 @@
 			bufferTime: .1,
 			controls: true,
 			autoplay: true,
+			playsinline: true,
 			poster: null,
 			render: {
 				name: rendermodes.DEFAULT

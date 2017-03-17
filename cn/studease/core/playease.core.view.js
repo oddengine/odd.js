@@ -64,6 +64,7 @@
 				height: model.config.height,
 				controls: model.config.controls,
 				autoplay: model.config.autoplay,
+				playsinline: model.config.playsinline,
 				poster: model.config.poster,
 				loader: {
 					mode: model.config.cors
