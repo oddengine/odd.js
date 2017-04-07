@@ -3,7 +3,7 @@
 <head>
 	<title>PLAYEASE.JS</title>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-	<!--<script type='text/javascript' src='../playease.min.js'></script>-->
+	<!--<script type='text/javascript' src='../playease.regular.min.js'></script>-->
 	<script type='text/javascript' src='../cn/studease/playease.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.endian.js'></script>
@@ -11,6 +11,7 @@
 	<script type='text/javascript' src='../cn/studease/events/playease.events.js'></script>
 	<script type='text/javascript' src='../cn/studease/events/playease.events.eventdispatcher.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.loader.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.filekeeper.js'></script>
 	<script type='text/javascript' src='../cn/studease/api/playease.api.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.AMF.js'></script>
@@ -39,14 +40,14 @@
 	
 	<script type="text/javascript">
 		var player = playease('player').setup({
-			url: '/vod/sample.flv',
+			url: '/vod/sample.2.mp4',
 			width: 640,
 			height: 360,
 			cors: 'no-cors',
-			autoplay: true,
+			autoplay: false,
 			poster: 'sample.png',
 			render: {
-				name: 'flv'
+				name: 'def'
 			}
 		});
 		

@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.14';
+playease.version = '1.0.15';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -514,6 +514,56 @@ playease.version = '1.0.14';
 		
 		_this.abort = function() {
 			_aborted = true;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils;
+	
+	utils.filekeeper = function(config) {
+		var _this = this,
+			_defaults = {
+				filename: 'sample.fragmented.mp4',
+				type: 'video/mpeg'
+			},
+			_array,
+			_blob,
+			_url,
+			_event,
+			_link;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_array = [];
+		}
+		
+		_this.append = function(typedArray) {
+			_array.push(typedArray);
+		};
+		
+		_this.save = function(filename) {
+			if (!filename) {
+				filename = _this.config.filename;
+			}
+			
+			_blob = new Blob(_array, { type: _this.config.type });
+			_url = URL.createObjectURL(_blob);
+			
+			_event = document.createEvent('MouseEvents');
+			_event.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+			
+			_link = document.createElementNS('http://www.w3.org/1999/xhtml', 'a');
+			_link.href = _url;
+			_link.download = filename;
+			_link.dispatchEvent(_event);
+			
+			_array = [];
+			
+			URL.revokeObjectURL(_url);
 		};
 		
 		_init();
@@ -3416,6 +3466,7 @@ playease.version = '1.0.14';
 
 (function(playease) {
 	var utils = playease.utils,
+		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		core = playease.core,
 		muxer = playease.muxer,
@@ -3450,6 +3501,8 @@ playease.version = '1.0.14';
 			_ms,
 			_sbs,
 			_segments,
+			//_fileindex,
+			//_filekeeper,
 			_endOfStream = false;
 		
 		function _init() {
@@ -3469,7 +3522,10 @@ playease.version = '1.0.14';
 			if (!_this.config.autoplay) {
 				_video.addEventListener('play', _onVideoPlay);
 			}
-			
+			/*
+			_fileindex = 0;
+			_filekeeper = new filekeeper();
+			*/
 			_initMuxer();
 			_initMSE();
 		}
@@ -3662,10 +3718,20 @@ playease.version = '1.0.14';
 		 * Remuxer
 		 */
 		function _onMP4InitSegment(e) {
+			/*
+			_fileindex++
+			_filekeeper.append(e.data);
+			//_filekeeper.save('sample.' + e.tp + '.init.mp4');
+			*/
 			_this.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
+			/*
+			_fileindex++
+			_filekeeper.append(e.data);
+			//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
+			*/
 			_this.appendSegment(e.tp, e.data);
 		}
 		
@@ -3727,6 +3793,7 @@ playease.version = '1.0.14';
 				}
 				
 				if (!_segments.audio.length && !_segments.video.length) {
+					//_filekeeper.save();
 					_ms.endOfStream();
 					return;
 				}
