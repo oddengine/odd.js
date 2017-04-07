@@ -1,5 +1,6 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
+		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		core = playease.core,
 		muxer = playease.muxer,
@@ -34,6 +35,8 @@
 			_ms,
 			_sbs,
 			_segments,
+			//_fileindex,
+			//_filekeeper,
 			_endOfStream = false;
 		
 		function _init() {
@@ -53,7 +56,10 @@
 			if (!_this.config.autoplay) {
 				_video.addEventListener('play', _onVideoPlay);
 			}
-			
+			/*
+			_fileindex = 0;
+			_filekeeper = new filekeeper();
+			*/
 			_initMuxer();
 			_initMSE();
 		}
@@ -246,10 +252,20 @@
 		 * Remuxer
 		 */
 		function _onMP4InitSegment(e) {
+			/*
+			_fileindex++
+			_filekeeper.append(e.data);
+			//_filekeeper.save('sample.' + e.tp + '.init.mp4');
+			*/
 			_this.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
+			/*
+			_fileindex++
+			_filekeeper.append(e.data);
+			//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
+			*/
 			_this.appendSegment(e.tp, e.data);
 		}
 		
@@ -311,6 +327,7 @@
 				}
 				
 				if (!_segments.audio.length && !_segments.video.length) {
+					//_filekeeper.save();
 					_ms.endOfStream();
 					return;
 				}
