@@ -5,6 +5,7 @@
 		states = core.states,
 		renders = core.renders,
 		rendermodes = renders.modes,
+		components = core.components,
 		skins = core.skins,
 		skinmodes = skins.modes,
 		css = utils.css,
@@ -13,18 +14,20 @@
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
 		POSTER_CLASS = 'pla-poster',
+		PROGRESS_CLASS = 'pla-progress',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
 	core.view = function(entity, model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
-			_defaultLayout = '[play elapsed duration][time][hd volume fullscreen]',
 			_wrapper,
 			_renderLayer,
 			_posterLayer,
+			_progressLayer,
 			_controlsLayer,
 			_contextmenuLayer,
 			_render,
+			_controlbar,
 			_skin,
 			_errorOccurred = false;
 		
@@ -35,15 +38,18 @@
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
 			_posterLayer = utils.createElement('div', POSTER_CLASS);
+			_progressLayer = utils.createElement('div', PROGRESS_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
 			_wrapper.appendChild(_renderLayer);
 			_wrapper.appendChild(_posterLayer);
+			_wrapper.appendChild(_progressLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
 			_initRender();
+			_initComponents();
 			_initSkin();
 			
 			var replace = document.getElementById(entity.id);
@@ -85,6 +91,10 @@
 			}
 		}
 		
+		function _initComponents() {
+			_controlbar = new components.controlbar(_controlsLayer, { mode: 0 });
+		}
+		
 		function _initSkin() {
 			var cfg = utils.extend({}, model.getConfig('skin'), {
 				id: entity.id,
@@ -113,6 +123,21 @@
 			} catch (e) {
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 			}
+		};
+		
+		_this.fullscreen = function(bool) {
+			if (_wrapper.requestFullscreen) {
+				_wrapper.requestFullscreen();
+			} else if(_wrapper.mozRequestFullScreen) {
+				_wrapper.mozRequestFullScreen();
+			} else if(_wrapper.webkitRequestFullscreen) {
+				_wrapper.webkitRequestFullscreen();
+			} else if(_wrapper.msRequestFullscreen) {
+				_wrapper.msRequestFullscreen();
+			}
+			
+			_wrapper.style.width = '100%';
+			_wrapper.style.height = '100%';
 		};
 		
 		function _onKeyDown(e) {

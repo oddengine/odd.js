@@ -142,6 +142,36 @@
 		return _userAgentMatch(/msie/i);
 	};
 	
+	utils.isIOS = function(version) {
+		if (version) {
+			return _userAgentMatch(new RegExp('iP(hone|ad|od).+\\sOS\\s' + version, 'i'));
+		}
+		
+		return _userAgentMatch(/iP(hone|ad|od)/i);
+	};
+	
+	utils.isAndroid = function(version, excludeChrome) {
+		//Android Browser appears to include a user-agent string for Chrome/18
+		if (excludeChrome && _userAgentMatch(/chrome\/[123456789]/i) && !_userAgentMatch(/chrome\/18/)) {
+			return false;
+		}
+		
+		if (version) {
+			// make sure whole number version check ends with point '.'
+			if (utils.isInt(version) && !/\./.test(version)) {
+				version = '' + version + '.';
+			}
+			
+			return _userAgentMatch(new RegExp('Android\\s*' + version, 'i'));
+		}
+		
+		return _userAgentMatch(/Android/i);
+	};
+	
+	utils.isMobile = function() {
+		return utils.isIOS() || utils.isAndroid();
+	};
+	
 	function _userAgentMatch(regex) {
 		var agent = navigator.userAgent.toLowerCase();
 		return (agent.match(regex) !== null);
