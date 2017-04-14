@@ -28,8 +28,6 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_video = utils.createElement('video');
-			_video.width = _this.config.width;
-			_video.height = _this.config.height;
 			_video.controls = _this.config.controls;
 			_video.autoplay = _this.config.autoplay;
 			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
@@ -65,7 +63,7 @@
 			_video.pause();
 		};
 		
-		_this.seek = function(time) {
+		_this.seek = function(offset) {
 			
 		};
 		
@@ -80,10 +78,6 @@
 		
 		_this.mute = function(bool) {
 			bool = !!bool;
-		};
-		
-		_this.fullscreen = function(esc) {
-			
 		};
 		
 		function _onVideoPlay(e) {

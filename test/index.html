@@ -27,6 +27,9 @@
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.modes.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.slider.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.controlbar.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.entity.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.model.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.view.js'></script>
@@ -40,16 +43,21 @@
 	
 	<script type="text/javascript">
 		var player = playease('player').setup({
-			url: '/vod/sample.2.mp4',
+			url: '/vod/sample.flv',
 			width: 640,
 			height: 360,
 			cors: 'no-cors',
+			controls: false,
 			autoplay: false,
-			poster: 'sample.png',
+			//poster: 'sample.png',
 			render: {
-				name: 'def'
+				name: 'flv'
 			}
 		});
+		
+		function dofs(e) {
+			player.fullscreen();
+		}
 		
 		/*setTimeout(function() {
 			player.stop();

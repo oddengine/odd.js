@@ -33,7 +33,7 @@
 			_this.stop = view.render.stop;
 			_this.volume = view.render.volume;
 			_this.mute = view.render.mute;
-			_this.fullscreen = view.render.fullscreen;
+			_this.fullscreen = view.fullscreen;
 		}
 		
 		function _modelStateHandler(e) {

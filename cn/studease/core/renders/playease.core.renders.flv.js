@@ -48,8 +48,6 @@
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.width = _this.config.width;
-			_video.height = _this.config.height;
 			_video.controls = _this.config.controls;
 			_video.autoplay = _this.config.autoplay;
 			_video.poster = _this.config.poster;
@@ -131,7 +129,7 @@
 			_video.pause();
 		};
 		
-		_this.seek = function(time) {
+		_this.seek = function(offset) {
 			
 		};
 		
@@ -151,10 +149,6 @@
 		
 		_this.mute = function(bool) {
 			bool = !!bool;
-		};
-		
-		_this.fullscreen = function(esc) {
-			
 		};
 		
 		function _onVideoPlay(e) {

@@ -12,6 +12,11 @@
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
+		DEVIDER_CLASS = 'pldevider',
+		LABEL_CLASS = 'pllabel',
+		BUTTON_CLASS = 'plbutton',
+		SLIDER_CLASS = 'plslider',
+		
 		// For all api instances
 		CSS_SMOOTH_EASE = 'opacity .25s ease',
 		CSS_100PCT = '100%',
@@ -42,20 +47,198 @@
 				margin: '0',
 				padding: '0',
 				'font-family': '微软雅黑,arial,sans-serif',
-				'font-size': '14px',
+				'font-size': '12px',
 				'font-weight': CSS_NORMAL,
 				'box-sizing': 'content-box'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + DEVIDER_CLASS, {
+				padding: '0 2px',
+				'line-height': '40px',
+				color: '#FFF'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + LABEL_CLASS, {
+				'line-height': '40px',
+				color: '#FFF'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + BUTTON_CLASS, {
+				'border-radius': '20px',
+				background: '#F80'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + SLIDER_CLASS, {
+				position: CSS_RELATIVE
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
 				height: CSS_100PCT,
-				//border: '1px solid #1184ce',
-				//'border-radius': '4px',
 				position: CSS_RELATIVE
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video', {
-				
+				width: CSS_100PCT,
+				height: CSS_100PCT,
+				background: 'black'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
+				width: CSS_100PCT,
+				height: '40px',
+				background: '#222',
+				position: CSS_RELATIVE
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plleft', {
+				'float': 'left'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plcenter', {
+				'float': 'left',
+				margin: '0 auto'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plright', {
+				'float': 'right'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' > div > *', {
+				'float': 'left'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plplay', {
+				'margin-left': '8px',
+				width: '26px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/playButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plplay:hover', {
+				background: 'url(/webplayer/playease/skins/playButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plpause', {
+				'margin-left': '8px',
+				width: '26px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/pauseButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plpause:hover', {
+				background: 'url(/webplayer/playease/skins/pauseButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreload', {
+				'margin-right': '8px',
+				width: '26px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/reloadButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreload:hover', {
+				background: 'url(/webplayer/playease/skins/reloadButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plstop', {
+				'margin-right': '8px',
+				width: '26px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/stopButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plstop:hover', {
+				background: 'url(/webplayer/playease/skins/stopButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreport', {
+				'margin-right': '4px',
+				width: '20px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/reportButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreport:hover', {
+				background: 'url(/webplayer/playease/skins/reportButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume', {
+				'margin-right': '4px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/volumeButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume:hover', {
+				background: 'url(/webplayer/playease/skins/volumeButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume.mute', {
+				'margin-right': '4px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/volumeMuteButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume.mute:hover', {
+				background: 'url(/webplayer/playease/skins/volumeMuteButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plhd', {
+				'margin-right': '4px',
+				width: '48px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/hdButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plhd:hover', {
+				background: 'url(/webplayer/playease/skins/hdButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plbullet', {
+				'margin-right': '4px',
+				width: '58px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/bulletButton.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plbullet.off', {
+				'margin-right': '4px',
+				width: '58px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/bulletOffButton.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage', {
+			'margin-right': '4px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/fullpageButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage:hover', {
+				background: 'url(/webplayer/playease/skins/fullpageButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage.exit', {
+			'margin-right': '4px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/fullpageExitButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage.exit:hover', {
+				background: 'url(/webplayer/playease/skins/fullpageExitButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen', {
+				'margin-right': '10px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/fullscreenButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen:hover', {
+				background: 'url(/webplayer/playease/skins/fullscreenButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen.exit', {
+				'margin-right': '10px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/fullscreenExitButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen.exit:hover', {
+				background: 'url(/webplayer/playease/skins/fullscreenExitButtonOver.png) no-repeat center'
 			});
 		}
 		
