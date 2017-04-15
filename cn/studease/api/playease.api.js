@@ -10,10 +10,15 @@
 			onBuffer: events.PLAYEASE_BUFFER,
 			onPlay: events.PLAYEASE_PLAY,
 			onPause: events.PLAYEASE_PAUSE,
+			onReload: events.PLAYEASE_RELOAD,
 			onSeek: events.PLAYEASE_SEEK,
 			onStop: events.PLAYEASE_STOP,
-			onVolume: events.PLAYEASE_VIEW_VOLUME,
-			onMute: events.PLAYEASE_VIEW_MUTE,
+			onReport: events.PLAYEASE_REPORT,
+			onMute: events.PLAYEASE_MUTE,
+			onVolume: events.PLAYEASE_VOLUME,
+			onHD: events.PLAYEASE_HD,
+			onBullet: events.PLAYEASE_BULLET,
+			onFullpage: events.PLAYEASE_FULLPAFE,
 			onFullscreen: events.PLAYEASE_VIEW_FULLSCREEN
 		};
 	
@@ -53,10 +58,15 @@
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
+			_this.reload = _entity.reload;
 			_this.seek = _entity.seek;
 			_this.stop = _entity.stop;
-			_this.volume = _entity.volume;
+			_this.report = _entity.report;
 			_this.mute = _entity.mute;
+			_this.volume = _entity.volume;
+			_this.hd = _entity.hd;
+			_this.bullet = _entity.bullet;
+			_this.fullpage = _entity.fullpage;
 			_this.fullscreen = _entity.fullscreen;
 			
 			_this.resize = _entity.resize;

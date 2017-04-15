@@ -9,22 +9,35 @@
 		PLAYEASE_RENDER_ERROR: 'playeaseRenderError',
 		
 		PLAYEASE_STATE: 'playeaseState',
-		CHATEASE_PROPERTY: 'chateaseProperty',
+		PLAYEASE_PROPERTY: 'playeaseProperty',
 		PLAYEASE_METADATA: 'playeaseMetaData',
 		
 		PLAYEASE_BUFFER: 'playeaseBuffer',
 		PLAYEASE_PLAY: 'playeasePlay',
 		PLAYEASE_PAUSE: 'playeasePause',
+		PLAYEASE_RELOAD: 'playeaseReload',
 		PLAYEASE_SEEK: 'playeaseSeek',
 		PLAYEASE_STOP: 'playeaseStop',
+		PLAYEASE_REPORT: 'playeaseReport',
+		PLAYEASE_MUTE: 'playeaseMute',
+		PLAYEASE_VOLUME: 'playeaseVolume',
+		PLAYEASE_HD: 'playeaseHD',
+		PLAYEASE_BULLET: 'playeaseBullet',
+		PLAYEASE_FULLPAGE: 'playeaseFullpage',
+		PLAYEASE_FULLSCREEN: 'playeaseFullscreen',
 		
 		// View Events
 		PLAYEASE_VIEW_PLAY: 'playeaseViewPlay',
 		PLAYEASE_VIEW_PAUSE: 'playeaseViewPause',
+		PLAYEASE_VIEW_RELOAD: 'playeaseViewReload',
 		PLAYEASE_VIEW_SEEK: 'playeaseViewSeek',
 		PLAYEASE_VIEW_STOP: 'playeaseViewStop',
-		PLAYEASE_VIEW_VOLUME: 'playeaseViewVolume',
+		PLAYEASE_VIEW_REPORT: 'playeaseViewReport',
 		PLAYEASE_VIEW_MUTE: 'playeaseViewMute',
+		PLAYEASE_VIEW_VOLUME: 'playeaseViewVolume',
+		PLAYEASE_VIEW_HD: 'playeaseViewHD',
+		PLAYEASE_VIEW_BULLET: 'playeaseViewBullet',
+		PLAYEASE_VIEW_FULLPAGE: 'playeaseViewFullpage',
 		PLAYEASE_VIEW_FULLSCREEN: 'playeaseViewFullscreen',
 		
 		// Loader Events
@@ -42,6 +55,10 @@
 		PLAYEASE_MP4_INIT_SEGMENT: 'playeaseMp4InitSegment',
 		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment',
 		
-		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream'
+		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream',
+		
+		// Timer Events
+		PLAYEASE_TIMER: 'playeaseTimer',
+		PLAYEASE_TIMER_COMPLETE: 'playeaseTimerComplete'
 	};
 })(playease);
