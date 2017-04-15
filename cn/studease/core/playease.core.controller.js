@@ -16,9 +16,15 @@
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
+			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
 			view.addEventListener(events.PLAYEASE_VIEW_SEEK, _onSeek);
 			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
+			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
+			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
 			view.addEventListener(events.PLAYEASE_VIEW_VOLUNE, _onVolume);
+			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
+			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
+			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
 			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
@@ -27,14 +33,61 @@
 		}
 		
 		function _initializeAPI() {
-			_this.play = view.render.play;
-			_this.pause = view.render.pause;
-			_this.seek = view.render.seek;
-			_this.stop = view.render.stop;
-			_this.volume = view.render.volume;
-			_this.mute = view.render.mute;
+			_this.report = view.report;
+			_this.fullpage = view.fullpage;
 			_this.fullscreen = view.fullscreen;
 		}
+		
+		_this.play = function(url) {
+			model.setState(states.PLAYING);
+			view.play(url);
+		};
+		
+		_this.pause = function() {
+			model.setState(states.PAUSED);
+			view.pause();
+		};
+		
+		_this.reload = function() {
+			model.setState(states.PLAYING);
+			view.play();
+		};
+		
+		_this.seek = function(offset) {
+			model.setState(states.PLAYING);
+			view.seek(offset);
+		};
+		
+		_this.stop = function() {
+			model.setState(states.STOPPED);
+			view.stop();
+		};
+		
+		_this.mute = function() {
+			var muted = model.getProperty('muted');
+			model.setProperty('muted', !muted);
+			view.mute(!muted);
+		};
+		
+		_this.volume = function(vol) {
+			model.setProperty('volume', vol);
+			view.volume(vol);
+		};
+		
+		_this.bullet = function() {
+			var bullet = model.getProperty('bullet');
+			model.setProperty('bullet', !bullet);
+			view.bullet(!bullet);
+		};
+		
+		_this.hd = function(index) {
+			var sources = model.getProperty('sources');
+			if (!sources || !sources[index]) {
+				return;
+			}
+			
+			_this.play(sources[index]);
+		};
 		
 		function _modelStateHandler(e) {
 			switch (e.state) {
@@ -95,6 +148,12 @@
 			}
 		}
 		
+		function _onReload(e) {
+			model.setState(states.BUFFERING);
+			_this.reload();
+			_forward(e);
+		}
+		
 		function _onSeek(e) {
 			var state = model.getState();
 			if (state != states.SEEKING) {
@@ -108,14 +167,44 @@
 			_forward(e);
 		}
 		
+		function _onReport(e) {
+			_this.report();
+			_forward(e);
+		}
+		
+		function _onMute(e) {
+			_this.mute();
+			_forward(e);
+		}
+		
 		function _onVolume(e) {
 			_this.volume(e.vol);
 			_forward(e);
 		}
 		
-		function _onFullscreen(e) {
-			_this.fullscreen(e.esc);
+		function _onHD(e) {
+			
+		}
+		
+		function _onBullet(e) {
+			_this.bullet();
 			_forward(e);
+		}
+		
+		function _onFullpage(e) {
+			var fp = model.getProperty('fullpage');
+			_this.fullpage(fp);
+			_forward(e);
+			
+			model.setProperty('fullpage', !fp);
+		}
+		
+		function _onFullscreen(e) {
+			var fs = model.getProperty('fullscreen');
+			_this.fullscreen(fs);
+			_forward(e);
+			
+			model.setProperty('fullscreen', !fs);
 		}
 		
 		function _onSetupError(e) {

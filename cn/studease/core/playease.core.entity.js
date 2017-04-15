@@ -24,10 +24,15 @@
 		function _initializeAPI() {
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
+			_this.reload = _controller.reload;
 			_this.seek = _controller.seek;
 			_this.stop = _controller.stop;
-			_this.volume = _controller.volume;
+			_this.report = _controller.report;
 			_this.mute = _controller.mute;
+			_this.volume = _controller.volume;
+			_this.hd = _controller.hd;
+			_this.bullet = _controller.bullet;
+			_this.fullpage = _controller.fullpage;
 			_this.fullscreen = _controller.fullscreen;
 			
 			_this.getState = _model.getState;

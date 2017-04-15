@@ -14,7 +14,12 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_properties = {
-				
+				sources: config.sources,
+				muted: false,
+				volume: 90,
+				bullet: true,
+				fullpage: false,
+				fullscreen: false
 			};
 		}
 		

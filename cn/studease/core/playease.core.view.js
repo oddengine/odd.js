@@ -13,8 +13,7 @@
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		POSTER_CLASS = 'pla-poster',
-		PROGRESS_CLASS = 'pla-progress',
+		BULLET_CLASS = 'pla-bullet',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
@@ -22,29 +21,29 @@
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
-			_posterLayer,
-			_progressLayer,
+			_bulletLayer,
 			_controlsLayer,
 			_contextmenuLayer,
 			_render,
 			_controlbar,
 			_skin,
+			_video,
+			_timer,
 			_errorOccurred = false;
 		
 		function _init() {
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + '-' + model.config.skin.name);
+			SKIN_CLASS += '-' + model.config.skin.name;
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.config.type === 'vod' ? ' vod' : ''));
 			_wrapper.id = entity.id;
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_posterLayer = utils.createElement('div', POSTER_CLASS);
-			_progressLayer = utils.createElement('div', PROGRESS_CLASS);
+			_bulletLayer = utils.createElement('div', BULLET_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_posterLayer);
-			_wrapper.appendChild(_progressLayer);
+			_wrapper.appendChild(_bulletLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
@@ -80,19 +79,76 @@
 			try {
 				_render = _this.render = new renders[cfg.name](_this, cfg);
 				_render.addEventListener(events.PLAYEASE_READY, _forward);
-				_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
 				_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-			} catch (e) {
+			} catch (err) {
 				utils.log('Failed to init render ' + cfg.name + '!');
 			}
 			
 			if (_render) {
-				_renderLayer.appendChild(_render.element());
+				_video = _render.element();
+				_video.addEventListener('loadstart', _onLoading);
+				_video.addEventListener('durationchange', _onDurationChange);
+				_video.addEventListener('ended', _onEnded);
+				_video.addEventListener('error', _onError);
+				
+				_renderLayer.appendChild(_video);
+			}
+		}
+		
+		function _onLoading(e) {
+			_startTimer();
+		}
+		
+		function _onDurationChange(e) {
+			var duration = _video.duration;
+			_controlbar.setDuration(duration);
+			utils.addClass(_wrapper, 'vod');
+		}
+		
+		function _updateElapsed(e) {
+			var elapsed = _video.currentTime;
+			_controlbar.setElapsed(elapsed);
+			_controlbar.setProgress(elapsed, _video.duration);
+			
+			var ranges = _video.buffered;
+			for (var i = 0; i < ranges.length; i++) {
+				var start = ranges.start(i);
+				var end = ranges.end(i);
+				if (start <= elapsed && elapsed < end) {
+					_controlbar.setBuffered(end, _video.duration);
+				}
+			}
+		}
+		
+		function _onEnded(e) {
+			_stopTimer();
+		}
+		
+		function _onError(e) {
+			_stopTimer();
+		}
+		
+		function _startTimer() {
+			if (!_timer) {
+				_timer = new utils.timer(500);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _updateElapsed);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
 			}
 		}
 		
 		function _initComponents() {
-			_controlbar = new components.controlbar(_controlsLayer, { mode: 0 });
+			try {
+				_controlbar = new components.controlbar(_controlsLayer, {});
+				_controlbar.addGlobalListener(_forward);
+			} catch (err) {
+				utils.log('Failed to init controlbar!');
+			}
 		}
 		
 		function _initSkin() {
@@ -104,7 +160,7 @@
 			
 			try {
 				_skin = new skins[cfg.name](cfg);
-			} catch (e) {
+			} catch (err) {
 				utils.log('Failed to init skin ' + cfg.name + '!');
 			}
 		}
@@ -125,19 +181,91 @@
 			}
 		};
 		
-		_this.fullscreen = function(bool) {
-			if (_wrapper.requestFullscreen) {
-				_wrapper.requestFullscreen();
-			} else if(_wrapper.mozRequestFullScreen) {
-				_wrapper.mozRequestFullScreen();
-			} else if(_wrapper.webkitRequestFullscreen) {
-				_wrapper.webkitRequestFullscreen();
-			} else if(_wrapper.msRequestFullscreen) {
-				_wrapper.msRequestFullscreen();
+		_this.play = function(url) {
+			utils.addClass(_wrapper, 'playing');
+			_render.play(url);
+		};
+		
+		_this.pause = function() {
+			utils.removeClass(_wrapper, 'playing');
+			_render.pause();
+		};
+		
+		_this.reload = function() {
+			utils.addClass(_wrapper, 'playing');
+			_render.reload();
+		};
+		
+		_this.seek = function(offset) {
+			utils.addClass(_wrapper, 'playing');
+			_render.seek(offset);
+		};
+		
+		_this.stop = function() {
+			utils.removeClass(_wrapper, 'playing');
+			_controlbar.setDuration(0);
+			_controlbar.setElapsed(0);
+			_controlbar.setProgress(0, 1);
+			_controlbar.setBuffered(0, 1);
+			_render.stop();
+		};
+		
+		_this.report = function() {
+			
+		};
+		
+		_this.mute = function(muted) {
+			_controlbar.setMuted(muted);
+			_render.mute(muted);
+		};
+		
+		_this.volume = function(vol) {
+			_controlbar.setVolume(vol);
+			_render.volume(vol);
+		};
+		
+		_this.bullet = function(bullet) {
+			_controlbar.setBullet(bullet);
+		};
+		
+		_this.fullpage = function(exit) {
+			if (document.webkitIsFullScreen) {
+				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+				if (!document.exitFullscreen) {
+					return;
+				}
+				
+				document.exitFullscreen();
+				utils.removeClass(_wrapper, 'fs');
 			}
 			
-			_wrapper.style.width = '100%';
-			_wrapper.style.height = '100%';
+			if (exit) {
+				utils.removeClass(_wrapper, 'fp');
+			} else {
+				utils.addClass(_wrapper, 'fp');
+			}
+		};
+		
+		_this.fullscreen = function(exit) {
+			if (exit) {
+				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+				if (!document.exitFullscreen) {
+					_this.fullpage(exit);
+					return;
+				}
+				
+				document.exitFullscreen();
+				utils.removeClass(_wrapper, 'fs');
+			} else {
+				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
+				if (!_wrapper.requestFullscreen) {
+					_this.fullpage(exit);
+					return;
+				}
+				
+				_wrapper.requestFullscreen();
+				utils.addClass(_wrapper, 'fs');
+			}
 		};
 		
 		function _onKeyDown(e) {

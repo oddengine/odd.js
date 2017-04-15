@@ -48,12 +48,8 @@
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.controls = _this.config.controls;
-			_video.autoplay = _this.config.autoplay;
+			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
 			_video.poster = _this.config.poster;
-			if (!_this.config.autoplay) {
-				_video.addEventListener('play', _onVideoPlay);
-			}
 			/*
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
@@ -129,6 +125,10 @@
 			_video.pause();
 		};
 		
+		_this.reload = function() {
+			
+		};
+		
 		_this.seek = function(offset) {
 			
 		};
@@ -140,21 +140,20 @@
 			_loader.abort();
 			
 			_video.pause();
-			_video.src = null;
-		};
-		
-		_this.volume = function(vol) {
-			
+			_video.src = '';
 		};
 		
 		_this.mute = function(bool) {
 			bool = !!bool;
 		};
 		
-		function _onVideoPlay(e) {
-			_video.removeEventListener('play', _onVideoPlay);
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-		}
+		_this.volume = function(vol) {
+			
+		};
+		
+		_this.hd = function(index) {
+			
+		};
 		
 		/**
 		 * Loader

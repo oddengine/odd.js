@@ -39,9 +39,13 @@
 			SKIN_CLASS += '-' + _this.name;
 			
 			css('.' + WRAP_CLASS, {
-				width: config.width + 'px',
-				height: _height + 'px',
+				width: _width + 'px',
+				height: (_height + 40) + 'px',
 				'box-shadow': '0 1px 1px rgba(0, 0, 0, 0.05)'
+			});
+			css('.' + WRAP_CLASS + '.fp, .' + WRAP_CLASS + '.fs', {
+				width: CSS_100PCT,
+				height: CSS_100PCT
 			});
 			css('.' + WRAP_CLASS + ' *', {
 				margin: '0',
@@ -55,32 +59,36 @@
 			css('.' + SKIN_CLASS + ' .' + DEVIDER_CLASS, {
 				padding: '0 2px',
 				'line-height': '40px',
-				color: '#FFF'
+				color: '#FFF',
+				cursor: 'default'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + LABEL_CLASS, {
 				'line-height': '40px',
-				color: '#FFF'
+				color: '#FFF',
+				cursor: 'default'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + BUTTON_CLASS, {
-				'border-radius': '20px',
-				background: '#F80'
+				cursor: 'pointer'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + SLIDER_CLASS, {
-				position: CSS_RELATIVE
+				cursor: 'pointer'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
-				height: CSS_100PCT,
-				position: CSS_RELATIVE
+				height: 'calc(100% - 40px)',
+				position: CSS_RELATIVE,
+				background: 'black'
+			});
+			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
+				height: CSS_100PCT
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video', {
 				width: CSS_100PCT,
-				height: CSS_100PCT,
-				background: 'black'
+				height: CSS_100PCT
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
@@ -89,22 +97,51 @@
 				background: '#222',
 				position: CSS_RELATIVE
 			});
+			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS, {
+				top: '-40px'
+			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plleft', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' > div'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' > div > *', {
 				'float': 'left'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plcenter', {
-				'float': 'left',
-				margin: '0 auto'
+				
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plright', {
 				'float': 'right'
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' > div > *', {
-				'float': 'left'
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time', {
+				width: CSS_100PCT,
+				height: '2px',
+				position: CSS_ABSOLUTE,
+				top: '-2px',
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ':hover .plslider.time', {
+				height: '10px',
+				top: '-10px'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail', {
+				width: '1px',
+				height: CSS_100PCT,
+				position: CSS_ABSOLUTE,
+				top: '0'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.bg', {
+				width: CSS_100PCT,
+				background: '#CCC',
+				filter: 'alpha(opacity=50)',
+				opacity: '0.5'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.buf', {
+				background: '#707070'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.pro', {
+				background: '#00A0E9'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plplay', {
@@ -121,6 +158,7 @@
 				'margin-left': '8px',
 				width: '26px',
 				height: '40px',
+				display: CSS_NONE,
 				background: 'url(/webplayer/playease/skins/pauseButton.png) no-repeat center'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plpause:hover', {
@@ -141,10 +179,28 @@
 				'margin-right': '8px',
 				width: '26px',
 				height: '40px',
+				display: CSS_NONE,
 				background: 'url(/webplayer/playease/skins/stopButton.png) no-repeat center'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plstop:hover', {
 				background: 'url(/webplayer/playease/skins/stopButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + '.playing .' + CONTROLS_CLASS + ' .plplay'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plreload'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plalt'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plelapsed'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .pldevider'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plduration', {
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plslider.time'
+				+ ', .' + SKIN_CLASS + '.playing .' + CONTROLS_CLASS + ' .plpause'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plstop'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plelapsed'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .pldevider'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plduration', {
+				display: CSS_BLOCK
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreport', {
@@ -158,7 +214,6 @@
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume', {
-				'margin-right': '4px',
 				width: '25px',
 				height: '40px',
 				background: 'url(/webplayer/playease/skins/volumeButton.png) no-repeat center'
@@ -168,13 +223,36 @@
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume.mute', {
-				'margin-right': '4px',
-				width: '25px',
-				height: '40px',
 				background: 'url(/webplayer/playease/skins/volumeMuteButton.png) no-repeat center'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume.mute:hover', {
 				background: 'url(/webplayer/playease/skins/volumeMuteButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume', {
+				margin: '15px 4px 0 0',
+				width: '60px',
+				height: '12px',
+				position: CSS_RELATIVE
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail', {
+				width: CSS_100PCT,
+				height: '33%',
+				position: CSS_ABSOLUTE,
+				top: '33%'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail.buf', {
+				background: '#909090'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume:hover .plrail.buf', {
+				background: '#B0B0B0'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail.pro', {
+				width: '80%',
+				background: '#E6E6E6'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume:hover .plrail.pro', {
+				background: '#FFFFFF'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plhd', {
@@ -195,9 +273,6 @@
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plbullet.off', {
-				'margin-right': '4px',
-				width: '58px',
-				height: '40px',
 				background: 'url(/webplayer/playease/skins/bulletOffButton.png) no-repeat center'
 			});
 			
@@ -210,15 +285,22 @@
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage:hover', {
 				background: 'url(/webplayer/playease/skins/fullpageButtonOver.png) no-repeat center'
 			});
+			css('.' + SKIN_CLASS + '.fp .' + CONTROLS_CLASS + ' .plfullpage', {
+				display: CSS_NONE
+			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage.exit', {
-			'margin-right': '4px',
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfpexit', {
+				'margin-right': '4px',
 				width: '25px',
 				height: '40px',
+				display: CSS_NONE,
 				background: 'url(/webplayer/playease/skins/fullpageExitButton.png) no-repeat center'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage.exit:hover', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfpexit:hover', {
 				background: 'url(/webplayer/playease/skins/fullpageExitButtonOver.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + '.fp .' + CONTROLS_CLASS + ' .plfpexit', {
+				display: CSS_BLOCK
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen', {
@@ -230,15 +312,22 @@
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen:hover', {
 				background: 'url(/webplayer/playease/skins/fullscreenButtonOver.png) no-repeat center'
 			});
+			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS + ' .plfullscreen', {
+				display: CSS_NONE
+			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen.exit', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfsexit', {
 				'margin-right': '10px',
 				width: '25px',
 				height: '40px',
+				display: CSS_NONE,
 				background: 'url(/webplayer/playease/skins/fullscreenExitButton.png) no-repeat center'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen.exit:hover', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfsexit:hover', {
 				background: 'url(/webplayer/playease/skins/fullscreenExitButtonOver.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS + ' .plfsexit', {
+				display: CSS_BLOCK
 			});
 		}
 		

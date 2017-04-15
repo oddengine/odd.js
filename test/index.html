@@ -12,6 +12,7 @@
 	<script type='text/javascript' src='../cn/studease/events/playease.events.eventdispatcher.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.loader.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.filekeeper.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.timer.js'></script>
 	<script type='text/javascript' src='../cn/studease/api/playease.api.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.AMF.js'></script>
@@ -38,20 +39,21 @@
 	<script type='text/javascript' src='../cn/studease/embed/playease.embed.config.js'></script>
 	<script type='text/javascript' src='../cn/studease/embed/playease.embed.embedder.js'></script>
 </head>
-<body>
+<body style='margin:0;'>
 	<div id='player'></div>
 	
 	<script type="text/javascript">
 		var player = playease('player').setup({
-			url: '/vod/sample.flv',
+			url: '/vod/sample.mp4',
 			width: 640,
 			height: 360,
+			type: 'vod',
 			cors: 'no-cors',
 			controls: false,
 			autoplay: false,
-			//poster: 'sample.png',
+			poster: 'sample.png',
 			render: {
-				name: 'flv'
+				name: 'def'
 			}
 		});
 		
