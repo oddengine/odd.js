@@ -21,7 +21,9 @@ playease('player').setup({
 	url: '/vod/sample.flv',
 	width: 640,
 	height: 360,
+	type: 'vod',
 	cors: 'no-cors',
+	controls: true,
 	autoplay: true,
 	poster: 'sample.png',
 	render: {
@@ -39,17 +41,19 @@ _defaults = {
 	url: 'http://' + window.location.host + '/vod/sample.mp4',
 	width: 640,
 	height: 360,
+	sources: [],
+	type: sourcetypes.LIVE,
 	cors: 'no-cors',
 	bufferTime: .1,
 	controls: true,
 	autoplay: true,
 	playsinline: true,
-	poster: null,
+	poster: '',
 	render: {
-		name: renderModes.DEFAULT
+		name: rendermodes.DEFAULT
 	},
 	skin: {
-		name: skinModes.DEFAULT
+		name: skinmodes.DEFAULT
 	}
 };
 ```
@@ -78,10 +82,15 @@ _eventMapping = {
 	onBuffer: events.PLAYEASE_BUFFER,
 	onPlay: events.PLAYEASE_PLAY,
 	onPause: events.PLAYEASE_PAUSE,
+	onReload: events.PLAYEASE_RELOAD,
 	onSeek: events.PLAYEASE_SEEK,
 	onStop: events.PLAYEASE_STOP,
-	onVolume: events.PLAYEASE_VIEW_VOLUME,
-	onMute: events.PLAYEASE_VIEW_MUTE,
+	onReport: events.PLAYEASE_REPORT,
+	onMute: events.PLAYEASE_MUTE,
+	onVolume: events.PLAYEASE_VOLUME,
+	onHD: events.PLAYEASE_HD,
+	onBullet: events.PLAYEASE_BULLET,
+	onFullpage: events.PLAYEASE_FULLPAFE,
 	onFullscreen: events.PLAYEASE_VIEW_FULLSCREEN
 };
 ```
@@ -90,10 +99,14 @@ _eventMapping = {
 
 * **play(url)**
 * **pause()**
+* **reload()**
 * **seek(offset)**
 * **stop()**
+* **report()**
+* **mute()**
 * **volume(vol)**
-* **mute(bool)**
+* **hd()**
+* **bullet()**
 * **fullscreen(bool)**
 * **resize(width, height)**
 

@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.15';
+playease.version = '1.0.18';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -150,6 +150,36 @@ playease.version = '1.0.15';
 		return _userAgentMatch(/msie/i);
 	};
 	
+	utils.isIOS = function(version) {
+		if (version) {
+			return _userAgentMatch(new RegExp('iP(hone|ad|od).+\\sOS\\s' + version, 'i'));
+		}
+		
+		return _userAgentMatch(/iP(hone|ad|od)/i);
+	};
+	
+	utils.isAndroid = function(version, excludeChrome) {
+		//Android Browser appears to include a user-agent string for Chrome/18
+		if (excludeChrome && _userAgentMatch(/chrome\/[123456789]/i) && !_userAgentMatch(/chrome\/18/)) {
+			return false;
+		}
+		
+		if (version) {
+			// make sure whole number version check ends with point '.'
+			if (utils.isInt(version) && !/\./.test(version)) {
+				version = '' + version + '.';
+			}
+			
+			return _userAgentMatch(new RegExp('Android\\s*' + version, 'i'));
+		}
+		
+		return _userAgentMatch(/Android/i);
+	};
+	
+	utils.isMobile = function() {
+		return utils.isIOS() || utils.isAndroid();
+	};
+	
 	function _userAgentMatch(regex) {
 		var agent = navigator.userAgent.toLowerCase();
 		return (agent.match(regex) !== null);
@@ -276,22 +306,35 @@ playease.version = '1.0.15';
 		PLAYEASE_RENDER_ERROR: 'playeaseRenderError',
 		
 		PLAYEASE_STATE: 'playeaseState',
-		CHATEASE_PROPERTY: 'chateaseProperty',
+		PLAYEASE_PROPERTY: 'playeaseProperty',
 		PLAYEASE_METADATA: 'playeaseMetaData',
 		
 		PLAYEASE_BUFFER: 'playeaseBuffer',
 		PLAYEASE_PLAY: 'playeasePlay',
 		PLAYEASE_PAUSE: 'playeasePause',
+		PLAYEASE_RELOAD: 'playeaseReload',
 		PLAYEASE_SEEK: 'playeaseSeek',
 		PLAYEASE_STOP: 'playeaseStop',
+		PLAYEASE_REPORT: 'playeaseReport',
+		PLAYEASE_MUTE: 'playeaseMute',
+		PLAYEASE_VOLUME: 'playeaseVolume',
+		PLAYEASE_HD: 'playeaseHD',
+		PLAYEASE_BULLET: 'playeaseBullet',
+		PLAYEASE_FULLPAGE: 'playeaseFullpage',
+		PLAYEASE_FULLSCREEN: 'playeaseFullscreen',
 		
 		// View Events
 		PLAYEASE_VIEW_PLAY: 'playeaseViewPlay',
 		PLAYEASE_VIEW_PAUSE: 'playeaseViewPause',
+		PLAYEASE_VIEW_RELOAD: 'playeaseViewReload',
 		PLAYEASE_VIEW_SEEK: 'playeaseViewSeek',
 		PLAYEASE_VIEW_STOP: 'playeaseViewStop',
-		PLAYEASE_VIEW_VOLUME: 'playeaseViewVolume',
+		PLAYEASE_VIEW_REPORT: 'playeaseViewReport',
 		PLAYEASE_VIEW_MUTE: 'playeaseViewMute',
+		PLAYEASE_VIEW_VOLUME: 'playeaseViewVolume',
+		PLAYEASE_VIEW_HD: 'playeaseViewHD',
+		PLAYEASE_VIEW_BULLET: 'playeaseViewBullet',
+		PLAYEASE_VIEW_FULLPAGE: 'playeaseViewFullpage',
 		PLAYEASE_VIEW_FULLSCREEN: 'playeaseViewFullscreen',
 		
 		// Loader Events
@@ -309,7 +352,11 @@ playease.version = '1.0.15';
 		PLAYEASE_MP4_INIT_SEGMENT: 'playeaseMp4InitSegment',
 		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment',
 		
-		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream'
+		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream',
+		
+		// Timer Events
+		PLAYEASE_TIMER: 'playeaseTimer',
+		PLAYEASE_TIMER_COMPLETE: 'playeaseTimerComplete'
 	};
 })(playease);
 
@@ -574,6 +621,63 @@ playease.version = '1.0.15';
 	var utils = playease.utils,
 		events = playease.events;
 	
+	utils.timer = function(delay, repeatCount) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.timer')),
+			_intervalId,
+			_currentCount = 0,
+			_running = false;
+		
+		function _init() {
+			_this.delay = delay || 50;
+			_this.repeatCount = repeatCount || 0;
+		}
+		
+		_this.start = function() {
+			if (_running === false) {
+				_intervalId = setInterval(_onTimer, _this.delay);
+				_running = true;
+			}
+		};
+		
+		function _onTimer() {
+			_currentCount++;
+			_this.dispatchEvent(events.PLAYEASE_TIMER);
+			
+			if (_this.repeatCount > 0 && _currentCount >= _this.repeatCount) {
+				_this.stop();
+				_this.dispatchEvent(events.PLAYEASE_TIMER_COMPLETE);
+			}
+		}
+		
+		_this.stop = function() {
+			if (_running) {
+				clearInterval(_intervalId);
+				_intervalId = 0;
+				_running = false;
+			}
+		};
+		
+		_this.reset = function() {
+			_this.stop();
+			_currentCount = 0;
+		};
+		
+		_this.currentCount = function() {
+			return _currentCount;
+		};
+		
+		_this.running = function() {
+			return _running;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events;
+	
 	var _insts = {},
 		_eventMapping = {
 			onError: events.ERROR,
@@ -582,10 +686,15 @@ playease.version = '1.0.15';
 			onBuffer: events.PLAYEASE_BUFFER,
 			onPlay: events.PLAYEASE_PLAY,
 			onPause: events.PLAYEASE_PAUSE,
+			onReload: events.PLAYEASE_RELOAD,
 			onSeek: events.PLAYEASE_SEEK,
 			onStop: events.PLAYEASE_STOP,
-			onVolume: events.PLAYEASE_VIEW_VOLUME,
-			onMute: events.PLAYEASE_VIEW_MUTE,
+			onReport: events.PLAYEASE_REPORT,
+			onMute: events.PLAYEASE_MUTE,
+			onVolume: events.PLAYEASE_VOLUME,
+			onHD: events.PLAYEASE_HD,
+			onBullet: events.PLAYEASE_BULLET,
+			onFullpage: events.PLAYEASE_FULLPAFE,
 			onFullscreen: events.PLAYEASE_VIEW_FULLSCREEN
 		};
 	
@@ -625,10 +734,15 @@ playease.version = '1.0.15';
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
+			_this.reload = _entity.reload;
 			_this.seek = _entity.seek;
 			_this.stop = _entity.stop;
-			_this.volume = _entity.volume;
+			_this.report = _entity.report;
 			_this.mute = _entity.mute;
+			_this.volume = _entity.volume;
+			_this.hd = _entity.hd;
+			_this.bullet = _entity.bullet;
+			_this.fullpage = _entity.fullpage;
 			_this.fullscreen = _entity.fullscreen;
 			
 			_this.resize = _entity.resize;
@@ -3281,6 +3395,11 @@ playease.version = '1.0.15';
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
+		DEVIDER_CLASS = 'pldevider',
+		LABEL_CLASS = 'pllabel',
+		BUTTON_CLASS = 'plbutton',
+		SLIDER_CLASS = 'plslider',
+		
 		// For all api instances
 		CSS_SMOOTH_EASE = 'opacity .25s ease',
 		CSS_100PCT = '100%',
@@ -3303,28 +3422,295 @@ playease.version = '1.0.15';
 			SKIN_CLASS += '-' + _this.name;
 			
 			css('.' + WRAP_CLASS, {
-				width: config.width + 'px',
-				height: _height + 'px',
+				width: _width + 'px',
+				height: (_height + 40) + 'px',
 				'box-shadow': '0 1px 1px rgba(0, 0, 0, 0.05)'
+			});
+			css('.' + WRAP_CLASS + '.fp, .' + WRAP_CLASS + '.fs', {
+				width: CSS_100PCT,
+				height: CSS_100PCT
 			});
 			css('.' + WRAP_CLASS + ' *', {
 				margin: '0',
 				padding: '0',
 				'font-family': '微软雅黑,arial,sans-serif',
-				'font-size': '14px',
+				'font-size': '12px',
 				'font-weight': CSS_NORMAL,
 				'box-sizing': 'content-box'
 			});
 			
+			css('.' + SKIN_CLASS + ' .' + DEVIDER_CLASS, {
+				padding: '0 2px',
+				'line-height': '40px',
+				color: '#FFF',
+				cursor: 'default'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + LABEL_CLASS, {
+				'line-height': '40px',
+				color: '#FFF',
+				cursor: 'default'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + BUTTON_CLASS, {
+				cursor: 'pointer'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + SLIDER_CLASS, {
+				cursor: 'pointer'
+			});
+			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
-				height: CSS_100PCT,
-				//border: '1px solid #1184ce',
-				//'border-radius': '4px',
-				position: CSS_RELATIVE
+				height: 'calc(100% - 40px)',
+				position: CSS_RELATIVE,
+				background: 'black'
+			});
+			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
+				height: CSS_100PCT
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video', {
+				width: CSS_100PCT,
+				height: CSS_100PCT
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
+				width: CSS_100PCT,
+				height: '40px',
+				background: '#222',
+				position: CSS_RELATIVE
+			});
+			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS, {
+				top: '-40px'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' > div'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' > div > *', {
+				'float': 'left'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plcenter', {
 				
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plright', {
+				'float': 'right'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time', {
+				width: CSS_100PCT,
+				height: '2px',
+				position: CSS_ABSOLUTE,
+				top: '-2px',
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ':hover .plslider.time', {
+				height: '10px',
+				top: '-10px'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail', {
+				width: '1px',
+				height: CSS_100PCT,
+				position: CSS_ABSOLUTE,
+				top: '0'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.bg', {
+				width: CSS_100PCT,
+				background: '#CCC',
+				filter: 'alpha(opacity=50)',
+				opacity: '0.5'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.buf', {
+				background: '#707070'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.pro', {
+				background: '#00A0E9'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plplay', {
+				'margin-left': '8px',
+				width: '26px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/playButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plplay:hover', {
+				background: 'url(/webplayer/playease/skins/playButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plpause', {
+				'margin-left': '8px',
+				width: '26px',
+				height: '40px',
+				display: CSS_NONE,
+				background: 'url(/webplayer/playease/skins/pauseButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plpause:hover', {
+				background: 'url(/webplayer/playease/skins/pauseButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreload', {
+				'margin-right': '8px',
+				width: '26px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/reloadButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreload:hover', {
+				background: 'url(/webplayer/playease/skins/reloadButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plstop', {
+				'margin-right': '8px',
+				width: '26px',
+				height: '40px',
+				display: CSS_NONE,
+				background: 'url(/webplayer/playease/skins/stopButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plstop:hover', {
+				background: 'url(/webplayer/playease/skins/stopButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + '.playing .' + CONTROLS_CLASS + ' .plplay'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plreload'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plalt'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plelapsed'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .pldevider'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plduration', {
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plslider.time'
+				+ ', .' + SKIN_CLASS + '.playing .' + CONTROLS_CLASS + ' .plpause'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plstop'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plelapsed'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .pldevider'
+				+ ', .' + SKIN_CLASS + '.vod .' + CONTROLS_CLASS + ' .plduration', {
+				display: CSS_BLOCK
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreport', {
+				'margin-right': '4px',
+				width: '20px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/reportButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plreport:hover', {
+				background: 'url(/webplayer/playease/skins/reportButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume', {
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/volumeButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume:hover', {
+				background: 'url(/webplayer/playease/skins/volumeButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume.mute', {
+				background: 'url(/webplayer/playease/skins/volumeMuteButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plvolume.mute:hover', {
+				background: 'url(/webplayer/playease/skins/volumeMuteButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume', {
+				margin: '15px 4px 0 0',
+				width: '60px',
+				height: '12px',
+				position: CSS_RELATIVE
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail', {
+				width: CSS_100PCT,
+				height: '33%',
+				position: CSS_ABSOLUTE,
+				top: '33%'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail.buf', {
+				background: '#909090'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume:hover .plrail.buf', {
+				background: '#B0B0B0'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail.pro', {
+				width: '80%',
+				background: '#E6E6E6'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume:hover .plrail.pro', {
+				background: '#FFFFFF'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plhd', {
+				'margin-right': '4px',
+				width: '48px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/hdButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plhd:hover', {
+				background: 'url(/webplayer/playease/skins/hdButtonOver.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plbullet', {
+				'margin-right': '4px',
+				width: '58px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/bulletButton.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plbullet.off', {
+				background: 'url(/webplayer/playease/skins/bulletOffButton.png) no-repeat center'
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage', {
+			'margin-right': '4px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/fullpageButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullpage:hover', {
+				background: 'url(/webplayer/playease/skins/fullpageButtonOver.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + '.fp .' + CONTROLS_CLASS + ' .plfullpage', {
+				display: CSS_NONE
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfpexit', {
+				'margin-right': '4px',
+				width: '25px',
+				height: '40px',
+				display: CSS_NONE,
+				background: 'url(/webplayer/playease/skins/fullpageExitButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfpexit:hover', {
+				background: 'url(/webplayer/playease/skins/fullpageExitButtonOver.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + '.fp .' + CONTROLS_CLASS + ' .plfpexit', {
+				display: CSS_BLOCK
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen', {
+				'margin-right': '10px',
+				width: '25px',
+				height: '40px',
+				background: 'url(/webplayer/playease/skins/fullscreenButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfullscreen:hover', {
+				background: 'url(/webplayer/playease/skins/fullscreenButtonOver.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS + ' .plfullscreen', {
+				display: CSS_NONE
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfsexit', {
+				'margin-right': '10px',
+				width: '25px',
+				height: '40px',
+				display: CSS_NONE,
+				background: 'url(/webplayer/playease/skins/fullscreenExitButton.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plfsexit:hover', {
+				background: 'url(/webplayer/playease/skins/fullscreenExitButtonOver.png) no-repeat center'
+			});
+			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS + ' .plfsexit', {
+				display: CSS_BLOCK
 			});
 		}
 		
@@ -3380,19 +3766,8 @@ playease.version = '1.0.15';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_video = utils.createElement('video');
-			_video.width = _this.config.width;
-			_video.height = _this.config.height;
-			_video.controls = _this.config.controls;
-			_video.autoplay = _this.config.autoplay;
 			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
 			_video.poster = _this.config.poster;
-			if (!_this.config.autoplay) {
-				try {
-					_video.addEventListener('play', _onVideoPlay);
-				} catch(err) {
-					_video.attachEvent('onplay', _onVideoPlay);
-				}
-			}
 		}
 		
 		_this.setup = function() {
@@ -3417,36 +3792,30 @@ playease.version = '1.0.15';
 			_video.pause();
 		};
 		
-		_this.seek = function(time) {
+		_this.reload = function() {
+			
+		};
+		
+		_this.seek = function(offset) {
 			
 		};
 		
 		_this.stop = function() {
 			_video.pause();
-			_video.src = null;
-		};
-		
-		_this.volume = function(vol) {
-			
+			_video.src = '';
 		};
 		
 		_this.mute = function(bool) {
 			bool = !!bool;
 		};
 		
-		_this.fullscreen = function(esc) {
+		_this.volume = function(vol) {
 			
 		};
 		
-		function _onVideoPlay(e) {
-			try {
-				_video.removeEventListener('play', _onVideoPlay);
-			} catch(err) {
-				_video.detachEvent('onplay', _onVideoPlay);
-			}
+		_this.hd = function(index) {
 			
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-		}
+		};
 		
 		_this.element = function() {
 			return _video;
@@ -3514,14 +3883,8 @@ playease.version = '1.0.15';
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.width = _this.config.width;
-			_video.height = _this.config.height;
-			_video.controls = _this.config.controls;
-			_video.autoplay = _this.config.autoplay;
+			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
 			_video.poster = _this.config.poster;
-			if (!_this.config.autoplay) {
-				_video.addEventListener('play', _onVideoPlay);
-			}
 			/*
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
@@ -3597,7 +3960,11 @@ playease.version = '1.0.15';
 			_video.pause();
 		};
 		
-		_this.seek = function(time) {
+		_this.reload = function() {
+			
+		};
+		
+		_this.seek = function(offset) {
 			
 		};
 		
@@ -3608,25 +3975,20 @@ playease.version = '1.0.15';
 			_loader.abort();
 			
 			_video.pause();
-			_video.src = null;
-		};
-		
-		_this.volume = function(vol) {
-			
+			_video.src = '';
 		};
 		
 		_this.mute = function(bool) {
 			bool = !!bool;
 		};
 		
-		_this.fullscreen = function(esc) {
+		_this.volume = function(vol) {
 			
 		};
 		
-		function _onVideoPlay(e) {
-			_video.removeEventListener('play', _onVideoPlay);
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-		}
+		_this.hd = function(index) {
+			
+		};
 		
 		/**
 		 * Loader
@@ -3850,6 +4212,363 @@ playease.version = '1.0.15';
 })(playease);
 
 (function(playease) {
+	playease.core.components = {};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		directions = {
+			HORIZONTAL: 0,
+			VERTICAL:   1
+		};
+	
+	components.slider = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+			_defaults = {
+				name: '',
+				direction: directions.HORIZONTAL
+			},
+			_railnames = ['bg', 'buf', 'pro'],
+			_rails,
+			_direction,
+			_container,
+			_percentage;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_rails = {};
+			_direction = _this.config.direction;
+			_percentage = 90;
+			
+			_build();
+		}
+		
+		function _build() {
+			if (utils.isMobile() && _this.config.name.indexOf('volume') === 0) {
+				return;
+			}
+			
+			_container = utils.createElement('div', 'plslider ' + _this.config.name);
+			
+			for (var i = 0; i < _railnames.length; i++) {
+				var name = _railnames[i];
+				var rail = _rails[name] = utils.createElement('span', 'plrail ' + name);
+				_container.appendChild(rail);
+			}
+			
+			var thumb = utils.createElement('span', 'plthumb');
+			_container.appendChild(thumb);
+		}
+		
+		_this.buffered = function(percentage) {
+			_rails.buf.style.width = percentage + '%';
+		};
+		
+		_this.update = function(percentage) {
+			_percentage = percentage;
+			_rails.pro.style.width = _percentage + '%';
+		};
+		
+		_this.element = function() {
+			return _container;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		types = {
+			DEVIDER: 0,
+			LABEL:   1,
+			BUTTON:  2,
+			SLIDER:  3
+		};
+	
+	components.controlbar = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+			_defaults = {},
+			_layout = {
+				left: [
+					_layoutElement('play', types.BUTTON),
+					_layoutElement('pause', types.BUTTON),
+					_layoutElement('reload', types.BUTTON),
+					_layoutElement('stop', types.BUTTON),
+					_layoutElement('alt', types.LABEL),
+					_layoutElement('elapsed', types.LABEL),
+					_layoutElement('devider', types.DEVIDER),
+					_layoutElement('duration', types.LABEL)
+				],
+				center: [
+					
+				],
+				right: [
+					_layoutElement('report', types.BUTTON),
+					_layoutElement('volume', types.BUTTON),
+					_layoutElement('volume', types.SLIDER),
+					_layoutElement('hd', types.BUTTON),
+					_layoutElement('bullet', types.BUTTON),
+					_layoutElement('fullpage', types.BUTTON),
+					_layoutElement('fpexit', types.BUTTON),
+					_layoutElement('fullscreen', types.BUTTON),
+					_layoutElement('fsexit', types.BUTTON)
+				]
+			},
+			_leftgroup,
+			_centergroup,
+			_rightgroup,
+			_timeBar,
+			_volumeBar,
+			_labels,
+			_buttons;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_timeBar = new components.slider({ name: 'time' });
+			layer.appendChild(_timeBar.element());
+			
+			_labels = {};
+			_buttons = {};
+			
+			_buildLayout();
+		}
+		
+		function _layoutElement(name, type, className) {
+			return {
+				name: name,
+				type: type,
+				className: className
+			};
+		}
+		
+		function _buildLayout() {
+			_buildGroup('left', _layout.left);
+			_buildGroup('center', _layout.center);
+			_buildGroup('right', _layout.right);
+		}
+		
+		function _buildGroup(pos, elts) {
+			var group = utils.createElement('div', 'pl' + pos);
+			
+			for (var i = 0; i < elts.length; i++) {
+				var element = _buildElement(elts[i], pos);
+				if (element) {
+					group.appendChild(element);
+				}
+			}
+			
+			layer.appendChild(group);
+		}
+		
+		function _buildElement(elt, pos) {
+			var element;
+			
+			switch (elt.type) {
+				case types.DEVIDER:
+					element = _buildDevider(elt.name);
+					break;
+				case types.LABEL:
+					element = _buildLabel(elt.name);
+					break;
+				case types.BUTTON:
+					element = _buildButton(elt.name, pos);
+					break;
+				case types.SLIDER:
+					if (elt.name === 'volume') {
+						_volumeBar = new components.slider({ name: elt.name });
+						element = _volumeBar.element();
+					}
+					break;
+				default:
+					break;
+			}
+			
+			return element;
+		}
+		
+		function _buildDevider(name) {
+			var className = 'pldevider';
+			var element = utils.createElement('span', className);
+			element.innerHTML = '/';
+			
+			return element;
+		}
+		
+		function _buildLabel(name) {
+			var className = 'pllabel pl' + name;
+			var text = '';
+			
+			switch (name) {
+				case 'alt':
+					text = 'Live broadcast';
+					break;
+				case 'elapsed':
+				case 'duration':
+					className += ' plhidden';
+					text = '00:00';
+					break;
+				case 'devider':
+					text = '/';
+					break;
+				default:
+					break;
+			}
+			
+			var element = utils.createElement('span', className);
+			element.innerHTML = text;
+			
+			_labels[name] = element;
+			
+			return element;
+		}
+		
+		function _buildButton(name, pos) {
+			// Don't show volume or mute controls on mobile, since it's not possible to modify audio levels in JS
+			if (utils.isMobile() && (name === 'volume' || name.indexOf('volume') === 0)) {
+				return null;
+			}
+			// Having issues with stock (non-chrome) Android browser and showing overlays.
+			// Just remove HD/CC buttons in that case
+			if (utils.isAndroid(4, true) && /hd|cc/.test(name)) {
+				return null;
+			}
+			
+			var element = utils.createElement('span', 'plbutton pl' + name);
+			element.name = name;
+			try {
+				element.addEventListener('click', _onButtonClick);
+			} catch(err) {
+				element.attachEvent('onclick', _onButtonClick);
+			}
+			
+			_buttons[name] = element;
+			
+			return element;
+		}
+		
+		function _onButtonClick(e) {
+			var name = e.target.name;
+			
+			switch (name) {
+				case 'play':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+					break;
+				case 'pause':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+					break;
+				case 'reload':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_RELOAD);
+					break;
+				case 'stop':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					break;
+				case 'report':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_REPORT);
+					break;
+				case 'volume':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
+					break;
+				case 'hd':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_HD);
+					break;
+				case 'bullet':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
+					break;
+				case 'fullpage':
+				case 'fpexit':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE);
+					break;
+				case 'fullscreen':
+				case 'fsexit':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
+					break;
+				default:
+					break;
+			}
+		}
+		
+		_this.setDuration = function(duration) {
+			var h = Math.floor(duration / 3600);
+			var m = Math.floor((duration % 3600) / 60);
+			var s = Math.floor(duration % 60);
+			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
+			_labels.duration.innerHTML = text;
+		};
+		
+		_this.setElapsed = function(elapsed) {
+			var h = Math.floor(elapsed / 3600);
+			var m = Math.floor((elapsed % 3600) / 60);
+			var s = Math.floor(elapsed % 60);
+			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
+			_labels.elapsed.innerHTML = text;
+		};
+		
+		_this.setProgress = function(elapsed, duration) {
+			if (!duration) {
+				return;
+			}
+			
+			var percentage = Math.floor(elapsed / duration * 10000) / 100;
+			_timeBar.update(percentage);
+		};
+		
+		_this.setBuffered = function(buffered, total) {
+			if (!total) {
+				return;
+			}
+			
+			var percentage = Math.floor(buffered / total * 10000) / 100;
+			_timeBar.buffered(percentage);
+		};
+		
+		_this.setMuted = function(muted) {
+			if (muted) {
+				utils.addClass(_buttons.volume, 'mute');
+			} else {
+				utils.removeClass(_buttons.volume, 'mute');
+			}
+		};
+		
+		_this.setVolume = function(vol) {
+			_volumeBar.update(vol);
+		};
+		
+		_this.setBullet = function(on) {
+			if (on) {
+				utils.removeClass(_buttons.bullet, 'off');
+			} else {
+				utils.addClass(_buttons.bullet, 'off');
+			}
+		};
+		
+		_this.resize = function(width, height) {
+			
+		};
+		
+		_this.destroy = function() {
+			
+		};
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core;
@@ -3875,10 +4594,15 @@ playease.version = '1.0.15';
 		function _initializeAPI() {
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
+			_this.reload = _controller.reload;
 			_this.seek = _controller.seek;
 			_this.stop = _controller.stop;
-			_this.volume = _controller.volume;
+			_this.report = _controller.report;
 			_this.mute = _controller.mute;
+			_this.volume = _controller.volume;
+			_this.hd = _controller.hd;
+			_this.bullet = _controller.bullet;
+			_this.fullpage = _controller.fullpage;
 			_this.fullscreen = _controller.fullscreen;
 			
 			_this.getState = _model.getState;
@@ -3928,7 +4652,12 @@ playease.version = '1.0.15';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_properties = {
-				
+				sources: config.sources,
+				muted: false,
+				volume: 90,
+				bullet: true,
+				fullpage: false,
+				fullscreen: false
 			};
 		}
 		
@@ -3974,6 +4703,7 @@ playease.version = '1.0.15';
 		states = core.states,
 		renders = core.renders,
 		rendermodes = renders.modes,
+		components = core.components,
 		skins = core.skins,
 		skinmodes = skins.modes,
 		css = utils.css,
@@ -3981,38 +4711,42 @@ playease.version = '1.0.15';
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		POSTER_CLASS = 'pla-poster',
+		BULLET_CLASS = 'pla-bullet',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
 	core.view = function(entity, model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
-			_defaultLayout = '[play elapsed duration][time][hd volume fullscreen]',
 			_wrapper,
 			_renderLayer,
-			_posterLayer,
+			_bulletLayer,
 			_controlsLayer,
 			_contextmenuLayer,
 			_render,
+			_controlbar,
 			_skin,
+			_video,
+			_timer,
 			_errorOccurred = false;
 		
 		function _init() {
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + '-' + model.config.skin.name);
+			SKIN_CLASS += '-' + model.config.skin.name;
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.config.type === 'vod' ? ' vod' : ''));
 			_wrapper.id = entity.id;
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_posterLayer = utils.createElement('div', POSTER_CLASS);
+			_bulletLayer = utils.createElement('div', BULLET_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_posterLayer);
+			_wrapper.appendChild(_bulletLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
 			_initRender();
+			_initComponents();
 			_initSkin();
 			
 			var replace = document.getElementById(entity.id);
@@ -4043,14 +4777,75 @@ playease.version = '1.0.15';
 			try {
 				_render = _this.render = new renders[cfg.name](_this, cfg);
 				_render.addEventListener(events.PLAYEASE_READY, _forward);
-				_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
 				_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-			} catch (e) {
+			} catch (err) {
 				utils.log('Failed to init render ' + cfg.name + '!');
 			}
 			
 			if (_render) {
-				_renderLayer.appendChild(_render.element());
+				_video = _render.element();
+				_video.addEventListener('loadstart', _onLoading);
+				_video.addEventListener('durationchange', _onDurationChange);
+				_video.addEventListener('ended', _onEnded);
+				_video.addEventListener('error', _onError);
+				
+				_renderLayer.appendChild(_video);
+			}
+		}
+		
+		function _onLoading(e) {
+			_startTimer();
+		}
+		
+		function _onDurationChange(e) {
+			var duration = _video.duration;
+			_controlbar.setDuration(duration);
+			utils.addClass(_wrapper, 'vod');
+		}
+		
+		function _updateElapsed(e) {
+			var elapsed = _video.currentTime;
+			_controlbar.setElapsed(elapsed);
+			_controlbar.setProgress(elapsed, _video.duration);
+			
+			var ranges = _video.buffered;
+			for (var i = 0; i < ranges.length; i++) {
+				var start = ranges.start(i);
+				var end = ranges.end(i);
+				if (start <= elapsed && elapsed < end) {
+					_controlbar.setBuffered(end, _video.duration);
+				}
+			}
+		}
+		
+		function _onEnded(e) {
+			_stopTimer();
+		}
+		
+		function _onError(e) {
+			_stopTimer();
+		}
+		
+		function _startTimer() {
+			if (!_timer) {
+				_timer = new utils.timer(500);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _updateElapsed);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		function _initComponents() {
+			try {
+				_controlbar = new components.controlbar(_controlsLayer, {});
+				_controlbar.addGlobalListener(_forward);
+			} catch (err) {
+				utils.log('Failed to init controlbar!');
 			}
 		}
 		
@@ -4063,7 +4858,7 @@ playease.version = '1.0.15';
 			
 			try {
 				_skin = new skins[cfg.name](cfg);
-			} catch (e) {
+			} catch (err) {
 				utils.log('Failed to init skin ' + cfg.name + '!');
 			}
 		}
@@ -4081,6 +4876,93 @@ playease.version = '1.0.15';
 				_wrapper.addEventListener('keydown', _onKeyDown);
 			} catch (e) {
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
+			}
+		};
+		
+		_this.play = function(url) {
+			utils.addClass(_wrapper, 'playing');
+			_render.play(url);
+		};
+		
+		_this.pause = function() {
+			utils.removeClass(_wrapper, 'playing');
+			_render.pause();
+		};
+		
+		_this.reload = function() {
+			utils.addClass(_wrapper, 'playing');
+			_render.reload();
+		};
+		
+		_this.seek = function(offset) {
+			utils.addClass(_wrapper, 'playing');
+			_render.seek(offset);
+		};
+		
+		_this.stop = function() {
+			utils.removeClass(_wrapper, 'playing');
+			_controlbar.setDuration(0);
+			_controlbar.setElapsed(0);
+			_controlbar.setProgress(0, 1);
+			_controlbar.setBuffered(0, 1);
+			_render.stop();
+		};
+		
+		_this.report = function() {
+			
+		};
+		
+		_this.mute = function(muted) {
+			_controlbar.setMuted(muted);
+			_render.mute(muted);
+		};
+		
+		_this.volume = function(vol) {
+			_controlbar.setVolume(vol);
+			_render.volume(vol);
+		};
+		
+		_this.bullet = function(bullet) {
+			_controlbar.setBullet(bullet);
+		};
+		
+		_this.fullpage = function(exit) {
+			if (document.webkitIsFullScreen) {
+				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+				if (!document.exitFullscreen) {
+					return;
+				}
+				
+				document.exitFullscreen();
+				utils.removeClass(_wrapper, 'fs');
+			}
+			
+			if (exit) {
+				utils.removeClass(_wrapper, 'fp');
+			} else {
+				utils.addClass(_wrapper, 'fp');
+			}
+		};
+		
+		_this.fullscreen = function(exit) {
+			if (exit) {
+				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+				if (!document.exitFullscreen) {
+					_this.fullpage(exit);
+					return;
+				}
+				
+				document.exitFullscreen();
+				utils.removeClass(_wrapper, 'fs');
+			} else {
+				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
+				if (!_wrapper.requestFullscreen) {
+					_this.fullpage(exit);
+					return;
+				}
+				
+				_wrapper.requestFullscreen();
+				utils.addClass(_wrapper, 'fs');
 			}
 		};
 		
@@ -4159,9 +5041,15 @@ playease.version = '1.0.15';
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
+			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
 			view.addEventListener(events.PLAYEASE_VIEW_SEEK, _onSeek);
 			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
+			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
+			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
 			view.addEventListener(events.PLAYEASE_VIEW_VOLUNE, _onVolume);
+			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
+			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
+			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
 			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
@@ -4170,14 +5058,61 @@ playease.version = '1.0.15';
 		}
 		
 		function _initializeAPI() {
-			_this.play = view.render.play;
-			_this.pause = view.render.pause;
-			_this.seek = view.render.seek;
-			_this.stop = view.render.stop;
-			_this.volume = view.render.volume;
-			_this.mute = view.render.mute;
-			_this.fullscreen = view.render.fullscreen;
+			_this.report = view.report;
+			_this.fullpage = view.fullpage;
+			_this.fullscreen = view.fullscreen;
 		}
+		
+		_this.play = function(url) {
+			model.setState(states.PLAYING);
+			view.play(url);
+		};
+		
+		_this.pause = function() {
+			model.setState(states.PAUSED);
+			view.pause();
+		};
+		
+		_this.reload = function() {
+			model.setState(states.PLAYING);
+			view.play();
+		};
+		
+		_this.seek = function(offset) {
+			model.setState(states.PLAYING);
+			view.seek(offset);
+		};
+		
+		_this.stop = function() {
+			model.setState(states.STOPPED);
+			view.stop();
+		};
+		
+		_this.mute = function() {
+			var muted = model.getProperty('muted');
+			model.setProperty('muted', !muted);
+			view.mute(!muted);
+		};
+		
+		_this.volume = function(vol) {
+			model.setProperty('volume', vol);
+			view.volume(vol);
+		};
+		
+		_this.bullet = function() {
+			var bullet = model.getProperty('bullet');
+			model.setProperty('bullet', !bullet);
+			view.bullet(!bullet);
+		};
+		
+		_this.hd = function(index) {
+			var sources = model.getProperty('sources');
+			if (!sources || !sources[index]) {
+				return;
+			}
+			
+			_this.play(sources[index]);
+		};
 		
 		function _modelStateHandler(e) {
 			switch (e.state) {
@@ -4238,6 +5173,12 @@ playease.version = '1.0.15';
 			}
 		}
 		
+		function _onReload(e) {
+			model.setState(states.BUFFERING);
+			_this.reload();
+			_forward(e);
+		}
+		
 		function _onSeek(e) {
 			var state = model.getState();
 			if (state != states.SEEKING) {
@@ -4251,14 +5192,44 @@ playease.version = '1.0.15';
 			_forward(e);
 		}
 		
+		function _onReport(e) {
+			_this.report();
+			_forward(e);
+		}
+		
+		function _onMute(e) {
+			_this.mute();
+			_forward(e);
+		}
+		
 		function _onVolume(e) {
 			_this.volume(e.vol);
 			_forward(e);
 		}
 		
-		function _onFullscreen(e) {
-			_this.fullscreen(e.esc);
+		function _onHD(e) {
+			
+		}
+		
+		function _onBullet(e) {
+			_this.bullet();
 			_forward(e);
+		}
+		
+		function _onFullpage(e) {
+			var fp = model.getProperty('fullpage');
+			_this.fullpage(fp);
+			_forward(e);
+			
+			model.setProperty('fullpage', !fp);
+		}
+		
+		function _onFullscreen(e) {
+			var fs = model.getProperty('fullscreen');
+			_this.fullscreen(fs);
+			_forward(e);
+			
+			model.setProperty('fullscreen', !fs);
 		}
 		
 		function _onSetupError(e) {
@@ -4349,19 +5320,26 @@ playease.version = '1.0.15';
 		events = playease.events,
 		embed = playease.embed,
 		rendermodes = playease.core.renders.modes,
-		skinmodes = playease.core.skins.modes;
+		skinmodes = playease.core.skins.modes,
+		
+		sourcetypes = {
+			LIVE: 'live',
+			VOD:  'vod'
+		};
 	
 	embed.config = function(config) {
 		var _defaults = {
 			url: 'http://' + window.location.host + '/vod/sample.mp4',
 			width: 640,
 			height: 360,
+			sources: [],
+			type: sourcetypes.LIVE,
 			cors: 'no-cors',
 			bufferTime: .1,
 			controls: true,
 			autoplay: true,
 			playsinline: true,
-			poster: null,
+			poster: '',
 			render: {
 				name: rendermodes.DEFAULT
 			},
