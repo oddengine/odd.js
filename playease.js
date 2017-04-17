@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.21';
+playease.version = '1.0.22';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3773,7 +3773,8 @@ playease.version = '1.0.21';
 	renders.def = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
 			_defaults = {},
-			_video;
+			_video,
+			_currentSrc;
 		
 		function _init() {
 			_this.name = rendermodes.DEFAULT;
@@ -3790,14 +3791,15 @@ playease.version = '1.0.21';
 		};
 		
 		_this.play = function(url) {
-			if (url) {
-				config.url = url;
-			}
-			
-			if (url || _video.src != config.url) {
-				_video.pause();
-				_video.src = config.url;
+			if (_video.src !== _currentSrc || url && url != _this.config.url) {
+				if (url && url != _this.config.url) {
+					_this.config.url = url;
+				}
+				
+				_video.src = _this.config.url;
 				_video.load();
+				
+				_currentSrc = _video.src
 			}
 			
 			_video.play();
@@ -3817,7 +3819,7 @@ playease.version = '1.0.21';
 		
 		_this.stop = function() {
 			_video.pause();
-			_video.src = '';
+			_video.src = _currentSrc = undefined;
 		};
 		
 		_this.mute = function(muted) {
@@ -3878,6 +3880,7 @@ playease.version = '1.0.21';
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
 			_defaults = {},
 			_video,
+			_currentSrc,
 			_loader,
 			_demuxer,
 			_remuxer,
@@ -3951,11 +3954,11 @@ playease.version = '1.0.21';
 		};
 		
 		_this.play = function(url) {
-			if (url) {
-				config.url = url;
-			}
-			
-			if (url || _video.src != config.url) {
+			if (_video.src !== _currentSrc || url && url != _this.config.url) {
+				if (url && url != _this.config.url) {
+					_this.config.url = url;
+				}
+				
 				_segments.audio = [];
 				_segments.video = [];
 				
@@ -3963,9 +3966,10 @@ playease.version = '1.0.21';
 				_demuxer.reset();
 				_remuxer.reset();
 				
-				_video.pause();
 				_video.src = URL.createObjectURL(_ms);
 				_video.load();
+				
+				_currentSrc = _video.src
 			}
 			
 			_video.play();
@@ -3990,7 +3994,7 @@ playease.version = '1.0.21';
 			_loader.abort();
 			
 			_video.pause();
-			_video.src = '';
+			_video.src = _currentSrc = undefined;
 		};
 		
 		_this.mute = function(muted) {

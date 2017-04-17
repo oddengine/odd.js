@@ -20,7 +20,8 @@
 	renders.def = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
 			_defaults = {},
-			_video;
+			_video,
+			_currentSrc;
 		
 		function _init() {
 			_this.name = rendermodes.DEFAULT;
@@ -37,14 +38,15 @@
 		};
 		
 		_this.play = function(url) {
-			if (url) {
-				config.url = url;
-			}
-			
-			if (url || _video.src != config.url) {
-				_video.pause();
-				_video.src = config.url;
+			if (_video.src !== _currentSrc || url && url != _this.config.url) {
+				if (url && url != _this.config.url) {
+					_this.config.url = url;
+				}
+				
+				_video.src = _this.config.url;
 				_video.load();
+				
+				_currentSrc = _video.src
 			}
 			
 			_video.play();
@@ -64,7 +66,7 @@
 		
 		_this.stop = function() {
 			_video.pause();
-			_video.src = '';
+			_video.src = _currentSrc = undefined;
 		};
 		
 		_this.mute = function(muted) {
