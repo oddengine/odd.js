@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.18';
+playease.version = '1.0.19';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3509,7 +3509,7 @@ playease.version = '1.0.18';
 				top: '-10px'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail', {
-				width: '1px',
+				width: '0',
 				height: CSS_100PCT,
 				position: CSS_ABSOLUTE,
 				top: '0'
@@ -4229,6 +4229,7 @@ playease.version = '1.0.18';
 	components.slider = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
 			_defaults = {
+				wrapper: '',
 				name: '',
 				direction: directions.HORIZONTAL
 			},
@@ -4236,16 +4237,29 @@ playease.version = '1.0.18';
 			_rails,
 			_direction,
 			_container,
-			_percentage;
+			_percentage,
+			_active,
+			_value;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_rails = {};
 			_direction = _this.config.direction;
-			_percentage = 90;
+			_percentage = 0;
+			_active = false;
 			
 			_build();
+			
+			try {
+				document.addEventListener('mousedown', _onMouseDown);
+				document.addEventListener('mousemove', _onMouseMove);
+				document.addEventListener('mouseup', _onMouseUp);
+			} catch (err) {
+				document.attachEvent('onmousedown', _onMouseDown);
+				document.attachEvent('onmousemove', _onMouseMove);
+				document.attachEvent('onmouseup', _onMouseUp);
+			}
 		}
 		
 		function _build() {
@@ -4274,6 +4288,64 @@ playease.version = '1.0.18';
 			_rails.pro.style.width = _percentage + '%';
 		};
 		
+		function _onMouseDown(e) {
+			var target = e.target.parentNode === _container ? e.target.parentNode : e.target;
+			if (target !== _container) {
+				return;
+			}
+			
+			var value = _getValue(e.x, e.y);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+			
+			_active = true;
+		}
+		
+		function _onMouseMove(e) {
+			if (!_active) {
+				return;
+			}
+			
+			var value = _getValue(e.x, e.y);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+		}
+		
+		function _onMouseUp(e) {
+			if (!_active) {
+				return;
+			}
+			
+			var value = _getValue(e.x, e.y);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+			
+			_active = false;
+		}
+		
+		function _getValue(x, y) {
+			var wrapper = document.getElementById(_this.config.wrapper);
+			var offsetX = x - _container.offsetLeft - wrapper.offsetLeft;
+			var offsetY = y - _container.offsetTop - _container.parentNode.parentNode.offsetTop;
+			
+			var value;
+			if (_direction == directions.HORIZONTAL) {
+				value = Math.floor(offsetX / _container.clientWidth * 100);
+			} else {
+				value = Math.floor(offsetY / _container.clientHeight * 100);
+			}
+			
+			value = Math.max(0, Math.min(value, 100));
+			
+			return value;
+		}
+		
 		_this.element = function() {
 			return _container;
 		};
@@ -4297,7 +4369,9 @@ playease.version = '1.0.18';
 	
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
-			_defaults = {},
+			_defaults = {
+				wrapper: ''
+			},
 			_layout = {
 				left: [
 					_layoutElement('play', types.BUTTON),
@@ -4335,7 +4409,8 @@ playease.version = '1.0.18';
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_timeBar = new components.slider({ name: 'time' });
+			_timeBar = new components.slider({ wrapper: _this.config.wrapper, name: 'time' });
+			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
 			layer.appendChild(_timeBar.element());
 			
 			_labels = {};
@@ -4386,7 +4461,8 @@ playease.version = '1.0.18';
 					break;
 				case types.SLIDER:
 					if (elt.name === 'volume') {
-						_volumeBar = new components.slider({ name: elt.name });
+						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
+						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
 						element = _volumeBar.element();
 					}
 					break;
@@ -4498,6 +4574,14 @@ playease.version = '1.0.18';
 			}
 		}
 		
+		function _onTimeBarChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_SEEK, { offset: e.value });
+		}
+		
+		function _onVolumeBarChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_VOLUME, { volume: e.value });
+		}
+		
 		_this.setDuration = function(duration) {
 			var h = Math.floor(duration / 3600);
 			var m = Math.floor((duration % 3600) / 60);
@@ -4532,15 +4616,22 @@ playease.version = '1.0.18';
 			_timeBar.buffered(percentage);
 		};
 		
-		_this.setMuted = function(muted) {
+		_this.setMuted = function(muted, vol) {
 			if (muted) {
 				utils.addClass(_buttons.volume, 'mute');
+				_volumeBar.update(0);
 			} else {
 				utils.removeClass(_buttons.volume, 'mute');
+				_volumeBar.update(vol);
 			}
 		};
 		
 		_this.setVolume = function(vol) {
+			if (vol) {
+				utils.removeClass(_buttons.volume, 'mute');
+			} else {
+				utils.addClass(_buttons.volume, 'mute');
+			}
 			_volumeBar.update(vol);
 		};
 		
@@ -4654,7 +4745,7 @@ playease.version = '1.0.18';
 			_properties = {
 				sources: config.sources,
 				muted: false,
-				volume: 90,
+				volume: 80,
 				bullet: true,
 				fullpage: false,
 				fullscreen: false
@@ -4842,8 +4933,10 @@ playease.version = '1.0.18';
 		
 		function _initComponents() {
 			try {
-				_controlbar = new components.controlbar(_controlsLayer, {});
+				_controlbar = new components.controlbar(_controlsLayer, { wrapper: entity.id });
 				_controlbar.addGlobalListener(_forward);
+				
+				_controlbar.setVolume(model.getProperty('volume'));
 			} catch (err) {
 				utils.log('Failed to init controlbar!');
 			}
@@ -4874,7 +4967,7 @@ playease.version = '1.0.18';
 			
 			try {
 				_wrapper.addEventListener('keydown', _onKeyDown);
-			} catch (e) {
+			} catch (err) {
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 			}
 		};
@@ -4896,6 +4989,7 @@ playease.version = '1.0.18';
 		
 		_this.seek = function(offset) {
 			utils.addClass(_wrapper, 'playing');
+			_controlbar.setProgress(offset, 100);
 			_render.seek(offset);
 		};
 		
@@ -4913,7 +5007,7 @@ playease.version = '1.0.18';
 		};
 		
 		_this.mute = function(muted) {
-			_controlbar.setMuted(muted);
+			_controlbar.setMuted(muted, model.getProperty('volume'));
 			_render.mute(muted);
 		};
 		
@@ -5046,7 +5140,7 @@ playease.version = '1.0.18';
 			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
 			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
 			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
-			view.addEventListener(events.PLAYEASE_VIEW_VOLUNE, _onVolume);
+			view.addEventListener(events.PLAYEASE_VIEW_VOLUME, _onVolume);
 			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
 			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
@@ -5182,7 +5276,7 @@ playease.version = '1.0.18';
 		function _onSeek(e) {
 			var state = model.getState();
 			if (state != states.SEEKING) {
-				_this.seek(e.time);
+				_this.seek(e.offset);
 				_forward(e);
 			}
 		}
@@ -5203,7 +5297,7 @@ playease.version = '1.0.18';
 		}
 		
 		function _onVolume(e) {
-			_this.volume(e.vol);
+			_this.volume(e.volume);
 			_forward(e);
 		}
 		

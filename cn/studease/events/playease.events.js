@@ -40,6 +40,8 @@
 		PLAYEASE_VIEW_FULLPAGE: 'playeaseViewFullpage',
 		PLAYEASE_VIEW_FULLSCREEN: 'playeaseViewFullscreen',
 		
+		PLAYEASE_SLIDER_CHANGE: 'playeaseSliderChange',
+		
 		// Loader Events
 		PLAYEASE_CONTENT_LENGTH: 'playeaseContentLength',
 		PLAYEASE_PROGRESS: 'playeaseProgress',

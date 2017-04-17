@@ -12,6 +12,7 @@
 	components.slider = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
 			_defaults = {
+				wrapper: '',
 				name: '',
 				direction: directions.HORIZONTAL
 			},
@@ -19,16 +20,29 @@
 			_rails,
 			_direction,
 			_container,
-			_percentage;
+			_percentage,
+			_active,
+			_value;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_rails = {};
 			_direction = _this.config.direction;
-			_percentage = 90;
+			_percentage = 0;
+			_active = false;
 			
 			_build();
+			
+			try {
+				document.addEventListener('mousedown', _onMouseDown);
+				document.addEventListener('mousemove', _onMouseMove);
+				document.addEventListener('mouseup', _onMouseUp);
+			} catch (err) {
+				document.attachEvent('onmousedown', _onMouseDown);
+				document.attachEvent('onmousemove', _onMouseMove);
+				document.attachEvent('onmouseup', _onMouseUp);
+			}
 		}
 		
 		function _build() {
@@ -56,6 +70,64 @@
 			_percentage = percentage;
 			_rails.pro.style.width = _percentage + '%';
 		};
+		
+		function _onMouseDown(e) {
+			var target = e.target.parentNode === _container ? e.target.parentNode : e.target;
+			if (target !== _container) {
+				return;
+			}
+			
+			var value = _getValue(e.x, e.y);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+			
+			_active = true;
+		}
+		
+		function _onMouseMove(e) {
+			if (!_active) {
+				return;
+			}
+			
+			var value = _getValue(e.x, e.y);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+		}
+		
+		function _onMouseUp(e) {
+			if (!_active) {
+				return;
+			}
+			
+			var value = _getValue(e.x, e.y);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+			
+			_active = false;
+		}
+		
+		function _getValue(x, y) {
+			var wrapper = document.getElementById(_this.config.wrapper);
+			var offsetX = x - _container.offsetLeft - wrapper.offsetLeft;
+			var offsetY = y - _container.offsetTop - _container.parentNode.parentNode.offsetTop;
+			
+			var value;
+			if (_direction == directions.HORIZONTAL) {
+				value = Math.floor(offsetX / _container.clientWidth * 100);
+			} else {
+				value = Math.floor(offsetY / _container.clientHeight * 100);
+			}
+			
+			value = Math.max(0, Math.min(value, 100));
+			
+			return value;
+		}
 		
 		_this.element = function() {
 			return _container;

@@ -21,7 +21,7 @@
 			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
 			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
 			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
-			view.addEventListener(events.PLAYEASE_VIEW_VOLUNE, _onVolume);
+			view.addEventListener(events.PLAYEASE_VIEW_VOLUME, _onVolume);
 			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
 			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
@@ -157,7 +157,7 @@
 		function _onSeek(e) {
 			var state = model.getState();
 			if (state != states.SEEKING) {
-				_this.seek(e.time);
+				_this.seek(e.offset);
 				_forward(e);
 			}
 		}
@@ -178,7 +178,7 @@
 		}
 		
 		function _onVolume(e) {
-			_this.volume(e.vol);
+			_this.volume(e.volume);
 			_forward(e);
 		}
 		
