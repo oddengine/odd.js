@@ -70,6 +70,9 @@
 		};
 		
 		_this.volume = function(vol) {
+			if (vol == 0) {
+				model.setProperty('muted', true);
+			}
 			model.setProperty('volume', vol);
 			view.volume(vol);
 		};
