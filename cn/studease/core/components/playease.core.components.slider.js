@@ -18,6 +18,7 @@
 			},
 			_railnames = ['bg', 'buf', 'pro'],
 			_rails,
+			_thumb,
 			_direction,
 			_container,
 			_percentage,
@@ -58,8 +59,8 @@
 				_container.appendChild(rail);
 			}
 			
-			var thumb = utils.createElement('span', 'plthumb');
-			_container.appendChild(thumb);
+			_thumb = utils.createElement('span', 'plthumb');
+			_container.appendChild(_thumb);
 		}
 		
 		_this.buffered = function(percentage) {
@@ -69,6 +70,7 @@
 		_this.update = function(percentage) {
 			_percentage = percentage;
 			_rails.pro.style.width = _percentage + '%';
+			_thumb.style.left = 'calc(' + _percentage + '% - 5px)';
 		};
 		
 		function _onMouseDown(e) {
@@ -77,7 +79,7 @@
 				return;
 			}
 			
-			var value = _getValue(e.x, e.y);
+			var value = _getValue(e.clientX, e.clientY);
 			if (value != _value) {
 				_value = value;
 				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
@@ -91,7 +93,7 @@
 				return;
 			}
 			
-			var value = _getValue(e.x, e.y);
+			var value = _getValue(e.clientX, e.clientY);
 			if (value != _value) {
 				_value = value;
 				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
@@ -103,7 +105,7 @@
 				return;
 			}
 			
-			var value = _getValue(e.x, e.y);
+			var value = _getValue(e.clientX, e.clientY);
 			if (value != _value) {
 				_value = value;
 				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });

@@ -120,6 +120,10 @@
 		return typeofString;
 	};
 	
+	utils.isInt = function(value) {
+		return parseFloat(value) % 1 === 0;
+	};
+	
 	utils.trim = function(inputString) {
 		return inputString.replace(/^\s+|\s+$/g, '');
 	};

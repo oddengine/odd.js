@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.20';
+playease.version = '1.0.21';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3808,7 +3808,7 @@ playease.version = '1.0.20';
 		};
 		
 		_this.reload = function() {
-			
+			_video.load();
 		};
 		
 		_this.seek = function(offset) {
@@ -3820,12 +3820,12 @@ playease.version = '1.0.20';
 			_video.src = '';
 		};
 		
-		_this.mute = function(bool) {
-			bool = !!bool;
+		_this.mute = function(muted) {
+			_video.muted = muted;
 		};
 		
 		_this.volume = function(vol) {
-			
+			_video.volume = vol / 100;
 		};
 		
 		_this.hd = function(index) {
@@ -3976,7 +3976,7 @@ playease.version = '1.0.20';
 		};
 		
 		_this.reload = function() {
-			
+			_video.load();
 		};
 		
 		_this.seek = function(offset) {
@@ -3993,12 +3993,12 @@ playease.version = '1.0.20';
 			_video.src = '';
 		};
 		
-		_this.mute = function(bool) {
-			bool = !!bool;
+		_this.mute = function(muted) {
+			_video.muted = muted;
 		};
 		
 		_this.volume = function(vol) {
-			
+			_video.volume = vol / 100;
 		};
 		
 		_this.hd = function(index) {
@@ -5206,6 +5206,9 @@ playease.version = '1.0.20';
 		};
 		
 		_this.volume = function(vol) {
+			if (vol == 0) {
+				model.setProperty('muted', true);
+			}
 			model.setProperty('volume', vol);
 			view.volume(vol);
 		};

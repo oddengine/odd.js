@@ -55,7 +55,7 @@
 		};
 		
 		_this.reload = function() {
-			
+			_video.load();
 		};
 		
 		_this.seek = function(offset) {
@@ -67,12 +67,12 @@
 			_video.src = '';
 		};
 		
-		_this.mute = function(bool) {
-			bool = !!bool;
+		_this.mute = function(muted) {
+			_video.muted = muted;
 		};
 		
 		_this.volume = function(vol) {
-			
+			_video.volume = vol / 100;
 		};
 		
 		_this.hd = function(index) {
