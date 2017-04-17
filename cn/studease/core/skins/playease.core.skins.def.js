@@ -126,7 +126,7 @@
 				top: '-10px'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail', {
-				width: '1px',
+				width: '0',
 				height: CSS_100PCT,
 				position: CSS_ABSOLUTE,
 				top: '0'

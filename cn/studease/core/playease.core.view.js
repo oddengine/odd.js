@@ -144,8 +144,10 @@
 		
 		function _initComponents() {
 			try {
-				_controlbar = new components.controlbar(_controlsLayer, {});
+				_controlbar = new components.controlbar(_controlsLayer, { wrapper: entity.id });
 				_controlbar.addGlobalListener(_forward);
+				
+				_controlbar.setVolume(model.getProperty('volume'));
 			} catch (err) {
 				utils.log('Failed to init controlbar!');
 			}
@@ -176,7 +178,7 @@
 			
 			try {
 				_wrapper.addEventListener('keydown', _onKeyDown);
-			} catch (e) {
+			} catch (err) {
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 			}
 		};
@@ -198,6 +200,7 @@
 		
 		_this.seek = function(offset) {
 			utils.addClass(_wrapper, 'playing');
+			_controlbar.setProgress(offset, 100);
 			_render.seek(offset);
 		};
 		
@@ -215,7 +218,7 @@
 		};
 		
 		_this.mute = function(muted) {
-			_controlbar.setMuted(muted);
+			_controlbar.setMuted(muted, model.getProperty('volume'));
 			_render.mute(muted);
 		};
 		

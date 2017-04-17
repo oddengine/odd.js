@@ -13,7 +13,9 @@
 	
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
-			_defaults = {},
+			_defaults = {
+				wrapper: ''
+			},
 			_layout = {
 				left: [
 					_layoutElement('play', types.BUTTON),
@@ -51,7 +53,8 @@
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_timeBar = new components.slider({ name: 'time' });
+			_timeBar = new components.slider({ wrapper: _this.config.wrapper, name: 'time' });
+			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
 			layer.appendChild(_timeBar.element());
 			
 			_labels = {};
@@ -102,7 +105,8 @@
 					break;
 				case types.SLIDER:
 					if (elt.name === 'volume') {
-						_volumeBar = new components.slider({ name: elt.name });
+						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
+						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
 						element = _volumeBar.element();
 					}
 					break;
@@ -214,6 +218,14 @@
 			}
 		}
 		
+		function _onTimeBarChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_SEEK, { offset: e.value });
+		}
+		
+		function _onVolumeBarChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_VOLUME, { volume: e.value });
+		}
+		
 		_this.setDuration = function(duration) {
 			var h = Math.floor(duration / 3600);
 			var m = Math.floor((duration % 3600) / 60);
@@ -248,15 +260,22 @@
 			_timeBar.buffered(percentage);
 		};
 		
-		_this.setMuted = function(muted) {
+		_this.setMuted = function(muted, vol) {
 			if (muted) {
 				utils.addClass(_buttons.volume, 'mute');
+				_volumeBar.update(0);
 			} else {
 				utils.removeClass(_buttons.volume, 'mute');
+				_volumeBar.update(vol);
 			}
 		};
 		
 		_this.setVolume = function(vol) {
+			if (vol) {
+				utils.removeClass(_buttons.volume, 'mute');
+			} else {
+				utils.addClass(_buttons.volume, 'mute');
+			}
 			_volumeBar.update(vol);
 		};
 		

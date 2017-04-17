@@ -16,7 +16,7 @@
 			_properties = {
 				sources: config.sources,
 				muted: false,
-				volume: 90,
+				volume: 80,
 				bullet: true,
 				fullpage: false,
 				fullscreen: false
