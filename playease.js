@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.22';
+playease.version = '1.0.23';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4896,7 +4896,7 @@ playease.version = '1.0.22';
 			
 			if (_render) {
 				_video = _render.element();
-				_video.addEventListener('loadstart', _onLoading);
+				//_video.addEventListener('playing', _onPlaying);
 				_video.addEventListener('durationchange', _onDurationChange);
 				_video.addEventListener('ended', _onEnded);
 				_video.addEventListener('error', _onError);
@@ -4904,11 +4904,11 @@ playease.version = '1.0.22';
 				_renderLayer.appendChild(_video);
 			}
 		}
-		
-		function _onLoading(e) {
+		/*
+		function _onPlaying(e) {
 			_startTimer();
 		}
-		
+		*/
 		function _onDurationChange(e) {
 			var duration = _video.duration;
 			_controlbar.setDuration(duration);
@@ -4932,6 +4932,7 @@ playease.version = '1.0.22';
 		
 		function _onEnded(e) {
 			_stopTimer();
+			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
 		}
 		
 		function _onError(e) {
@@ -4995,6 +4996,7 @@ playease.version = '1.0.22';
 		
 		_this.play = function(url) {
 			utils.addClass(_wrapper, 'playing');
+			_startTimer();
 			_render.play(url);
 		};
 		
@@ -5005,12 +5007,14 @@ playease.version = '1.0.22';
 		
 		_this.reload = function() {
 			utils.addClass(_wrapper, 'playing');
+			_startTimer();
 			_render.reload();
 		};
 		
 		_this.seek = function(offset) {
 			utils.addClass(_wrapper, 'playing');
 			_controlbar.setProgress(offset, 100);
+			_startTimer();
 			_render.seek(offset);
 		};
 		
