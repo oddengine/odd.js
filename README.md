@@ -49,6 +49,12 @@ _defaults = {
 	autoplay: true,
 	playsinline: true,
 	poster: '',
+	bulletscreen: {
+		enable: true,
+		fontsize: 14,
+		alpha: alphas.LOW,
+		position: positions.FULLSCREEN
+	},
 	render: {
 		name: rendermodes.DEFAULT
 	},
@@ -108,6 +114,8 @@ _eventMapping = {
 * **hd()**
 * **bullet()**
 * **fullscreen(bool)**
+
+* **shoot(text)**
 * **resize(width, height)**
 
 

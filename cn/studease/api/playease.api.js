@@ -69,6 +69,7 @@
 			_this.fullpage = _entity.fullpage;
 			_this.fullscreen = _entity.fullscreen;
 			
+			_this.shoot = _entity.shoot;
 			_this.resize = _entity.resize;
 		};
 		

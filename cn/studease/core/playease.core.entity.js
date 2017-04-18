@@ -37,6 +37,7 @@
 			
 			_this.getState = _model.getState;
 			
+			_this.shoot = _view.shoot;
 			_this.resize = _view.resize;
 		}
 		

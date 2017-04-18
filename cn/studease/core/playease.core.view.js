@@ -13,7 +13,6 @@
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		BULLET_CLASS = 'pla-bullet',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
@@ -21,11 +20,11 @@
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
-			_bulletLayer,
 			_controlsLayer,
 			_contextmenuLayer,
 			_render,
 			_controlbar,
+			_bulletscreen,
 			_skin,
 			_video,
 			_timer,
@@ -38,17 +37,15 @@
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_bulletLayer = utils.createElement('div', BULLET_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_bulletLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
-			_initRender();
 			_initComponents();
+			_initRender();
 			_initSkin();
 			
 			var replace = document.getElementById(entity.id);
@@ -144,13 +141,29 @@
 		}
 		
 		function _initComponents() {
+			var cfg = model.getConfig('bulletscreen');
+			
 			try {
-				_controlbar = new components.controlbar(_controlsLayer, { wrapper: entity.id });
+				_controlbar = new components.controlbar(_controlsLayer, utils.extend({}, {
+					wrapper: entity.id,
+					bulletscreen: cfg
+				}));
 				_controlbar.addGlobalListener(_forward);
 				
 				_controlbar.setVolume(model.getProperty('volume'));
 			} catch (err) {
 				utils.log('Failed to init controlbar!');
+			}
+			
+			try {
+				_bulletscreen = new components.bulletscreen(utils.extend({}, cfg, {
+					width: model.config.width,
+					height: model.config.height
+				}));
+				_bulletscreen.addGlobalListener(_forward);
+				_renderLayer.appendChild(_bulletscreen.element());
+			} catch (err) {
+				utils.log('Failed to init bullet!');
 			}
 		}
 		
@@ -233,6 +246,7 @@
 		
 		_this.bullet = function(bullet) {
 			_controlbar.setBullet(bullet);
+			_bulletscreen.setProperty('enable', bullet);
 		};
 		
 		_this.fullpage = function(exit) {
@@ -251,6 +265,8 @@
 			} else {
 				utils.addClass(_wrapper, 'fp');
 			}
+			
+			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -272,6 +288,14 @@
 				
 				_wrapper.requestFullscreen();
 				utils.addClass(_wrapper, 'fs');
+			}
+			
+			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
+		};
+		
+		_this.shoot = function(text) {
+			if (_bulletscreen) {
+				_bulletscreen.shoot(text);
 			}
 		};
 		

@@ -1,3 +1,8 @@
 ﻿(function(playease) {
-	playease.core.renders = {};
+	playease.core.renders = {
+		sourcetypes: {
+			LIVE: 'live',
+			VOD:  'vod'
+		}
+	};
 })(playease);
