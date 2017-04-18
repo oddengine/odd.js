@@ -113,8 +113,7 @@ _eventMapping = {
 * **volume(vol)**
 * **hd()**
 * **bullet()**
-* **fullscreen(bool)**
-
+* **fullscreen(exit)**
 * **shoot(text)**
 * **resize(width, height)**
 
