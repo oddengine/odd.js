@@ -14,8 +14,21 @@
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
 			_defaults = {
-				wrapper: ''
+				wrapper: '',
+				bulletscreen: {}
 			},
+			_layout,
+			_leftgroup,
+			_centergroup,
+			_rightgroup,
+			_timeBar,
+			_volumeBar,
+			_labels,
+			_buttons;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
 			_layout = {
 				left: [
 					_layoutElement('play', types.BUTTON),
@@ -35,23 +48,13 @@
 					_layoutElement('volume', types.BUTTON),
 					_layoutElement('volume', types.SLIDER),
 					_layoutElement('hd', types.BUTTON),
-					_layoutElement('bullet', types.BUTTON),
+					_layoutElement('bullet', types.BUTTON, _this.config.bulletscreen.enable ? '' : 'off'),
 					_layoutElement('fullpage', types.BUTTON),
 					_layoutElement('fpexit', types.BUTTON),
 					_layoutElement('fullscreen', types.BUTTON),
 					_layoutElement('fsexit', types.BUTTON)
 				]
-			},
-			_leftgroup,
-			_centergroup,
-			_rightgroup,
-			_timeBar,
-			_volumeBar,
-			_labels,
-			_buttons;
-		
-		function _init() {
-			_this.config = utils.extend({}, _defaults, config);
+			};
 			
 			_timeBar = new components.slider({ wrapper: _this.config.wrapper, name: 'time' });
 			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
@@ -101,7 +104,7 @@
 					element = _buildLabel(elt.name);
 					break;
 				case types.BUTTON:
-					element = _buildButton(elt.name, pos);
+					element = _buildButton(elt.name, pos, elt.className);
 					break;
 				case types.SLIDER:
 					if (elt.name === 'volume') {
@@ -153,7 +156,7 @@
 			return element;
 		}
 		
-		function _buildButton(name, pos) {
+		function _buildButton(name, pos, className) {
 			// Don't show volume or mute controls on mobile, since it's not possible to modify audio levels in JS
 			if (utils.isMobile() && (name === 'volume' || name.indexOf('volume') === 0)) {
 				return null;
@@ -164,7 +167,7 @@
 				return null;
 			}
 			
-			var element = utils.createElement('span', 'plbutton pl' + name);
+			var element = utils.createElement('span', 'plbutton pl' + name + (className ? ' ' + className : ''));
 			element.name = name;
 			try {
 				element.addEventListener('click', _onButtonClick);

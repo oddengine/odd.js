@@ -8,7 +8,7 @@
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		POSTER_CLASS = 'pla-poster',
+		BULLET_CLASS = 'pla-bullet',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
@@ -85,6 +85,9 @@
 			});
 			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
 				height: CSS_100PCT
+			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' canvas', {
+				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video', {
 				width: CSS_100PCT,

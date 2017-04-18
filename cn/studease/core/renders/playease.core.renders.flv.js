@@ -11,18 +11,7 @@
 		AMF = muxer.AMF,
 		TAG = muxer.flv.TAG,
 		FORMATS = muxer.flv.FORMATS,
-		CODECS = muxer.flv.CODECS,
-		
-		RENDER_CLASS = 'pla-render',
-		
-		// For all api instances
-		CSS_SMOOTH_EASE = 'opacity .25s ease',
-		CSS_100PCT = '100%',
-		CSS_ABSOLUTE = 'absolute',
-		CSS_IMPORTANT = ' !important',
-		CSS_HIDDEN = 'hidden',
-		CSS_NONE = 'none',
-		CSS_BLOCK = 'block';
+		CODECS = muxer.flv.CODECS;
 	
 	renders.flv = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),

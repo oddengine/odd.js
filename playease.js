@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.23';
+playease.version = '1.0.24';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -340,6 +340,8 @@ playease.version = '1.0.23';
 		PLAYEASE_VIEW_BULLET: 'playeaseViewBullet',
 		PLAYEASE_VIEW_FULLPAGE: 'playeaseViewFullpage',
 		PLAYEASE_VIEW_FULLSCREEN: 'playeaseViewFullscreen',
+		
+		PLAYEASE_SLIDER_CHANGE: 'playeaseSliderChange',
 		
 		// Loader Events
 		PLAYEASE_CONTENT_LENGTH: 'playeaseContentLength',
@@ -749,6 +751,7 @@ playease.version = '1.0.23';
 			_this.fullpage = _entity.fullpage;
 			_this.fullscreen = _entity.fullscreen;
 			
+			_this.shoot = _entity.shoot;
 			_this.resize = _entity.resize;
 		};
 		
@@ -3395,7 +3398,7 @@ playease.version = '1.0.23';
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		POSTER_CLASS = 'pla-poster',
+		BULLET_CLASS = 'pla-bullet',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
@@ -3472,6 +3475,9 @@ playease.version = '1.0.23';
 			});
 			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
 				height: CSS_100PCT
+			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' canvas', {
+				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video', {
 				width: CSS_100PCT,
@@ -3741,7 +3747,669 @@ playease.version = '1.0.23';
 })(playease);
 
 (function(playease) {
-	playease.core.renders = {};
+	playease.core.components = {};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		directions = {
+			HORIZONTAL: 0,
+			VERTICAL:   1
+		};
+	
+	components.slider = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+			_defaults = {
+				wrapper: '',
+				name: '',
+				direction: directions.HORIZONTAL
+			},
+			_railnames = ['bg', 'buf', 'pro'],
+			_rails,
+			_thumb,
+			_direction,
+			_container,
+			_percentage,
+			_active,
+			_value;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_rails = {};
+			_direction = _this.config.direction;
+			_percentage = 0;
+			_active = false;
+			
+			_build();
+			
+			try {
+				document.addEventListener('mousedown', _onMouseDown);
+				document.addEventListener('mousemove', _onMouseMove);
+				document.addEventListener('mouseup', _onMouseUp);
+			} catch (err) {
+				document.attachEvent('onmousedown', _onMouseDown);
+				document.attachEvent('onmousemove', _onMouseMove);
+				document.attachEvent('onmouseup', _onMouseUp);
+			}
+		}
+		
+		function _build() {
+			if (utils.isMobile() && _this.config.name.indexOf('volume') === 0) {
+				return;
+			}
+			
+			_container = utils.createElement('div', 'plslider ' + _this.config.name);
+			
+			for (var i = 0; i < _railnames.length; i++) {
+				var name = _railnames[i];
+				var rail = _rails[name] = utils.createElement('span', 'plrail ' + name);
+				_container.appendChild(rail);
+			}
+			
+			_thumb = utils.createElement('span', 'plthumb');
+			_container.appendChild(_thumb);
+		}
+		
+		_this.buffered = function(percentage) {
+			_rails.buf.style.width = percentage + '%';
+		};
+		
+		_this.update = function(percentage) {
+			_percentage = percentage;
+			_rails.pro.style.width = _percentage + '%';
+			_thumb.style.left = 'calc(' + _percentage + '% - 5px)';
+		};
+		
+		function _onMouseDown(e) {
+			var target = e.target.parentNode === _container ? e.target.parentNode : e.target;
+			if (target !== _container) {
+				return;
+			}
+			
+			var value = _getValue(e.clientX, e.clientY);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+			
+			_active = true;
+		}
+		
+		function _onMouseMove(e) {
+			if (!_active) {
+				return;
+			}
+			
+			var value = _getValue(e.clientX, e.clientY);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+		}
+		
+		function _onMouseUp(e) {
+			if (!_active) {
+				return;
+			}
+			
+			var value = _getValue(e.clientX, e.clientY);
+			if (value != _value) {
+				_value = value;
+				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
+			}
+			
+			_active = false;
+		}
+		
+		function _getValue(x, y) {
+			var wrapper = document.getElementById(_this.config.wrapper);
+			var offsetX = x - _container.offsetLeft - wrapper.offsetLeft;
+			var offsetY = y - _container.offsetTop - _container.parentNode.parentNode.offsetTop;
+			
+			var value;
+			if (_direction == directions.HORIZONTAL) {
+				value = Math.floor(offsetX / _container.clientWidth * 100);
+			} else {
+				value = Math.floor(offsetY / _container.clientHeight * 100);
+			}
+			
+			value = Math.max(0, Math.min(value, 100));
+			
+			return value;
+		}
+		
+		_this.element = function() {
+			return _container;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		types = {
+			DEVIDER: 0,
+			LABEL:   1,
+			BUTTON:  2,
+			SLIDER:  3
+		};
+	
+	components.controlbar = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+			_defaults = {
+				wrapper: '',
+				bulletscreen: {}
+			},
+			_layout,
+			_leftgroup,
+			_centergroup,
+			_rightgroup,
+			_timeBar,
+			_volumeBar,
+			_labels,
+			_buttons;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_layout = {
+				left: [
+					_layoutElement('play', types.BUTTON),
+					_layoutElement('pause', types.BUTTON),
+					_layoutElement('reload', types.BUTTON),
+					_layoutElement('stop', types.BUTTON),
+					_layoutElement('alt', types.LABEL),
+					_layoutElement('elapsed', types.LABEL),
+					_layoutElement('devider', types.DEVIDER),
+					_layoutElement('duration', types.LABEL)
+				],
+				center: [
+					
+				],
+				right: [
+					_layoutElement('report', types.BUTTON),
+					_layoutElement('volume', types.BUTTON),
+					_layoutElement('volume', types.SLIDER),
+					_layoutElement('hd', types.BUTTON),
+					_layoutElement('bullet', types.BUTTON, _this.config.bulletscreen.enable ? '' : 'off'),
+					_layoutElement('fullpage', types.BUTTON),
+					_layoutElement('fpexit', types.BUTTON),
+					_layoutElement('fullscreen', types.BUTTON),
+					_layoutElement('fsexit', types.BUTTON)
+				]
+			};
+			
+			_timeBar = new components.slider({ wrapper: _this.config.wrapper, name: 'time' });
+			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
+			layer.appendChild(_timeBar.element());
+			
+			_labels = {};
+			_buttons = {};
+			
+			_buildLayout();
+		}
+		
+		function _layoutElement(name, type, className) {
+			return {
+				name: name,
+				type: type,
+				className: className
+			};
+		}
+		
+		function _buildLayout() {
+			_buildGroup('left', _layout.left);
+			_buildGroup('center', _layout.center);
+			_buildGroup('right', _layout.right);
+		}
+		
+		function _buildGroup(pos, elts) {
+			var group = utils.createElement('div', 'pl' + pos);
+			
+			for (var i = 0; i < elts.length; i++) {
+				var element = _buildElement(elts[i], pos);
+				if (element) {
+					group.appendChild(element);
+				}
+			}
+			
+			layer.appendChild(group);
+		}
+		
+		function _buildElement(elt, pos) {
+			var element;
+			
+			switch (elt.type) {
+				case types.DEVIDER:
+					element = _buildDevider(elt.name);
+					break;
+				case types.LABEL:
+					element = _buildLabel(elt.name);
+					break;
+				case types.BUTTON:
+					element = _buildButton(elt.name, pos, elt.className);
+					break;
+				case types.SLIDER:
+					if (elt.name === 'volume') {
+						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
+						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
+						element = _volumeBar.element();
+					}
+					break;
+				default:
+					break;
+			}
+			
+			return element;
+		}
+		
+		function _buildDevider(name) {
+			var className = 'pldevider';
+			var element = utils.createElement('span', className);
+			element.innerHTML = '/';
+			
+			return element;
+		}
+		
+		function _buildLabel(name) {
+			var className = 'pllabel pl' + name;
+			var text = '';
+			
+			switch (name) {
+				case 'alt':
+					text = 'Live broadcast';
+					break;
+				case 'elapsed':
+				case 'duration':
+					className += ' plhidden';
+					text = '00:00';
+					break;
+				case 'devider':
+					text = '/';
+					break;
+				default:
+					break;
+			}
+			
+			var element = utils.createElement('span', className);
+			element.innerHTML = text;
+			
+			_labels[name] = element;
+			
+			return element;
+		}
+		
+		function _buildButton(name, pos, className) {
+			// Don't show volume or mute controls on mobile, since it's not possible to modify audio levels in JS
+			if (utils.isMobile() && (name === 'volume' || name.indexOf('volume') === 0)) {
+				return null;
+			}
+			// Having issues with stock (non-chrome) Android browser and showing overlays.
+			// Just remove HD/CC buttons in that case
+			if (utils.isAndroid(4, true) && /hd|cc/.test(name)) {
+				return null;
+			}
+			
+			var element = utils.createElement('span', 'plbutton pl' + name + (className ? ' ' + className : ''));
+			element.name = name;
+			try {
+				element.addEventListener('click', _onButtonClick);
+			} catch(err) {
+				element.attachEvent('onclick', _onButtonClick);
+			}
+			
+			_buttons[name] = element;
+			
+			return element;
+		}
+		
+		function _onButtonClick(e) {
+			var name = e.target.name;
+			
+			switch (name) {
+				case 'play':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+					break;
+				case 'pause':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+					break;
+				case 'reload':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_RELOAD);
+					break;
+				case 'stop':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					break;
+				case 'report':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_REPORT);
+					break;
+				case 'volume':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
+					break;
+				case 'hd':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_HD);
+					break;
+				case 'bullet':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
+					break;
+				case 'fullpage':
+				case 'fpexit':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE);
+					break;
+				case 'fullscreen':
+				case 'fsexit':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
+					break;
+				default:
+					break;
+			}
+		}
+		
+		function _onTimeBarChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_SEEK, { offset: e.value });
+		}
+		
+		function _onVolumeBarChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_VOLUME, { volume: e.value });
+		}
+		
+		_this.setDuration = function(duration) {
+			var h = Math.floor(duration / 3600);
+			var m = Math.floor((duration % 3600) / 60);
+			var s = Math.floor(duration % 60);
+			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
+			_labels.duration.innerHTML = text;
+		};
+		
+		_this.setElapsed = function(elapsed) {
+			var h = Math.floor(elapsed / 3600);
+			var m = Math.floor((elapsed % 3600) / 60);
+			var s = Math.floor(elapsed % 60);
+			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
+			_labels.elapsed.innerHTML = text;
+		};
+		
+		_this.setProgress = function(elapsed, duration) {
+			if (!duration) {
+				return;
+			}
+			
+			var percentage = Math.floor(elapsed / duration * 10000) / 100;
+			_timeBar.update(percentage);
+		};
+		
+		_this.setBuffered = function(buffered, total) {
+			if (!total) {
+				return;
+			}
+			
+			var percentage = Math.floor(buffered / total * 10000) / 100;
+			_timeBar.buffered(percentage);
+		};
+		
+		_this.setMuted = function(muted, vol) {
+			if (muted) {
+				utils.addClass(_buttons.volume, 'mute');
+				_volumeBar.update(0);
+			} else {
+				utils.removeClass(_buttons.volume, 'mute');
+				_volumeBar.update(vol);
+			}
+		};
+		
+		_this.setVolume = function(vol) {
+			if (vol) {
+				utils.removeClass(_buttons.volume, 'mute');
+			} else {
+				utils.addClass(_buttons.volume, 'mute');
+			}
+			_volumeBar.update(vol);
+		};
+		
+		_this.setBullet = function(on) {
+			if (on) {
+				utils.removeClass(_buttons.bullet, 'off');
+			} else {
+				utils.addClass(_buttons.bullet, 'off');
+			}
+		};
+		
+		_this.resize = function(width, height) {
+			
+		};
+		
+		_this.destroy = function() {
+			
+		};
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		alphas = {
+			NONE: 1,
+			LOW:  0.75,
+			MID:  0.5,
+			HIGH: 0.25
+		},
+		positions = {
+			FULLSCREEN: 0,
+			TOP:        1,
+			BOTTOM:     2
+		};
+	
+	components.bulletscreen = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+			_defaults = {
+				width: 640,
+				height: 360,
+				enable: true,
+				fontsize: 14,
+				alpha: alphas.LOW,
+				position: positions.FULLSCREEN
+			},
+			_rows,
+			_timer,
+			_canvas,
+			_context;
+		
+		_this.bullet = function(text) {
+			var _self = this;
+			
+			function _init() {
+				_self.text = text;
+				
+				_self.doublechars = _getDoubleChars();
+				_self.width = (_self.text.length + _self.doublechars * 0.96) / 2 * _this.config.fontsize;
+				_self.weight = (_canvas.width + _self.width) / (8000 / 30);
+				_self.tick = 0;
+			}
+			
+			function _getDoubleChars() {
+				var chars = _self.text.match(/([^x00-xff])/gi);
+				return chars ? chars.length : 0;
+			}
+			
+			_init();
+		};
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_rows = [];
+			
+			_canvas = utils.createElement('canvas');
+			_this.resize(_this.config.width, _this.config.height);
+		}
+		
+		_this.shoot = function(text) {
+			if (_this.config.enable == false) {
+				return;
+			}
+			
+			var bullet = new _this.bullet(text);
+			var index = _getIndex(bullet.weight);
+			var row = _rows[index];
+			if (!row) {
+				row = [];
+				row.weight = 0;
+				row.bitmap = 0x0000;
+				
+				_rows[index] = row;
+			}
+			
+			var blockwidth = _canvas.width / 10;
+			var bits = Math.ceil(bullet.width / blockwidth);
+			var pos = 6 - bits;
+			
+			row.push(bullet);
+			row.weight += bullet.weight;
+			row.bitmap |= ((1 << bits) - 1) << pos;
+			
+			_startTimer();
+		};
+		
+		function _getIndex(weight) {
+			var index = 0;
+			var best = 0;
+			var minweight = 0;
+			
+			for (var i = 0; i < _rows.length; i++) {
+				var row = _rows[i];
+				if (!row || row.length == 0) {
+					index = i;
+					break;
+				}
+				
+				if ((row.bitmap & 0x007F) == 0) {
+					index = i;
+					break;
+				}
+				
+				if (!minweight || row.weight < minweight) {
+					best = i;
+					minweight = row.weight;
+				}
+				
+				index = i + 1;
+			}
+			
+			if (index >= Math.floor(_canvas.height / _this.config.fontsize)) {
+				index = best;
+			}
+			
+			return index;
+		}
+		
+		function _update(e) {
+			_context.clearRect(0, 0, _canvas.width, _canvas.height);
+			
+			var blockwidth = _canvas.width / 10;
+			var hasContent = false;
+			
+			for (var i = 0; i < _rows.length; i++) {
+				var row = _rows[i];
+				if (!row || row.length == 0) {
+					continue;
+				}
+				
+				row.bitmap = 0x0000;
+				
+				var offsetY = i * _this.config.fontsize;
+				for (var j = 0; j < row.length; j++) {
+					var bullet = row[j];
+					var offsetX = _canvas.width - bullet.weight * bullet.tick++;
+					if (offsetX <= -1 * bullet.width) {
+						row.splice(j--, 1);
+						row.weight -= bullet.weight;
+						
+						bullet = undefined;
+						
+						continue;
+					}
+					
+					var bits = Math.ceil(bullet.width / blockwidth);
+					var pos = Math.floor(offsetX / blockwidth);
+					row.bitmap |= ((1 << bits) - 1) << (10 - pos);
+					
+					hasContent = true;
+					
+					_context.fillText(bullet.text, offsetX, offsetY);
+				}
+			}
+			
+			if (!hasContent) {
+				_stopTimer();
+			}
+		}
+		
+		function _startTimer() {
+			if (!_timer) {
+				_timer = new utils.timer(30);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _update);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		_this.setProperty = function(key, value) {
+			_this.config[key] = value;
+		};
+		
+		_this.element = function() {
+			return _canvas;
+		};
+		
+		_this.resize = function(width, height) {
+			_canvas.width = width;
+			_canvas.height = height;
+			
+			_context = _canvas.getContext("2d");
+			_context.font = 'bold ' + _this.config.fontsize + 'px 微软雅黑';
+			_context.fillStyle = '#E6E6E6';
+			_context.globalAlpha = _this.config.alpha;
+			_context.textAlign = 'left';
+			_context.textBaseline = 'top';
+		};
+		
+		_init();
+	};
+	
+	components.bulletscreen.alphas = alphas;
+	components.bulletscreen.positions = positions;
+})(playease);
+
+(function(playease) {
+	playease.core.renders = {
+		sourcetypes: {
+			LIVE: 'live',
+			VOD:  'vod'
+		}
+	};
 })(playease);
 
 (function(playease) {
@@ -3757,18 +4425,7 @@ playease.version = '1.0.23';
 		core = playease.core,
 		renders = core.renders,
 		rendermodes = renders.modes,
-		css = utils.css,
-		
-		RENDER_CLASS = 'pla-render',
-		
-		// For all api instances
-		CSS_SMOOTH_EASE = 'opacity .25s ease',
-		CSS_100PCT = '100%',
-		CSS_ABSOLUTE = 'absolute',
-		CSS_IMPORTANT = ' !important',
-		CSS_HIDDEN = 'hidden',
-		CSS_NONE = 'none',
-		CSS_BLOCK = 'block';
+		css = utils.css;
 	
 	renders.def = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -3814,7 +4471,7 @@ playease.version = '1.0.23';
 		};
 		
 		_this.seek = function(offset) {
-			
+			_video.currentTime = offset * _video.duration / 100;
 		};
 		
 		_this.stop = function() {
@@ -3863,18 +4520,7 @@ playease.version = '1.0.23';
 		AMF = muxer.AMF,
 		TAG = muxer.flv.TAG,
 		FORMATS = muxer.flv.FORMATS,
-		CODECS = muxer.flv.CODECS,
-		
-		RENDER_CLASS = 'pla-render',
-		
-		// For all api instances
-		CSS_SMOOTH_EASE = 'opacity .25s ease',
-		CSS_100PCT = '100%',
-		CSS_ABSOLUTE = 'absolute',
-		CSS_IMPORTANT = ' !important',
-		CSS_HIDDEN = 'hidden',
-		CSS_NONE = 'none',
-		CSS_BLOCK = 'block';
+		CODECS = muxer.flv.CODECS;
 	
 	renders.flv = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -4231,456 +4877,6 @@ playease.version = '1.0.23';
 })(playease);
 
 (function(playease) {
-	playease.core.components = {};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		core = playease.core,
-		components = core.components,
-		
-		directions = {
-			HORIZONTAL: 0,
-			VERTICAL:   1
-		};
-	
-	components.slider = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
-			_defaults = {
-				wrapper: '',
-				name: '',
-				direction: directions.HORIZONTAL
-			},
-			_railnames = ['bg', 'buf', 'pro'],
-			_rails,
-			_thumb,
-			_direction,
-			_container,
-			_percentage,
-			_active,
-			_value;
-		
-		function _init() {
-			_this.config = utils.extend({}, _defaults, config);
-			
-			_rails = {};
-			_direction = _this.config.direction;
-			_percentage = 0;
-			_active = false;
-			
-			_build();
-			
-			try {
-				document.addEventListener('mousedown', _onMouseDown);
-				document.addEventListener('mousemove', _onMouseMove);
-				document.addEventListener('mouseup', _onMouseUp);
-			} catch (err) {
-				document.attachEvent('onmousedown', _onMouseDown);
-				document.attachEvent('onmousemove', _onMouseMove);
-				document.attachEvent('onmouseup', _onMouseUp);
-			}
-		}
-		
-		function _build() {
-			if (utils.isMobile() && _this.config.name.indexOf('volume') === 0) {
-				return;
-			}
-			
-			_container = utils.createElement('div', 'plslider ' + _this.config.name);
-			
-			for (var i = 0; i < _railnames.length; i++) {
-				var name = _railnames[i];
-				var rail = _rails[name] = utils.createElement('span', 'plrail ' + name);
-				_container.appendChild(rail);
-			}
-			
-			_thumb = utils.createElement('span', 'plthumb');
-			_container.appendChild(_thumb);
-		}
-		
-		_this.buffered = function(percentage) {
-			_rails.buf.style.width = percentage + '%';
-		};
-		
-		_this.update = function(percentage) {
-			_percentage = percentage;
-			_rails.pro.style.width = _percentage + '%';
-			_thumb.style.left = 'calc(' + _percentage + '% - 5px)';
-		};
-		
-		function _onMouseDown(e) {
-			var target = e.target.parentNode === _container ? e.target.parentNode : e.target;
-			if (target !== _container) {
-				return;
-			}
-			
-			var value = _getValue(e.clientX, e.clientY);
-			if (value != _value) {
-				_value = value;
-				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
-			}
-			
-			_active = true;
-		}
-		
-		function _onMouseMove(e) {
-			if (!_active) {
-				return;
-			}
-			
-			var value = _getValue(e.clientX, e.clientY);
-			if (value != _value) {
-				_value = value;
-				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
-			}
-		}
-		
-		function _onMouseUp(e) {
-			if (!_active) {
-				return;
-			}
-			
-			var value = _getValue(e.clientX, e.clientY);
-			if (value != _value) {
-				_value = value;
-				_this.dispatchEvent(events.PLAYEASE_SLIDER_CHANGE, { value: value });
-			}
-			
-			_active = false;
-		}
-		
-		function _getValue(x, y) {
-			var wrapper = document.getElementById(_this.config.wrapper);
-			var offsetX = x - _container.offsetLeft - wrapper.offsetLeft;
-			var offsetY = y - _container.offsetTop - _container.parentNode.parentNode.offsetTop;
-			
-			var value;
-			if (_direction == directions.HORIZONTAL) {
-				value = Math.floor(offsetX / _container.clientWidth * 100);
-			} else {
-				value = Math.floor(offsetY / _container.clientHeight * 100);
-			}
-			
-			value = Math.max(0, Math.min(value, 100));
-			
-			return value;
-		}
-		
-		_this.element = function() {
-			return _container;
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		core = playease.core,
-		components = core.components,
-		
-		types = {
-			DEVIDER: 0,
-			LABEL:   1,
-			BUTTON:  2,
-			SLIDER:  3
-		};
-	
-	components.controlbar = function(layer, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
-			_defaults = {
-				wrapper: ''
-			},
-			_layout = {
-				left: [
-					_layoutElement('play', types.BUTTON),
-					_layoutElement('pause', types.BUTTON),
-					_layoutElement('reload', types.BUTTON),
-					_layoutElement('stop', types.BUTTON),
-					_layoutElement('alt', types.LABEL),
-					_layoutElement('elapsed', types.LABEL),
-					_layoutElement('devider', types.DEVIDER),
-					_layoutElement('duration', types.LABEL)
-				],
-				center: [
-					
-				],
-				right: [
-					_layoutElement('report', types.BUTTON),
-					_layoutElement('volume', types.BUTTON),
-					_layoutElement('volume', types.SLIDER),
-					_layoutElement('hd', types.BUTTON),
-					_layoutElement('bullet', types.BUTTON),
-					_layoutElement('fullpage', types.BUTTON),
-					_layoutElement('fpexit', types.BUTTON),
-					_layoutElement('fullscreen', types.BUTTON),
-					_layoutElement('fsexit', types.BUTTON)
-				]
-			},
-			_leftgroup,
-			_centergroup,
-			_rightgroup,
-			_timeBar,
-			_volumeBar,
-			_labels,
-			_buttons;
-		
-		function _init() {
-			_this.config = utils.extend({}, _defaults, config);
-			
-			_timeBar = new components.slider({ wrapper: _this.config.wrapper, name: 'time' });
-			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
-			layer.appendChild(_timeBar.element());
-			
-			_labels = {};
-			_buttons = {};
-			
-			_buildLayout();
-		}
-		
-		function _layoutElement(name, type, className) {
-			return {
-				name: name,
-				type: type,
-				className: className
-			};
-		}
-		
-		function _buildLayout() {
-			_buildGroup('left', _layout.left);
-			_buildGroup('center', _layout.center);
-			_buildGroup('right', _layout.right);
-		}
-		
-		function _buildGroup(pos, elts) {
-			var group = utils.createElement('div', 'pl' + pos);
-			
-			for (var i = 0; i < elts.length; i++) {
-				var element = _buildElement(elts[i], pos);
-				if (element) {
-					group.appendChild(element);
-				}
-			}
-			
-			layer.appendChild(group);
-		}
-		
-		function _buildElement(elt, pos) {
-			var element;
-			
-			switch (elt.type) {
-				case types.DEVIDER:
-					element = _buildDevider(elt.name);
-					break;
-				case types.LABEL:
-					element = _buildLabel(elt.name);
-					break;
-				case types.BUTTON:
-					element = _buildButton(elt.name, pos);
-					break;
-				case types.SLIDER:
-					if (elt.name === 'volume') {
-						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
-						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
-						element = _volumeBar.element();
-					}
-					break;
-				default:
-					break;
-			}
-			
-			return element;
-		}
-		
-		function _buildDevider(name) {
-			var className = 'pldevider';
-			var element = utils.createElement('span', className);
-			element.innerHTML = '/';
-			
-			return element;
-		}
-		
-		function _buildLabel(name) {
-			var className = 'pllabel pl' + name;
-			var text = '';
-			
-			switch (name) {
-				case 'alt':
-					text = 'Live broadcast';
-					break;
-				case 'elapsed':
-				case 'duration':
-					className += ' plhidden';
-					text = '00:00';
-					break;
-				case 'devider':
-					text = '/';
-					break;
-				default:
-					break;
-			}
-			
-			var element = utils.createElement('span', className);
-			element.innerHTML = text;
-			
-			_labels[name] = element;
-			
-			return element;
-		}
-		
-		function _buildButton(name, pos) {
-			// Don't show volume or mute controls on mobile, since it's not possible to modify audio levels in JS
-			if (utils.isMobile() && (name === 'volume' || name.indexOf('volume') === 0)) {
-				return null;
-			}
-			// Having issues with stock (non-chrome) Android browser and showing overlays.
-			// Just remove HD/CC buttons in that case
-			if (utils.isAndroid(4, true) && /hd|cc/.test(name)) {
-				return null;
-			}
-			
-			var element = utils.createElement('span', 'plbutton pl' + name);
-			element.name = name;
-			try {
-				element.addEventListener('click', _onButtonClick);
-			} catch(err) {
-				element.attachEvent('onclick', _onButtonClick);
-			}
-			
-			_buttons[name] = element;
-			
-			return element;
-		}
-		
-		function _onButtonClick(e) {
-			var name = e.target.name;
-			
-			switch (name) {
-				case 'play':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-					break;
-				case 'pause':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
-					break;
-				case 'reload':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_RELOAD);
-					break;
-				case 'stop':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-					break;
-				case 'report':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_REPORT);
-					break;
-				case 'volume':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
-					break;
-				case 'hd':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_HD);
-					break;
-				case 'bullet':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
-					break;
-				case 'fullpage':
-				case 'fpexit':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE);
-					break;
-				case 'fullscreen':
-				case 'fsexit':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
-					break;
-				default:
-					break;
-			}
-		}
-		
-		function _onTimeBarChange(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_SEEK, { offset: e.value });
-		}
-		
-		function _onVolumeBarChange(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_VOLUME, { volume: e.value });
-		}
-		
-		_this.setDuration = function(duration) {
-			var h = Math.floor(duration / 3600);
-			var m = Math.floor((duration % 3600) / 60);
-			var s = Math.floor(duration % 60);
-			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
-			_labels.duration.innerHTML = text;
-		};
-		
-		_this.setElapsed = function(elapsed) {
-			var h = Math.floor(elapsed / 3600);
-			var m = Math.floor((elapsed % 3600) / 60);
-			var s = Math.floor(elapsed % 60);
-			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
-			_labels.elapsed.innerHTML = text;
-		};
-		
-		_this.setProgress = function(elapsed, duration) {
-			if (!duration) {
-				return;
-			}
-			
-			var percentage = Math.floor(elapsed / duration * 10000) / 100;
-			_timeBar.update(percentage);
-		};
-		
-		_this.setBuffered = function(buffered, total) {
-			if (!total) {
-				return;
-			}
-			
-			var percentage = Math.floor(buffered / total * 10000) / 100;
-			_timeBar.buffered(percentage);
-		};
-		
-		_this.setMuted = function(muted, vol) {
-			if (muted) {
-				utils.addClass(_buttons.volume, 'mute');
-				_volumeBar.update(0);
-			} else {
-				utils.removeClass(_buttons.volume, 'mute');
-				_volumeBar.update(vol);
-			}
-		};
-		
-		_this.setVolume = function(vol) {
-			if (vol) {
-				utils.removeClass(_buttons.volume, 'mute');
-			} else {
-				utils.addClass(_buttons.volume, 'mute');
-			}
-			_volumeBar.update(vol);
-		};
-		
-		_this.setBullet = function(on) {
-			if (on) {
-				utils.removeClass(_buttons.bullet, 'off');
-			} else {
-				utils.addClass(_buttons.bullet, 'off');
-			}
-		};
-		
-		_this.resize = function(width, height) {
-			
-		};
-		
-		_this.destroy = function() {
-			
-		};
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core;
@@ -4719,6 +4915,7 @@ playease.version = '1.0.23';
 			
 			_this.getState = _model.getState;
 			
+			_this.shoot = _view.shoot;
 			_this.resize = _view.resize;
 		}
 		
@@ -4767,7 +4964,7 @@ playease.version = '1.0.23';
 				sources: config.sources,
 				muted: false,
 				volume: 80,
-				bullet: true,
+				bullet: _this.config.bulletscreen.enable,
 				fullpage: false,
 				fullscreen: false
 			};
@@ -4823,7 +5020,6 @@ playease.version = '1.0.23';
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		BULLET_CLASS = 'pla-bullet',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
@@ -4831,11 +5027,11 @@ playease.version = '1.0.23';
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
-			_bulletLayer,
 			_controlsLayer,
 			_contextmenuLayer,
 			_render,
 			_controlbar,
+			_bulletscreen,
 			_skin,
 			_video,
 			_timer,
@@ -4848,17 +5044,15 @@ playease.version = '1.0.23';
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_bulletLayer = utils.createElement('div', BULLET_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_bulletLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
-			_initRender();
 			_initComponents();
+			_initRender();
 			_initSkin();
 			
 			var replace = document.getElementById(entity.id);
@@ -4954,13 +5148,29 @@ playease.version = '1.0.23';
 		}
 		
 		function _initComponents() {
+			var cfg = model.getConfig('bulletscreen');
+			
 			try {
-				_controlbar = new components.controlbar(_controlsLayer, { wrapper: entity.id });
+				_controlbar = new components.controlbar(_controlsLayer, utils.extend({}, {
+					wrapper: entity.id,
+					bulletscreen: cfg
+				}));
 				_controlbar.addGlobalListener(_forward);
 				
 				_controlbar.setVolume(model.getProperty('volume'));
 			} catch (err) {
 				utils.log('Failed to init controlbar!');
+			}
+			
+			try {
+				_bulletscreen = new components.bulletscreen(utils.extend({}, cfg, {
+					width: model.config.width,
+					height: model.config.height
+				}));
+				_bulletscreen.addGlobalListener(_forward);
+				_renderLayer.appendChild(_bulletscreen.element());
+			} catch (err) {
+				utils.log('Failed to init bullet!');
 			}
 		}
 		
@@ -5043,6 +5253,7 @@ playease.version = '1.0.23';
 		
 		_this.bullet = function(bullet) {
 			_controlbar.setBullet(bullet);
+			_bulletscreen.setProperty('enable', bullet);
 		};
 		
 		_this.fullpage = function(exit) {
@@ -5061,6 +5272,8 @@ playease.version = '1.0.23';
 			} else {
 				utils.addClass(_wrapper, 'fp');
 			}
+			
+			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -5082,6 +5295,14 @@ playease.version = '1.0.23';
 				
 				_wrapper.requestFullscreen();
 				utils.addClass(_wrapper, 'fs');
+			}
+			
+			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
+		};
+		
+		_this.shoot = function(text) {
+			if (_bulletscreen) {
+				_bulletscreen.shoot(text);
 			}
 		};
 		
@@ -5441,13 +5662,12 @@ playease.version = '1.0.23';
 	var utils = playease.utils,
 		events = playease.events,
 		embed = playease.embed,
-		rendermodes = playease.core.renders.modes,
-		skinmodes = playease.core.skins.modes,
-		
-		sourcetypes = {
-			LIVE: 'live',
-			VOD:  'vod'
-		};
+		core = playease.core,
+		alphas = core.components.bulletscreen.alphas,
+		positions = core.components.bulletscreen.positions,
+		sourcetypes = core.renders.sourcetypes,
+		rendermodes = core.renders.modes,
+		skinmodes = core.skins.modes;
 	
 	embed.config = function(config) {
 		var _defaults = {
@@ -5462,6 +5682,12 @@ playease.version = '1.0.23';
 			autoplay: true,
 			playsinline: true,
 			poster: '',
+			bulletscreen: {
+				enable: true,
+				fontsize: 14,
+				alpha: alphas.LOW,
+				position: positions.FULLSCREEN
+			},
 			render: {
 				name: rendermodes.DEFAULT
 			},

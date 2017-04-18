@@ -17,7 +17,7 @@
 				sources: config.sources,
 				muted: false,
 				volume: 80,
-				bullet: true,
+				bullet: _this.config.bulletscreen.enable,
 				fullpage: false,
 				fullscreen: false
 			};

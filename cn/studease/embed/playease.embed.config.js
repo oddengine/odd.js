@@ -2,13 +2,12 @@
 	var utils = playease.utils,
 		events = playease.events,
 		embed = playease.embed,
-		rendermodes = playease.core.renders.modes,
-		skinmodes = playease.core.skins.modes,
-		
-		sourcetypes = {
-			LIVE: 'live',
-			VOD:  'vod'
-		};
+		core = playease.core,
+		alphas = core.components.bulletscreen.alphas,
+		positions = core.components.bulletscreen.positions,
+		sourcetypes = core.renders.sourcetypes,
+		rendermodes = core.renders.modes,
+		skinmodes = core.skins.modes;
 	
 	embed.config = function(config) {
 		var _defaults = {
@@ -23,6 +22,12 @@
 			autoplay: true,
 			playsinline: true,
 			poster: '',
+			bulletscreen: {
+				enable: true,
+				fontsize: 14,
+				alpha: alphas.LOW,
+				position: positions.FULLSCREEN
+			},
 			render: {
 				name: rendermodes.DEFAULT
 			},
