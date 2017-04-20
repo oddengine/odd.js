@@ -28,14 +28,6 @@
 			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
 			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-			
-			_initializeAPI();
-		}
-		
-		function _initializeAPI() {
-			_this.report = view.report;
-			_this.fullpage = view.fullpage;
-			_this.fullscreen = view.fullscreen;
 		}
 		
 		_this.play = function(url) {
@@ -49,12 +41,12 @@
 		};
 		
 		_this.reload = function() {
-			model.setState(states.PLAYING);
+			model.setState(states.RELOADING);
 			view.play();
 		};
 		
 		_this.seek = function(offset) {
-			model.setState(states.PLAYING);
+			model.setState(states.SEEKING);
 			view.seek(offset);
 		};
 		
@@ -63,10 +55,16 @@
 			view.stop();
 		};
 		
+		_this.report = function() {
+			view.report();
+			_this.dispatchEvent(events.PLAYEASE_REPORTED);
+		};
+		
 		_this.mute = function() {
 			var muted = model.getProperty('muted');
 			model.setProperty('muted', !muted);
 			view.mute(!muted);
+			_this.dispatchEvent(events.PLAYEASE_MUTED);
 		};
 		
 		_this.volume = function(vol) {
@@ -75,12 +73,7 @@
 			}
 			model.setProperty('volume', vol);
 			view.volume(vol);
-		};
-		
-		_this.bullet = function() {
-			var bullet = model.getProperty('bullet');
-			model.setProperty('bullet', !bullet);
-			view.bullet(!bullet);
+			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 		};
 		
 		_this.hd = function(index) {
@@ -92,22 +85,41 @@
 			_this.play(sources[index]);
 		};
 		
+		_this.bullet = function() {
+			var bullet = model.getProperty('bullet');
+			model.setProperty('bullet', !bullet);
+			view.bullet(!bullet);
+			_this.dispatchEvent(events.PLAYEASE_BULLET);
+		};
+		
+		_this.fullpage = function(exit) {
+			view.fullpage(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE);
+		}
+		_this.fullscreen = function(exit) {
+			view.fullscreen(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN);
+		};
+		
 		function _modelStateHandler(e) {
 			switch (e.state) {
 				case states.BUFFERING:
-					_this.dispatchEvent(events.PLAYEASE_BUFFER);
+					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
 					break;
 				case states.PLAYING:
-					_this.dispatchEvent(events.PLAYEASE_PLAY);
+					_this.dispatchEvent(events.PLAYEASE_PLAYING);
 					break;
 				case states.PAUSED:
-					_this.dispatchEvent(events.PLAYEASE_PAUSE);
+					_this.dispatchEvent(events.PLAYEASE_PAUSED);
+					break;
+				case states.RELOADING:
+					_this.dispatchEvent(events.PLAYEASE_RELOADING);
 					break;
 				case states.SEEKING:
-					_this.dispatchEvent(events.PLAYEASE_SEEK);
+					_this.dispatchEvent(events.PLAYEASE_SEEKING);
 					break;
 				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_STOP);
+					_this.dispatchEvent(events.PLAYEASE_STOPPED);
 					break;
 				case states.ERROR:
 					// do nothing here.
