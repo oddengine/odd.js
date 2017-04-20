@@ -107,7 +107,7 @@
 					element = _buildButton(elt.name, pos, elt.className);
 					break;
 				case types.SLIDER:
-					if (elt.name === 'volume') {
+					if (elt.name === 'volume' && !utils.isMobile()) {
 						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
 						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
 						element = _volumeBar.element();
@@ -264,6 +264,10 @@
 		};
 		
 		_this.setMuted = function(muted, vol) {
+			if (utils.isMobile()) {
+				return;
+			}
+			
 			if (muted) {
 				utils.addClass(_buttons.volume, 'mute');
 				_volumeBar.update(0);
@@ -274,6 +278,10 @@
 		};
 		
 		_this.setVolume = function(vol) {
+			if (utils.isMobile()) {
+				return;
+			}
+			
 			if (vol) {
 				utils.removeClass(_buttons.volume, 'mute');
 			} else {

@@ -47,10 +47,6 @@
 		}
 		
 		function _build() {
-			if (utils.isMobile() && _this.config.name.indexOf('volume') === 0) {
-				return;
-			}
-			
 			_container = utils.createElement('div', 'plslider ' + _this.config.name);
 			
 			for (var i = 0; i < _railnames.length; i++) {
