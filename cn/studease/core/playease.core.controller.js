@@ -157,7 +157,7 @@
 		
 		function _onPause(e) {
 			var state = model.getState();
-			if (state == states.BUFFERING || state == states.PLAYING || state == states.ERROR) {
+			if (state == states.BUFFERING || state == states.PLAYING || state == states.RELOADING || state == states.ERROR) {
 				_this.pause();
 				_forward(e);
 			}
