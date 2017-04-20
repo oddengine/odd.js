@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.24';
+playease.version = '1.0.25';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3799,10 +3799,6 @@ playease.version = '1.0.24';
 		}
 		
 		function _build() {
-			if (utils.isMobile() && _this.config.name.indexOf('volume') === 0) {
-				return;
-			}
-			
 			_container = utils.createElement('div', 'plslider ' + _this.config.name);
 			
 			for (var i = 0; i < _railnames.length; i++) {
@@ -4000,7 +3996,7 @@ playease.version = '1.0.24';
 					element = _buildButton(elt.name, pos, elt.className);
 					break;
 				case types.SLIDER:
-					if (elt.name === 'volume') {
+					if (elt.name === 'volume' && !utils.isMobile()) {
 						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
 						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
 						element = _volumeBar.element();
@@ -4157,6 +4153,10 @@ playease.version = '1.0.24';
 		};
 		
 		_this.setMuted = function(muted, vol) {
+			if (utils.isMobile()) {
+				return;
+			}
+			
 			if (muted) {
 				utils.addClass(_buttons.volume, 'mute');
 				_volumeBar.update(0);
@@ -4167,6 +4167,10 @@ playease.version = '1.0.24';
 		};
 		
 		_this.setVolume = function(vol) {
+			if (utils.isMobile()) {
+				return;
+			}
+			
 			if (vol) {
 				utils.removeClass(_buttons.volume, 'mute');
 			} else {
