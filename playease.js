@@ -5692,7 +5692,7 @@ playease.version = '1.0.26';
 			width: 640,
 			height: 360,
 			sources: [],
-			type: sourcetypes.LIVE,
+			type: sourcetypes.VOD,
 			cors: 'no-cors',
 			bufferTime: .1,
 			controls: true,
