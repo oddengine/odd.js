@@ -42,7 +42,7 @@ _defaults = {
 	width: 640,
 	height: 360,
 	sources: [],
-	type: sourcetypes.LIVE,
+	type: sourcetypes.VOD,
 	cors: 'no-cors',
 	bufferTime: .1,
 	controls: true,
