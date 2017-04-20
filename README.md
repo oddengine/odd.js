@@ -7,7 +7,7 @@
 This is a html5 media player for flv live streaming.
 
 
-## Example (Uncompleted, coming soon.)
+## Example
 ----------
 
 ### Basic Configuraion
@@ -85,19 +85,19 @@ _eventMapping = {
 	onError: events.ERROR,
 	onReady: events.PLAYEASE_READY,
 	onMetaData: events.PLAYEASE_METADATA,
-	onBuffer: events.PLAYEASE_BUFFER,
-	onPlay: events.PLAYEASE_PLAY,
-	onPause: events.PLAYEASE_PAUSE,
-	onReload: events.PLAYEASE_RELOAD,
-	onSeek: events.PLAYEASE_SEEK,
-	onStop: events.PLAYEASE_STOP,
-	onReport: events.PLAYEASE_REPORT,
-	onMute: events.PLAYEASE_MUTE,
+	onBuffering: events.PLAYEASE_BUFFERING,
+	onPlaying: events.PLAYEASE_PLAYING,
+	onPaused: events.PLAYEASE_PAUSED,
+	onReloading: events.PLAYEASE_RELOADING,
+	onSeeking: events.PLAYEASE_SEEKING,
+	onStopped: events.PLAYEASE_STOPPED,
+	onReported: events.PLAYEASE_REPORTED,
+	onMuted: events.PLAYEASE_MUTED,
 	onVolume: events.PLAYEASE_VOLUME,
 	onHD: events.PLAYEASE_HD,
 	onBullet: events.PLAYEASE_BULLET,
 	onFullpage: events.PLAYEASE_FULLPAFE,
-	onFullscreen: events.PLAYEASE_VIEW_FULLSCREEN
+	onFullscreen: events.PLAYEASE_FULLSCREEN
 };
 ```
 
@@ -113,6 +113,7 @@ _eventMapping = {
 * **volume(vol)**
 * **hd()**
 * **bullet()**
+* **fullpage(exit)**
 * **fullscreen(exit)**
 * **shoot(text)**
 * **resize(width, height)**

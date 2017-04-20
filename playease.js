@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.25';
+playease.version = '1.0.26';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -313,14 +313,14 @@ playease.version = '1.0.25';
 		PLAYEASE_PROPERTY: 'playeaseProperty',
 		PLAYEASE_METADATA: 'playeaseMetaData',
 		
-		PLAYEASE_BUFFER: 'playeaseBuffer',
-		PLAYEASE_PLAY: 'playeasePlay',
-		PLAYEASE_PAUSE: 'playeasePause',
-		PLAYEASE_RELOAD: 'playeaseReload',
-		PLAYEASE_SEEK: 'playeaseSeek',
-		PLAYEASE_STOP: 'playeaseStop',
-		PLAYEASE_REPORT: 'playeaseReport',
-		PLAYEASE_MUTE: 'playeaseMute',
+		PLAYEASE_BUFFERING: 'playeaseBuffering',
+		PLAYEASE_PLAYING: 'playeasePlaying',
+		PLAYEASE_PAUSED: 'playeasePaused',
+		PLAYEASE_RELOADING: 'playeaseReloading',
+		PLAYEASE_SEEKING: 'playeaseSeeking',
+		PLAYEASE_STOPPED: 'playeaseStopped',
+		PLAYEASE_REPORTED: 'playeaseReported',
+		PLAYEASE_MUTED: 'playeaseMuted',
 		PLAYEASE_VOLUME: 'playeaseVolume',
 		PLAYEASE_HD: 'playeaseHD',
 		PLAYEASE_BULLET: 'playeaseBullet',
@@ -689,19 +689,19 @@ playease.version = '1.0.25';
 			onError: events.ERROR,
 			onReady: events.PLAYEASE_READY,
 			onMetaData: events.PLAYEASE_METADATA,
-			onBuffer: events.PLAYEASE_BUFFER,
-			onPlay: events.PLAYEASE_PLAY,
-			onPause: events.PLAYEASE_PAUSE,
-			onReload: events.PLAYEASE_RELOAD,
-			onSeek: events.PLAYEASE_SEEK,
-			onStop: events.PLAYEASE_STOP,
-			onReport: events.PLAYEASE_REPORT,
-			onMute: events.PLAYEASE_MUTE,
+			onBuffering: events.PLAYEASE_BUFFERING,
+			onPlaying: events.PLAYEASE_PLAYING,
+			onPaused: events.PLAYEASE_PAUSED,
+			onReloading: events.PLAYEASE_RELOADING,
+			onSeeking: events.PLAYEASE_SEEKING,
+			onStopped: events.PLAYEASE_STOPPED,
+			onReported: events.PLAYEASE_REPORTED,
+			onMuted: events.PLAYEASE_MUTED,
 			onVolume: events.PLAYEASE_VOLUME,
 			onHD: events.PLAYEASE_HD,
 			onBullet: events.PLAYEASE_BULLET,
 			onFullpage: events.PLAYEASE_FULLPAFE,
-			onFullscreen: events.PLAYEASE_VIEW_FULLSCREEN
+			onFullscreen: events.PLAYEASE_FULLSCREEN
 		};
 	
 	playease.api = function(container) {
@@ -3371,8 +3371,9 @@ playease.version = '1.0.25';
 	playease.core.states = {
 		BUFFERING: 'buffering',
 		PLAYING: 'playing',
-		SEEKING: 'seeking',
 		PAUSED: 'paused',
+		RELOADING: 'reloading',
+		SEEKING: 'seeking',
 		STOPPED: 'stopped',
 		ERROR: 'error'
 	};
@@ -5397,14 +5398,6 @@ playease.version = '1.0.25';
 			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
 			
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-			
-			_initializeAPI();
-		}
-		
-		function _initializeAPI() {
-			_this.report = view.report;
-			_this.fullpage = view.fullpage;
-			_this.fullscreen = view.fullscreen;
 		}
 		
 		_this.play = function(url) {
@@ -5418,12 +5411,12 @@ playease.version = '1.0.25';
 		};
 		
 		_this.reload = function() {
-			model.setState(states.PLAYING);
+			model.setState(states.RELOADING);
 			view.play();
 		};
 		
 		_this.seek = function(offset) {
-			model.setState(states.PLAYING);
+			model.setState(states.SEEKING);
 			view.seek(offset);
 		};
 		
@@ -5432,10 +5425,16 @@ playease.version = '1.0.25';
 			view.stop();
 		};
 		
+		_this.report = function() {
+			view.report();
+			_this.dispatchEvent(events.PLAYEASE_REPORTED);
+		};
+		
 		_this.mute = function() {
 			var muted = model.getProperty('muted');
 			model.setProperty('muted', !muted);
 			view.mute(!muted);
+			_this.dispatchEvent(events.PLAYEASE_MUTED);
 		};
 		
 		_this.volume = function(vol) {
@@ -5444,12 +5443,7 @@ playease.version = '1.0.25';
 			}
 			model.setProperty('volume', vol);
 			view.volume(vol);
-		};
-		
-		_this.bullet = function() {
-			var bullet = model.getProperty('bullet');
-			model.setProperty('bullet', !bullet);
-			view.bullet(!bullet);
+			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 		};
 		
 		_this.hd = function(index) {
@@ -5461,22 +5455,41 @@ playease.version = '1.0.25';
 			_this.play(sources[index]);
 		};
 		
+		_this.bullet = function() {
+			var bullet = model.getProperty('bullet');
+			model.setProperty('bullet', !bullet);
+			view.bullet(!bullet);
+			_this.dispatchEvent(events.PLAYEASE_BULLET);
+		};
+		
+		_this.fullpage = function(exit) {
+			view.fullpage(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE);
+		}
+		_this.fullscreen = function(exit) {
+			view.fullscreen(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN);
+		};
+		
 		function _modelStateHandler(e) {
 			switch (e.state) {
 				case states.BUFFERING:
-					_this.dispatchEvent(events.PLAYEASE_BUFFER);
+					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
 					break;
 				case states.PLAYING:
-					_this.dispatchEvent(events.PLAYEASE_PLAY);
+					_this.dispatchEvent(events.PLAYEASE_PLAYING);
 					break;
 				case states.PAUSED:
-					_this.dispatchEvent(events.PLAYEASE_PAUSE);
+					_this.dispatchEvent(events.PLAYEASE_PAUSED);
+					break;
+				case states.RELOADING:
+					_this.dispatchEvent(events.PLAYEASE_RELOADING);
 					break;
 				case states.SEEKING:
-					_this.dispatchEvent(events.PLAYEASE_SEEK);
+					_this.dispatchEvent(events.PLAYEASE_SEEKING);
 					break;
 				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_STOP);
+					_this.dispatchEvent(events.PLAYEASE_STOPPED);
 					break;
 				case states.ERROR:
 					// do nothing here.

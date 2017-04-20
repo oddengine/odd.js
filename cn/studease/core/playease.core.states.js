@@ -2,8 +2,9 @@
 	playease.core.states = {
 		BUFFERING: 'buffering',
 		PLAYING: 'playing',
-		SEEKING: 'seeking',
 		PAUSED: 'paused',
+		RELOADING: 'reloading',
+		SEEKING: 'seeking',
 		STOPPED: 'stopped',
 		ERROR: 'error'
 	};
