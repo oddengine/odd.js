@@ -148,30 +148,23 @@
 		}
 		
 		function _onPlay(e) {
-			var state = model.getState();
-			if (state == states.PAUSED || state == states.STOPPED || state == states.ERROR) {
-				_this.play();
-				_forward(e);
-			}
+			_this.play();
+			_forward(e);
 		}
 		
 		function _onPause(e) {
-			var state = model.getState();
-			if (state == states.BUFFERING || state == states.PLAYING || state == states.RELOADING || state == states.ERROR) {
-				_this.pause();
-				_forward(e);
-			}
+			_this.pause();
+			_forward(e);
 		}
 		
 		function _onReload(e) {
-			model.setState(states.BUFFERING);
 			_this.reload();
 			_forward(e);
 		}
 		
 		function _onSeek(e) {
 			var state = model.getState();
-			if (state != states.SEEKING) {
+			if (state != states.STOPPED && state != states.ERROR) {
 				_this.seek(e.offset);
 				_forward(e);
 			}

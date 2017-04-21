@@ -28,6 +28,7 @@
 			_skin,
 			_video,
 			_timer,
+			_autohidetimer,
 			_errorOccurred = false;
 		
 		function _init() {
@@ -266,6 +267,12 @@
 				utils.addClass(_wrapper, 'fp');
 			}
 			
+			if (_autohidetimer) {
+				_autohidetimer.stop();
+			}
+			_wrapper.removeEventListener('mousemove', _onMouseMove);
+			_controlsLayer.style.display = 'block';
+			
 			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
 		};
 		
@@ -279,6 +286,11 @@
 				
 				document.exitFullscreen();
 				utils.removeClass(_wrapper, 'fs');
+				
+				if (_autohidetimer) {
+					_autohidetimer.stop();
+				}
+				_wrapper.removeEventListener('mousemove', _onMouseMove);
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
 				if (!_wrapper.requestFullscreen) {
@@ -288,7 +300,14 @@
 				
 				_wrapper.requestFullscreen();
 				utils.addClass(_wrapper, 'fs');
+				
+				if (_autohidetimer) {
+					_autohidetimer.start();
+				}
+				_wrapper.addEventListener('mousemove', _onMouseMove);
 			}
+			
+			_controlsLayer.style.display = 'block';
 			
 			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
 		};
@@ -298,6 +317,20 @@
 				_bulletscreen.shoot(text);
 			}
 		};
+		
+		function _onMouseMove(e) {
+			_controlsLayer.style.display = 'block';
+			
+			if (!_autohidetimer) {
+				_autohidetimer = new utils.timer(3000, 1);
+				_autohidetimer.addEventListener(events.PLAYEASE_TIMER, _autoHideControlBar);
+			}
+			_autohidetimer.start();
+		}
+		
+		function _autoHideControlBar(e) {
+			_controlsLayer.style.display = 'none';
+		}
 		
 		function _onKeyDown(e) {
 			if (e.ctrlKey || e.metaKey) {

@@ -50,7 +50,11 @@
 		};
 		
 		_this.seek = function(offset) {
-			_video.currentTime = offset * _video.duration / 100;
+			if (_video.duration === NaN) {
+				_this.play();
+			} else {
+				_video.currentTime = offset * _video.duration / 100;
+			}
 		};
 		
 		_this.stop = function() {
