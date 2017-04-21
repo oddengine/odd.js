@@ -3767,7 +3767,7 @@ playease.version = '1.0.28';
 		};
 	
 	components.slider = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+		var _this = utils.extend(this, new events.eventdispatcher('components.slider')),
 			_defaults = {
 				wrapper: '',
 				name: '',
@@ -4227,7 +4227,7 @@ playease.version = '1.0.28';
 		};
 	
 	components.bulletscreen = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+		var _this = utils.extend(this, new events.eventdispatcher('components.bulletscreen')),
 			_defaults = {
 				width: 640,
 				height: 360,

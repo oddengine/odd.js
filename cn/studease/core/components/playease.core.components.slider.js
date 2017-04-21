@@ -10,7 +10,7 @@
 		};
 	
 	components.slider = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+		var _this = utils.extend(this, new events.eventdispatcher('components.slider')),
 			_defaults = {
 				wrapper: '',
 				name: '',

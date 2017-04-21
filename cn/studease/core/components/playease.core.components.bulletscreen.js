@@ -17,7 +17,7 @@
 		};
 	
 	components.bulletscreen = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
+		var _this = utils.extend(this, new events.eventdispatcher('components.bulletscreen')),
 			_defaults = {
 				width: 640,
 				height: 360,
