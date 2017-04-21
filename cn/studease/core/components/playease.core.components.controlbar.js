@@ -64,6 +64,11 @@
 			_buttons = {};
 			
 			_buildLayout();
+			
+			document.addEventListener('fullscreenchange', _onFullscreenChange);
+			document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
+			document.addEventListener('mozfullscreenchange', _onFullscreenChange);
+			document.addEventListener('msfullscreenchange', _onFullscreenChange);
 		}
 		
 		function _layoutElement(name, type, className) {
@@ -218,6 +223,12 @@
 					break;
 				default:
 					break;
+			}
+		}
+		
+		function _onFullscreenChange(e) {
+			if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
 			}
 		}
 		

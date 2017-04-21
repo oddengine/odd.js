@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.28';
+playease.version = '1.0.29';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3958,6 +3958,11 @@ playease.version = '1.0.28';
 			_buttons = {};
 			
 			_buildLayout();
+			
+			document.addEventListener('fullscreenchange', _onFullscreenChange);
+			document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
+			document.addEventListener('mozfullscreenchange', _onFullscreenChange);
+			document.addEventListener('msfullscreenchange', _onFullscreenChange);
 		}
 		
 		function _layoutElement(name, type, className) {
@@ -4112,6 +4117,12 @@ playease.version = '1.0.28';
 					break;
 				default:
 					break;
+			}
+		}
+		
+		function _onFullscreenChange(e) {
+			if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
 			}
 		}
 		
