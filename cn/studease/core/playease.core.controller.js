@@ -201,18 +201,24 @@
 		
 		function _onFullpage(e) {
 			var fp = model.getProperty('fullpage');
-			_this.fullpage(fp);
-			_forward(e);
+			if (e.exit == !fp) {
+				return;
+			}
 			
 			model.setProperty('fullpage', !fp);
+			_this.fullpage(fp);
+			_forward(e);
 		}
 		
 		function _onFullscreen(e) {
 			var fs = model.getProperty('fullscreen');
-			_this.fullscreen(fs);
-			_forward(e);
+			if (e.exit == !fs) {
+				return;
+			}
 			
 			model.setProperty('fullscreen', !fs);
+			_this.fullscreen(fs);
+			_forward(e);
 		}
 		
 		function _onSetupError(e) {

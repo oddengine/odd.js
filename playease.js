@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.29';
+playease.version = '1.0.30';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4108,12 +4108,16 @@ playease.version = '1.0.29';
 					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
 					break;
 				case 'fullpage':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: false });
+					break;
 				case 'fpexit':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: true });
 					break;
 				case 'fullscreen':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: false });
+					break;
 				case 'fsexit':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: true });
 					break;
 				default:
 					break;
@@ -4122,7 +4126,7 @@ playease.version = '1.0.29';
 		
 		function _onFullscreenChange(e) {
 			if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
+				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: true });
 			}
 		}
 		
@@ -5623,18 +5627,24 @@ playease.version = '1.0.29';
 		
 		function _onFullpage(e) {
 			var fp = model.getProperty('fullpage');
-			_this.fullpage(fp);
-			_forward(e);
+			if (e.exit == !fp) {
+				return;
+			}
 			
 			model.setProperty('fullpage', !fp);
+			_this.fullpage(fp);
+			_forward(e);
 		}
 		
 		function _onFullscreen(e) {
 			var fs = model.getProperty('fullscreen');
-			_this.fullscreen(fs);
-			_forward(e);
+			if (e.exit == !fs) {
+				return;
+			}
 			
 			model.setProperty('fullscreen', !fs);
+			_this.fullscreen(fs);
+			_forward(e);
 		}
 		
 		function _onSetupError(e) {

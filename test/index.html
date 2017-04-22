@@ -3,7 +3,7 @@
 <head>
 	<title>PLAYEASE.JS</title>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-	<!--<script type='text/javascript' src='../playease.regular.min.js'></script>-->
+	<!--<script type='text/javascript' src='../playease.min.js'></script>-->
 	<script type='text/javascript' src='../cn/studease/playease.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.endian.js'></script>
@@ -51,23 +51,11 @@
 			type: 'vod',
 			cors: 'no-cors',
 			controls: true,
-			autoplay: false,
+			autoplay: true,
 			poster: 'sample.png',
 			render: {
 				name: 'flv'
 			}
 		});
-		
-		function dofs(e) {
-			player.fullscreen();
-		}
-		
-		/*setTimeout(function() {
-			player.stop();
-		}, 2000);
-		
-		setTimeout(function() {
-			playease('player').play('/vod/sample.2.flv');
-		}, 5000);*/
 	</script>
 </body>
