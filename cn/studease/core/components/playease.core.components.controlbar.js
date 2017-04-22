@@ -214,12 +214,16 @@
 					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
 					break;
 				case 'fullpage':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: false });
+					break;
 				case 'fpexit':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: true });
 					break;
 				case 'fullscreen':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: false });
+					break;
 				case 'fsexit':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: true });
 					break;
 				default:
 					break;
@@ -228,7 +232,7 @@
 		
 		function _onFullscreenChange(e) {
 			if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
-				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN);
+				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: true });
 			}
 		}
 		
