@@ -64,7 +64,7 @@
 			var muted = model.getProperty('muted');
 			model.setProperty('muted', !muted);
 			view.mute(!muted);
-			_this.dispatchEvent(events.PLAYEASE_MUTED);
+			_this.dispatchEvent(events.PLAYEASE_MUTED, { mute: !muted });
 		};
 		
 		_this.volume = function(vol) {
@@ -89,16 +89,16 @@
 			var bullet = model.getProperty('bullet');
 			model.setProperty('bullet', !bullet);
 			view.bullet(!bullet);
-			_this.dispatchEvent(events.PLAYEASE_BULLET);
+			_this.dispatchEvent(events.PLAYEASE_BULLET, { bullet: !bullet ? 'on' : 'off' });
 		};
 		
 		_this.fullpage = function(exit) {
 			view.fullpage(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLPAGE);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
 		}
 		_this.fullscreen = function(exit) {
 			view.fullscreen(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
 		};
 		
 		function _modelStateHandler(e) {
