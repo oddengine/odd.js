@@ -41,7 +41,9 @@
 	<script type='text/javascript' src='../cn/studease/embed/playease.embed.embedder.js'></script>
 </head>
 <body>
-	<div id='player'></div>
+	<div id='fp' style='margin: 4rem auto; width: 640px; height: 400px; top: 0; left: 0;'>
+		<div id='player'></div>
+	</div>
 	
 	<script type="text/javascript">
 		var player = playease('player').setup({
@@ -51,10 +53,19 @@
 			type: 'vod',
 			cors: 'no-cors',
 			controls: true,
-			autoplay: true,
+			autoplay: false,
 			poster: 'sample.png',
 			render: {
 				name: 'flv'
+			},
+			events: {
+				onFullpage: function(e) {
+					var fp = document.getElementById('fp');
+					fp.style.margin = e.exit ? '4rem auto' : '0';
+					fp.style.width = e.exit ? '640px' : '100%';
+					fp.style.height = e.exit ? '400px' : '100%';
+					fp.style.position = e.exit ? 'relative' : 'absolute';
+				}
 			}
 		});
 	</script>
