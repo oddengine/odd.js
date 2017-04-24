@@ -191,7 +191,8 @@
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAd0lEQVQ4T2NkoBJgpJI5DKgGzX9lwMDMyE+U4X//f2RIFLsAU4swCGQI4//zRBkCU/Sf0RBmGJJBrx0YGP/tJ80gJkeGRNEDID2jBuEIuf+jYUQwTdE4jMjJIthiDeQPUH5jYBQg6CWYAmj2QM0iROvGrpBq5REAFKdRE3q6U4sAAAAASUVORK5CYII=)'
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plelapsed', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plalt'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plelapsed', {
 				'margin-left': '8px'
 			});
 			
