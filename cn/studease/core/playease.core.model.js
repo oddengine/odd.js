@@ -14,7 +14,9 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_properties = {
-				sources: config.sources,
+				ratio: _this.config.width / (_this.config.height - 40),
+				sources: _this.config.sources,
+				duration: 0,
 				muted: false,
 				volume: 80,
 				bullet: _this.config.bulletscreen.enable,

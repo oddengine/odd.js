@@ -4,7 +4,8 @@
 
 > [[source] https://github.com/studease/playease](https://github.com/studease/playease)
 
-This is a html5 media player for flv live streaming.
+This is a HTML5 media player for FLV live streaming, FLV VoD and original HTML5 media sources, eg. Ogg, Mpeg4, WebM, HLS.
+It also supports RTMP streaming for MSIE with flash embed in.
 
 
 ## Example
@@ -91,8 +92,8 @@ _eventMapping = {
 	onReloading: events.PLAYEASE_RELOADING,
 	onSeeking: events.PLAYEASE_SEEKING,
 	onStopped: events.PLAYEASE_STOPPED,
-	onReported: events.PLAYEASE_REPORTED,
-	onMuted: events.PLAYEASE_MUTED,
+	onReport: events.PLAYEASE_REPORT,
+	onMute: events.PLAYEASE_MUTE,
 	onVolume: events.PLAYEASE_VOLUME,
 	onHD: events.PLAYEASE_HD,
 	onBullet: events.PLAYEASE_BULLET,

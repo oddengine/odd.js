@@ -39,13 +39,9 @@
 			SKIN_CLASS += '-' + _this.name;
 			
 			css('.' + WRAP_CLASS, {
-				width: _width + 'px',
-				height: (_height + 40) + 'px',
-				'box-shadow': '0 1px 1px rgba(0, 0, 0, 0.05)'
-			});
-			css('.' + WRAP_CLASS + '.fp, .' + WRAP_CLASS + '.fs', {
 				width: CSS_100PCT,
-				height: CSS_100PCT
+				height: CSS_100PCT,
+				'box-shadow': '0 1px 1px rgba(0, 0, 0, 0.05)'
 			});
 			css('.' + WRAP_CLASS + ' *', {
 				margin: '0',
@@ -82,7 +78,7 @@
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
 				height: 'calc(100% - 40px)',
-				position: CSS_RELATIVE,
+				'font-size': '0',
 				background: 'black'
 			});
 			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
@@ -91,7 +87,8 @@
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' canvas', {
 				position: CSS_ABSOLUTE
 			});
-			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video', {
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video'
+				+ ', .' + SKIN_CLASS + ' .' + RENDER_CLASS + ' object', {
 				width: CSS_100PCT,
 				height: CSS_100PCT
 			});
@@ -112,11 +109,13 @@
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plcenter', {
-				
+				display: CSS_BLOCK
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plright', {
-				'float': 'right'
+				'float': 'right',
+				position: CSS_ABSOLUTE,
+				right: '0'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time', {
