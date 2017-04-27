@@ -1,8 +1,15 @@
-﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+﻿<!DOCTYPE HTML>
 <html>
 <head>
 	<title>PLAYEASE.JS</title>
-	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+	
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<meta content="yes" name="apple-mobile-web-app-capable"/>
+	<meta content="yes" name="apple-touch-fullscreen"/>
+	<meta content="telephone=no,email=no" name="format-detection"/>
+	<meta name="App-Config" content="fullscreen=yes, useHistoryState=yes, transition=yes"/>
+	
 	<!--<script type='text/javascript' src='../playease.min.js'></script>-->
 	<script type='text/javascript' src='../cn/studease/playease.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.js'></script>
@@ -28,6 +35,7 @@
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.modes.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flash.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.slider.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.controlbar.js'></script>
@@ -41,30 +49,33 @@
 	<script type='text/javascript' src='../cn/studease/embed/playease.embed.embedder.js'></script>
 </head>
 <body>
-	<div id='fp' style='margin: 2rem auto; width: 640px; height: 400px; top: 0; left: 0;'>
+	<div id='fp' style='margin: 0 auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
 		<div id='player'></div>
 	</div>
 	
 	<script type="text/javascript">
+		var fp = document.getElementById('fp');
+		var width = fp.clientWidth;
+		var height = width * 9 / 16 + 40;
+		
 		var player = playease('player').setup({
 			url: '/vod/sample.flv',
-			width: 640,
-			height: 360,
+			width: width,
+			height: height,
 			type: 'vod',
 			cors: 'no-cors',
 			controls: true,
-			autoplay: true,
+			autoplay: false,
 			poster: 'sample.png',
 			render: {
 				name: 'flv'
 			},
 			events: {
 				onFullpage: function(e) {
-					var fp = document.getElementById('fp');
-					fp.style.margin = e.exit ? '2rem auto' : '0';
-					fp.style.width = e.exit ? '640px' : '100%';
-					fp.style.height = e.exit ? '400px' : '100%';
+					fp.style.margin = e.exit ? '0 auto' : '0';
+					fp.style.height = e.exit ? 'auto' : '100%';
 					fp.style.position = e.exit ? 'relative' : 'fixed';
+					fp.style['max-width'] = e.exit ? '640px' : '100%';
 				}
 			}
 		});

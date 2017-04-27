@@ -26,6 +26,7 @@
 			_controlbar,
 			_bulletscreen,
 			_skin,
+			_canvas,
 			_video,
 			_timer,
 			_autohidetimer,
@@ -52,11 +53,42 @@
 			var replace = document.getElementById(entity.id);
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
-			window.onresize = function() {
-				if (utils.typeOf(model.config.onresize) == 'function') {
-					model.config.onresize.call(null);
-				}
-			};
+			try {
+				window.addEventListener('resize', _onResize);
+			} catch (err) {
+				window.attachEvent('onresize', _onResize);
+			}
+		}
+		
+		function _initComponents() {
+			var cbcfg = utils.extend({}, {
+				wrapper: entity.id,
+				bulletscreen: model.getConfig('bulletscreen')
+			});
+			
+			try {
+				_controlbar = new components.controlbar(_controlsLayer, cbcfg);
+				_controlbar.addGlobalListener(_forward);
+				
+				_controlbar.setVolume(model.getProperty('volume'));
+			} catch (err) {
+				utils.log('Failed to init controlbar!');
+			}
+			
+			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
+				width: model.config.width,
+				height: model.config.height - 40
+			});
+			
+			try {
+				_bulletscreen = new components.bulletscreen(bscfg);
+				_bulletscreen.addGlobalListener(_forward);
+				
+				_canvas = _bulletscreen.element();
+				_renderLayer.appendChild(_canvas);
+			} catch (err) {
+				utils.log('Failed to init bullet!');
+			}
 		}
 		
 		function _initRender() {
@@ -64,7 +96,7 @@
 				id: entity.id,
 				url: model.config.url,
 				width: model.config.width,
-				height: model.config.height,
+				height: model.config.height - 40,
 				controls: model.config.controls,
 				autoplay: model.config.autoplay,
 				playsinline: model.config.playsinline,
@@ -77,94 +109,14 @@
 			try {
 				_render = _this.render = new renders[cfg.name](_this, cfg);
 				_render.addEventListener(events.PLAYEASE_READY, _forward);
+				_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+				_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 				_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+				
+				_video = _render.element();
+				_renderLayer.appendChild(_video);
 			} catch (err) {
 				utils.log('Failed to init render ' + cfg.name + '!');
-			}
-			
-			if (_render) {
-				_video = _render.element();
-				//_video.addEventListener('playing', _onPlaying);
-				_video.addEventListener('durationchange', _onDurationChange);
-				_video.addEventListener('ended', _onEnded);
-				_video.addEventListener('error', _onError);
-				
-				_renderLayer.appendChild(_video);
-			}
-		}
-		/*
-		function _onPlaying(e) {
-			_startTimer();
-		}
-		*/
-		function _onDurationChange(e) {
-			var duration = _video.duration;
-			_controlbar.setDuration(duration);
-			utils.addClass(_wrapper, 'vod');
-		}
-		
-		function _updateElapsed(e) {
-			var elapsed = _video.currentTime;
-			_controlbar.setElapsed(elapsed);
-			_controlbar.setProgress(elapsed, _video.duration);
-			
-			var ranges = _video.buffered;
-			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
-				if (start <= elapsed && elapsed < end) {
-					_controlbar.setBuffered(end, _video.duration);
-				}
-			}
-		}
-		
-		function _onEnded(e) {
-			_stopTimer();
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-		}
-		
-		function _onError(e) {
-			_stopTimer();
-		}
-		
-		function _startTimer() {
-			if (!_timer) {
-				_timer = new utils.timer(500);
-				_timer.addEventListener(events.PLAYEASE_TIMER, _updateElapsed);
-			}
-			_timer.start();
-		}
-		
-		function _stopTimer() {
-			if (_timer) {
-				_timer.stop();
-			}
-		}
-		
-		function _initComponents() {
-			var cfg = model.getConfig('bulletscreen');
-			
-			try {
-				_controlbar = new components.controlbar(_controlsLayer, utils.extend({}, {
-					wrapper: entity.id,
-					bulletscreen: cfg
-				}));
-				_controlbar.addGlobalListener(_forward);
-				
-				_controlbar.setVolume(model.getProperty('volume'));
-			} catch (err) {
-				utils.log('Failed to init controlbar!');
-			}
-			
-			try {
-				_bulletscreen = new components.bulletscreen(utils.extend({}, cfg, {
-					width: model.config.width,
-					height: model.config.height
-				}));
-				_bulletscreen.addGlobalListener(_forward);
-				_renderLayer.appendChild(_bulletscreen.element());
-			} catch (err) {
-				utils.log('Failed to init bullet!');
 			}
 		}
 		
@@ -183,13 +135,14 @@
 		}
 		
 		_this.setup = function() {
+			// Ignore components & skin failure.
 			if (!_render) {
 				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.config.render.name });
 				return;
 			}
-			_render.setup();
 			
-			// Ignore skin failure.
+			_render.setup();
+			_this.resize();
 			
 			try {
 				_wrapper.addEventListener('keydown', _onKeyDown);
@@ -224,6 +177,7 @@
 		
 		_this.stop = function() {
 			utils.removeClass(_wrapper, 'playing');
+			_stopTimer();
 			_controlbar.setDuration(0);
 			_controlbar.setElapsed(0);
 			_controlbar.setProgress(0, 1);
@@ -251,7 +205,7 @@
 		};
 		
 		_this.fullpage = function(exit) {
-			if (document.webkitIsFullScreen) {
+			if (document.fullscreen || document.webkitIsFullScreen || document.mozFullScreen || document.msFullscreenElement) {
 				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
 				if (!document.exitFullscreen) {
 					return;
@@ -267,13 +221,13 @@
 				utils.addClass(_wrapper, 'fp');
 			}
 			
+			_this.resize();
+			
 			if (_autohidetimer) {
 				_autohidetimer.stop();
 			}
 			_wrapper.removeEventListener('mousemove', _onMouseMove);
 			_controlsLayer.style.display = 'block';
-			
-			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -307,9 +261,19 @@
 				_wrapper.addEventListener('mousemove', _onMouseMove);
 			}
 			
-			_controlsLayer.style.display = 'block';
+			_this.resize();
 			
-			_bulletscreen.resize(_renderLayer.clientWidth, _renderLayer.clientHeight);
+			_controlsLayer.style.display = 'block';
+		};
+		
+		_this.setDuration = function(duration) {
+			if (duration) {
+				utils.addClass(_wrapper, 'vod');
+			} else {
+				utils.removeClass(_wrapper, 'vod');
+			}
+			
+			_controlbar.setDuration(duration);
 		};
 		
 		_this.shoot = function(text) {
@@ -317,6 +281,35 @@
 				_bulletscreen.shoot(text);
 			}
 		};
+		
+		function _startTimer() {
+			if (!_timer) {
+				_timer = new utils.timer(500);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _updateTime);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		function _updateTime(e) {
+			var elapsed = _video.currentTime;
+			_controlbar.setElapsed(elapsed);
+			_controlbar.setProgress(elapsed, _video.duration);
+			
+			var ranges = _video.buffered;
+			for (var i = 0; i < ranges.length; i++) {
+				var start = ranges.start(i);
+				var end = ranges.end(i);
+				if (start <= elapsed && elapsed < end) {
+					_controlbar.setBuffered(end, _video.duration);
+				}
+			}
+		}
 		
 		function _onMouseMove(e) {
 			_controlsLayer.style.display = 'block';
@@ -359,9 +352,17 @@
 			
 		};
 		
+		function _onResize(e) {
+			_this.resize();
+		}
+		
 		_this.resize = function(width, height) {
-			if (_render) 
-				_render.resize(width, height);
+			setTimeout(function() {
+				_bulletscreen.resize(_video.clientWidth, _video.clientHeight);
+				if (_render) {
+					_render.resize(_video.clientWidth, _video.clientHeight);
+				}
+			}, 0);
 		};
 		
 		_this.destroy = function() {
@@ -378,6 +379,7 @@
 		};
 		
 		function _onRenderError(e) {
+			_stopTimer();
 			_forward(e);
 		}
 		

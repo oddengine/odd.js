@@ -1,6 +1,7 @@
 ﻿(function(playease) {
 	playease.core.renders.modes = {
 		DEFAULT: 'def',
-		FLV: 'flv'
+		FLV: 'flv',
+		FLASH: 'flash'
 	};
 })(playease);

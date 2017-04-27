@@ -6,28 +6,60 @@
 		rendermodes = renders.modes,
 		css = utils.css;
 	
-	renders.def = function(view, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
+	renders.flash = function(view, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
 			_defaults = {},
 			_video,
 			_currentSrc;
 		
+		var ranges = function() {
+			var _self = this;
+			
+			_self.length = 0;
+			
+			_self.start = function(index) {
+				
+			};
+			
+			_self.end = function(index) {
+				
+			};
+		};
+		
 		function _init() {
-			_this.name = rendermodes.DEFAULT;
+			_this.name = rendermodes.FLASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_video = utils.createElement('video');
-			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
-			_video.poster = _this.config.poster;
+			_video = utils.createElement('object');
+			_video.id = _video.name = 'playease';
+			_video.align = 'middle';
+			_video.innerHTML = ''
+				+ '<param name="quality" value="high">'
+				+ '<param name="bgcolor" value="#ffffff">'
+				+ '<param name="allowscriptaccess" value="sameDomain">'
+				+ '<param name="allowfullscreen" value="true">';
 			
-			_video.addEventListener('durationchange', _onDurationChange);
-			_video.addEventListener('ended', _onEnded);
-			_video.addEventListener('error', _onError);
+			if (utils.isMSIE()) {
+				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
+				_video.movie = '../swf/playease.swf';
+			} else {
+				_video.type = 'application/x-shockwave-flash';
+				_video.data = '../swf/playease.swf';
+			}
 		}
 		
 		_this.setup = function() {
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			setTimeout(function() {
+				_video.currentTime = 0;
+				_video.duration = 0;
+				_video.buffered = new ranges();
+				
+				_video.setup(_this.config);
+				_video.resize(_video.clientWidth, _video.clientHeight);
+				
+				_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			}, 1000);
 		};
 		
 		_this.play = function(url) {
@@ -78,24 +110,12 @@
 			
 		};
 		
-		function _onDurationChange(e) {
-			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
-		}
-		
-		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-		}
-		
-		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
-		}
-		
 		_this.element = function() {
 			return _video;
 		};
 		
 		_this.resize = function(width, height) {
-			
+			_video.resize(width, height);
 		};
 		
 		_this.destroy = function() {

@@ -11,6 +11,7 @@
 		PLAYEASE_STATE: 'playeaseState',
 		PLAYEASE_PROPERTY: 'playeaseProperty',
 		PLAYEASE_METADATA: 'playeaseMetaData',
+		PLAYEASE_DURATION: 'playeaseDuration',
 		
 		PLAYEASE_BUFFERING: 'playeaseBuffering',
 		PLAYEASE_PLAYING: 'playeasePlaying',
@@ -18,8 +19,8 @@
 		PLAYEASE_RELOADING: 'playeaseReloading',
 		PLAYEASE_SEEKING: 'playeaseSeeking',
 		PLAYEASE_STOPPED: 'playeaseStopped',
-		PLAYEASE_REPORTED: 'playeaseReported',
-		PLAYEASE_MUTED: 'playeaseMuted',
+		PLAYEASE_REPORT: 'playeaseReport',
+		PLAYEASE_MUTE: 'playeaseMute',
 		PLAYEASE_VOLUME: 'playeaseVolume',
 		PLAYEASE_HD: 'playeaseHD',
 		PLAYEASE_BULLET: 'playeaseBullet',

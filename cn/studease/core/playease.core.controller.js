@@ -27,6 +27,7 @@
 			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
 			
+			view.addEventListener(events.PLAYEASE_DURATION, _onDuration);
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 		}
 		
@@ -57,14 +58,14 @@
 		
 		_this.report = function() {
 			view.report();
-			_this.dispatchEvent(events.PLAYEASE_REPORTED);
+			_this.dispatchEvent(events.PLAYEASE_REPORT);
 		};
 		
 		_this.mute = function() {
 			var muted = model.getProperty('muted');
 			model.setProperty('muted', !muted);
 			view.mute(!muted);
-			_this.dispatchEvent(events.PLAYEASE_MUTED, { mute: !muted });
+			_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: !muted });
 		};
 		
 		_this.volume = function(vol) {
@@ -223,6 +224,12 @@
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
+			_forward(e);
+		}
+		
+		function _onDuration(e) {
+			model.setProperty('duration', e.duration);
+			view.setDuration(e.duration);
 			_forward(e);
 		}
 		

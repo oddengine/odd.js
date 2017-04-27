@@ -14,7 +14,7 @@
 		CODECS = muxer.flv.CODECS;
 	
 	renders.flv = function(view, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
+		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
 			_defaults = {},
 			_video,
 			_currentSrc,
@@ -40,6 +40,10 @@
 			_video = utils.createElement('video');
 			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
 			_video.poster = _this.config.poster;
+			
+			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('ended', _onEnded);
+			_video.addEventListener('error', _onError);
 			/*
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
@@ -350,6 +354,18 @@
 			utils.log('media source error');
 		}
 		
+		
+		function _onDurationChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onEnded(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+		}
+		
+		function _onError(e) {
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+		}
 		
 		_this.element = function() {
 			return _video;
