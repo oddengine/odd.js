@@ -79,6 +79,7 @@
 				width: CSS_100PCT,
 				height: 'calc(100% - 40px)',
 				'font-size': '0',
+				'line-height': '0',
 				background: 'black'
 			});
 			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
