@@ -112,14 +112,14 @@
 		
 		function _getValue(x, y) {
 			var wrapper = document.getElementById(_this.config.wrapper);
-			var offsetX = x - _container.offsetLeft - wrapper.offsetLeft;
-			var offsetY = y - _container.offsetTop - _container.parentNode.parentNode.offsetTop;
+			var offsetX = x - _container.offsetLeft - _container.parentNode.offsetLeft - _container.parentNode.parentNode.offsetLeft;
+			var offsetY = y - _container.offsetTop - _container.parentNode.offsetTop - _container.parentNode.parentNode.offsetTop;
 			
 			var value;
 			if (_direction == directions.HORIZONTAL) {
-				value = Math.floor(offsetX / _container.clientWidth * 100);
+				value = (offsetX / _container.clientWidth * 100).toFixed(2);
 			} else {
-				value = Math.floor(offsetY / _container.clientHeight * 100);
+				value = (offsetY / _container.clientHeight * 100).toFixed(2);
 			}
 			
 			value = Math.max(0, Math.min(value, 100));
