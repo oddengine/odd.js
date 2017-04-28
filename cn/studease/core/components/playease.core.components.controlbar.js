@@ -14,7 +14,6 @@
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
 			_defaults = {
-				wrapper: '',
 				bulletscreen: {}
 			},
 			_layout,
@@ -56,7 +55,7 @@
 				]
 			};
 			
-			_timeBar = new components.slider({ wrapper: _this.config.wrapper, name: 'time' });
+			_timeBar = new components.slider({ name: 'time' });
 			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
 			layer.appendChild(_timeBar.element());
 			
@@ -65,10 +64,14 @@
 			
 			_buildLayout();
 			
-			document.addEventListener('fullscreenchange', _onFullscreenChange);
-			document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
-			document.addEventListener('mozfullscreenchange', _onFullscreenChange);
-			document.addEventListener('msfullscreenchange', _onFullscreenChange);
+			try {
+				document.addEventListener('fullscreenchange', _onFullscreenChange);
+				document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
+				document.addEventListener('mozfullscreenchange', _onFullscreenChange);
+				document.addEventListener('msfullscreenchange', _onFullscreenChange);
+			} catch (err) {
+				/* void */
+			}
 		}
 		
 		function _layoutElement(name, type, className) {
@@ -113,7 +116,7 @@
 					break;
 				case types.SLIDER:
 					if (elt.name === 'volume' && !utils.isMobile()) {
-						_volumeBar = new components.slider({ wrapper: _this.config.wrapper, name: elt.name });
+						_volumeBar = new components.slider({ name: elt.name });
 						_volumeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onVolumeBarChange);
 						element = _volumeBar.element();
 					}
@@ -186,7 +189,7 @@
 		}
 		
 		function _onButtonClick(e) {
-			var name = e.target.name;
+			var name = (e.target || this).name;
 			
 			switch (name) {
 				case 'play':
@@ -244,12 +247,12 @@
 			_this.dispatchEvent(events.PLAYEASE_VIEW_VOLUME, { volume: e.value });
 		}
 		
-		_this.setDuration = function(duration) {
-			var h = Math.floor(duration / 3600);
-			var m = Math.floor((duration % 3600) / 60);
-			var s = Math.floor(duration % 60);
-			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
-			_labels.duration.innerHTML = text;
+		_this.setBuffered = function(buffered) {
+			_timeBar.buffered(buffered);
+		};
+		
+		_this.setPosition = function(position) {
+			_timeBar.update(position);
 		};
 		
 		_this.setElapsed = function(elapsed) {
@@ -260,22 +263,12 @@
 			_labels.elapsed.innerHTML = text;
 		};
 		
-		_this.setProgress = function(elapsed, duration) {
-			if (!duration) {
-				return;
-			}
-			
-			var percentage = Math.floor(elapsed / duration * 10000) / 100;
-			_timeBar.update(percentage);
-		};
-		
-		_this.setBuffered = function(buffered, total) {
-			if (!total) {
-				return;
-			}
-			
-			var percentage = Math.floor(buffered / total * 10000) / 100;
-			_timeBar.buffered(percentage);
+		_this.setDuration = function(duration) {
+			var h = Math.floor(duration / 3600);
+			var m = Math.floor((duration % 3600) / 60);
+			var s = Math.floor(duration % 60);
+			var text = (h ? utils.pad(h, 2) + ':' : '') + utils.pad(m, 2) + ':' + utils.pad(s, 2);
+			_labels.duration.innerHTML = text;
 		};
 		
 		_this.setMuted = function(muted, vol) {

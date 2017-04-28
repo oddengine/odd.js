@@ -62,7 +62,6 @@
 		
 		function _initComponents() {
 			var cbcfg = utils.extend({}, {
-				wrapper: entity.id,
 				bulletscreen: model.getConfig('bulletscreen')
 			});
 			
@@ -97,16 +96,21 @@
 				url: model.config.url,
 				width: model.config.width,
 				height: model.config.height - 40,
+				bufferTime: model.config.bufferTime,
+				poster: model.config.poster,
 				controls: model.config.controls,
 				autoplay: model.config.autoplay,
 				playsinline: model.config.playsinline,
-				poster: model.config.poster,
 				loader: {
 					mode: model.config.cors
 				}
 			});
 			
 			try {
+				if (utils.isMSIE(8)) {
+					_this.renderLayer = _renderLayer;
+				}
+				
 				_render = _this.render = new renders[cfg.name](_this, cfg);
 				_render.addEventListener(events.PLAYEASE_READY, _forward);
 				_render.addEventListener(events.PLAYEASE_DURATION, _forward);
@@ -170,7 +174,7 @@
 		
 		_this.seek = function(offset) {
 			utils.addClass(_wrapper, 'playing');
-			_controlbar.setProgress(offset, 100);
+			_controlbar.setPosition(offset);
 			_startTimer();
 			_render.seek(offset);
 		};
@@ -178,10 +182,10 @@
 		_this.stop = function() {
 			utils.removeClass(_wrapper, 'playing');
 			_stopTimer();
-			_controlbar.setDuration(0);
+			_controlbar.setBuffered(0);
+			_controlbar.setPosition(0);
 			_controlbar.setElapsed(0);
-			_controlbar.setProgress(0, 1);
-			_controlbar.setBuffered(0, 1);
+			_controlbar.setDuration(0);
 			_render.stop();
 		};
 		
@@ -297,18 +301,13 @@
 		}
 		
 		function _updateTime(e) {
-			var elapsed = _video.currentTime;
-			_controlbar.setElapsed(elapsed);
-			_controlbar.setProgress(elapsed, _video.duration);
+			var data = _render.getRenderInfo();
+			var position = Math.floor((data.duration ? data.position / data.duration : 0) * 10000) / 100;
 			
-			var ranges = _video.buffered;
-			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
-				if (start <= elapsed && elapsed < end) {
-					_controlbar.setBuffered(end, _video.duration);
-				}
-			}
+			_controlbar.setBuffered(data.buffered);
+			_controlbar.setPosition(position);
+			_controlbar.setElapsed(data.position);
+			_controlbar.setDuration(data.duration);
 		}
 		
 		function _onMouseMove(e) {
