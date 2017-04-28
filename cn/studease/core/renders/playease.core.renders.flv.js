@@ -17,7 +17,7 @@
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
 			_defaults = {},
 			_video,
-			_currentSrc,
+			_src,
 			_loader,
 			_demuxer,
 			_remuxer,
@@ -33,6 +33,8 @@
 			_this.name = rendermodes.FLV;
 			
 			_this.config = utils.extend({}, _defaults, config);
+			
+			_src = '';
 			
 			_sbs = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -95,7 +97,7 @@
 		};
 		
 		_this.play = function(url) {
-			if (_video.src !== _currentSrc || url && url != _this.config.url) {
+			if (!_video.src || _video.src !== _src || url && url != _this.config.url) {
 				if (url && url != _this.config.url) {
 					_this.config.url = url;
 				}
@@ -110,7 +112,7 @@
 				_video.src = URL.createObjectURL(_ms);
 				_video.load();
 				
-				_currentSrc = _video.src
+				_src = _video.src;
 			}
 			
 			_video.play();
@@ -135,7 +137,7 @@
 			_loader.abort();
 			
 			_video.pause();
-			_video.src = _currentSrc = undefined;
+			_video.src = _src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -353,6 +355,28 @@
 		function _onMediaSourceError(e) {
 			utils.log('media source error');
 		}
+		
+		
+		_this.getRenderInfo = function() {
+			var buffered;
+			var position = _video.currentTime;
+			var duration = _video.duration;
+			
+			var ranges = _video.buffered;
+			for (var i = 0; i < ranges.length; i++) {
+				var start = ranges.start(i);
+				var end = ranges.end(i);
+				if (start <= position && position < end) {
+					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+				}
+			}
+			
+			return {
+				buffered: buffered,
+				position: position,
+				duration: duration
+			};
+		};
 		
 		
 		function _onDurationChange(e) {

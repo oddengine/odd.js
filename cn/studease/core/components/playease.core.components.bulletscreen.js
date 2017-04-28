@@ -61,7 +61,7 @@
 		}
 		
 		_this.shoot = function(text) {
-			if (_this.config.enable == false) {
+			if (!_context || _this.config.enable == false) {
 				return;
 			}
 			
@@ -187,7 +187,12 @@
 			_canvas.width = width;
 			_canvas.height = height;
 			
-			_context = _canvas.getContext("2d");
+			try {
+				_context = _canvas.getContext("2d");
+			} catch (err) {
+				return;
+			}
+			
 			_context.font = 'bold ' + _this.config.fontsize + 'px 微软雅黑';
 			_context.fillStyle = '#E6E6E6';
 			_context.globalAlpha = _this.config.alpha;

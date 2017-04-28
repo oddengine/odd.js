@@ -22,6 +22,7 @@
 			autoplay: true,
 			playsinline: true,
 			poster: '',
+			debug: false,
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
@@ -33,7 +34,8 @@
 			},
 			skin: {
 				name: skinmodes.DEFAULT
-			}
+			},
+			events: {}
 		},
 		
 		_config = utils.extend({}, _defaults, config);

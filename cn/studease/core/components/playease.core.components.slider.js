@@ -12,7 +12,6 @@
 	components.slider = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.slider')),
 			_defaults = {
-				wrapper: '',
 				name: '',
 				direction: directions.HORIZONTAL
 			},
@@ -66,11 +65,27 @@
 		_this.update = function(percentage) {
 			_percentage = percentage;
 			_rails.pro.style.width = _percentage + '%';
-			_thumb.style.left = 'calc(' + _percentage + '% - 5px)';
+			if (_direction == directions.HORIZONTAL) {
+				try {
+					_thumb.style.left = 'calc(' + _percentage + '% - 5px)';
+				} catch (err) {
+					setTimeout(function() {
+						_thumb.style.left = _container.clientWidth * _percentage / 100 - 5 + 'px';
+					}, 0);
+				}
+			} else {
+				try {
+					_thumb.style.bottom = 'calc(' + _percentage + '% - 5px)';
+				} catch (err) {
+					setTimeout(function() {
+						_thumb.style.bottom = _container.clientHeight * _percentage / 100 - 5 + 'px';
+					}, 0);
+				}
+			}
 		};
 		
 		function _onMouseDown(e) {
-			var target = e.target.parentNode === _container ? e.target.parentNode : e.target;
+			var target = e.target && e.target.parentNode === _container ? e.target.parentNode : e.target;
 			if (target !== _container) {
 				return;
 			}
@@ -111,17 +126,26 @@
 		}
 		
 		function _getValue(x, y) {
-			var wrapper = document.getElementById(_this.config.wrapper);
-			var offsetX = x - _container.offsetLeft - _container.parentNode.offsetLeft - _container.parentNode.parentNode.offsetLeft;
-			var offsetY = y - _container.offsetTop - _container.parentNode.offsetTop - _container.parentNode.parentNode.offsetTop;
+			var offsetX, offsetY, value;
 			
-			var value;
+			switch (_this.config.name) {
+				case 'time':
+					offsetX = x - _container.parentNode.offsetLeft;
+					offsetY = y - _container.parentNode.offsetTop;
+					break;
+				case 'volume':
+					offsetX = x - _container.offsetLeft - _container.parentNode.offsetLeft - _container.parentNode.parentNode.offsetLeft;
+					offsetY = y - _container.offsetTop - _container.parentNode.offsetTop - _container.parentNode.parentNode.offsetTop;
+					break;
+				default:
+					break;
+			}
+			
 			if (_direction == directions.HORIZONTAL) {
 				value = (offsetX / _container.clientWidth * 100).toFixed(2);
 			} else {
 				value = (offsetY / _container.clientHeight * 100).toFixed(2);
 			}
-			
 			value = Math.max(0, Math.min(value, 100));
 			
 			return value;

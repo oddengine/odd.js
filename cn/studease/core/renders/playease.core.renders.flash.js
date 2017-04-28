@@ -2,43 +2,49 @@
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendermodes = renders.modes,
 		css = utils.css;
 	
 	renders.flash = function(view, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
-			_defaults = {},
+			_defaults = {
+				debug: true//playease.debug
+			},
 			_video,
-			_currentSrc;
-		
-		var ranges = function() {
-			var _self = this;
-			
-			_self.length = 0;
-			
-			_self.start = function(index) {
-				
-			};
-			
-			_self.end = function(index) {
-				
-			};
-		};
+			_duration;
 		
 		function _init() {
 			_this.name = rendermodes.FLASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_duration = 0;
+			
+			if (utils.isMSIE(8)) {
+				view.renderLayer.innerHTML = ''
+					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
+						+ '<param name="movie" value="../swf/playease.swf">'
+						+ '<param name="quality" value="high">'
+						+ '<param name="bgcolor" value="#ffffff">'
+						+ '<param name="allowscriptaccess" value="sameDomain">'
+						+ '<param name="allowfullscreen" value="true">'
+						+ '<param name="wmode" value="transparent">'
+					+ '</object>';
+				
+				return;
+			}
+			
 			_video = utils.createElement('object');
-			_video.id = _video.name = 'playease';
+			_video.id = _video.name = 'pla-swf';
 			_video.align = 'middle';
 			_video.innerHTML = ''
 				+ '<param name="quality" value="high">'
 				+ '<param name="bgcolor" value="#ffffff">'
 				+ '<param name="allowscriptaccess" value="sameDomain">'
-				+ '<param name="allowfullscreen" value="true">';
+				+ '<param name="allowfullscreen" value="true">'
+				+ '<param name="wmode" value="transparent">';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
@@ -51,30 +57,23 @@
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				_video.currentTime = 0;
-				_video.duration = 0;
-				_video.buffered = new ranges();
+				if (utils.isMSIE(8)) {
+					_video = document.getElementById('playease');
+				}
 				
 				_video.setup(_this.config);
 				_video.resize(_video.clientWidth, _video.clientHeight);
 				
 				_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-			}, 1000);
+			}, 500);
 		};
 		
 		_this.play = function(url) {
-			if (_video.src !== _currentSrc || url && url != _this.config.url) {
-				if (url && url != _this.config.url) {
-					_this.config.url = url;
-				}
-				
-				_video.src = _this.config.url;
-				_video.load();
-				
-				_currentSrc = _video.src
+			if (url && url != _this.config.url) {
+				_this.config.url = url;
 			}
 			
-			_video.play();
+			_video.play(_this.config.url);
 		};
 		
 		_this.pause = function() {
@@ -86,16 +85,12 @@
 		};
 		
 		_this.seek = function(offset) {
-			if (_video.duration === NaN) {
-				_this.play();
-			} else {
-				_video.currentTime = offset * _video.duration / 100;
-			}
+			_video.seek(offset);
 		};
 		
 		_this.stop = function() {
-			_video.pause();
-			_video.src = _currentSrc = undefined;
+			_video.stop();
+			_duration = 0;
 		};
 		
 		_this.mute = function(muted) {
@@ -110,12 +105,37 @@
 			
 		};
 		
+		_this.getRenderInfo = function() {
+			var info = _video.getRenderInfo();
+			
+			if (_duration !== info.duration) {
+				_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: info.duration });
+			}
+			
+			switch (info.state) {
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					break;
+				case states.ERROR:
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+					break;
+				default:
+					break;
+			}
+			
+			return info;
+		};
+		
 		_this.element = function() {
 			return _video;
 		};
 		
 		_this.resize = function(width, height) {
-			_video.resize(width, height);
+			try {
+				_video.resize(width, height);
+			} catch (err) {
+				/* void */
+			}
 		};
 		
 		_this.destroy = function() {
