@@ -24,7 +24,8 @@
 				enable: true,
 				fontsize: 14,
 				alpha: alphas.LOW,
-				position: positions.FULLSCREEN
+				position: positions.FULLSCREEN,
+				visible: true
 			},
 			_rows,
 			_timer,

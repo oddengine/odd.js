@@ -175,12 +175,24 @@
 				return null;
 			}
 			
+			if (name === 'report' && !_this.config.report) {
+				return null;
+			}
+			if (name === 'hd' && (utils.typeOf(_this.config.sources) !== 'array' || _this.config.sources < 2)) {
+				return null;
+			}
+			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
+				return null;
+			}
+			
 			var element = utils.createElement('span', 'plbutton pl' + name + (className ? ' ' + className : ''));
 			element.name = name;
 			try {
 				element.addEventListener('click', _onButtonClick);
 			} catch(err) {
-				element.attachEvent('onclick', _onButtonClick);
+				element.attachEvent('onclick', function(e) {
+					_onButtonClick.call(element, arguments);
+				});
 			}
 			
 			_buttons[name] = element;

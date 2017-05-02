@@ -62,6 +62,8 @@
 		
 		function _initComponents() {
 			var cbcfg = utils.extend({}, {
+				report: model.config.report,
+				sources: model.getConfig('sources'),
 				bulletscreen: model.getConfig('bulletscreen')
 			});
 			
@@ -216,8 +218,10 @@
 				}
 				
 				document.exitFullscreen();
-				utils.removeClass(_wrapper, 'fs');
 			}
+			
+			utils.removeClass(_wrapper, 'fs');
+			model.setProperty('fullscreen', false);
 			
 			if (exit) {
 				utils.removeClass(_wrapper, 'fp');
@@ -225,49 +229,64 @@
 				utils.addClass(_wrapper, 'fp');
 			}
 			
-			_this.resize();
-			
 			if (_autohidetimer) {
 				_autohidetimer.stop();
 			}
-			_wrapper.removeEventListener('mousemove', _onMouseMove);
 			_controlsLayer.style.display = 'block';
+			
+			try {
+				_wrapper.removeEventListener('mousemove', _onMouseMove);
+			} catch (err) {
+				_wrapper.detachEvent('onmousemove', _onMouseMove);
+			}
+			
+			model.setProperty('fullpage', !exit);
+			_this.resize();
 		};
 		
 		_this.fullscreen = function(exit) {
 			if (exit) {
 				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
-				if (!document.exitFullscreen) {
-					_this.fullpage(exit);
-					return;
+				if (document.exitFullscreen) {
+					document.exitFullscreen();
+				} else {
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 				}
 				
-				document.exitFullscreen();
 				utils.removeClass(_wrapper, 'fs');
 				
 				if (_autohidetimer) {
 					_autohidetimer.stop();
 				}
-				_wrapper.removeEventListener('mousemove', _onMouseMove);
+				try {
+					_wrapper.removeEventListener('mousemove', _onMouseMove);
+				} catch (err) {
+					_wrapper.detachEvent('onmousemove', _onMouseMove);
+				}
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
-				if (!_wrapper.requestFullscreen) {
-					_this.fullpage(exit);
-					return;
+				if (_wrapper.requestFullscreen) {
+					_wrapper.requestFullscreen();
+				} else {
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 				}
 				
-				_wrapper.requestFullscreen();
 				utils.addClass(_wrapper, 'fs');
 				
 				if (_autohidetimer) {
 					_autohidetimer.start();
 				}
-				_wrapper.addEventListener('mousemove', _onMouseMove);
+				try {
+					_wrapper.addEventListener('mousemove', _onMouseMove);
+				} catch (err) {
+					_wrapper.attachEvent('onmousemove', _onMouseMove);
+				}
 			}
 			
-			_this.resize();
-			
 			_controlsLayer.style.display = 'block';
+			
+			model.setProperty('fullscreen', !exit);
+			_this.resize();
 		};
 		
 		_this.setDuration = function(duration) {
@@ -356,10 +375,29 @@
 		}
 		
 		_this.resize = function(width, height) {
+			if (utils.isMSIE(8)) {
+				var fp = model.getProperty('fullpage');
+				_renderLayer.style.height = fp ? '100%' : model.config.height + 'px';
+			}
+			
 			setTimeout(function() {
-				_bulletscreen.resize(_video.clientWidth, _video.clientHeight);
+				width = _video.clientWidth;
+				height = _video.clientHeight;
+				
+				if (utils.isMSIE(8)) {
+					width = _wrapper.clientWidth;
+					height = _wrapper.clientHeight;
+					
+					var fs = model.getProperty('fullscreen');
+					if (!fs) {
+						height -= 40;
+					}
+					_renderLayer.style.height = height + 'px';
+				}
+				
+				_bulletscreen.resize(width, height);
 				if (_render) {
-					_render.resize(_video.clientWidth, _video.clientHeight);
+					_render.resize(width, height);
 				}
 			}, 0);
 		};

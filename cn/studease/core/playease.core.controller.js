@@ -206,7 +206,6 @@
 				return;
 			}
 			
-			model.setProperty('fullpage', !fp);
 			_this.fullpage(fp);
 			_forward(e);
 		}
@@ -217,7 +216,6 @@
 				return;
 			}
 			
-			model.setProperty('fullscreen', !fs);
 			_this.fullscreen(fs);
 			_forward(e);
 		}

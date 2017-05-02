@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.35';
+playease.version = '1.0.36';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3469,7 +3469,7 @@ playease.version = '1.0.35';
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
-				height: 'calc(100% - 40px)',
+				height: utils.isMSIE(8) ? (_height - 40 + 'px') : 'calc(100% - 40px)',
 				'font-size': '0',
 				'line-height': '0',
 				background: 'black'
@@ -4337,13 +4337,15 @@ playease.version = '1.0.35';
 			if (utils.isMSIE(8)) {
 				view.renderLayer.innerHTML = ''
 					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
-						+ '<param name="movie" value="../swf/playease.swf">'
+						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
 						+ '<param name="bgcolor" value="#ffffff">'
 						+ '<param name="allowscriptaccess" value="sameDomain">'
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
 					+ '</object>';
+				
+				_video = view.renderLayer.firstChild;
 				
 				return;
 			}
@@ -4360,19 +4362,15 @@ playease.version = '1.0.35';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
-				_video.movie = '../swf/playease.swf';
+				_video.movie = _this.config.swf;
 			} else {
 				_video.type = 'application/x-shockwave-flash';
-				_video.data = '../swf/playease.swf';
+				_video.data = _this.config.swf;
 			}
 		}
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				if (utils.isMSIE(8)) {
-					_video = document.getElementById('playease');
-				}
-				
 				_video.setup(_this.config);
 				_video.resize(_video.clientWidth, _video.clientHeight);
 				
@@ -4385,7 +4383,7 @@ playease.version = '1.0.35';
 				_this.config.url = url;
 			}
 			
-			_video.play(_this.config.url);
+			_video.iplay(_this.config.url);
 		};
 		
 		_this.pause = function() {
@@ -4401,7 +4399,7 @@ playease.version = '1.0.35';
 		};
 		
 		_this.stop = function() {
-			_video.stop();
+			_video.istop();
 			_duration = 0;
 		};
 		
@@ -4800,12 +4798,24 @@ playease.version = '1.0.35';
 				return null;
 			}
 			
+			if (name === 'report' && !_this.config.report) {
+				return null;
+			}
+			if (name === 'hd' && (utils.typeOf(_this.config.sources) !== 'array' || _this.config.sources < 2)) {
+				return null;
+			}
+			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
+				return null;
+			}
+			
 			var element = utils.createElement('span', 'plbutton pl' + name + (className ? ' ' + className : ''));
 			element.name = name;
 			try {
 				element.addEventListener('click', _onButtonClick);
 			} catch(err) {
-				element.attachEvent('onclick', _onButtonClick);
+				element.attachEvent('onclick', function(e) {
+					_onButtonClick.call(element, arguments);
+				});
 			}
 			
 			_buttons[name] = element;
@@ -4973,7 +4983,8 @@ playease.version = '1.0.35';
 				enable: true,
 				fontsize: 14,
 				alpha: alphas.LOW,
-				position: positions.FULLSCREEN
+				position: positions.FULLSCREEN,
+				visible: true
 			},
 			_rows,
 			_timer,
@@ -5351,6 +5362,8 @@ playease.version = '1.0.35';
 		
 		function _initComponents() {
 			var cbcfg = utils.extend({}, {
+				report: model.config.report,
+				sources: model.getConfig('sources'),
 				bulletscreen: model.getConfig('bulletscreen')
 			});
 			
@@ -5505,8 +5518,10 @@ playease.version = '1.0.35';
 				}
 				
 				document.exitFullscreen();
-				utils.removeClass(_wrapper, 'fs');
 			}
+			
+			utils.removeClass(_wrapper, 'fs');
+			model.setProperty('fullscreen', false);
 			
 			if (exit) {
 				utils.removeClass(_wrapper, 'fp');
@@ -5514,49 +5529,64 @@ playease.version = '1.0.35';
 				utils.addClass(_wrapper, 'fp');
 			}
 			
-			_this.resize();
-			
 			if (_autohidetimer) {
 				_autohidetimer.stop();
 			}
-			_wrapper.removeEventListener('mousemove', _onMouseMove);
 			_controlsLayer.style.display = 'block';
+			
+			try {
+				_wrapper.removeEventListener('mousemove', _onMouseMove);
+			} catch (err) {
+				_wrapper.detachEvent('onmousemove', _onMouseMove);
+			}
+			
+			model.setProperty('fullpage', !exit);
+			_this.resize();
 		};
 		
 		_this.fullscreen = function(exit) {
 			if (exit) {
 				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
-				if (!document.exitFullscreen) {
-					_this.fullpage(exit);
-					return;
+				if (document.exitFullscreen) {
+					document.exitFullscreen();
+				} else {
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 				}
 				
-				document.exitFullscreen();
 				utils.removeClass(_wrapper, 'fs');
 				
 				if (_autohidetimer) {
 					_autohidetimer.stop();
 				}
-				_wrapper.removeEventListener('mousemove', _onMouseMove);
+				try {
+					_wrapper.removeEventListener('mousemove', _onMouseMove);
+				} catch (err) {
+					_wrapper.detachEvent('onmousemove', _onMouseMove);
+				}
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
-				if (!_wrapper.requestFullscreen) {
-					_this.fullpage(exit);
-					return;
+				if (_wrapper.requestFullscreen) {
+					_wrapper.requestFullscreen();
+				} else {
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 				}
 				
-				_wrapper.requestFullscreen();
 				utils.addClass(_wrapper, 'fs');
 				
 				if (_autohidetimer) {
 					_autohidetimer.start();
 				}
-				_wrapper.addEventListener('mousemove', _onMouseMove);
+				try {
+					_wrapper.addEventListener('mousemove', _onMouseMove);
+				} catch (err) {
+					_wrapper.attachEvent('onmousemove', _onMouseMove);
+				}
 			}
 			
-			_this.resize();
-			
 			_controlsLayer.style.display = 'block';
+			
+			model.setProperty('fullscreen', !exit);
+			_this.resize();
 		};
 		
 		_this.setDuration = function(duration) {
@@ -5645,10 +5675,29 @@ playease.version = '1.0.35';
 		}
 		
 		_this.resize = function(width, height) {
+			if (utils.isMSIE(8)) {
+				var fp = model.getProperty('fullpage');
+				_renderLayer.style.height = fp ? '100%' : model.config.height + 'px';
+			}
+			
 			setTimeout(function() {
-				_bulletscreen.resize(_video.clientWidth, _video.clientHeight);
+				width = _video.clientWidth;
+				height = _video.clientHeight;
+				
+				if (utils.isMSIE(8)) {
+					width = _wrapper.clientWidth;
+					height = _wrapper.clientHeight;
+					
+					var fs = model.getProperty('fullscreen');
+					if (!fs) {
+						height -= 40;
+					}
+					_renderLayer.style.height = height + 'px';
+				}
+				
+				_bulletscreen.resize(width, height);
 				if (_render) {
-					_render.resize(_video.clientWidth, _video.clientHeight);
+					_render.resize(width, height);
 				}
 			}, 0);
 		};
@@ -5887,7 +5936,6 @@ playease.version = '1.0.35';
 				return;
 			}
 			
-			model.setProperty('fullpage', !fp);
 			_this.fullpage(fp);
 			_forward(e);
 		}
@@ -5898,7 +5946,6 @@ playease.version = '1.0.35';
 				return;
 			}
 			
-			model.setProperty('fullscreen', !fs);
 			_this.fullscreen(fs);
 			_forward(e);
 		}
@@ -6016,15 +6063,18 @@ playease.version = '1.0.35';
 			autoplay: true,
 			playsinline: true,
 			poster: '',
+			report: true,
 			debug: false,
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
 				alpha: alphas.LOW,
-				position: positions.FULLSCREEN
+				position: positions.FULLSCREEN,
+				visible: true
 			},
 			render: {
-				name: rendermodes.DEFAULT
+				name: rendermodes.DEFAULT,
+				swf: 'swf/playease.swf'
 			},
 			skin: {
 				name: skinmodes.DEFAULT

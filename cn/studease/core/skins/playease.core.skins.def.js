@@ -77,7 +77,7 @@
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
-				height: 'calc(100% - 40px)',
+				height: utils.isMSIE(8) ? (_height - 40 + 'px') : 'calc(100% - 40px)',
 				'font-size': '0',
 				'line-height': '0',
 				background: 'black'
