@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.36';
+playease.version = '1.0.37';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4547,6 +4547,10 @@ playease.version = '1.0.36';
 		};
 		
 		function _onMouseDown(e) {
+			if (!e.target) {
+				e.target = e.srcElement;
+			}
+			
 			var target = e.target && e.target.parentNode === _container ? e.target.parentNode : e.target;
 			if (target !== _container) {
 				return;

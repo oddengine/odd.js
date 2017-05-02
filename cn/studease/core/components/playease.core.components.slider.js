@@ -85,6 +85,10 @@
 		};
 		
 		function _onMouseDown(e) {
+			if (!e.target) {
+				e.target = e.srcElement;
+			}
+			
 			var target = e.target && e.target.parentNode === _container ? e.target.parentNode : e.target;
 			if (target !== _container) {
 				return;
