@@ -13,6 +13,10 @@
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
+			if (utils.isMSIE(8)) {
+				_this.config.render.name = 'flash';
+			}
+			
 			_properties = {
 				ratio: _this.config.width / (_this.config.height - 40),
 				sources: _this.config.sources,
