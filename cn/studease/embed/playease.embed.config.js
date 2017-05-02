@@ -22,15 +22,18 @@
 			autoplay: true,
 			playsinline: true,
 			poster: '',
+			report: true,
 			debug: false,
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
 				alpha: alphas.LOW,
-				position: positions.FULLSCREEN
+				position: positions.FULLSCREEN,
+				visible: true
 			},
 			render: {
-				name: rendermodes.DEFAULT
+				name: rendermodes.DEFAULT,
+				swf: 'swf/playease.swf'
 			},
 			skin: {
 				name: skinmodes.DEFAULT

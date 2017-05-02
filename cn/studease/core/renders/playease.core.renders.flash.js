@@ -25,13 +25,15 @@
 			if (utils.isMSIE(8)) {
 				view.renderLayer.innerHTML = ''
 					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
-						+ '<param name="movie" value="../swf/playease.swf">'
+						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
 						+ '<param name="bgcolor" value="#ffffff">'
 						+ '<param name="allowscriptaccess" value="sameDomain">'
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
 					+ '</object>';
+				
+				_video = view.renderLayer.firstChild;
 				
 				return;
 			}
@@ -48,19 +50,15 @@
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
-				_video.movie = '../swf/playease.swf';
+				_video.movie = _this.config.swf;
 			} else {
 				_video.type = 'application/x-shockwave-flash';
-				_video.data = '../swf/playease.swf';
+				_video.data = _this.config.swf;
 			}
 		}
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				if (utils.isMSIE(8)) {
-					_video = document.getElementById('playease');
-				}
-				
 				_video.setup(_this.config);
 				_video.resize(_video.clientWidth, _video.clientHeight);
 				
@@ -73,7 +71,7 @@
 				_this.config.url = url;
 			}
 			
-			_video.play(_this.config.url);
+			_video.iplay(_this.config.url);
 		};
 		
 		_this.pause = function() {
@@ -89,7 +87,7 @@
 		};
 		
 		_this.stop = function() {
-			_video.stop();
+			_video.istop();
 			_duration = 0;
 		};
 		
