@@ -52,9 +52,14 @@
 			return _this;
 		};
 		
-		_this.setEntity = function(entity, renderName) {
+		_this.setupReady = function() {
+			
+		};
+		
+		_this.setEntity = function(entity) {
 			_entity = entity;
-			_this.renderName = renderName;
+			
+			_this.setupReady = _entity.setupReady;
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
@@ -109,6 +114,9 @@
 	};
 	
 	playease.api.displayError = function(message, config) {
-		
+		var warnLayer = document.getElementById(config.id + '-warn');
+		if (warnLayer && message) {
+			warnLayer.innerHTML = message;
+		}
 	};
 })(playease);

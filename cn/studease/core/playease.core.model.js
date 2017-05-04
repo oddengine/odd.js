@@ -8,18 +8,19 @@
 		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
 		 	_defaults = {},
 		 	_state = states.STOPPED,
+		 	_playlist,
 		 	_properties;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
-			if (utils.isMSIE(8)) {
-				_this.config.render.name = 'flash';
-			}
+			_playlist = new utils.playlist(_this.config.sources, _this.config.render.name);
+			_playlist.format();
+			_playlist.addItem(_this.config.file);
 			
 			_properties = {
 				ratio: _this.config.width / (_this.config.height - 40),
-				sources: _this.config.sources,
+				playlist: _playlist,
 				duration: 0,
 				muted: false,
 				volume: 80,
@@ -53,7 +54,7 @@
 		};
 		
 		_this.getConfig = function(name) {
-			return _this.config[name] || {};
+			return _this.config[name];
 		};
 		
 		_this.destroy = function() {

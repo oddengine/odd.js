@@ -5,17 +5,17 @@
 		core = playease.core,
 		alphas = core.components.bulletscreen.alphas,
 		positions = core.components.bulletscreen.positions,
-		sourcetypes = core.renders.sourcetypes,
+		rendertypes = core.renders.types,
 		rendermodes = core.renders.modes,
 		skinmodes = core.skins.modes;
 	
 	embed.config = function(config) {
 		var _defaults = {
-			url: 'http://' + window.location.host + '/vod/sample.mp4',
 			width: 640,
 			height: 360,
+			file: '',
 			sources: [],
-			type: sourcetypes.VOD,
+			type: rendertypes.VOD,
 			cors: 'no-cors',
 			bufferTime: .1,
 			controls: true,

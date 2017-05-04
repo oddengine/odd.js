@@ -5,23 +5,26 @@
 		states = core.states,
 		renders = core.renders,
 		rendermodes = renders.modes,
+		priority = renders.priority,
 		components = core.components,
 		skins = core.skins,
 		skinmodes = skins.modes,
-		css = utils.css,
 		
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
+		WARN_CLASS = 'pla-warn',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
-	core.view = function(entity, model) {
+	core.view = function(model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
 			_controlsLayer,
 			_contextmenuLayer,
+			_warnLayer,
+			_renders,
 			_render,
 			_controlbar,
 			_bulletscreen,
@@ -33,37 +36,43 @@
 			_errorOccurred = false;
 		
 		function _init() {
-			SKIN_CLASS += '-' + model.config.skin.name;
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.config.type === 'vod' ? ' vod' : ''));
-			_wrapper.id = entity.id;
+			SKIN_CLASS += '-' + model.getConfig('skin').name;
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('type') === 'vod' ? ' vod' : ''));
+			_wrapper.id = model.getConfig('id');
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
+			_warnLayer = utils.createElement('div', WARN_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
+			_warnLayer.id = model.getConfig('id') + '-warn';
+			
 			_wrapper.appendChild(_renderLayer);
+			_wrapper.appendChild(_warnLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
 			_initComponents();
-			_initRender();
+			_initRenders();
 			_initSkin();
 			
-			var replace = document.getElementById(entity.id);
+			var replace = document.getElementById(model.getConfig('id'));
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
 			try {
+				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
 			} catch (err) {
+				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
 			}
 		}
 		
 		function _initComponents() {
 			var cbcfg = utils.extend({}, {
-				report: model.config.report,
-				sources: model.getConfig('sources'),
+				report: model.getConfig('report'),
+				playlist: model.getProperty('playlist'),
 				bulletscreen: model.getConfig('bulletscreen')
 			});
 			
@@ -77,8 +86,8 @@
 			}
 			
 			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
-				width: model.config.width,
-				height: model.config.height - 40
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
 			});
 			
 			try {
@@ -92,45 +101,74 @@
 			}
 		}
 		
-		function _initRender() {
+		function _initRenders() {
 			var cfg = utils.extend({}, model.getConfig('render'), {
-				id: entity.id,
-				url: model.config.url,
-				width: model.config.width,
-				height: model.config.height - 40,
-				bufferTime: model.config.bufferTime,
-				poster: model.config.poster,
-				controls: model.config.controls,
-				autoplay: model.config.autoplay,
-				playsinline: model.config.playsinline,
+				id: model.getConfig('id'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40,
+				playlist: model.getProperty('playlist'),
+				bufferTime: model.getConfig('bufferTime'),
+				autoplay: model.getConfig('autoplay'),
+				poster: model.getConfig('poster'),
+				playsinline: model.getConfig('playsinline'),
 				loader: {
-					mode: model.config.cors
+					mode: model.getConfig('cors')
 				}
 			});
 			
-			try {
-				if (utils.isMSIE(8)) {
-					_this.renderLayer = _renderLayer;
+			_renders = {};
+			
+			for (var i = 0; i < priority.length; i++) {
+				var name = priority[i];
+				try {
+					var render = new renders[name](_renderLayer, cfg);
+					_renders[name] = render;
+					
+					utils.log('Render ' + name + ' initialized!');
+				} catch (err) {
+					utils.log('Failed to init render ' + name + '!');
 				}
-				
-				_render = _this.render = new renders[cfg.name](_this, cfg);
-				_render.addEventListener(events.PLAYEASE_READY, _forward);
-				_render.addEventListener(events.PLAYEASE_DURATION, _forward);
-				_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
-				_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-				
-				_video = _render.element();
-				_renderLayer.appendChild(_video);
-			} catch (err) {
-				utils.log('Failed to init render ' + cfg.name + '!');
+			}
+			
+			var playlist = model.getProperty('playlist');
+			if (playlist.sources.length) {
+				_this.activeRender(playlist.sources[0].type);
 			}
 		}
 		
+		_this.activeRender = function(name) {
+			if (_render && _render.name == name || _renders.hasOwnProperty(name) == false) {
+				return;
+			}
+			
+			if (_render) {
+				_render.removeEventListener(events.PLAYEASE_READY, _forward);
+				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
+				_render.removeEventListener(events.PLAYEASE_VIEW_STOP, _forward);
+				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+				
+				_renderLayer.removeChild(_render.element());
+			}
+			
+			_render = _this.render = _renders[name];
+			_render.addEventListener(events.PLAYEASE_READY, _forward);
+			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
+			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+			
+			_video = _render.element();
+			_renderLayer.appendChild(_video);
+			
+			_this.setup();
+			
+			utils.log('Actived render ' + _render.name + '!');
+		};
+		
 		function _initSkin() {
 			var cfg = utils.extend({}, model.getConfig('skin'), {
-				id: entity.id,
-				width: model.config.width,
-				height: model.config.height
+				id: model.getConfig('id'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height')
 			});
 			
 			try {
@@ -143,18 +181,12 @@
 		_this.setup = function() {
 			// Ignore components & skin failure.
 			if (!_render) {
-				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.config.render.name });
+				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.getConfig('render').name });
 				return;
 			}
 			
 			_render.setup();
 			_this.resize();
-			
-			try {
-				_wrapper.addEventListener('keydown', _onKeyDown);
-			} catch (err) {
-				_wrapper.attachEvent('onkeydown', _onKeyDown);
-			}
 		};
 		
 		_this.play = function(url) {
@@ -377,12 +409,12 @@
 		_this.resize = function(width, height) {
 			if (utils.isMSIE(8)) {
 				var fp = model.getProperty('fullpage');
-				_renderLayer.style.height = fp ? '100%' : model.config.height + 'px';
+				_renderLayer.style.height = fp ? '100%' : model.getConfig('height') + 'px';
 			}
 			
 			setTimeout(function() {
-				width = _video.clientWidth;
-				height = _video.clientHeight;
+				width = _renderLayer.clientWidth;
+				height = _renderLayer.clientHeight;
 				
 				if (utils.isMSIE(8)) {
 					width = _wrapper.clientWidth;

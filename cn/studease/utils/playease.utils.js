@@ -63,7 +63,41 @@
 		return str;
 	};
 	
+	utils.typeOf = function(value) {
+		if (value === null || value === undefined) {
+			return 'null';
+		}
+		var typeofString = typeof value;
+		if (typeofString === 'object') {
+			try {
+				if (toString.call(value) === '[object Array]') {
+					return 'array';
+				}
+			} catch (e) {}
+		}
+		return typeofString;
+	};
 	
+	utils.isInt = function(value) {
+		return parseFloat(value) % 1 === 0;
+	};
+	
+	utils.trim = function(inputString) {
+		return inputString.replace(/^\s+|\s+$/g, '');
+	};
+	
+	utils.indexOf = function(array, item) {
+		if (array == null) return -1;
+		for (var i = 0; i < array.length; i++) {
+			if (array[i] === item) {
+				return i;
+			}
+		}
+		return -1;
+	};
+	
+	
+	/* DOM */
 	utils.createElement = function(elem, className) {
 		var newElement = document.createElement(elem);
 		if (className) {
@@ -105,45 +139,18 @@
 		}
 	};
 	
-	utils.typeOf = function(value) {
-		if (value === null || value === undefined) {
-			return 'null';
-		}
-		var typeofString = typeof value;
-		if (typeofString === 'object') {
-			try {
-				if (toString.call(value) === '[object Array]') {
-					return 'array';
-				}
-			} catch (e) {}
-		}
-		return typeofString;
-	};
 	
-	utils.isInt = function(value) {
-		return parseFloat(value) % 1 === 0;
-	};
-	
-	utils.trim = function(inputString) {
-		return inputString.replace(/^\s+|\s+$/g, '');
-	};
-	
-	utils.indexOf = function(array, item) {
-		if (array == null) return -1;
-		for (var i = 0; i < array.length; i++) {
-			if (array[i] === item) {
-				return i;
-			}
-		}
-		return -1;
-	};
-	
+	/* Browser */
 	utils.isMSIE = function(version) {
 		if (version) {
 			version = parseFloat(version).toFixed(1);
 			return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
 		}
 		return _userAgentMatch(/msie/i);
+	};
+	
+	utils.isSafari = function() {
+		return (_userAgentMatch(/safari/i) && !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i));
 	};
 	
 	utils.isIOS = function(version) {
@@ -181,7 +188,43 @@
 		return (agent.match(regex) !== null);
 	};
 	
-	/** Logger */
+	
+	/* protocol & extension */
+	utils.getProtocol = function(url) {
+		var protocol = 'http';
+		
+		var arr = url.match(/^([a-z]+)\:\/\//i);
+		if (arr && arr.length) {
+			protocol = arr[0];
+		}
+		
+		return protocol;
+	};
+	
+	utils.getFilename = function(file) {
+		var name = '';
+		
+		var arr = file.match(/\/([a-z][a-z0-9]*(\.[a-z0-9]+)?)$/i);
+		if (arr && arr.length > 1) {
+			name = arr[1];
+		}
+		
+		return name;
+	};
+	
+	utils.getExtension = function(file) {
+		var extension = '';
+		
+		var arr = file.match(/\/?([a-z][a-z0-9]*(\.([a-z0-9]+))*)\??([a-z0-9&%=]*)$/i);
+		if (arr && arr.length > 3) {
+			extension = arr[3];
+		}
+		
+		return extension;
+	};
+	
+	
+	/* Logger */
 	var console = window.console = window.console || {
 		log: function() {}
 	};

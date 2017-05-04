@@ -7,12 +7,13 @@
 		rendermodes = renders.modes,
 		css = utils.css;
 	
-	renders.flash = function(view, config) {
+	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
 			_defaults = {
 				debug: true//playease.debug
 			},
 			_video,
+			_url,
 			_duration;
 		
 		function _init() {
@@ -20,10 +21,11 @@
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_url = '';
 			_duration = 0;
 			
 			if (utils.isMSIE(8)) {
-				view.renderLayer.innerHTML = ''
+				layer.innerHTML = ''
 					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
 						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
@@ -33,7 +35,7 @@
 						+ '<param name="wmode" value="transparent">'
 					+ '</object>';
 				
-				_video = view.renderLayer.firstChild;
+				_video = layer.firstChild;
 				
 				return;
 			}
@@ -62,16 +64,22 @@
 				_video.setup(_this.config);
 				_video.resize(_video.clientWidth, _video.clientHeight);
 				
-				_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+				//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+				playease(_this.config.id).setupReady();
 			}, 500);
 		};
 		
 		_this.play = function(url) {
-			if (url && url != _this.config.url) {
-				_this.config.url = url;
+			if (url && url != _url) {
+				if (!renders.flash.isSupported(url)) {
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+					return;
+				}
+				
+				_url = url;
 			}
 			
-			_video.iplay(_this.config.url);
+			_video.iplay(_url);
 		};
 		
 		_this.pause = function() {
@@ -141,5 +149,31 @@
 		};
 		
 		_init();
+	};
+	
+	renders.flash.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https' && protocol != 'rtmp' && protocol != 'rtmpe') {
+			return false;
+		}
+		
+		if (utils.isMobile()) {
+			return false;
+		}
+		
+		var map = [
+			'flv',
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'mp3'
+		];
+		var extension = utils.getExtension(file);
+		for (var i = 0; i < map.length; i++) {
+			if (extension === map[i]) {
+				return true;
+			}
+		}
+		
+		return false;
 	};
 })(playease);

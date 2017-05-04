@@ -9,6 +9,7 @@
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
 		BULLET_CLASS = 'pla-bullet',
+		WARN_CLASS = 'pla-warn',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
@@ -41,6 +42,7 @@
 			css('.' + WRAP_CLASS, {
 				width: CSS_100PCT,
 				height: CSS_100PCT,
+				position: CSS_RELATIVE,
 				'box-shadow': '0 1px 1px rgba(0, 0, 0, 0.05)'
 			});
 			css('.' + WRAP_CLASS + ' *', {
@@ -55,13 +57,13 @@
 			css('.' + SKIN_CLASS + ' .' + DEVIDER_CLASS, {
 				padding: '0 2px',
 				'line-height': '40px',
-				color: '#FFF',
+				color: '#FFFFFF',
 				cursor: 'default'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + LABEL_CLASS, {
 				'line-height': '40px',
-				color: '#FFF',
+				color: '#FFFFFF',
 				cursor: 'default'
 			});
 			
@@ -92,6 +94,18 @@
 				+ ', .' + SKIN_CLASS + ' .' + RENDER_CLASS + ' object', {
 				width: CSS_100PCT,
 				height: CSS_100PCT
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + WARN_CLASS, {
+				width: CSS_100PCT,
+				height: CSS_100PCT,
+				'max-height': '15%',
+				'font-size': '1em',
+				'font-weight': 'bold',
+				color: '#FFFFFF',
+				'text-align': 'center',
+				position: CSS_ABSOLUTE,
+				top: '45%'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
