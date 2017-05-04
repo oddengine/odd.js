@@ -6,10 +6,11 @@
 		rendermodes = renders.modes,
 		css = utils.css;
 	
-	renders.def = function(view, config) {
+	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
 			_defaults = {},
 			_video,
+			_url,
 			_src;
 		
 		function _init() {
@@ -17,6 +18,7 @@
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_url = '';
 			_src = '';
 			
 			_video = utils.createElement('video');
@@ -29,16 +31,22 @@
 		}
 		
 		_this.setup = function() {
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			playease(_this.config.id).setupReady();
 		};
 		
 		_this.play = function(url) {
-			if (!_video.src || _video.src !== _src || url && url != _this.config.url) {
-				if (url && url != _this.config.url) {
-					_this.config.url = url;
+			if (!_video.src || _video.src !== _src || url && url != _url) {
+				if (url && url != _url) {
+					if (!renders.def.isSupported(url)) {
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						return;
+					}
+					
+					_url = url;
 				}
 				
-				_video.src = _this.config.url;
+				_video.src = _url;
 				_video.load();
 				
 				_src = _video.src;
@@ -126,5 +134,43 @@
 		};
 		
 		_init();
+	};
+	
+	renders.def.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
+		if (utils.isMSIE(8)) {
+			return false;
+		}
+		
+		var mobilemap = [
+			'm3u8', 'm3u', 'hls',
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'ogv', 'ogg',
+			'mp3',
+			'oga',
+			'webm'
+		];
+		var html5map = [
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'ogv', 'ogg',
+			'mp3',
+			'oga',
+			'webm'
+		];
+		var map = utils.isMobile() ? mobilemap : html5map;
+		var extension = utils.getExtension(file);
+		for (var i = 0; i < map.length; i++) {
+			if (extension === map[i]) {
+				return true;
+			}
+		}
+		
+		return false;
 	};
 })(playease);

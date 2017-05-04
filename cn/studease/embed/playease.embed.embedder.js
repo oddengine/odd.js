@@ -11,7 +11,7 @@
 			var entity = new core.entity(config);
 			entity.addGlobalListener(_onEvent);
 			entity.setup();
-			api.setEntity(entity, config.render.name);
+			api.setEntity(entity);
 		};
 		
 		function _onEvent(e) {

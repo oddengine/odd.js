@@ -46,6 +46,7 @@
 				case events.PLAYEASE_SETUP_ERROR:
 				case events.PLAYEASE_RENDER_ERROR:
 				case events.PLAYEASE_ERROR:
+					utils.log('[ERROR] ' + e.message);
 					_this.errorScreen(e.message);
 					_this.dispatchEvent(events.ERROR, e);
 					break;

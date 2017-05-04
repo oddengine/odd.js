@@ -6,12 +6,13 @@
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
-			_ready = false;
+			_ready = false,
+			_urgent;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
-			view.addEventListener(events.PLAYEASE_READY, _onReady);
+			//view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
@@ -31,9 +32,73 @@
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 		}
 		
+		_this.setupReady = function() {
+			if (!_ready) {
+				utils.log('Player ready!');
+				
+				_ready = true;
+				_this.dispatchEvent(events.PLAYEASE_READY, { id: model.getConfig('id') });
+				
+				if (model.getConfig('autoplay') || _urgent) {
+					_this.play(_urgent);
+				}
+				
+				window.onbeforeunload = function(ev) {
+					
+				};
+			}
+		};
+		
 		_this.play = function(url) {
-			model.setState(states.PLAYING);
-			view.play(url);
+			if (!_ready) {
+				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				return;
+			}
+			
+			var playlist = model.getProperty('playlist');
+			if (url) {
+				var render = core.renders[view.render.name];
+				if (render && render.isSupported(url)) {
+					model.setState(states.PLAYING);
+					view.play(url);
+					
+					return;
+				}
+				
+				var name = playlist.getSupported(url);
+				if (!name) {
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
+					return;
+				}
+				
+				if (view.render.name != name) {
+					_ready = false;
+					_urgent = url;
+					view.activeRender(name);
+					return;
+				}
+				
+				model.setState(states.PLAYING);
+				view.play(url);
+				
+				return;
+			}
+			
+			var item = playlist.getItemAt(playlist.index);
+			if (item) {
+				if (view.render.name != item.type) {
+					_ready = false;
+					view.activeRender(item.type);
+					return;
+				}
+				
+				model.setState(states.PLAYING);
+				view.play(item.file);
+				
+				return;
+			}
+			
+			_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item!' });
 		};
 		
 		_this.pause = function() {
@@ -42,16 +107,31 @@
 		};
 		
 		_this.reload = function() {
+			if (!_ready) {
+				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				return;
+			}
+			
 			model.setState(states.RELOADING);
 			view.play();
 		};
 		
 		_this.seek = function(offset) {
+			if (!_ready) {
+				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				return;
+			}
+			
 			model.setState(states.SEEKING);
 			view.seek(offset);
 		};
 		
 		_this.stop = function() {
+			var playlist = model.getProperty('playlist');
+			playlist.activeNextItem();
+			
+			_urgent = undefined;
+			
 			model.setState(states.STOPPED);
 			view.stop();
 		};
@@ -131,25 +211,8 @@
 			}
 		}
 		
-		function _onReady(e) {
-			if (!_ready) {
-				utils.log('Player ready!');
-				
-				_ready = true;
-				_forward(e);
-				
-				if (model.config.autoplay) {
-					_this.play();
-				}
-				
-				window.onbeforeunload = function(ev) {
-					
-				};
-			}
-		}
-		
 		function _onPlay(e) {
-			_this.play();
+			_this.play(_urgent);
 			_forward(e);
 		}
 		

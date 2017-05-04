@@ -13,10 +13,11 @@
 		FORMATS = muxer.flv.FORMATS,
 		CODECS = muxer.flv.CODECS;
 	
-	renders.flv = function(view, config) {
+	renders.flv = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
 			_defaults = {},
 			_video,
+			_url,
 			_src,
 			_loader,
 			_demuxer,
@@ -34,6 +35,7 @@
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_url = '';
 			_src = '';
 			
 			_sbs = { audio: null, video: null };
@@ -93,13 +95,19 @@
 		}
 		
 		_this.setup = function() {
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			playease(_this.config.id).setupReady();
 		};
 		
 		_this.play = function(url) {
-			if (!_video.src || _video.src !== _src || url && url != _this.config.url) {
-				if (url && url != _this.config.url) {
-					_this.config.url = url;
+			if (!_video.src || _video.src !== _src || url && url != _url) {
+				if (url && url != _url) {
+					if (!renders.flv.isSupported(url)) {
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						return;
+					}
+					
+					_url = url;
 				}
 				
 				_segments.audio = [];
@@ -303,7 +311,7 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_loader.load(config.url);
+			_loader.load(_url);
 		}
 		
 		function _onUpdateEnd(e) {
@@ -404,5 +412,23 @@
 		};
 		
 		_init();
+	};
+	
+	renders.flv.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
+		if (utils.isMSIE(8) || utils.isIOS()) {
+			return false;
+		}
+		
+		var extension = utils.getExtension(file);
+		if (extension != 'flv' && extension != '') {
+			return false;
+		}
+		
+		return true;
 	};
 })(playease);

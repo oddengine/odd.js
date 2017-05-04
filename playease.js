@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.38';
+playease.version = '1.0.39';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -71,7 +71,41 @@ playease.version = '1.0.38';
 		return str;
 	};
 	
+	utils.typeOf = function(value) {
+		if (value === null || value === undefined) {
+			return 'null';
+		}
+		var typeofString = typeof value;
+		if (typeofString === 'object') {
+			try {
+				if (toString.call(value) === '[object Array]') {
+					return 'array';
+				}
+			} catch (e) {}
+		}
+		return typeofString;
+	};
 	
+	utils.isInt = function(value) {
+		return parseFloat(value) % 1 === 0;
+	};
+	
+	utils.trim = function(inputString) {
+		return inputString.replace(/^\s+|\s+$/g, '');
+	};
+	
+	utils.indexOf = function(array, item) {
+		if (array == null) return -1;
+		for (var i = 0; i < array.length; i++) {
+			if (array[i] === item) {
+				return i;
+			}
+		}
+		return -1;
+	};
+	
+	
+	/* DOM */
 	utils.createElement = function(elem, className) {
 		var newElement = document.createElement(elem);
 		if (className) {
@@ -113,45 +147,18 @@ playease.version = '1.0.38';
 		}
 	};
 	
-	utils.typeOf = function(value) {
-		if (value === null || value === undefined) {
-			return 'null';
-		}
-		var typeofString = typeof value;
-		if (typeofString === 'object') {
-			try {
-				if (toString.call(value) === '[object Array]') {
-					return 'array';
-				}
-			} catch (e) {}
-		}
-		return typeofString;
-	};
 	
-	utils.isInt = function(value) {
-		return parseFloat(value) % 1 === 0;
-	};
-	
-	utils.trim = function(inputString) {
-		return inputString.replace(/^\s+|\s+$/g, '');
-	};
-	
-	utils.indexOf = function(array, item) {
-		if (array == null) return -1;
-		for (var i = 0; i < array.length; i++) {
-			if (array[i] === item) {
-				return i;
-			}
-		}
-		return -1;
-	};
-	
+	/* Browser */
 	utils.isMSIE = function(version) {
 		if (version) {
 			version = parseFloat(version).toFixed(1);
 			return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
 		}
 		return _userAgentMatch(/msie/i);
+	};
+	
+	utils.isSafari = function() {
+		return (_userAgentMatch(/safari/i) && !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i));
 	};
 	
 	utils.isIOS = function(version) {
@@ -189,7 +196,43 @@ playease.version = '1.0.38';
 		return (agent.match(regex) !== null);
 	};
 	
-	/** Logger */
+	
+	/* protocol & extension */
+	utils.getProtocol = function(url) {
+		var protocol = 'http';
+		
+		var arr = url.match(/^([a-z]+)\:\/\//i);
+		if (arr && arr.length) {
+			protocol = arr[0];
+		}
+		
+		return protocol;
+	};
+	
+	utils.getFilename = function(file) {
+		var name = '';
+		
+		var arr = file.match(/\/([a-z][a-z0-9]*(\.[a-z0-9]+)?)$/i);
+		if (arr && arr.length > 1) {
+			name = arr[1];
+		}
+		
+		return name;
+	};
+	
+	utils.getExtension = function(file) {
+		var extension = '';
+		
+		var arr = file.match(/\/?([a-z][a-z0-9]*(\.([a-z0-9]+))*)\??([a-z0-9&%=]*)$/i);
+		if (arr && arr.length > 3) {
+			extension = arr[3];
+		}
+		
+		return extension;
+	};
+	
+	
+	/* Logger */
 	var console = window.console = window.console || {
 		log: function() {}
 	};
@@ -735,9 +778,14 @@ playease.version = '1.0.38';
 			return _this;
 		};
 		
-		_this.setEntity = function(entity, renderName) {
+		_this.setupReady = function() {
+			
+		};
+		
+		_this.setEntity = function(entity) {
 			_entity = entity;
-			_this.renderName = renderName;
+			
+			_this.setupReady = _entity.setupReady;
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
@@ -792,7 +840,10 @@ playease.version = '1.0.38';
 	};
 	
 	playease.api.displayError = function(message, config) {
-		
+		var warnLayer = document.getElementById(config.id + '-warn');
+		if (warnLayer && message) {
+			warnLayer.innerHTML = message;
+		}
 	};
 })(playease);
 
@@ -3401,6 +3452,7 @@ playease.version = '1.0.38';
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
 		BULLET_CLASS = 'pla-bullet',
+		WARN_CLASS = 'pla-warn',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
@@ -3433,6 +3485,7 @@ playease.version = '1.0.38';
 			css('.' + WRAP_CLASS, {
 				width: CSS_100PCT,
 				height: CSS_100PCT,
+				position: CSS_RELATIVE,
 				'box-shadow': '0 1px 1px rgba(0, 0, 0, 0.05)'
 			});
 			css('.' + WRAP_CLASS + ' *', {
@@ -3447,13 +3500,13 @@ playease.version = '1.0.38';
 			css('.' + SKIN_CLASS + ' .' + DEVIDER_CLASS, {
 				padding: '0 2px',
 				'line-height': '40px',
-				color: '#FFF',
+				color: '#FFFFFF',
 				cursor: 'default'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + LABEL_CLASS, {
 				'line-height': '40px',
-				color: '#FFF',
+				color: '#FFFFFF',
 				cursor: 'default'
 			});
 			
@@ -3484,6 +3537,18 @@ playease.version = '1.0.38';
 				+ ', .' + SKIN_CLASS + ' .' + RENDER_CLASS + ' object', {
 				width: CSS_100PCT,
 				height: CSS_100PCT
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + WARN_CLASS, {
+				width: CSS_100PCT,
+				height: CSS_100PCT,
+				'max-height': '15%',
+				'font-size': '1em',
+				'font-weight': 'bold',
+				color: '#FFFFFF',
+				'text-align': 'center',
+				position: CSS_ABSOLUTE,
+				top: '45%'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
@@ -3754,20 +3819,24 @@ playease.version = '1.0.38';
 })(playease);
 
 (function(playease) {
-	playease.core.renders = {
-		sourcetypes: {
-			LIVE: 'live',
-			VOD:  'vod'
-		}
+	var renders = playease.core.renders = {};
+	
+	renders.types = {
+		LIVE: 'live',
+		VOD:  'vod'
 	};
 })(playease);
 
 (function(playease) {
-	playease.core.renders.modes = {
+	var renders = playease.core.renders;
+	
+	renders.modes = {
 		DEFAULT: 'def',
 		FLV: 'flv',
 		FLASH: 'flash'
 	};
+	
+	renders.priority = ['def', 'flv', 'flash'];
 })(playease);
 
 (function(playease) {
@@ -3778,10 +3847,11 @@ playease.version = '1.0.38';
 		rendermodes = renders.modes,
 		css = utils.css;
 	
-	renders.def = function(view, config) {
+	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
 			_defaults = {},
 			_video,
+			_url,
 			_src;
 		
 		function _init() {
@@ -3789,6 +3859,7 @@ playease.version = '1.0.38';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_url = '';
 			_src = '';
 			
 			_video = utils.createElement('video');
@@ -3801,16 +3872,22 @@ playease.version = '1.0.38';
 		}
 		
 		_this.setup = function() {
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			playease(_this.config.id).setupReady();
 		};
 		
 		_this.play = function(url) {
-			if (!_video.src || _video.src !== _src || url && url != _this.config.url) {
-				if (url && url != _this.config.url) {
-					_this.config.url = url;
+			if (!_video.src || _video.src !== _src || url && url != _url) {
+				if (url && url != _url) {
+					if (!renders.def.isSupported(url)) {
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						return;
+					}
+					
+					_url = url;
 				}
 				
-				_video.src = _this.config.url;
+				_video.src = _url;
 				_video.load();
 				
 				_src = _video.src;
@@ -3899,6 +3976,44 @@ playease.version = '1.0.38';
 		
 		_init();
 	};
+	
+	renders.def.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
+		if (utils.isMSIE(8)) {
+			return false;
+		}
+		
+		var mobilemap = [
+			'm3u8', 'm3u', 'hls',
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'ogv', 'ogg',
+			'mp3',
+			'oga',
+			'webm'
+		];
+		var html5map = [
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'ogv', 'ogg',
+			'mp3',
+			'oga',
+			'webm'
+		];
+		var map = utils.isMobile() ? mobilemap : html5map;
+		var extension = utils.getExtension(file);
+		for (var i = 0; i < map.length; i++) {
+			if (extension === map[i]) {
+				return true;
+			}
+		}
+		
+		return false;
+	};
 })(playease);
 
 (function(playease) {
@@ -3916,10 +4031,11 @@ playease.version = '1.0.38';
 		FORMATS = muxer.flv.FORMATS,
 		CODECS = muxer.flv.CODECS;
 	
-	renders.flv = function(view, config) {
+	renders.flv = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
 			_defaults = {},
 			_video,
+			_url,
 			_src,
 			_loader,
 			_demuxer,
@@ -3937,6 +4053,7 @@ playease.version = '1.0.38';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_url = '';
 			_src = '';
 			
 			_sbs = { audio: null, video: null };
@@ -3996,13 +4113,19 @@ playease.version = '1.0.38';
 		}
 		
 		_this.setup = function() {
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			playease(_this.config.id).setupReady();
 		};
 		
 		_this.play = function(url) {
-			if (!_video.src || _video.src !== _src || url && url != _this.config.url) {
-				if (url && url != _this.config.url) {
-					_this.config.url = url;
+			if (!_video.src || _video.src !== _src || url && url != _url) {
+				if (url && url != _url) {
+					if (!renders.flv.isSupported(url)) {
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						return;
+					}
+					
+					_url = url;
 				}
 				
 				_segments.audio = [];
@@ -4206,7 +4329,7 @@ playease.version = '1.0.38';
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_loader.load(config.url);
+			_loader.load(_url);
 		}
 		
 		function _onUpdateEnd(e) {
@@ -4308,6 +4431,24 @@ playease.version = '1.0.38';
 		
 		_init();
 	};
+	
+	renders.flv.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
+		if (utils.isMSIE(8) || utils.isIOS()) {
+			return false;
+		}
+		
+		var extension = utils.getExtension(file);
+		if (extension != 'flv' && extension != '') {
+			return false;
+		}
+		
+		return true;
+	};
 })(playease);
 
 (function(playease) {
@@ -4319,12 +4460,13 @@ playease.version = '1.0.38';
 		rendermodes = renders.modes,
 		css = utils.css;
 	
-	renders.flash = function(view, config) {
+	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
 			_defaults = {
 				debug: true//playease.debug
 			},
 			_video,
+			_url,
 			_duration;
 		
 		function _init() {
@@ -4332,10 +4474,11 @@ playease.version = '1.0.38';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
+			_url = '';
 			_duration = 0;
 			
 			if (utils.isMSIE(8)) {
-				view.renderLayer.innerHTML = ''
+				layer.innerHTML = ''
 					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
 						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
@@ -4345,7 +4488,7 @@ playease.version = '1.0.38';
 						+ '<param name="wmode" value="transparent">'
 					+ '</object>';
 				
-				_video = view.renderLayer.firstChild;
+				_video = layer.firstChild;
 				
 				return;
 			}
@@ -4374,16 +4517,22 @@ playease.version = '1.0.38';
 				_video.setup(_this.config);
 				_video.resize(_video.clientWidth, _video.clientHeight);
 				
-				_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+				//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+				playease(_this.config.id).setupReady();
 			}, 500);
 		};
 		
 		_this.play = function(url) {
-			if (url && url != _this.config.url) {
-				_this.config.url = url;
+			if (url && url != _url) {
+				if (!renders.flash.isSupported(url)) {
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+					return;
+				}
+				
+				_url = url;
 			}
 			
-			_video.iplay(_this.config.url);
+			_video.iplay(_url);
 		};
 		
 		_this.pause = function() {
@@ -4453,6 +4602,32 @@ playease.version = '1.0.38';
 		};
 		
 		_init();
+	};
+	
+	renders.flash.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https' && protocol != 'rtmp' && protocol != 'rtmpe') {
+			return false;
+		}
+		
+		if (utils.isMobile()) {
+			return false;
+		}
+		
+		var map = [
+			'flv',
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'mp3'
+		];
+		var extension = utils.getExtension(file);
+		for (var i = 0; i < map.length; i++) {
+			if (extension === map[i]) {
+				return true;
+			}
+		}
+		
+		return false;
 	};
 })(playease);
 
@@ -5173,6 +5348,132 @@ playease.version = '1.0.38';
 
 (function(playease) {
 	var utils = playease.utils,
+		core = playease.core,
+		renders = core.renders,
+		priority = renders.priority;
+	
+	utils.playlist = function(sources, prior) {
+		var _this = this;
+		
+		function _init() {
+			_this.index = 0;
+			_this.sources = sources;
+			_this.prior = prior;
+		}
+		
+		_this.format = function() {
+			var array = _this.sources.splice(0);
+			
+			for (var i = 0; i < array.length; i++) {
+				var item = array[i];
+				if (!item || !item.file) {
+					continue;
+				}
+				
+				var name = _this.getSupported(item.file, item.type || _this.prior);
+				if (name) {
+					_this.sources.push({
+						file: item.file,
+						type: name,
+						label: item.label || _this.sources.length
+					});
+					continue;
+				}
+			}
+		};
+		
+		_this.getSupported = function(file, prior) {
+			if (prior) {
+				var render = renders[prior];
+				if (render && render.isSupported(file)) {
+					return prior;
+				}
+			}
+			
+			for (var i = 0; i < priority.length; i++) {
+				var name = priority[i];
+				var render = renders[name];
+				if (render && render.isSupported(file)) {
+					return name;
+				}
+			}
+			
+			return null;
+		};
+		
+		_this.addItem = function(file, prior, label) {
+			if (!file) {
+				return null;
+			}
+			
+			for (var i = 0; i < _this.sources.length; i++) {
+				var item = _this.sources[i];
+				if (item.file === file) {
+					return item;
+				}
+			}
+			
+			var name = _this.getSupported(file, prior || _this.prior);
+			if (name) {
+				var item = {
+					file: file,
+					type: name,
+					label: label || _this.sources.length
+				};
+				
+				_this.sources.push(item);
+				
+				return item;
+			}
+			
+			return null;
+		};
+		
+		_this.getItemAt = function(index) {
+			if (index < 0 || index >= _this.sources.length) {
+				return null;
+			}
+			
+			return _this.sources[index];
+		};
+		
+		_this.activeItemAt = function(index) {
+			if (index < 0 || index >= _this.sources.length) {
+				return false;
+			}
+			
+			_this.index = index;
+			
+			return true;
+		};
+		
+		_this.activeNextItem = function() {
+			if (!_this.sources || !_this.sources.length) {
+				return false;
+			}
+			
+			_this.index++;
+			if (_this.index == _this.sources.length) {
+				_this.index = 0;
+			}
+			
+			return true;
+		};
+		
+		_this.getNextItem = function() {
+			if (_this.activeNextItem()) {
+				return _this.sources[_this.index];
+			}
+			
+			return null;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core;
 	
@@ -5186,7 +5487,7 @@ playease.version = '1.0.38';
 			_this.id = config.id;
 			
 			_this.model = _model = new core.model(config);
-			_this.view = _view = new core.view(_this, _model);
+			_this.view = _view = new core.view(_model);
 			_this.controller = _controller = new core.controller(_model, _view);
 			
 			_controller.addGlobalListener(_forward);
@@ -5195,6 +5496,8 @@ playease.version = '1.0.38';
 		}
 		
 		function _initializeAPI() {
+			_this.setupReady = _controller.setupReady;
+			
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
 			_this.reload = _controller.reload;
@@ -5250,18 +5553,19 @@ playease.version = '1.0.38';
 		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
 		 	_defaults = {},
 		 	_state = states.STOPPED,
+		 	_playlist,
 		 	_properties;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
-			if (utils.isMSIE(8)) {
-				_this.config.render.name = 'flash';
-			}
+			_playlist = new utils.playlist(_this.config.sources, _this.config.render.name);
+			_playlist.format();
+			_playlist.addItem(_this.config.file);
 			
 			_properties = {
 				ratio: _this.config.width / (_this.config.height - 40),
-				sources: _this.config.sources,
+				playlist: _playlist,
 				duration: 0,
 				muted: false,
 				volume: 80,
@@ -5295,7 +5599,7 @@ playease.version = '1.0.38';
 		};
 		
 		_this.getConfig = function(name) {
-			return _this.config[name] || {};
+			return _this.config[name];
 		};
 		
 		_this.destroy = function() {
@@ -5313,23 +5617,26 @@ playease.version = '1.0.38';
 		states = core.states,
 		renders = core.renders,
 		rendermodes = renders.modes,
+		priority = renders.priority,
 		components = core.components,
 		skins = core.skins,
 		skinmodes = skins.modes,
-		css = utils.css,
 		
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
+		WARN_CLASS = 'pla-warn',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
-	core.view = function(entity, model) {
+	core.view = function(model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
 			_controlsLayer,
 			_contextmenuLayer,
+			_warnLayer,
+			_renders,
 			_render,
 			_controlbar,
 			_bulletscreen,
@@ -5341,37 +5648,43 @@ playease.version = '1.0.38';
 			_errorOccurred = false;
 		
 		function _init() {
-			SKIN_CLASS += '-' + model.config.skin.name;
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.config.type === 'vod' ? ' vod' : ''));
-			_wrapper.id = entity.id;
+			SKIN_CLASS += '-' + model.getConfig('skin').name;
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('type') === 'vod' ? ' vod' : ''));
+			_wrapper.id = model.getConfig('id');
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
+			_warnLayer = utils.createElement('div', WARN_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
+			_warnLayer.id = model.getConfig('id') + '-warn';
+			
 			_wrapper.appendChild(_renderLayer);
+			_wrapper.appendChild(_warnLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
 			_initComponents();
-			_initRender();
+			_initRenders();
 			_initSkin();
 			
-			var replace = document.getElementById(entity.id);
+			var replace = document.getElementById(model.getConfig('id'));
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
 			try {
+				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
 			} catch (err) {
+				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
 			}
 		}
 		
 		function _initComponents() {
 			var cbcfg = utils.extend({}, {
-				report: model.config.report,
-				sources: model.getConfig('sources'),
+				report: model.getConfig('report'),
+				playlist: model.getProperty('playlist'),
 				bulletscreen: model.getConfig('bulletscreen')
 			});
 			
@@ -5385,8 +5698,8 @@ playease.version = '1.0.38';
 			}
 			
 			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
-				width: model.config.width,
-				height: model.config.height - 40
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
 			});
 			
 			try {
@@ -5400,45 +5713,74 @@ playease.version = '1.0.38';
 			}
 		}
 		
-		function _initRender() {
+		function _initRenders() {
 			var cfg = utils.extend({}, model.getConfig('render'), {
-				id: entity.id,
-				url: model.config.url,
-				width: model.config.width,
-				height: model.config.height - 40,
-				bufferTime: model.config.bufferTime,
-				poster: model.config.poster,
-				controls: model.config.controls,
-				autoplay: model.config.autoplay,
-				playsinline: model.config.playsinline,
+				id: model.getConfig('id'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40,
+				playlist: model.getProperty('playlist'),
+				bufferTime: model.getConfig('bufferTime'),
+				autoplay: model.getConfig('autoplay'),
+				poster: model.getConfig('poster'),
+				playsinline: model.getConfig('playsinline'),
 				loader: {
-					mode: model.config.cors
+					mode: model.getConfig('cors')
 				}
 			});
 			
-			try {
-				if (utils.isMSIE(8)) {
-					_this.renderLayer = _renderLayer;
+			_renders = {};
+			
+			for (var i = 0; i < priority.length; i++) {
+				var name = priority[i];
+				try {
+					var render = new renders[name](_renderLayer, cfg);
+					_renders[name] = render;
+					
+					utils.log('Render ' + name + ' initialized!');
+				} catch (err) {
+					utils.log('Failed to init render ' + name + '!');
 				}
-				
-				_render = _this.render = new renders[cfg.name](_this, cfg);
-				_render.addEventListener(events.PLAYEASE_READY, _forward);
-				_render.addEventListener(events.PLAYEASE_DURATION, _forward);
-				_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
-				_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-				
-				_video = _render.element();
-				_renderLayer.appendChild(_video);
-			} catch (err) {
-				utils.log('Failed to init render ' + cfg.name + '!');
+			}
+			
+			var playlist = model.getProperty('playlist');
+			if (playlist.sources.length) {
+				_this.activeRender(playlist.sources[0].type);
 			}
 		}
 		
+		_this.activeRender = function(name) {
+			if (_render && _render.name == name || _renders.hasOwnProperty(name) == false) {
+				return;
+			}
+			
+			if (_render) {
+				_render.removeEventListener(events.PLAYEASE_READY, _forward);
+				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
+				_render.removeEventListener(events.PLAYEASE_VIEW_STOP, _forward);
+				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+				
+				_renderLayer.removeChild(_render.element());
+			}
+			
+			_render = _this.render = _renders[name];
+			_render.addEventListener(events.PLAYEASE_READY, _forward);
+			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
+			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+			
+			_video = _render.element();
+			_renderLayer.appendChild(_video);
+			
+			_this.setup();
+			
+			utils.log('Actived render ' + _render.name + '!');
+		};
+		
 		function _initSkin() {
 			var cfg = utils.extend({}, model.getConfig('skin'), {
-				id: entity.id,
-				width: model.config.width,
-				height: model.config.height
+				id: model.getConfig('id'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height')
 			});
 			
 			try {
@@ -5451,18 +5793,12 @@ playease.version = '1.0.38';
 		_this.setup = function() {
 			// Ignore components & skin failure.
 			if (!_render) {
-				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.config.render.name });
+				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.getConfig('render').name });
 				return;
 			}
 			
 			_render.setup();
 			_this.resize();
-			
-			try {
-				_wrapper.addEventListener('keydown', _onKeyDown);
-			} catch (err) {
-				_wrapper.attachEvent('onkeydown', _onKeyDown);
-			}
 		};
 		
 		_this.play = function(url) {
@@ -5685,12 +6021,12 @@ playease.version = '1.0.38';
 		_this.resize = function(width, height) {
 			if (utils.isMSIE(8)) {
 				var fp = model.getProperty('fullpage');
-				_renderLayer.style.height = fp ? '100%' : model.config.height + 'px';
+				_renderLayer.style.height = fp ? '100%' : model.getConfig('height') + 'px';
 			}
 			
 			setTimeout(function() {
-				width = _video.clientWidth;
-				height = _video.clientHeight;
+				width = _renderLayer.clientWidth;
+				height = _renderLayer.clientHeight;
 				
 				if (utils.isMSIE(8)) {
 					width = _wrapper.clientWidth;
@@ -5744,12 +6080,13 @@ playease.version = '1.0.38';
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
-			_ready = false;
+			_ready = false,
+			_urgent;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
-			view.addEventListener(events.PLAYEASE_READY, _onReady);
+			//view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
@@ -5769,9 +6106,73 @@ playease.version = '1.0.38';
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 		}
 		
+		_this.setupReady = function() {
+			if (!_ready) {
+				utils.log('Player ready!');
+				
+				_ready = true;
+				_this.dispatchEvent(events.PLAYEASE_READY, { id: model.getConfig('id') });
+				
+				if (model.getConfig('autoplay') || _urgent) {
+					_this.play(_urgent);
+				}
+				
+				window.onbeforeunload = function(ev) {
+					
+				};
+			}
+		};
+		
 		_this.play = function(url) {
-			model.setState(states.PLAYING);
-			view.play(url);
+			if (!_ready) {
+				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				return;
+			}
+			
+			var playlist = model.getProperty('playlist');
+			if (url) {
+				var render = core.renders[view.render.name];
+				if (render && render.isSupported(url)) {
+					model.setState(states.PLAYING);
+					view.play(url);
+					
+					return;
+				}
+				
+				var name = playlist.getSupported(url);
+				if (!name) {
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
+					return;
+				}
+				
+				if (view.render.name != name) {
+					_ready = false;
+					_urgent = url;
+					view.activeRender(name);
+					return;
+				}
+				
+				model.setState(states.PLAYING);
+				view.play(url);
+				
+				return;
+			}
+			
+			var item = playlist.getItemAt(playlist.index);
+			if (item) {
+				if (view.render.name != item.type) {
+					_ready = false;
+					view.activeRender(item.type);
+					return;
+				}
+				
+				model.setState(states.PLAYING);
+				view.play(item.file);
+				
+				return;
+			}
+			
+			_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item!' });
 		};
 		
 		_this.pause = function() {
@@ -5780,16 +6181,31 @@ playease.version = '1.0.38';
 		};
 		
 		_this.reload = function() {
+			if (!_ready) {
+				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				return;
+			}
+			
 			model.setState(states.RELOADING);
 			view.play();
 		};
 		
 		_this.seek = function(offset) {
+			if (!_ready) {
+				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				return;
+			}
+			
 			model.setState(states.SEEKING);
 			view.seek(offset);
 		};
 		
 		_this.stop = function() {
+			var playlist = model.getProperty('playlist');
+			playlist.activeNextItem();
+			
+			_urgent = undefined;
+			
 			model.setState(states.STOPPED);
 			view.stop();
 		};
@@ -5869,25 +6285,8 @@ playease.version = '1.0.38';
 			}
 		}
 		
-		function _onReady(e) {
-			if (!_ready) {
-				utils.log('Player ready!');
-				
-				_ready = true;
-				_forward(e);
-				
-				if (model.config.autoplay) {
-					_this.play();
-				}
-				
-				window.onbeforeunload = function(ev) {
-					
-				};
-			}
-		}
-		
 		function _onPlay(e) {
-			_this.play();
+			_this.play(_urgent);
 			_forward(e);
 		}
 		
@@ -6030,6 +6429,7 @@ playease.version = '1.0.38';
 				case events.PLAYEASE_SETUP_ERROR:
 				case events.PLAYEASE_RENDER_ERROR:
 				case events.PLAYEASE_ERROR:
+					utils.log('[ERROR] ' + e.message);
 					_this.errorScreen(e.message);
 					_this.dispatchEvent(events.ERROR, e);
 					break;
@@ -6054,17 +6454,17 @@ playease.version = '1.0.38';
 		core = playease.core,
 		alphas = core.components.bulletscreen.alphas,
 		positions = core.components.bulletscreen.positions,
-		sourcetypes = core.renders.sourcetypes,
+		rendertypes = core.renders.types,
 		rendermodes = core.renders.modes,
 		skinmodes = core.skins.modes;
 	
 	embed.config = function(config) {
 		var _defaults = {
-			url: 'http://' + window.location.host + '/vod/sample.mp4',
 			width: 640,
 			height: 360,
+			file: '',
 			sources: [],
-			type: sourcetypes.VOD,
+			type: rendertypes.VOD,
 			cors: 'no-cors',
 			bufferTime: .1,
 			controls: true,
@@ -6113,7 +6513,7 @@ playease.version = '1.0.38';
 			var entity = new core.entity(config);
 			entity.addGlobalListener(_onEvent);
 			entity.setup();
-			api.setEntity(entity, config.render.name);
+			api.setEntity(entity);
 		};
 		
 		function _onEvent(e) {
