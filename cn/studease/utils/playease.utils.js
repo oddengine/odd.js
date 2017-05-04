@@ -194,8 +194,8 @@
 		var protocol = 'http';
 		
 		var arr = url.match(/^([a-z]+)\:\/\//i);
-		if (arr && arr.length) {
-			protocol = arr[0];
+		if (arr && arr.length > 1) {
+			protocol = arr[1];
 		}
 		
 		return protocol;

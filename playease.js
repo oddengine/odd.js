@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.39';
+playease.version = '1.0.40';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -202,8 +202,8 @@ playease.version = '1.0.39';
 		var protocol = 'http';
 		
 		var arr = url.match(/^([a-z]+)\:\/\//i);
-		if (arr && arr.length) {
-			protocol = arr[0];
+		if (arr && arr.length > 1) {
+			protocol = arr[1];
 		}
 		
 		return protocol;
@@ -4615,6 +4615,7 @@ playease.version = '1.0.39';
 		}
 		
 		var map = [
+			undefined, // live stream
 			'flv',
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a', 'aac',

@@ -162,6 +162,7 @@
 		}
 		
 		var map = [
+			undefined, // live stream
 			'flv',
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a', 'aac',
