@@ -33,6 +33,7 @@
 						+ '<param name="allowscriptaccess" value="sameDomain">'
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
+						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
 					+ '</object>';
 				
 				_video = layer.firstChild;
@@ -48,7 +49,8 @@
 				+ '<param name="bgcolor" value="#ffffff">'
 				+ '<param name="allowscriptaccess" value="sameDomain">'
 				+ '<param name="allowfullscreen" value="true">'
-				+ '<param name="wmode" value="transparent">';
+				+ '<param name="wmode" value="transparent">'
+				+ '<param name="FlashVars" value="id=' + _this.config.id + '">';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
@@ -61,16 +63,16 @@
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				_video.setup(_this.config);
-				_video.resize(_video.clientWidth, _video.clientHeight);
-				
-				//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-				playease(_this.config.id).setupReady();
-			}, 500);
+				if (_video.setup) {
+					_video.setup(_this.config);
+					_video.resize(_video.clientWidth, _video.clientHeight);
+					_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+				}
+			}, 0);
 		};
 		
 		_this.play = function(url) {
-			if (url && url != _url) {
+			if (url && url != _url) {	
 				if (!renders.flash.isSupported(url)) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
 					return;

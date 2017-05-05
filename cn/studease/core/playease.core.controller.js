@@ -12,7 +12,7 @@
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
-			//view.addEventListener(events.PLAYEASE_READY, _onReady);
+			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
@@ -32,7 +32,7 @@
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 		}
 		
-		_this.setupReady = function() {
+		function _onReady(e) {
 			if (!_ready) {
 				utils.log('Player ready!');
 				
@@ -47,7 +47,7 @@
 					
 				};
 			}
-		};
+		}
 		
 		_this.play = function(url) {
 			if (!_ready) {
