@@ -57,6 +57,8 @@
 			
 			var playlist = model.getProperty('playlist');
 			if (url) {
+				_urgent = url;
+				
 				var render = core.renders[view.render.name];
 				if (render && render.isSupported(url)) {
 					model.setState(states.PLAYING);
@@ -73,7 +75,6 @@
 				
 				if (view.render.name != name) {
 					_ready = false;
-					_urgent = url;
 					view.activeRender(name);
 					return;
 				}

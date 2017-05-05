@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.41';
+playease.version = '1.0.42';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -5722,6 +5722,8 @@ playease.version = '1.0.41';
 				height: model.getConfig('height') - 40,
 				playlist: model.getProperty('playlist'),
 				bufferTime: model.getConfig('bufferTime'),
+				muted: model.getProperty('muted'),
+				volume: model.getProperty('volume'),
 				autoplay: model.getConfig('autoplay'),
 				poster: model.getConfig('poster'),
 				playsinline: model.getConfig('playsinline'),
@@ -6133,6 +6135,8 @@ playease.version = '1.0.41';
 			
 			var playlist = model.getProperty('playlist');
 			if (url) {
+				_urgent = url;
+				
 				var render = core.renders[view.render.name];
 				if (render && render.isSupported(url)) {
 					model.setState(states.PLAYING);
@@ -6149,7 +6153,6 @@ playease.version = '1.0.41';
 				
 				if (view.render.name != name) {
 					_ready = false;
-					_urgent = url;
 					view.activeRender(name);
 					return;
 				}

@@ -108,6 +108,8 @@
 				height: model.getConfig('height') - 40,
 				playlist: model.getProperty('playlist'),
 				bufferTime: model.getConfig('bufferTime'),
+				muted: model.getProperty('muted'),
+				volume: model.getProperty('volume'),
 				autoplay: model.getConfig('autoplay'),
 				poster: model.getConfig('poster'),
 				playsinline: model.getConfig('playsinline'),
