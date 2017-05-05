@@ -31,8 +31,7 @@
 		}
 		
 		_this.setup = function() {
-			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-			playease(_this.config.id).setupReady();
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
 		_this.play = function(url) {

@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.40';
+playease.version = '1.0.41';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -778,14 +778,10 @@ playease.version = '1.0.40';
 			return _this;
 		};
 		
-		_this.setupReady = function() {
-			
-		};
-		
 		_this.setEntity = function(entity) {
 			_entity = entity;
 			
-			_this.setupReady = _entity.setupReady;
+			_this.loadedSWF = _entity.setup;
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
@@ -3872,8 +3868,7 @@ playease.version = '1.0.40';
 		}
 		
 		_this.setup = function() {
-			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-			playease(_this.config.id).setupReady();
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
 		_this.play = function(url) {
@@ -4113,8 +4108,7 @@ playease.version = '1.0.40';
 		}
 		
 		_this.setup = function() {
-			//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-			playease(_this.config.id).setupReady();
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
 		_this.play = function(url) {
@@ -4486,6 +4480,7 @@ playease.version = '1.0.40';
 						+ '<param name="allowscriptaccess" value="sameDomain">'
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
+						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
 					+ '</object>';
 				
 				_video = layer.firstChild;
@@ -4501,7 +4496,8 @@ playease.version = '1.0.40';
 				+ '<param name="bgcolor" value="#ffffff">'
 				+ '<param name="allowscriptaccess" value="sameDomain">'
 				+ '<param name="allowfullscreen" value="true">'
-				+ '<param name="wmode" value="transparent">';
+				+ '<param name="wmode" value="transparent">'
+				+ '<param name="FlashVars" value="id=' + _this.config.id + '">';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
@@ -4514,16 +4510,16 @@ playease.version = '1.0.40';
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				_video.setup(_this.config);
-				_video.resize(_video.clientWidth, _video.clientHeight);
-				
-				//_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-				playease(_this.config.id).setupReady();
-			}, 500);
+				if (_video.setup) {
+					_video.setup(_this.config);
+					_video.resize(_video.clientWidth, _video.clientHeight);
+					_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+				}
+			}, 0);
 		};
 		
 		_this.play = function(url) {
-			if (url && url != _url) {
+			if (url && url != _url) {	
 				if (!renders.flash.isSupported(url)) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
 					return;
@@ -4770,14 +4766,21 @@ playease.version = '1.0.40';
 		function _getValue(x, y) {
 			var offsetX, offsetY, value;
 			
+			offsetX = x;
+			offsetY = y;
+			for (var node = _container; node != document.body.parentNode; node = node.parentNode) {
+				offsetX -= node.offsetLeft;
+				offsetY -= node.offsetTop;
+			}
+			
 			switch (_this.config.name) {
 				case 'time':
-					offsetX = x - _container.parentNode.offsetLeft;
-					offsetY = y - _container.parentNode.offsetTop;
+					offsetX = x - _container.parentNode.parentNode.offsetLeft;
+					offsetY = y - _container.parentNode.parentNode.offsetTop;
 					break;
 				case 'volume':
-					offsetX = x - _container.offsetLeft - _container.parentNode.offsetLeft - _container.parentNode.parentNode.offsetLeft;
-					offsetY = y - _container.offsetTop - _container.parentNode.offsetTop - _container.parentNode.parentNode.offsetTop;
+					offsetX = x - _container.offsetLeft - _container.parentNode.offsetLeft - _container.parentNode.parentNode.parentNode.offsetLeft;
+					offsetY = y - _container.offsetTop - _container.parentNode.offsetTop - _container.parentNode.parentNode.parentNode.offsetTop;
 					break;
 				default:
 					break;
@@ -5497,8 +5500,6 @@ playease.version = '1.0.40';
 		}
 		
 		function _initializeAPI() {
-			_this.setupReady = _controller.setupReady;
-			
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
 			_this.reload = _controller.reload;
@@ -6087,7 +6088,7 @@ playease.version = '1.0.40';
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
-			//view.addEventListener(events.PLAYEASE_READY, _onReady);
+			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
@@ -6107,7 +6108,7 @@ playease.version = '1.0.40';
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 		}
 		
-		_this.setupReady = function() {
+		function _onReady(e) {
 			if (!_ready) {
 				utils.log('Player ready!');
 				
@@ -6122,7 +6123,7 @@ playease.version = '1.0.40';
 					
 				};
 			}
-		};
+		}
 		
 		_this.play = function(url) {
 			if (!_ready) {

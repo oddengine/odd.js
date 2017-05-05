@@ -52,14 +52,10 @@
 			return _this;
 		};
 		
-		_this.setupReady = function() {
-			
-		};
-		
 		_this.setEntity = function(entity) {
 			_entity = entity;
 			
-			_this.setupReady = _entity.setupReady;
+			_this.loadedSWF = _entity.setup;
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;

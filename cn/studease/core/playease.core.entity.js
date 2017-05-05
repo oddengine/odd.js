@@ -22,8 +22,6 @@
 		}
 		
 		function _initializeAPI() {
-			_this.setupReady = _controller.setupReady;
-			
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
 			_this.reload = _controller.reload;
