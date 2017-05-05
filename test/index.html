@@ -64,7 +64,7 @@
 		var player = playease('player').setup({
 			width: width,
 			height: height,
-			file: '/vod/sample.flv',
+			file: '/vod/sample.mp4',
 			/*sources: [{
 				file: '/vod/sample.2.mp4',
 				type: 'def'
@@ -80,15 +80,15 @@
 				visible: false
 			},*/
 			render: {
-				name: 'flv',
+				name: 'def',
 				swf: '../swf/playease.swf'
 			},
 			events: {
 				onFullpage: function(e) {
 					fp.style.margin = e.exit ? '0 auto' : '0';
 					fp.style.height = e.exit ? 'auto' : '100%';
-					fp.style.position = e.exit ? 'relative' : 'fixed';
-					fp.style['max-width'] = e.exit ? '640px' : '100%';
+					fp.style.position = e.exit ? 'inherit' : 'fixed';
+					fp.style.maxWidth = e.exit ? '640px' : '100%';
 				}
 			}
 		});
