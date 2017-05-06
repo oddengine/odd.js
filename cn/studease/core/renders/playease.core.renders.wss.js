@@ -1,37 +1,34 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
-		//filekeeper = utils.filekeeper,
 		events = playease.events,
+		net = playease.net,
+		responder = net.responder,
+		status = net.netstatus,
+		netconnection = net.netconnection,
+		netstream = net.netstream,
 		core = playease.core,
-		muxer = playease.muxer,
 		renders = core.renders,
 		rendermodes = renders.modes,
-		css = utils.css,
-		
-		AMF = muxer.AMF,
-		TAG = muxer.flv.TAG,
-		FORMATS = muxer.flv.FORMATS,
-		CODECS = muxer.flv.CODECS;
+		css = utils.css;
 	
-	renders.flv = function(layer, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
+	renders.wss = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.wss')),
 			_defaults = {},
 			_video,
 			_url,
 			_src,
-			_loader,
-			_demuxer,
-			_remuxer,
-			_mediainfo,
+			_application,
+			_streamname,
+			_connection,
+			_stream,
+			_metadata,
 			_ms,
 			_sb,
 			_segments,
-			//_fileindex,
-			//_filekeeper,
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendermodes.FLV;
+			_this.name = rendermodes.WSS;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -48,35 +45,26 @@
 			_video.addEventListener('durationchange', _onDurationChange);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
-			/*
-			_fileindex = 0;
-			_filekeeper = new filekeeper();
-			*/
-			_initMuxer();
+			
+			_initNetConnection();
 			_initMSE();
 		}
 		
-		function _initMuxer() {
-			_loader = new utils.loader(config.loader);
-			_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-			_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-			_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-			_loader.addEventListener(events.ERROR, _onLoaderError);
-			
-			_demuxer = new muxer.flv();
-			_demuxer.addEventListener(events.PLAYEASE_FLV_TAG, _onFLVTag);
-			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
-			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
-			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
-			
-			_remuxer = new muxer.mp4();
-			_remuxer.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
-			_remuxer.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_remuxer.addEventListener(events.ERROR, _onRemuxerError);
+		function _initNetConnection() {
+			_connection = new netconnection();
+			_connection.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
+			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _errorHandler);
+			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _errorHandler);
+			_connection.client = _this;
+		}
+		
+		function _initNetStream() {
+			_stream = new netstream(_connection);
+			_stream.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
+			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
+			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
+			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _errorHandler);
+			_stream.client = _this;
 		}
 		
 		function _initMSE() {
@@ -98,10 +86,29 @@
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
+		function _statusHandler(e) {
+			utils.log(e.info.code);
+			
+			switch (e.info.code) {
+				case status.NETCONNECTION_CONNECT_SUCCESS:
+					_this.play(_url);
+					break;
+					
+				case status.NETCONNECTION_CONNECT_CLOSED:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					break;
+			}
+		}
+		
+		function _errorHandler(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+		}
+		
 		_this.play = function(url) {
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
-					if (!renders.flv.isSupported(url)) {
+					if (!renders.wss.isSupported(url)) {
 						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
 						return;
 					}
@@ -109,12 +116,29 @@
 					_url = url;
 				}
 				
+				if (!_connection.connected()) {
+					var re = new RegExp('^(ws[s]?\:\/\/[a-z0-9\.\-]+(\:[0-9]+)?(\/[a-z0-9\.\-_]+)+)\/([a-z0-9\.\-_]+)$', 'i');
+					var arr = _url.match(re);
+					if (arr && arr.length > 4) {
+						_application = arr[1];
+						_streamname = arr[4];
+					} else {
+						utils.log('Failed to match wss URL: ' + _url);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Bad URL format!' });
+						return;
+					}
+					
+					utils.log('Connecting to ' + _application + ' ...');
+					_connection.connect(_application);
+					
+					return;
+				}
+				
+				if (_stream) {
+					_stream.dispose();
+				}
 				_segments.audio = [];
 				_segments.video = [];
-				
-				_loader.abort();
-				_demuxer.reset();
-				_remuxer.reset();
 				
 				_video.src = URL.createObjectURL(_ms);
 				_video.load();
@@ -127,6 +151,9 @@
 		
 		_this.pause = function() {
 			_video.pause();
+			if (_stream) {
+				_stream.pause();
+			}
 		};
 		
 		_this.reload = function() {
@@ -135,11 +162,20 @@
 		};
 		
 		_this.seek = function(offset) {
-			
+			if (_video.duration === NaN) {
+				_this.play();
+			} else {
+				if (_stream) {
+					_stream.seek(offset * _video.duration / 100);
+				}
+			}
 		};
 		
 		_this.stop = function() {
-			_loader.abort();
+			if (_stream) {
+				_stream.dispose();
+			}
+			_connection.close();
 			
 			_segments.audio = [];
 			_segments.video = [];
@@ -160,122 +196,24 @@
 			
 		};
 		
-		/**
-		 * Loader
-		 */
-		function _onContenLength(e) {
-			utils.log('onContenLength: ' + e.length);
-		}
 		
-		function _onLoaderProgress(e) {
-			//utils.log('onLoaderProgress: ' + e.data.byteLength);
-			_demuxer.parse(e.data);
-		}
+		_this.onMetaData = function(data) {
+			_metadata = data;
+		};
 		
-		function _onLoaderComplete(e) {
-			utils.log('onLoaderComplete');
-		}
-		
-		function _onLoaderError(e) {
-			utils.log(e.message);
-		}
-		
-		/**
-		 * Demuxer
-		 */
-		function _onFLVTag(e) {
-			//utils.log('onFlvTag { tag: ' + e.tag + ', offset: ' + e.offset + ', size: ' + e.size + ' }');
-			
-			switch (e.tag) {
-				case TAG.AUDIO:
-					if (e.format && e.format != FORMATS.AAC) {
-						utils.log('Unsupported audio format(' + e.format + ').');
-						break;
-					}
-					
-					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
-					break;
-				case TAG.VIDEO:
-					if (e.codec && e.codec != CODECS.AVC) {
-						utils.log('Unsupported video codec(' + e.codec + ').');
-						break;
-					}
-					
-					_demuxer.parseAVCVideoPacket(e.data, e.offset, e.size, e.timestamp, e.frametype);
-					break;
-				case TAG.SCRIPT:
-					var data = AMF.parse(e.data, e.offset, e.size);
-					utils.log(data.key + ': ' + JSON.stringify(data.value));
-					
-					if (data.key == 'onMetaData') {
-						_demuxer.setMetaData(data.value);
-					}
-					break;
-				default:
-					utils.log('Skipping unknown tag type ' + e.tag);
-			}
-		}
-		
-		function _onMediaInfo(e) {
-			_mediainfo = e.info;
-		}
-		
-		function _onAVCConfigRecord(e) {
-			_remuxer.setVideoMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAVCSample(e) {
-			_remuxer.getVideoSegment(e.data);
-		}
-		
-		function _onAACSpecificConfig(e) {
-			_remuxer.setAudioMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAACSample(e) {
-			_remuxer.getAudioSegment(e.data);
-		}
-		
-		function _onEndOfStream(e) {
-			_endOfStream = true;
-		}
-		
-		function _onDemuxerError(e) {
-			utils.log(e.message);
-		}
-		
-		/**
-		 * Remuxer
-		 */
 		function _onMP4InitSegment(e) {
-			/*
-			_fileindex++
-			_filekeeper.append(e.data);
-			//_filekeeper.save('sample.' + e.tp + '.init.mp4');
-			*/
-			_this.appendInitSegment(e.tp, e.data);
-		}
-		
-		function _onMP4Segment(e) {
-			/*
-			_fileindex++
-			_filekeeper.append(e.data);
-			//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-			*/
 			_this.appendSegment(e.tp, e.data);
 		}
 		
-		function _onRemuxerError(e) {
-			utils.log(e.message);
+		function _onMP4Segment(e) {
+			_this.appendSegment(e.tp, e.data);
 		}
 		
 		/**
 		 * MSE
 		 */
 		_this.appendInitSegment = function(type, seg) {
-			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
+			var mimetype = type + '/mp4; codecs="' + _metadata[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
 			var issurpported = MediaSource.isTypeSupported(mimetype);
@@ -311,7 +249,8 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_loader.load(_url);
+			_initNetStream();
+			_stream.play(_streamname);
 		}
 		
 		function _onUpdateEnd(e) {
@@ -386,7 +325,6 @@
 			};
 		};
 		
-		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
@@ -414,21 +352,30 @@
 		_init();
 	};
 	
-	renders.flv.isSupported = function(file) {
+	renders.wss.isSupported = function(file) {
 		var protocol = utils.getProtocol(file);
-		if (protocol != 'http' && protocol != 'https') {
+		if (protocol != 'ws' && protocol != 'wss') {
 			return false;
 		}
 		
-		if (utils.isMSIE(8) || utils.isIOS()) {
+		if (utils.isMSIE(8) || utils.isMSIE(9) || utils.isIOS()) {
 			return false;
 		}
 		
+		var map = [
+			undefined, // live stream
+			'flv',
+			'mp4', 'f4v', 'm4v', 'mov',
+			'm4a', 'f4a', 'aac',
+			'mp3'
+		];
 		var extension = utils.getExtension(file);
-		if (extension != 'flv' && extension != '') {
-			return false;
+		for (var i = 0; i < map.length; i++) {
+			if (extension === map[i]) {
+				return true;
+			}
 		}
 		
-		return true;
+		return false;
 	};
 })(playease);

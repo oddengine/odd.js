@@ -7,6 +7,8 @@
 		PLAYEASE_READY: 'playeaseReady',
 		PLAYEASE_SETUP_ERROR: 'playeaseSetupError',
 		PLAYEASE_RENDER_ERROR: 'playeaseRenderError',
+		PLAYEASE_SECURITY_ERROR: 'playeaseSecurityError',
+		PLAYEASE_IO_ERROR: 'playeaseIOError',
 		
 		PLAYEASE_STATE: 'playeaseState',
 		PLAYEASE_PROPERTY: 'playeaseProperty',
@@ -59,6 +61,9 @@
 		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment',
 		
 		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream',
+		
+		// Net Status Events
+		PLAYEASE_NET_STATUS: 'playeaseNetStatus',
 		
 		// Timer Events
 		PLAYEASE_TIMER: 'playeaseTimer',

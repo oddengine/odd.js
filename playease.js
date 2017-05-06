@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.42';
+playease.version = '1.0.43';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -351,6 +351,8 @@ playease.version = '1.0.42';
 		PLAYEASE_READY: 'playeaseReady',
 		PLAYEASE_SETUP_ERROR: 'playeaseSetupError',
 		PLAYEASE_RENDER_ERROR: 'playeaseRenderError',
+		PLAYEASE_SECURITY_ERROR: 'playeaseSecurityError',
+		PLAYEASE_IO_ERROR: 'playeaseIOError',
 		
 		PLAYEASE_STATE: 'playeaseState',
 		PLAYEASE_PROPERTY: 'playeaseProperty',
@@ -403,6 +405,9 @@ playease.version = '1.0.42';
 		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment',
 		
 		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream',
+		
+		// Net Status Events
+		PLAYEASE_NET_STATUS: 'playeaseNetStatus',
 		
 		// Timer Events
 		PLAYEASE_TIMER: 'playeaseTimer',
@@ -3412,6 +3417,235 @@ playease.version = '1.0.42';
 })(playease);
 
 (function(playease) {
+	playease.net = {};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		net = playease.net;
+	
+	net.responder = function(result, status) {
+		var _this = this,
+			_result,
+			_status;
+		
+		function _init() {
+			_this.result = result;
+			_this.status = status;
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var net = playease.net;
+	
+	net.netstatus = {
+		NETCONNECTION_CALL_FAILED: 'NetConnection.Call.Failed',
+		NETCONNECTION_CONNECT_APPSHUTDOWN: 'NetConnection.Connect.AppShutdown',
+		NETCONNECTION_CONNECT_CLOSED: 'NetConnection.Connect.Closed',
+		NETCONNECTION_CONNECT_FAILED: 'NetConnection.Connect.Failed',
+		NETCONNECTION_CONNECT_IDLETIMEOUT: 'NetConnection.Connect.IdleTimeout',
+		NETCONNECTION_CONNECT_INVALIDAPP: 'NetConnection.Connect.InvalidApp',
+		NETCONNECTION_CONNECT_REJECTED: 'NetConnection.Connect.Rejected',
+		NETCONNECTION_CONNECT_SUCCESS: 'NetConnection.Connect.Success',
+		
+		NETSTREAM_BUFFER_EMPTY: 'NetStream.Buffer.Empty',
+		NETSTREAM_BUFFER_FLUSH: 'NetStream.Buffer.Flush',
+		NETSTREAM_BUFFER_FULL: 'NetStream.Buffer.Full',
+		NETSTREAM_FAILED: 'NetStream.Failed',
+		NETSTREAM_PAUSE_NOTIFY: 'NetStream.Pause.Notify',
+		NETSTREAM_PLAY_FAILED: 'NetStream.Play.Failed',
+		NETSTREAM_PLAY_FILESTRUCTUREINVALID: 'NetStream.Play.FileStructureInvalid',
+		NETSTREAM_PLAY_PUBLISHNOTIFY: 'NetStream.Play.PublishNotify',
+		NETSTREAM_PLAY_RESET: 'NetStream.Play.Reset',
+		NETSTREAM_PLAY_START: 'NetStream.Play.Start',
+		NETSTREAM_PLAY_STOP: 'NetStream.Play.Stop',
+		NETSTREAM_PLAY_STREAMNOTFOUND: 'NetStream.Play.StreamNotFound',
+		NETSTREAM_PLAY_UNPUBLISHNOTIFY: 'NetStream.Play.UnpublishNotify',
+		NETSTREAM_PUBLISH_BADNAME: 'NetStream.Publish.BadName',
+		NETSTREAM_PUBLISH_IDLE: 'NetStream.Publish.Idle',
+		NETSTREAM_PUBLISH_START: 'NetStream.Publish.Start',
+		NETSTREAM_RECORD_ALREADYEXISTS: 'NetStream.Record.AlreadyExists',
+		NETSTREAM_RECORD_FAILED: 'NetStream.Record.Failed',
+		NETSTREAM_RECORD_NOACCESS: 'NetStream.Record.NoAccess',
+		NETSTREAM_RECORD_START: 'NetStream.Record.Start',
+		NETSTREAM_RECORD_STOP: 'NetStream.Record.Stop',
+		NETSTREAM_SEEK_FAILED: 'NetStream.Seek.Failed',
+		NETSTREAM_SEEK_INVALIDTIME: 'NetStream.Seek.InvalidTime',
+		NETSTREAM_SEEK_NOTIFY: 'NetStream.Seek.Notify',
+		NETSTREAM_STEP_NOTIFY: 'NetStream.Step.Notify',
+		NETSTREAM_UNPAUSE_NOTIFY: 'NetStream.Unpause.Notify',
+		NETSTREAM_UNPUBLISH_SUCCESS: 'NetStream.Unpublish.Success',
+		NETSTREAM_VIDEO_DIMENSIONCHANGE: 'NetStream.Video.DimensionChange'
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		net = playease.net,
+		status = net.netstatus;
+	
+	net.netconnection = function() {
+		var _this = utils.extend(this, new events.eventdispatcher('net.netconnection')),
+			_websocket,
+			_connected,
+			_uri,
+			_protocol;
+		
+		function _init() {
+			_connected = false;
+		}
+		
+		_this.connect = function(uri) {
+			_uri = uri;
+			
+			if (_uri === undefined || _uri === null) {
+				// http mode
+				return;
+			}
+			
+			try {
+				window.WebSocket = window.WebSocket || window.MozWebSocket;
+				_websocket = new WebSocket(_uri);
+				_websocket.binaryType = 'arrayBuffer';
+			} catch (err) {
+				utils.log('Failed to initialize websocket: ' + err);
+				return;
+			}
+			
+			_websocket.onopen = _onOpen;
+			_websocket.onmessage = _onMessage;
+			_websocket.onerror = _onError;
+			_websocket.onclose = _onClose;
+		};
+		
+		function _onOpen(e) {
+			_connected = true;
+			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { code: status.NETCONNECTION_CONNECT_SUCCESS } });
+		}
+		
+		function _onMessage(e) {
+			
+		}
+		
+		function _onError(e) {
+			_connected = false;
+			_this.dispatchEvent(events.PLAYEASE_IO_ERROR, { message: 'IO error occurred!' });
+		}
+		
+		function _onClose(e) {
+			_connected = false;
+			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { code: status.NETCONNECTION_CONNECT_CLOSED } });
+		}
+		
+		_this.callremote = function(command, responder) {
+			
+		};
+		
+		_this.close = function() {
+			if (_websocket) {
+				_websocket.close();
+			}
+			if (_connected) {
+				_onClose();
+			}
+		};
+		
+		_this.connected = function() {
+			return _connected;
+		};
+		
+		_this.uri = function() {
+			return _uri;
+		};
+		
+		_this.protocol = function() {
+			return _protocol;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		net = playease.net,
+		status = net.netstatus;
+	
+	net.netstream = function(connection, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('net.netstream')),
+			_defaults = {
+				bufferTime: .1
+			},
+			_connection,
+			_bytesLoaded,
+			_bytesTotal,
+			_info;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_connection = connection;
+			
+			_bytesLoaded = 0;
+			_bytesTotal = 0;
+			_info = {};
+		}
+		
+		_this.attach = function(c) {
+			_connection = c;
+		};
+		
+		_this.play = function(name, start, len, reset) {
+			_connection.callremote('play', null, name);
+		};
+		
+		_this.resume = function() {
+			_connection.callremote('resume');
+		};
+		
+		_this.pause = function() {
+			_connection.callremote('pause');
+		};
+		
+		_this.seek = function(offset) {
+			_connection.callremote('seek', null, offset);
+		};
+		
+		_this.close = function() {
+			_connection.callremote('close');
+		};
+		
+		_this.dispose = function() {
+			_connection.callremote('dispose');
+			
+			_bytesLoaded = 0;
+			_bytesTotal = 0;
+			_info = {};
+		};
+		
+		_this.bytesLoaded = function() {
+			return _bytesLoaded;
+		};
+		
+		_this.bytesTotal = function() {
+			return _bytesTotal;
+		};
+		
+		_this.info = function() {
+			return _info;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
 	playease.core = {};
 })(playease);
 
@@ -3829,10 +4063,11 @@ playease.version = '1.0.42';
 	renders.modes = {
 		DEFAULT: 'def',
 		FLV: 'flv',
+		WSS: 'wss',
 		FLASH: 'flash'
 	};
 	
-	renders.priority = ['def', 'flv', 'flash'];
+	renders.priority = ['def', 'flv', 'wss', 'flash'];
 })(playease);
 
 (function(playease) {
@@ -4037,7 +4272,7 @@ playease.version = '1.0.42';
 			_remuxer,
 			_mediainfo,
 			_ms,
-			_sbs,
+			_sb,
 			_segments,
 			//_fileindex,
 			//_filekeeper,
@@ -4051,7 +4286,7 @@ playease.version = '1.0.42';
 			_url = '';
 			_src = '';
 			
-			_sbs = { audio: null, video: null };
+			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
@@ -4143,7 +4378,8 @@ playease.version = '1.0.42';
 		};
 		
 		_this.reload = function() {
-			_video.load();
+			_this.stop();
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -4151,10 +4387,10 @@ playease.version = '1.0.42';
 		};
 		
 		_this.stop = function() {
+			_loader.abort();
+			
 			_segments.audio = [];
 			_segments.video = [];
-			
-			_loader.abort();
 			
 			_video.pause();
 			_video.src = _src = '';
@@ -4301,7 +4537,7 @@ playease.version = '1.0.42';
 				return;
 			}
 			
-			var sb = _sbs[type] = _ms.addSourceBuffer(mimetype);
+			var sb = _sb[type] = _ms.addSourceBuffer(mimetype);
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
@@ -4311,7 +4547,7 @@ playease.version = '1.0.42';
 		_this.appendSegment = function(type, seg) {
 			_segments[type].push(seg);
 			
-			var sb = _sbs[type];
+			var sb = _sb[type];
 			if (sb.updating) {
 				return;
 			}
@@ -4347,7 +4583,7 @@ playease.version = '1.0.42';
 				return;
 			}
 			
-			var sb = _sbs[type];
+			var sb = _sb[type];
 			if (sb.updating) {
 				return;
 			}

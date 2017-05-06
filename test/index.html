@@ -100,6 +100,11 @@ input {
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.SPS.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.flv.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.mp4.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/playease.net.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/playease.net.responder.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/playease.net.netstatus.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/playease.net.netconnection.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/playease.net.netstream.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.states.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.js'></script>
@@ -109,6 +114,7 @@ input {
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.modes.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.wss.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flash.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.slider.js'></script>
@@ -143,6 +149,7 @@ input {
 			width: width,
 			height: height,
 			file: '/vod/sample.mp4',
+			//file: 'ws://192.168.1.104:8080/live/sample',
 			//file: 'rtmp://192.168.1.202/live/sample',
 			/*sources: [{
 				file: '/vod/sample.mp4',
