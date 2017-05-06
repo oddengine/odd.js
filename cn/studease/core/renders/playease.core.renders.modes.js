@@ -4,8 +4,9 @@
 	renders.modes = {
 		DEFAULT: 'def',
 		FLV: 'flv',
+		WSS: 'wss',
 		FLASH: 'flash'
 	};
 	
-	renders.priority = ['def', 'flv', 'flash'];
+	renders.priority = ['def', 'flv', 'wss', 'flash'];
 })(playease);
