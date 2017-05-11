@@ -38,7 +38,7 @@
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
 					if (!renders.def.isSupported(url)) {
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 						return;
 					}
 					
@@ -58,8 +58,9 @@
 			_video.pause();
 		};
 		
-		_this.reload = function() {
-			_video.load();
+		_this.reload = function(url) {
+			_this.stop();
+			_this.play(url);
 		};
 		
 		_this.seek = function(offset) {
@@ -117,7 +118,7 @@
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
 		}
 		
 		_this.element = function() {

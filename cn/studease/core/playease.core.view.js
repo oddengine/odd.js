@@ -202,10 +202,10 @@
 			_render.pause();
 		};
 		
-		_this.reload = function() {
+		_this.reload = function(url) {
 			utils.addClass(_wrapper, 'playing');
 			_startTimer();
-			_render.reload();
+			_render.reload(url);
 		};
 		
 		_this.seek = function(offset) {
@@ -324,7 +324,7 @@
 		};
 		
 		_this.setDuration = function(duration) {
-			if (duration) {
+			if (duration && duration !== Infinity) {
 				utils.addClass(_wrapper, 'vod');
 			} else {
 				utils.removeClass(_wrapper, 'vod');
@@ -399,6 +399,20 @@
 				return false;
 			}
 		}
+		
+		_this.onSWFState = function(e) {
+			utils.log('onSWFState: ' + e.state);
+			
+			switch (e.state) {
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					break;
+					
+				case states.ERROR:
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
+					break;
+			}
+		};
 		
 		_this.display = function(icon, message) {
 			

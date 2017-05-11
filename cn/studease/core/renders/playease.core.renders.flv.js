@@ -102,7 +102,7 @@
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
 					if (!renders.flv.isSupported(url)) {
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 						return;
 					}
 					
@@ -396,7 +396,7 @@
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
 		}
 		
 		_this.element = function() {

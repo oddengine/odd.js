@@ -55,7 +55,8 @@
 		_this.setEntity = function(entity) {
 			_entity = entity;
 			
-			_this.loadedSWF = _entity.setup;
+			_this.onSWFLoaded = _entity.setup;
+			_this.onSWFState = _entity.onSWFState;
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
@@ -111,7 +112,7 @@
 	
 	playease.api.displayError = function(message, config) {
 		var warnLayer = document.getElementById(config.id + '-warn');
-		if (warnLayer && message) {
+		if (warnLayer && message !== undefined) {
 			warnLayer.innerHTML = message;
 		}
 	};

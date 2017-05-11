@@ -22,6 +22,8 @@
 		}
 		
 		function _initializeAPI() {
+			_this.onSWFState = _view.onSWFState;
+			
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
 			_this.reload = _controller.reload;
