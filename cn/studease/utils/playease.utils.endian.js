@@ -2,9 +2,18 @@
 	var utils = playease.utils;
 	
 	utils.littleEndian = (function() {
-		var buffer = new ArrayBuffer(2);
-		new DataView(buffer).setInt16(0, 256, true);
-		return new Int16Array(buffer)[0] === 256;
+		var buffer, array;
+		
+		try {
+			buffer = new ArrayBuffer(2);
+			new DataView(buffer).setInt16(0, 256, true);
+			
+			array = new Int16Array(buffer);
+		} catch(err) {
+			/* void */
+		}
+		
+		return array && array[0] === 256;
 	})();
 	
 	utils.getUint32 = function(uint8, byteOffset, littleEndian) {

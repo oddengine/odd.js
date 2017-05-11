@@ -8,6 +8,8 @@
 	
 	var datas = {};
 	
+	try {
+	
 	datas.FTYP = new Uint8Array([
 		0x69, 0x73, 0x6F, 0x6D, // major_brand: isom
 		0x0,  0x0,  0x0,  0x1,  // minor_version: 0x01
@@ -78,6 +80,10 @@
 		0x00, 0x00, 0x00, 0x00, // opcolor: 3 * 2 bytes
 		0x00, 0x00
 	]);
+	
+	} catch(err) {
+		/* void */
+	}
 	
 	AAC.getSilentFrame = function(channelCount) {
 		if (channelCount === 1) {

@@ -72,7 +72,7 @@
 		};
 		
 		_this.play = function(url) {
-			if (url && url != _url) {	
+			if (url && url != _url) {
 				if (!renders.flash.isSupported(url)) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
 					return;
@@ -102,11 +102,11 @@
 		};
 		
 		_this.mute = function(muted) {
-			_video.muted = muted;
+			_video.muted(muted);
 		};
 		
 		_this.volume = function(vol) {
-			_video.volume = vol / 100;
+			_video.volume(vol);
 		};
 		
 		_this.hd = function(index) {
