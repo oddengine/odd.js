@@ -37,7 +37,7 @@
 				utils.log('Player ready!');
 				
 				_ready = true;
-				_this.dispatchEvent(events.PLAYEASE_READY, { id: model.getConfig('id') });
+				_forward(e);
 				
 				if (model.getConfig('autoplay') || _urgent) {
 					_this.play(_urgent);

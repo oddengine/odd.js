@@ -34,7 +34,8 @@
 				return;
 			}
 			
-			fetch(_uri, _this.config).then(function(res) {
+			fetch(_uri, _this.config)
+			.then(function(res) {
 				if (_aborted) {
 					_aborted = false;
 					return;
@@ -51,29 +52,32 @@
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + res.status + ' ' + res.statusText + ').' });
 				}
-			}).catch(function(e) {
+			})
+			['catch'](function(e) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
 			});
 		};
 		
 		_this.pump = function(reader) {
-			return reader.read().then(function(res) {
-				if (res.done) {
-					_this.dispatchEvent(events.PLAYEASE_COMPLETE);
-					return;
-				}
-				
-				if (_aborted) {
-					_aborted = false;
-					return reader.cancel();
-				}
-				
-				_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: res.value.buffer });
-				
-				return _this.pump(reader);
-			}).catch(function(e) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: Failed to read response data.' });
-			});
+			return reader.read()
+				.then(function(res) {
+					if (res.done) {
+						_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+						return;
+					}
+					
+					if (_aborted) {
+						_aborted = false;
+						return reader.cancel();
+					}
+					
+					_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: res.value.buffer });
+					
+					return _this.pump(reader);
+				})
+				['catch'](function(e) {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Failed to read response data.' });
+				});
 		};
 		
 		_this.abort = function() {
