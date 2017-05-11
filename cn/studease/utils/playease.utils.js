@@ -201,10 +201,10 @@
 		return protocol;
 	};
 	
-	utils.getFilename = function(file) {
+	utils.getFileName = function(file) {
 		var name = '';
 		
-		var arr = file.match(/\/([a-z][a-z0-9]*(\.[a-z0-9]+)?)$/i);
+		var arr = file.match(/\/([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.[a-z0-9]+)?)$/i);
 		if (arr && arr.length > 1) {
 			name = arr[1];
 		}
@@ -215,7 +215,7 @@
 	utils.getExtension = function(file) {
 		var extension = '';
 		
-		var arr = file.match(/\/?([a-z][a-z0-9]*(\.([a-z0-9]+))*)\??([a-z0-9&%=]*)$/i);
+		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.([a-z0-9]+))*)\??([a-z0-9\-_%&=]*)$/i);
 		if (arr && arr.length > 3) {
 			extension = arr[3];
 		}
