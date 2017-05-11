@@ -40,6 +40,11 @@
 			playease.api.displayError(message, _config);
 		};
 		
+		_this.clearScreen = function() {
+			_errorOccurred = false;
+			playease.api.displayError('', _config);
+		};
+		
 		function _onEvent(e) {
 			switch (e.type) {
 				case events.ERROR:
@@ -50,6 +55,13 @@
 					_this.errorScreen(e.message);
 					_this.dispatchEvent(events.ERROR, e);
 					break;
+					
+				case events.PLAYEASE_VIEW_PLAY:
+				case events.PLAYEASE_VIEW_RELOAD:
+				case events.PLAYEASE_VIEW_SEEK:
+					_this.clearScreen();
+					break;
+					
 				default:
 					_forward(e);
 					break;

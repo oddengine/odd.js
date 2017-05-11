@@ -50,6 +50,8 @@
 		}
 		
 		_this.play = function(url) {
+			playease.api.displayError('', model.config);
+			
 			if (!_ready) {
 				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
 				return;
@@ -108,13 +110,30 @@
 		};
 		
 		_this.reload = function() {
+			playease.api.displayError('', model.config);
+			
 			if (!_ready) {
 				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
 				return;
 			}
 			
+			var url = _urgent;
+			if (!url) {
+				var playlist = model.getProperty('playlist');
+				var item = playlist.getItemAt(playlist.index);
+				if (item) {
+					if (view.render.name != item.type) {
+						_ready = false;
+						view.activeRender(item.type);
+						return;
+					}
+					
+					url = item.file;
+				}
+			}
+			
 			model.setState(states.RELOADING);
-			view.play();
+			view.reload(url);
 		};
 		
 		_this.seek = function(offset) {
@@ -286,6 +305,7 @@
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
+			_this.stop();
 			_forward(e);
 		}
 		
@@ -297,6 +317,7 @@
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
+			_this.stop();
 			_forward(e);
 		}
 		

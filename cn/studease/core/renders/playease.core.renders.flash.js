@@ -74,7 +74,7 @@
 		_this.play = function(url) {
 			if (url && url != _url) {
 				if (!renders.flash.isSupported(url)) {
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 					return;
 				}
 				
@@ -119,7 +119,7 @@
 			if (_duration !== info.duration) {
 				_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: info.duration });
 			}
-			
+			/*
 			switch (info.state) {
 				case states.STOPPED:
 					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
@@ -130,7 +130,7 @@
 				default:
 					break;
 			}
-			
+			*/
 			return info;
 		};
 		

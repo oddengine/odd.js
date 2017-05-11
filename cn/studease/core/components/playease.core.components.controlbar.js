@@ -276,6 +276,10 @@
 		};
 		
 		_this.setDuration = function(duration) {
+			if (duration === Infinity) {
+				duration = 0;
+			}
+			
 			var h = Math.floor(duration / 3600);
 			var m = Math.floor((duration % 3600) / 60);
 			var s = Math.floor(duration % 60);

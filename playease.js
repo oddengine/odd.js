@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.44';
+playease.version = '1.0.45';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -799,7 +799,8 @@ playease.version = '1.0.44';
 		_this.setEntity = function(entity) {
 			_entity = entity;
 			
-			_this.loadedSWF = _entity.setup;
+			_this.onSWFLoaded = _entity.setup;
+			_this.onSWFState = _entity.onSWFState;
 			
 			_this.play = _entity.play;
 			_this.pause = _entity.pause;
@@ -855,7 +856,7 @@ playease.version = '1.0.44';
 	
 	playease.api.displayError = function(message, config) {
 		var warnLayer = document.getElementById(config.id + '-warn');
-		if (warnLayer && message) {
+		if (warnLayer && message !== undefined) {
 			warnLayer.innerHTML = message;
 		}
 	};
@@ -4129,7 +4130,7 @@ playease.version = '1.0.44';
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
 					if (!renders.def.isSupported(url)) {
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 						return;
 					}
 					
@@ -4149,8 +4150,9 @@ playease.version = '1.0.44';
 			_video.pause();
 		};
 		
-		_this.reload = function() {
-			_video.load();
+		_this.reload = function(url) {
+			_this.stop();
+			_this.play(url);
 		};
 		
 		_this.seek = function(offset) {
@@ -4208,7 +4210,7 @@ playease.version = '1.0.44';
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
 		}
 		
 		_this.element = function() {
@@ -4369,7 +4371,7 @@ playease.version = '1.0.44';
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
 					if (!renders.flv.isSupported(url)) {
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 						return;
 					}
 					
@@ -4663,7 +4665,7 @@ playease.version = '1.0.44';
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
 		}
 		
 		_this.element = function() {
@@ -4811,7 +4813,7 @@ playease.version = '1.0.44';
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
 					if (!renders.wss.isSupported(url)) {
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 						return;
 					}
 					
@@ -5036,7 +5038,7 @@ playease.version = '1.0.44';
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
 		}
 		
 		_this.element = function() {
@@ -5158,7 +5160,7 @@ playease.version = '1.0.44';
 		_this.play = function(url) {
 			if (url && url != _url) {
 				if (!renders.flash.isSupported(url)) {
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 					return;
 				}
 				
@@ -5203,7 +5205,7 @@ playease.version = '1.0.44';
 			if (_duration !== info.duration) {
 				_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: info.duration });
 			}
-			
+			/*
 			switch (info.state) {
 				case states.STOPPED:
 					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
@@ -5214,7 +5216,7 @@ playease.version = '1.0.44';
 				default:
 					break;
 			}
-			
+			*/
 			return info;
 		};
 		
@@ -5719,6 +5721,10 @@ playease.version = '1.0.44';
 		};
 		
 		_this.setDuration = function(duration) {
+			if (duration === Infinity) {
+				duration = 0;
+			}
+			
 			var h = Math.floor(duration / 3600);
 			var m = Math.floor((duration % 3600) / 60);
 			var s = Math.floor(duration % 60);
@@ -6137,6 +6143,8 @@ playease.version = '1.0.44';
 		}
 		
 		function _initializeAPI() {
+			_this.onSWFState = _view.onSWFState;
+			
 			_this.play = _controller.play;
 			_this.pause = _controller.pause;
 			_this.reload = _controller.reload;
@@ -6453,10 +6461,10 @@ playease.version = '1.0.44';
 			_render.pause();
 		};
 		
-		_this.reload = function() {
+		_this.reload = function(url) {
 			utils.addClass(_wrapper, 'playing');
 			_startTimer();
-			_render.reload();
+			_render.reload(url);
 		};
 		
 		_this.seek = function(offset) {
@@ -6575,7 +6583,7 @@ playease.version = '1.0.44';
 		};
 		
 		_this.setDuration = function(duration) {
-			if (duration) {
+			if (duration && duration !== Infinity) {
 				utils.addClass(_wrapper, 'vod');
 			} else {
 				utils.removeClass(_wrapper, 'vod');
@@ -6650,6 +6658,20 @@ playease.version = '1.0.44';
 				return false;
 			}
 		}
+		
+		_this.onSWFState = function(e) {
+			utils.log('onSWFState: ' + e.state);
+			
+			switch (e.state) {
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					break;
+					
+				case states.ERROR:
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
+					break;
+			}
+		};
 		
 		_this.display = function(icon, message) {
 			
@@ -6765,6 +6787,8 @@ playease.version = '1.0.44';
 		}
 		
 		_this.play = function(url) {
+			playease.api.displayError('', model.config);
+			
 			if (!_ready) {
 				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
 				return;
@@ -6823,13 +6847,30 @@ playease.version = '1.0.44';
 		};
 		
 		_this.reload = function() {
+			playease.api.displayError('', model.config);
+			
 			if (!_ready) {
 				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
 				return;
 			}
 			
+			var url = _urgent;
+			if (!url) {
+				var playlist = model.getProperty('playlist');
+				var item = playlist.getItemAt(playlist.index);
+				if (item) {
+					if (view.render.name != item.type) {
+						_ready = false;
+						view.activeRender(item.type);
+						return;
+					}
+					
+					url = item.file;
+				}
+			}
+			
 			model.setState(states.RELOADING);
-			view.play();
+			view.reload(url);
 		};
 		
 		_this.seek = function(offset) {
@@ -7001,6 +7042,7 @@ playease.version = '1.0.44';
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
+			_this.stop();
 			_forward(e);
 		}
 		
@@ -7012,6 +7054,7 @@ playease.version = '1.0.44';
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
+			_this.stop();
 			_forward(e);
 		}
 		
@@ -7065,6 +7108,11 @@ playease.version = '1.0.44';
 			playease.api.displayError(message, _config);
 		};
 		
+		_this.clearScreen = function() {
+			_errorOccurred = false;
+			playease.api.displayError('', _config);
+		};
+		
 		function _onEvent(e) {
 			switch (e.type) {
 				case events.ERROR:
@@ -7075,6 +7123,13 @@ playease.version = '1.0.44';
 					_this.errorScreen(e.message);
 					_this.dispatchEvent(events.ERROR, e);
 					break;
+					
+				case events.PLAYEASE_VIEW_PLAY:
+				case events.PLAYEASE_VIEW_RELOAD:
+				case events.PLAYEASE_VIEW_SEEK:
+					_this.clearScreen();
+					break;
+					
 				default:
 					_forward(e);
 					break;
