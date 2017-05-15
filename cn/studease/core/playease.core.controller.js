@@ -49,6 +49,12 @@
 			}
 		}
 		
+		_this.setup = function(e) {
+			if (!_ready) {
+				view.setup();
+			}
+		};
+		
 		_this.play = function(url) {
 			playease.api.displayError('', model.config);
 			

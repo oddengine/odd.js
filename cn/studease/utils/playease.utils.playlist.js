@@ -14,7 +14,7 @@
 		}
 		
 		_this.format = function() {
-			var array = _this.sources.splice(0);
+			var array = _this.sources.splice(0, _this.sources.length);
 			
 			for (var i = 0; i < array.length; i++) {
 				var item = array[i];
