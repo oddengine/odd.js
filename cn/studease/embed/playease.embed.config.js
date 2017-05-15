@@ -12,7 +12,7 @@
 	embed.config = function(config) {
 		var _defaults = {
 			width: 640,
-			height: 360,
+			height: 400,
 			file: '',
 			sources: [],
 			type: rendertypes.VOD,

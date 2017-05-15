@@ -20,7 +20,7 @@ The example below will find the element with an id of player and render a video 
 ...
 playease('player').setup({
 	width: 640,
-	height: 360,
+	height: 400,
 	file: '/vod/sample.flv',
 	/*sources: [{
 		file: '/vod/sample.mp4',
@@ -44,7 +44,7 @@ Please have a look at cn/studease/embed/playease.embed.config.js.
 ```js
 _defaults = {
 	width: 640,
-	height: 360,
+	height: 400,
 	file: '',
 	sources: [],
 	type: rendertypes.VOD,
