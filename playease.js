@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.47';
+playease.version = '1.0.48';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3554,7 +3554,7 @@ playease.version = '1.0.47';
 			try {
 				window.WebSocket = window.WebSocket || window.MozWebSocket;
 				_websocket = new WebSocket(_uri);
-				_websocket.binaryType = 'arrayBuffer';
+				_websocket.binaryType = 'arraybuffer';
 			} catch (err) {
 				utils.log('Failed to initialize websocket: ' + err);
 				return;
@@ -3584,15 +3584,19 @@ playease.version = '1.0.47';
 				data.req = _requestId;
 			}
 			
-			var body = new Uint8Array(data);
-			var ab = new Uint8Array(4 + body.byteLength);
+			var body = JSON.stringify(data) || '';
+			var ab = new Uint8Array(4 + body.length);
 			
 			var pos = 0;
 			ab[pos++] = type;
 			ab[pos++] = command >>> 16;
 			ab[pos++] = command >>> 8;
 			ab[pos++] = command;
-			ab.set(body, pos);
+			
+			for (var i = 0; i < body.length; i++) {
+				ab.set([body.charCodeAt(i)], pos++);
+			}
+			//ab.set(body, pos);
 			
 			_websocket.send(ab.buffer);
 		};
@@ -3674,9 +3678,6 @@ playease.version = '1.0.47';
 			if (_websocket) {
 				_websocket.close();
 			}
-			if (_connected) {
-				_onClose();
-			}
 		};
 		
 		_this.connected = function() {
@@ -3705,7 +3706,7 @@ playease.version = '1.0.47';
 		status = net.netstatus,
 		netconnection = net.netconnection,
 		
-		packages = netconnection,packages,
+		packages = netconnection.packages,
 		commands = netconnection.commands;
 	
 	net.netstream = function(connection, config) {
@@ -3732,7 +3733,7 @@ playease.version = '1.0.47';
 			_connection = c;
 		};
 		
-		_this.play = function(name, start, length, reset) {
+		_this.play = function(name, start, len, reset) {
 			if (name === undefined) {
 				throw 'Failed to invoke play: "name" not specified.';
 				return;
@@ -3741,8 +3742,8 @@ playease.version = '1.0.47';
 			if (start === undefined) {
 				start = -2;
 			}
-			if (length === undefined) {
-				length = -1;
+			if (len === undefined) {
+				len = -1;
 			}
 			if (reset === undefined) {
 				start = 1;
@@ -3753,7 +3754,7 @@ playease.version = '1.0.47';
 			_connection.send(packages.SCRIPT, commands.PLAY, null, {
 				name: name,
 				start: start,
-				length: length,
+				len: len,
 				reset: reset
 			});
 		};
@@ -3797,11 +3798,15 @@ playease.version = '1.0.47';
 		};
 		
 		_this.close = function() {
-			_connection.send(packages.SCRIPT, commands.CLOSE);
+			if (_connection.connected()) {
+				_connection.send(packages.SCRIPT, commands.CLOSE);
+			}
 		};
 		
 		_this.dispose = function() {
-			_connection.send(packages.SCRIPT, commands.DISPOSE);
+			if (_connection.connected()) {
+				_connection.send(packages.SCRIPT, commands.DISPOSE);
+			}
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
@@ -5022,7 +5027,10 @@ playease.version = '1.0.47';
 				_src = _video.src;
 			}
 			
-			_video.play();
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(err) { /* void */ });
+			}
 		};
 		
 		_this.pause = function() {
@@ -5056,8 +5064,9 @@ playease.version = '1.0.47';
 			_segments.audio = [];
 			_segments.video = [];
 			
+			_src = '';
 			_video.pause();
-			_video.src = _src = '';
+			_video.src = '';
 		};
 		
 		_this.mute = function(muted) {
