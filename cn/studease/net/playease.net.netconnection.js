@@ -49,7 +49,7 @@
 			try {
 				window.WebSocket = window.WebSocket || window.MozWebSocket;
 				_websocket = new WebSocket(_uri);
-				_websocket.binaryType = 'arrayBuffer';
+				_websocket.binaryType = 'arraybuffer';
 			} catch (err) {
 				utils.log('Failed to initialize websocket: ' + err);
 				return;
@@ -79,15 +79,19 @@
 				data.req = _requestId;
 			}
 			
-			var body = new Uint8Array(data);
-			var ab = new Uint8Array(4 + body.byteLength);
+			var body = JSON.stringify(data) || '';
+			var ab = new Uint8Array(4 + body.length);
 			
 			var pos = 0;
 			ab[pos++] = type;
 			ab[pos++] = command >>> 16;
 			ab[pos++] = command >>> 8;
 			ab[pos++] = command;
-			ab.set(body, pos);
+			
+			for (var i = 0; i < body.length; i++) {
+				ab.set([body.charCodeAt(i)], pos++);
+			}
+			//ab.set(body, pos);
 			
 			_websocket.send(ab.buffer);
 		};
@@ -168,9 +172,6 @@
 		_this.close = function() {
 			if (_websocket) {
 				_websocket.close();
-			}
-			if (_connected) {
-				_onClose();
 			}
 		};
 		

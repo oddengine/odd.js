@@ -146,7 +146,10 @@
 				_src = _video.src;
 			}
 			
-			_video.play();
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(err) { /* void */ });
+			}
 		};
 		
 		_this.pause = function() {
@@ -180,8 +183,9 @@
 			_segments.audio = [];
 			_segments.video = [];
 			
+			_src = '';
 			_video.pause();
-			_video.src = _src = '';
+			_video.src = '';
 		};
 		
 		_this.mute = function(muted) {

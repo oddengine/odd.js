@@ -5,7 +5,7 @@
 		status = net.netstatus,
 		netconnection = net.netconnection,
 		
-		packages = netconnection,packages,
+		packages = netconnection.packages,
 		commands = netconnection.commands;
 	
 	net.netstream = function(connection, config) {
@@ -32,7 +32,7 @@
 			_connection = c;
 		};
 		
-		_this.play = function(name, start, length, reset) {
+		_this.play = function(name, start, len, reset) {
 			if (name === undefined) {
 				throw 'Failed to invoke play: "name" not specified.';
 				return;
@@ -41,8 +41,8 @@
 			if (start === undefined) {
 				start = -2;
 			}
-			if (length === undefined) {
-				length = -1;
+			if (len === undefined) {
+				len = -1;
 			}
 			if (reset === undefined) {
 				start = 1;
@@ -53,7 +53,7 @@
 			_connection.send(packages.SCRIPT, commands.PLAY, null, {
 				name: name,
 				start: start,
-				length: length,
+				len: len,
 				reset: reset
 			});
 		};
@@ -97,11 +97,15 @@
 		};
 		
 		_this.close = function() {
-			_connection.send(packages.SCRIPT, commands.CLOSE);
+			if (_connection.connected()) {
+				_connection.send(packages.SCRIPT, commands.CLOSE);
+			}
 		};
 		
 		_this.dispose = function() {
-			_connection.send(packages.SCRIPT, commands.DISPOSE);
+			if (_connection.connected()) {
+				_connection.send(packages.SCRIPT, commands.DISPOSE);
+			}
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
