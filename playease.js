@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.46';
+playease.version = '1.0.47';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -5320,13 +5320,13 @@ playease.version = '1.0.46';
 		}
 		
 		_this.setup = function() {
-			setTimeout(function() {
+			//setTimeout(function() {
 				if (_video.setup) {
 					_video.setup(_this.config);
 					_video.resize(_video.clientWidth, _video.clientHeight);
 					_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 				}
-			}, 0);
+			//}, 0);
 		};
 		
 		_this.play = function(url) {
@@ -6181,7 +6181,7 @@ playease.version = '1.0.46';
 		}
 		
 		_this.format = function() {
-			var array = _this.sources.splice(0);
+			var array = _this.sources.splice(0, _this.sources.length);
 			
 			for (var i = 0; i < array.length; i++) {
 				var item = array[i];
@@ -6338,7 +6338,7 @@ playease.version = '1.0.46';
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				_view.setup();
+				_controller.setup();
 			}, 0);
 		};
 		
@@ -6564,8 +6564,12 @@ playease.version = '1.0.46';
 			}
 			
 			var playlist = model.getProperty('playlist');
-			if (playlist.sources.length) {
-				_this.activeRender(playlist.sources[0].type);
+			for (var j = 0; j < playlist.sources.length; j++) {
+				var name = playlist.sources[j].type;
+				if (_renders.hasOwnProperty(name)) {
+					_this.activeRender(name);
+					break;
+				}
 			}
 		}
 		
@@ -6625,25 +6629,37 @@ playease.version = '1.0.46';
 		_this.play = function(url) {
 			utils.addClass(_wrapper, 'playing');
 			_startTimer();
-			_render.play(url);
+			
+			if (_render) {
+				_render.play(url);
+			}
 		};
 		
 		_this.pause = function() {
 			utils.removeClass(_wrapper, 'playing');
-			_render.pause();
+			
+			if (_render) {
+				_render.pause();
+			}
 		};
 		
 		_this.reload = function(url) {
 			utils.addClass(_wrapper, 'playing');
 			_startTimer();
-			_render.reload(url);
+			
+			if (_render) {
+				_render.reload(url);
+			}
 		};
 		
 		_this.seek = function(offset) {
 			utils.addClass(_wrapper, 'playing');
 			_controlbar.setPosition(offset);
 			_startTimer();
-			_render.seek(offset);
+			
+			if (_render) {
+				_render.seek(offset);
+			}
 		};
 		
 		_this.stop = function() {
@@ -6653,7 +6669,10 @@ playease.version = '1.0.46';
 			_controlbar.setPosition(0);
 			_controlbar.setElapsed(0);
 			_controlbar.setDuration(0);
-			_render.stop();
+			
+			if (_render) {
+				_render.stop();
+			}
 		};
 		
 		_this.report = function() {
@@ -6662,12 +6681,18 @@ playease.version = '1.0.46';
 		
 		_this.mute = function(muted) {
 			_controlbar.setMuted(muted, model.getProperty('volume'));
-			_render.mute(muted);
+			
+			if (_render) {
+				_render.mute(muted);
+			}
 		};
 		
 		_this.volume = function(vol) {
 			_controlbar.setVolume(vol);
-			_render.volume(vol);
+			
+			if (_render) {
+				_render.volume(vol);
+			}
 		};
 		
 		_this.bullet = function(bullet) {
@@ -6785,6 +6810,10 @@ playease.version = '1.0.46';
 		}
 		
 		function _updateTime(e) {
+			if (!_render || !_render.getRenderInfo) {
+				return;
+			}
+			
 			var data = _render.getRenderInfo();
 			var position = Math.floor((data.duration ? data.position / data.duration : 0) * 10000) / 100;
 			
@@ -6957,6 +6986,12 @@ playease.version = '1.0.46';
 				};
 			}
 		}
+		
+		_this.setup = function(e) {
+			if (!_ready) {
+				view.setup();
+			}
+		};
 		
 		_this.play = function(url) {
 			playease.api.displayError('', model.config);

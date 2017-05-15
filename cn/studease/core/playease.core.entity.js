@@ -45,7 +45,7 @@
 		
 		_this.setup = function() {
 			setTimeout(function() {
-				_view.setup();
+				_controller.setup();
 			}, 0);
 		};
 		

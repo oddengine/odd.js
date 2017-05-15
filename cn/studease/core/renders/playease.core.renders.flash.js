@@ -62,13 +62,13 @@
 		}
 		
 		_this.setup = function() {
-			setTimeout(function() {
+			//setTimeout(function() {
 				if (_video.setup) {
 					_video.setup(_this.config);
 					_video.resize(_video.clientWidth, _video.clientHeight);
 					_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 				}
-			}, 0);
+			//}, 0);
 		};
 		
 		_this.play = function(url) {
