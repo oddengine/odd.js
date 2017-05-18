@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE HTML>
 <html>
 <head>
-	<title>PLAYEASE.JS</title>
+	<title>PlayEase.JS</title>
 	
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -87,6 +87,7 @@ input {
 	<!--<script type='text/javascript' src='../playease.min.js'></script>-->
 	<script type='text/javascript' src='../cn/studease/playease.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.crypt.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.endian.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.css.js'></script>
 	<script type='text/javascript' src='../cn/studease/events/playease.events.js'></script>
@@ -149,11 +150,14 @@ input {
 			width: width,
 			height: height,
 			file: '/vod/sample.mp4',
-			//file: 'ws://192.168.1.104:8080/live/sample',
+			//file: 'ws://127.0.0.1:8080/live/sample',
 			//file: 'rtmp://192.168.1.202/live/sample',
 			//file: 'http://192.168.1.202/live/sample.m3u8',
 			/*sources: [{
-				file: '/vod/sample.mp4',
+				file: 'rtmp://127.0.0.1/live/sample',
+				type: 'flash'
+			}, {
+				file: 'http://127.0.0.1/live/sample.m3u8',
 				type: 'def'
 			}],*/
 			type: 'vod',

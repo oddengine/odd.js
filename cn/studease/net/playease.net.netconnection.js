@@ -1,5 +1,6 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
+		crypt = utils.crypt,
 		events = playease.events,
 		net = playease.net,
 		status = net.netstatus,
@@ -72,26 +73,44 @@
 				return;
 			}
 			
+			var req = _requestId++;
 			if (responder) {
-				_responders[++_requestId] = responder;
-			}
-			if (utils.typeOf(data) == 'object') {
-				data.req = _requestId;
+				_responders[req] = responder;
 			}
 			
-			var body = JSON.stringify(data) || '';
-			var ab = new Uint8Array(4 + body.length);
+			var ab, body;
+			switch (utils.typeOf(data)) {
+				case 'number':
+					data = { value: data };
+				case 'string':
+					data = { message: data };
+				case 'object':
+					data.req = req;
+					
+					var json = JSON.stringify(data);
+					body = crypt.stringToByteArray(json);
+					
+					ab = new Uint8Array(4 + body.length);
+					ab.set(body, 4);
+					break;
+					
+				case 'arraybuffer':
+					body = new Uint8Array(data);
+					
+					ab = new Uint8Array(4 + body.byteLength);
+					ab.set(body, 4);
+					break;
+					
+				default:
+					
+					break;
+			}
 			
 			var pos = 0;
 			ab[pos++] = type;
 			ab[pos++] = command >>> 16;
 			ab[pos++] = command >>> 8;
 			ab[pos++] = command;
-			
-			for (var i = 0; i < body.length; i++) {
-				ab.set([body.charCodeAt(i)], pos++);
-			}
-			//ab.set(body, pos);
 			
 			_websocket.send(ab.buffer);
 		};
@@ -110,15 +129,16 @@
 			switch (type) {
 				case packages.AUDIO:
 				case packages.VIDEO:
-					pos += 3; // skip 3 bytes of command
+					//pos += 3; // skip 3 bytes of command
+					pos += 4; // skip 4 bytes of box size
 					
 					var evttype = events.PLAYEASE_MP4_SEGMENT;
-					if (data[pos] === 0x69 && data[pos + 1] === 0x73 && data[pos + 2] === 0x6F && data[pos + 3] === 0x6D) { // is ftyp box
+					if (data[pos] === 0x66 && data[pos + 1] === 0x74 && data[pos + 2] === 0x79 && data[pos + 3] === 0x70) { // is ftyp box
 						evttype = events.PLAYEASE_MP4_INIT_SEGMENT;
 					}
 					
 					var segtype = type == packages.AUDIO ? 'audio' : 'video';
-					var seg = new Uint8Array(data, pos);
+					var seg = data.slice(1);
 					
 					_this.dispatchEvent(evttype, { tp: segtype, data: seg });
 					break;
@@ -129,10 +149,16 @@
 					command |= data[pos++] << 8;
 					command |= data[pos++];
 					
-					var tmp = new Uint8Array(data, pos);
+					var tmp = data.slice(pos);
 					var str = String.fromCharCode.apply(null, tmp);
 					
 					var info = JSON.parse(str);
+					
+					if (command === commands.ON_META_DATA) {
+						_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: info });
+						return;
+					}
+					
 					if (info.req && _responders.hasOwnProperty(info.req)) {
 						var responder = _responders[info.req];
 						

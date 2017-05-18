@@ -276,7 +276,7 @@
 		};
 		
 		_this.setDuration = function(duration) {
-			if (duration === Infinity) {
+			if (isNaN(duration) || duration === Infinity) {
 				duration = 0;
 			}
 			

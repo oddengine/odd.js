@@ -61,9 +61,11 @@
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
 			try {
+				//_renderLayer.addEventListener('click', _onRenderClick);
 				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
 			} catch (err) {
+				//_renderLayer.attachEvent('onclick', _onRenderClick);
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
 			}
@@ -111,8 +113,9 @@
 				muted: model.getProperty('muted'),
 				volume: model.getProperty('volume'),
 				autoplay: model.getConfig('autoplay'),
-				poster: model.getConfig('poster'),
+				airplay: model.getConfig('airplay'),
 				playsinline: model.getConfig('playsinline'),
+				poster: model.getConfig('poster'),
 				loader: {
 					mode: model.getConfig('cors')
 				}
@@ -405,7 +408,20 @@
 		function _autoHideControlBar(e) {
 			_controlsLayer.style.display = 'none';
 		}
-		
+		/*
+		function _onRenderClick(e) {
+			if (!utils.isMobile()) {
+				return;
+			}
+			
+			var state = model.getState();
+			if (state == states.PLAYING) {
+				//_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			}
+		}
+		*/
 		function _onKeyDown(e) {
 			if (e.ctrlKey || e.metaKey) {
 				return true;
@@ -483,8 +499,10 @@
 			if (_wrapper) {
 				try {
 					_wrapper.removeEventListener('keydown', _onKeyDown);
+					window.removeEventListener('resize', _onResize);
 				} catch (e) {
 					_wrapper.detachEvent('onkeydown', _onKeyDown);
+					window.detachEvent('onresize', _onResize);
 				}
 			}
 			if (_render) {

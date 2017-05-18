@@ -22,7 +22,8 @@
 			_src = '';
 			
 			_video = utils.createElement('video');
-			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
+			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
+			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -31,6 +32,12 @@
 		}
 		
 		_this.setup = function() {
+			var playlist = _this.config.playlist;
+			var item = playlist.getItemAt(playlist.index);
+			
+			_video.src = item.file;
+			_src = _video.src;
+			
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
@@ -72,8 +79,9 @@
 		};
 		
 		_this.stop = function() {
-			_video.pause();
-			_video.src = _src = '';
+			/*_video.pause();
+			_video.src = _src = '';*/
+			_video.load();
 		};
 		
 		_this.mute = function(muted) {

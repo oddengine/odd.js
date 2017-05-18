@@ -34,6 +34,10 @@
 			
 			_url = '';
 			_src = '';
+			_metadata = {
+				audioCodec: 'mp4a.40.2',
+				videoCodec: 'avc1.42E01E'
+			};
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -206,7 +210,7 @@
 		};
 		
 		function _onMP4InitSegment(e) {
-			_this.appendSegment(e.tp, e.data);
+			_this.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
