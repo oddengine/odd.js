@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.48';
+playease.version = '1.0.49';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -68,6 +68,7 @@ playease.version = '1.0.48';
 		while (str.length < len) {
 			str = '0' + str;
 		}
+		
 		return str;
 	};
 	
@@ -75,14 +76,20 @@ playease.version = '1.0.48';
 		if (value === null || value === undefined) {
 			return 'null';
 		}
+		
 		var typeofString = typeof value;
 		if (typeofString === 'object') {
 			try {
-				if (toString.call(value) === '[object Array]') {
-					return 'array';
+				var str = toString.call(value);
+				var arr = str.match(/^\[object ([a-z]+)\]$/i);
+				if (arr && arr.length > 1 && arr[1]) {
+					return arr[1].toLowerCase();
 				}
-			} catch (e) {}
+			} catch (err) {
+				/* void */
+			}
 		}
+		
 		return typeofString;
 	};
 	
@@ -95,12 +102,16 @@ playease.version = '1.0.48';
 	};
 	
 	utils.indexOf = function(array, item) {
-		if (array == null) return -1;
+		if (array == null) {
+			return -1;
+		}
+		
 		for (var i = 0; i < array.length; i++) {
 			if (array[i] === item) {
 				return i;
 			}
 		}
+		
 		return -1;
 	};
 	
@@ -243,6 +254,177 @@ playease.version = '1.0.48';
 		} else {
 			console.log.apply(console, args);
 		}
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils;
+	
+	var crypt = utils.crypt = {};
+	
+	/**
+	 * Turns a string into an array of bytes; a "byte" being a JS number in the
+	 * range 0-255.
+	 * @param {string} str String value to arrify.
+	 * @return {!Array<number>} Array of numbers corresponding to the
+	 *     UCS character codes of each character in str.
+	 */
+	crypt.stringToByteArray = function(str) {
+		var output = [], p = 0;
+		for (var i = 0; i < str.length; i++) {
+			var c = str.charCodeAt(i);
+			while (c > 0xff) {
+				output[p++] = c & 0xff;
+				c >>= 8;
+			}
+			output[p++] = c;
+		}
+		
+		return output;
+	};
+	
+	/**
+	 * Turns an array of numbers into the string given by the concatenation of the
+	 * characters to which the numbers correspond.
+	 * @param {!Uint8Array|!Array<number>} bytes Array of numbers representing characters.
+	 * @return {string} Stringification of the array.
+	 */
+	crypt.byteArrayToString = function(bytes) {
+		var CHUNK_SIZE = 8192;
+		
+		// Special-case the simple case for speed's sake.
+		if (bytes.length <= CHUNK_SIZE) {
+			return String.fromCharCode.apply(null, bytes);
+		}
+		
+		// The remaining logic splits conversion by chunks since
+		// Function#apply() has a maximum parameter count.
+		// See discussion: http://goo.gl/LrWmZ9
+		
+		var str = '';
+		for (var i = 0; i < bytes.length; i += CHUNK_SIZE) {
+			var chunk = Array.slice(bytes, i, i + CHUNK_SIZE);
+			str += String.fromCharCode.apply(null, chunk);
+		}
+		
+		return str;
+	};
+	
+	/**
+	 * Turns an array of numbers into the hex string given by the concatenation of
+	 * the hex values to which the numbers correspond.
+	 * @param {Uint8Array|Array<number>} array Array of numbers representing characters.
+	 * @return {string} Hex string.
+	 */
+	crypt.byteArrayToHex = function(array) {
+		return Array.map(array, function(numByte) {
+			var hexByte = numByte.toString(16);
+			return hexByte.length > 1 ? hexByte : '0' + hexByte;
+		}).join('');
+	};
+	
+	/**
+	 * Converts a hex string into an integer array.
+	 * @param {string} hexString Hex string of 16-bit integers (two characters per integer).
+	 * @return {!Array<number>} Array of {0,255} integers for the given string.
+	 */
+	crypt.hexToByteArray = function(hexString) {
+		if (hexString.length % 2 !== 0) {
+			utils.log('Key string length must be multiple of 2.');
+			return null;
+		}
+		
+		var arr = [];
+		for (var i = 0; i < hexString.length; i += 2) {
+			arr.push(parseInt(hexString.substring(i, i + 2), 16));
+		}
+		
+		return arr;
+	};
+	
+	/**
+	 * Converts a JS string to a UTF-8 "byte" array.
+	 * @param {string} str 16-bit unicode string.
+	 * @return {!Array<number>} UTF-8 byte array.
+	 */
+	crypt.stringToUTF8ByteArray = function(str) {
+		// TODO(user): Use native implementations if/when available
+		var out = [], p = 0;
+		for (var i = 0; i < str.length; i++) {
+			var c = str.charCodeAt(i);
+			if (c < 128) {
+				out[p++] = c;
+			} else if (c < 2048) {
+				out[p++] = (c >> 6) | 192;
+				out[p++] = (c & 63) | 128;
+			} else if (((c & 0xFC00) == 0xD800) && (i + 1) < str.length && ((str.charCodeAt(i + 1) & 0xFC00) == 0xDC00)) {
+				// Surrogate Pair
+				c = 0x10000 + ((c & 0x03FF) << 10) + (str.charCodeAt(++i) & 0x03FF);
+				out[p++] = (c >> 18) | 240;
+				out[p++] = ((c >> 12) & 63) | 128;
+				out[p++] = ((c >> 6) & 63) | 128;
+				out[p++] = (c & 63) | 128;
+			} else {
+				out[p++] = (c >> 12) | 224;
+				out[p++] = ((c >> 6) & 63) | 128;
+				out[p++] = (c & 63) | 128;
+			}
+		}
+		
+		return out;
+	};
+	
+	/**
+	 * Converts a UTF-8 byte array to JavaScript's 16-bit Unicode.
+	 * @param {Uint8Array|Array<number>} bytes UTF-8 byte array.
+	 * @return {string} 16-bit Unicode string.
+	 */
+	crypt.UTF8ByteArrayToString = function(bytes) {
+		// TODO(user): Use native implementations if/when available
+		var out = [], pos = 0, c = 0;
+		while (pos < bytes.length) {
+			var c1 = bytes[pos++];
+			if (c1 < 128) {
+				out[c++] = String.fromCharCode(c1);
+			} else if (c1 > 191 && c1 < 224) {
+				var c2 = bytes[pos++];
+				out[c++] = String.fromCharCode((c1 & 31) << 6 | c2 & 63);
+			} else if (c1 > 239 && c1 < 365) {
+				// Surrogate Pair
+				var c2 = bytes[pos++];
+				var c3 = bytes[pos++];
+				var c4 = bytes[pos++];
+				var u = ((c1 & 7) << 18 | (c2 & 63) << 12 | (c3 & 63) << 6 | c4 & 63) - 0x10000;
+				out[c++] = String.fromCharCode(0xD800 + (u >> 10));
+				out[c++] = String.fromCharCode(0xDC00 + (u & 1023));
+			} else {
+				var c2 = bytes[pos++];
+				var c3 = bytes[pos++];
+				out[c++] = String.fromCharCode((c1 & 15) << 12 | (c2 & 63) << 6 | c3 & 63);
+			}
+		}
+		
+		return out.join('');
+	};
+	
+	/**
+	 * XOR two byte arrays.
+	 * @param {!Uint8Array|!Int8Array|!Array<number>} bytes1 Byte array 1.
+	 * @param {!Uint8Array|!Int8Array|!Array<number>} bytes2 Byte array 2.
+	 * @return {!Array<number>} Resulting XOR of the two byte arrays.
+	 */
+	crypt.XORByteArray = function(bytes1, bytes2) {
+		if (bytes1.length !== bytes2.length) {
+			utils.log('XOR array lengths must match.');
+			return 
+		}
+		
+		var result = [];
+		for (var i = 0; i < bytes1.length; i++) {
+			result.push(bytes1[i] ^ bytes2[i]);
+		}
+		
+		return result;
 	};
 })(playease);
 
@@ -404,6 +586,8 @@ playease.version = '1.0.48';
 		PLAYEASE_COMPLETE: 'playeaseComplete',
 		
 		// Muxer Events
+		PLAYEASE_MEDIA_INFO: 'playeaseMediaInfo',
+		
 		PLAYEASE_FLV_TAG: 'playeaseFlvTag',
 		PLAYEASE_AVC_CONFIG_RECORD: 'playeaseAVCConfigRecord',
 		PLAYEASE_AVC_SAMPLE: 'playeaseAVCSample',
@@ -3505,6 +3689,7 @@ playease.version = '1.0.48';
 
 (function(playease) {
 	var utils = playease.utils,
+		crypt = utils.crypt,
 		events = playease.events,
 		net = playease.net,
 		status = net.netstatus,
@@ -3577,26 +3762,44 @@ playease.version = '1.0.48';
 				return;
 			}
 			
+			var req = _requestId++;
 			if (responder) {
-				_responders[++_requestId] = responder;
-			}
-			if (utils.typeOf(data) == 'object') {
-				data.req = _requestId;
+				_responders[req] = responder;
 			}
 			
-			var body = JSON.stringify(data) || '';
-			var ab = new Uint8Array(4 + body.length);
+			var ab, body;
+			switch (utils.typeOf(data)) {
+				case 'number':
+					data = { value: data };
+				case 'string':
+					data = { message: data };
+				case 'object':
+					data.req = req;
+					
+					var json = JSON.stringify(data);
+					body = crypt.stringToByteArray(json);
+					
+					ab = new Uint8Array(4 + body.length);
+					ab.set(body, 4);
+					break;
+					
+				case 'arraybuffer':
+					body = new Uint8Array(data);
+					
+					ab = new Uint8Array(4 + body.byteLength);
+					ab.set(body, 4);
+					break;
+					
+				default:
+					
+					break;
+			}
 			
 			var pos = 0;
 			ab[pos++] = type;
 			ab[pos++] = command >>> 16;
 			ab[pos++] = command >>> 8;
 			ab[pos++] = command;
-			
-			for (var i = 0; i < body.length; i++) {
-				ab.set([body.charCodeAt(i)], pos++);
-			}
-			//ab.set(body, pos);
 			
 			_websocket.send(ab.buffer);
 		};
@@ -3615,15 +3818,16 @@ playease.version = '1.0.48';
 			switch (type) {
 				case packages.AUDIO:
 				case packages.VIDEO:
-					pos += 3; // skip 3 bytes of command
+					//pos += 3; // skip 3 bytes of command
+					pos += 4; // skip 4 bytes of box size
 					
 					var evttype = events.PLAYEASE_MP4_SEGMENT;
-					if (data[pos] === 0x69 && data[pos + 1] === 0x73 && data[pos + 2] === 0x6F && data[pos + 3] === 0x6D) { // is ftyp box
+					if (data[pos] === 0x66 && data[pos + 1] === 0x74 && data[pos + 2] === 0x79 && data[pos + 3] === 0x70) { // is ftyp box
 						evttype = events.PLAYEASE_MP4_INIT_SEGMENT;
 					}
 					
 					var segtype = type == packages.AUDIO ? 'audio' : 'video';
-					var seg = new Uint8Array(data, pos);
+					var seg = data.slice(1);
 					
 					_this.dispatchEvent(evttype, { tp: segtype, data: seg });
 					break;
@@ -3634,10 +3838,16 @@ playease.version = '1.0.48';
 					command |= data[pos++] << 8;
 					command |= data[pos++];
 					
-					var tmp = new Uint8Array(data, pos);
+					var tmp = data.slice(pos);
 					var str = String.fromCharCode.apply(null, tmp);
 					
 					var info = JSON.parse(str);
+					
+					if (command === commands.ON_META_DATA) {
+						_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: info });
+						return;
+					}
+					
 					if (info.req && _responders.hasOwnProperty(info.req)) {
 						var responder = _responders[info.req];
 						
@@ -3723,6 +3933,9 @@ playease.version = '1.0.48';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_connection = connection;
+			_connection.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
+			_connection.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _forward);
+			_connection.addEventListener(events.PLAYEASE_MP4_SEGMENT, _forward);
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
@@ -3746,7 +3959,7 @@ playease.version = '1.0.48';
 				len = -1;
 			}
 			if (reset === undefined) {
-				start = 1;
+				reset = 1;
 			}
 			
 			_info.resourceName = name;
@@ -3826,6 +4039,13 @@ playease.version = '1.0.48';
 		};
 		
 		
+		function _onMediaInfo(e) {
+			if (_this.client && _this.client.onMetaData) {
+				_this.client.onMetaData(e.info);
+			}
+		}
+		
+		
 		_this.bytesLoaded = function() {
 			return _bytesLoaded;
 		};
@@ -3837,6 +4057,10 @@ playease.version = '1.0.48';
 		_this.info = function() {
 			return _info;
 		};
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
 		
 		_init();
 	};
@@ -4291,7 +4515,8 @@ playease.version = '1.0.48';
 			_src = '';
 			
 			_video = utils.createElement('video');
-			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
+			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
+			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -4300,6 +4525,12 @@ playease.version = '1.0.48';
 		}
 		
 		_this.setup = function() {
+			var playlist = _this.config.playlist;
+			var item = playlist.getItemAt(playlist.index);
+			
+			_video.src = item.file;
+			_src = _video.src;
+			
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		
@@ -4341,8 +4572,9 @@ playease.version = '1.0.48';
 		};
 		
 		_this.stop = function() {
-			_video.pause();
-			_video.src = _src = '';
+			/*_video.pause();
+			_video.src = _src = '';*/
+			_video.load();
 		};
 		
 		_this.mute = function(muted) {
@@ -4915,6 +5147,10 @@ playease.version = '1.0.48';
 			
 			_url = '';
 			_src = '';
+			_metadata = {
+				audioCodec: 'mp4a.40.2',
+				videoCodec: 'avc1.42E01E'
+			};
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -5087,7 +5323,7 @@ playease.version = '1.0.48';
 		};
 		
 		function _onMP4InitSegment(e) {
-			_this.appendSegment(e.tp, e.data);
+			_this.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
@@ -5902,7 +6138,7 @@ playease.version = '1.0.48';
 		};
 		
 		_this.setDuration = function(duration) {
-			if (duration === Infinity) {
+			if (isNaN(duration) || duration === Infinity) {
 				duration = 0;
 			}
 			
@@ -6501,9 +6737,11 @@ playease.version = '1.0.48';
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
 			try {
+				//_renderLayer.addEventListener('click', _onRenderClick);
 				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
 			} catch (err) {
+				//_renderLayer.attachEvent('onclick', _onRenderClick);
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
 			}
@@ -6551,8 +6789,9 @@ playease.version = '1.0.48';
 				muted: model.getProperty('muted'),
 				volume: model.getProperty('volume'),
 				autoplay: model.getConfig('autoplay'),
-				poster: model.getConfig('poster'),
+				airplay: model.getConfig('airplay'),
 				playsinline: model.getConfig('playsinline'),
+				poster: model.getConfig('poster'),
 				loader: {
 					mode: model.getConfig('cors')
 				}
@@ -6845,7 +7084,20 @@ playease.version = '1.0.48';
 		function _autoHideControlBar(e) {
 			_controlsLayer.style.display = 'none';
 		}
-		
+		/*
+		function _onRenderClick(e) {
+			if (!utils.isMobile()) {
+				return;
+			}
+			
+			var state = model.getState();
+			if (state == states.PLAYING) {
+				//_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			}
+		}
+		*/
 		function _onKeyDown(e) {
 			if (e.ctrlKey || e.metaKey) {
 				return true;
@@ -6923,8 +7175,10 @@ playease.version = '1.0.48';
 			if (_wrapper) {
 				try {
 					_wrapper.removeEventListener('keydown', _onKeyDown);
+					window.removeEventListener('resize', _onResize);
 				} catch (e) {
 					_wrapper.detachEvent('onkeydown', _onKeyDown);
+					window.detachEvent('onresize', _onResize);
 				}
 			}
 			if (_render) {
@@ -7382,6 +7636,7 @@ playease.version = '1.0.48';
 			bufferTime: .1,
 			controls: true,
 			autoplay: true,
+			airplay: 'allow',
 			playsinline: true,
 			poster: '',
 			report: true,

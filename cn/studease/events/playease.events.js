@@ -51,6 +51,8 @@
 		PLAYEASE_COMPLETE: 'playeaseComplete',
 		
 		// Muxer Events
+		PLAYEASE_MEDIA_INFO: 'playeaseMediaInfo',
+		
 		PLAYEASE_FLV_TAG: 'playeaseFlvTag',
 		PLAYEASE_AVC_CONFIG_RECORD: 'playeaseAVCConfigRecord',
 		PLAYEASE_AVC_SAMPLE: 'playeaseAVCSample',

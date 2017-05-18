@@ -60,6 +60,7 @@
 		while (str.length < len) {
 			str = '0' + str;
 		}
+		
 		return str;
 	};
 	
@@ -67,14 +68,20 @@
 		if (value === null || value === undefined) {
 			return 'null';
 		}
+		
 		var typeofString = typeof value;
 		if (typeofString === 'object') {
 			try {
-				if (toString.call(value) === '[object Array]') {
-					return 'array';
+				var str = toString.call(value);
+				var arr = str.match(/^\[object ([a-z]+)\]$/i);
+				if (arr && arr.length > 1 && arr[1]) {
+					return arr[1].toLowerCase();
 				}
-			} catch (e) {}
+			} catch (err) {
+				/* void */
+			}
 		}
+		
 		return typeofString;
 	};
 	
@@ -87,12 +94,16 @@
 	};
 	
 	utils.indexOf = function(array, item) {
-		if (array == null) return -1;
+		if (array == null) {
+			return -1;
+		}
+		
 		for (var i = 0; i < array.length; i++) {
 			if (array[i] === item) {
 				return i;
 			}
 		}
+		
 		return -1;
 	};
 	

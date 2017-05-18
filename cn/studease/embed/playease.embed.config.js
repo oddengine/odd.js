@@ -20,6 +20,7 @@
 			bufferTime: .1,
 			controls: true,
 			autoplay: true,
+			airplay: 'allow',
 			playsinline: true,
 			poster: '',
 			report: true,

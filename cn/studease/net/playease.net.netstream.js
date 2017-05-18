@@ -22,6 +22,9 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_connection = connection;
+			_connection.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
+			_connection.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _forward);
+			_connection.addEventListener(events.PLAYEASE_MP4_SEGMENT, _forward);
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
@@ -45,7 +48,7 @@
 				len = -1;
 			}
 			if (reset === undefined) {
-				start = 1;
+				reset = 1;
 			}
 			
 			_info.resourceName = name;
@@ -125,6 +128,13 @@
 		};
 		
 		
+		function _onMediaInfo(e) {
+			if (_this.client && _this.client.onMetaData) {
+				_this.client.onMetaData(e.info);
+			}
+		}
+		
+		
 		_this.bytesLoaded = function() {
 			return _bytesLoaded;
 		};
@@ -136,6 +146,10 @@
 		_this.info = function() {
 			return _info;
 		};
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
 		
 		_init();
 	};
