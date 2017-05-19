@@ -144,11 +144,10 @@ input {
 		var width = fp.clientWidth;
 		var height = width * 9 / 16 + 40;
 		
-		//fp.style.height = height + 'px';
-		
 		var player = playease('player').setup({
 			width: width,
 			height: height,
+			aspectratio: '16:9',
 			file: '/vod/sample.mp4',
 			//file: 'ws://127.0.0.1:8080/live/sample',
 			//file: 'rtmp://127.0.0.1/live/sample',

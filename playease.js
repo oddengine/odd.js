@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.50';
+playease.version = '1.0.51';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4142,7 +4142,7 @@ playease.version = '1.0.50';
 			css('.' + WRAP_CLASS + ' *', {
 				margin: '0',
 				padding: '0',
-				'font-family': '微软雅黑,arial,sans-serif',
+				'font-family': 'Microsoft YaHei,arial,sans-serif',
 				'font-size': '12px',
 				'font-weight': CSS_NORMAL,
 				'box-sizing': 'content-box'
@@ -4173,7 +4173,7 @@ playease.version = '1.0.50';
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
-				height: utils.isMSIE(8) ? (_height - 40 + 'px') : 'calc(100% - 40px)',
+				height: 'calc(100% - 40px)',
 				'font-size': '0',
 				'line-height': '0',
 				background: 'black'
@@ -4521,6 +4521,8 @@ playease.version = '1.0.50';
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('playing', _onPlaying);
+			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 		}
@@ -4553,10 +4555,12 @@ playease.version = '1.0.50';
 			}
 			
 			_video.play();
+			_video.controls = false;
 		};
 		
 		_this.pause = function() {
 			_video.pause();
+			_video.controls = false;
 		};
 		
 		_this.reload = function(url) {
@@ -4570,12 +4574,13 @@ playease.version = '1.0.50';
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
 			}
+			_video.controls = false;
 		};
 		
 		_this.stop = function() {
-			/*_video.pause();
-			_video.src = _src = '';*/
-			_video.load();
+			_video.pause();
+			_video.src = _src = '';
+			_video.controls = false;
 		};
 		
 		_this.mute = function(muted) {
@@ -4615,6 +4620,14 @@ playease.version = '1.0.50';
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
+		function _onPlaying(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+		}
+		
+		function _onPause(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+		}
+		
 		function _onEnded(e) {
 			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
 		}
@@ -4628,7 +4641,10 @@ playease.version = '1.0.50';
 		};
 		
 		_this.resize = function(width, height) {
-			
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
 		};
 		
 		_this.destroy = function() {
@@ -4721,10 +4737,14 @@ playease.version = '1.0.50';
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
+			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
+			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
+			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('playing', _onPlaying);
+			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			/*
@@ -4802,10 +4822,12 @@ playease.version = '1.0.50';
 			}
 			
 			_video.play();
+			_video.controls = false;
 		};
 		
 		_this.pause = function() {
 			_video.pause();
+			_video.controls = false;
 		};
 		
 		_this.reload = function() {
@@ -4814,7 +4836,12 @@ playease.version = '1.0.50';
 		};
 		
 		_this.seek = function(offset) {
-			
+			if (_video.duration === NaN) {
+				_this.play();
+			} else {
+				_video.currentTime = offset * _video.duration / 100;
+			}
+			_video.controls = false;
 		};
 		
 		_this.stop = function() {
@@ -4825,6 +4852,7 @@ playease.version = '1.0.50';
 			
 			_video.pause();
 			_video.src = _src = '';
+			_video.controls = false;
 		};
 		
 		_this.mute = function(muted) {
@@ -5070,6 +5098,14 @@ playease.version = '1.0.50';
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
+		function _onPlaying(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+		}
+		
+		function _onPause(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+		}
+		
 		function _onEnded(e) {
 			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
 		}
@@ -5083,7 +5119,10 @@ playease.version = '1.0.50';
 		};
 		
 		_this.resize = function(width, height) {
-			
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
 		};
 		
 		_this.destroy = function() {
@@ -5157,10 +5196,14 @@ playease.version = '1.0.50';
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
+			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
+			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
+			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('playing', _onPlaying);
+			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			
@@ -5268,10 +5311,13 @@ playease.version = '1.0.50';
 			if (promise) {
 				promise['catch'](function(err) { /* void */ });
 			}
+			
+			_video.controls = false;
 		};
 		
 		_this.pause = function() {
 			_video.pause();
+			_video.controls = false;
 			if (_stream) {
 				_stream.pause();
 			}
@@ -5301,9 +5347,9 @@ playease.version = '1.0.50';
 			_segments.audio = [];
 			_segments.video = [];
 			
-			_src = '';
 			_video.pause();
-			_video.src = '';
+			_video.src = _src = '';
+			_video.controls = false;
 		};
 		
 		_this.mute = function(muted) {
@@ -5451,6 +5497,14 @@ playease.version = '1.0.50';
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
+		function _onPlaying(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+		}
+		
+		function _onPause(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+		}
+		
 		function _onEnded(e) {
 			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
 		}
@@ -5464,7 +5518,10 @@ playease.version = '1.0.50';
 		};
 		
 		_this.resize = function(width, height) {
-			
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
 		};
 		
 		_this.destroy = function() {
@@ -5644,6 +5701,10 @@ playease.version = '1.0.50';
 		
 		_this.resize = function(width, height) {
 			try {
+				css.style(_video, {
+					width: width + 'px',
+					height: height + 'px'
+				});
 				_video.resize(width, height);
 			} catch (err) {
 				/* void */
@@ -6261,6 +6322,7 @@ playease.version = '1.0.50';
 			_rows = [];
 			
 			_canvas = utils.createElement('canvas');
+			
 			_this.resize(_this.config.width, _this.config.height);
 		}
 		
@@ -6397,7 +6459,7 @@ playease.version = '1.0.50';
 				return;
 			}
 			
-			_context.font = 'bold ' + _this.config.fontsize + 'px 微软雅黑';
+			_context.font = 'bold ' + _this.config.fontsize + 'px Microsoft YaHei,arial,sans-serif';
 			_context.fillStyle = '#E6E6E6';
 			_context.globalAlpha = _this.config.alpha;
 			_context.textAlign = 'left';
@@ -6785,6 +6847,7 @@ playease.version = '1.0.50';
 				id: model.getConfig('id'),
 				width: model.getConfig('width'),
 				height: model.getConfig('height') - 40,
+				aspectratio: model.getConfig('aspectratio'),
 				playlist: model.getProperty('playlist'),
 				bufferTime: model.getConfig('bufferTime'),
 				muted: model.getProperty('muted'),
@@ -6830,6 +6893,8 @@ playease.version = '1.0.50';
 			if (_render) {
 				_render.removeEventListener(events.PLAYEASE_READY, _forward);
 				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
+				_render.removeEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
+				_render.removeEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
 				_render.removeEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 				
@@ -6839,6 +6904,8 @@ playease.version = '1.0.50';
 			_render = _this.render = _renders[name];
 			_render.addEventListener(events.PLAYEASE_READY, _forward);
 			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
@@ -7029,10 +7096,10 @@ playease.version = '1.0.50';
 		};
 		
 		_this.setDuration = function(duration) {
-			if (duration && duration !== Infinity) {
-				utils.addClass(_wrapper, 'vod');
-			} else {
+			if (!duration || isNaN(duration) || duration == Infinity) {
 				utils.removeClass(_wrapper, 'vod');
+			} else {
+				utils.addClass(_wrapper, 'vod');
 			}
 			
 			_controlbar.setDuration(duration);
@@ -7145,24 +7212,29 @@ playease.version = '1.0.50';
 		}
 		
 		_this.resize = function(width, height) {
-			if (utils.isMSIE(8)) {
-				var fp = model.getProperty('fullpage');
-				_renderLayer.style.height = fp ? '100%' : model.getConfig('height') + 'px';
-			}
-			
 			setTimeout(function() {
-				width = _renderLayer.clientWidth;
-				height = _renderLayer.clientHeight;
+				var fp = model.getProperty('fullpage');
+				var fs = model.getProperty('fullscreen');
 				
-				if (utils.isMSIE(8)) {
-					width = _wrapper.clientWidth;
+				width = _renderLayer.clientWidth;
+				height = model.getConfig('height');
+				
+				if (fs || fp) {
 					height = _wrapper.clientHeight;
-					
-					var fs = model.getProperty('fullscreen');
-					if (!fs) {
-						height -= 40;
+				}
+				
+				if (!fs) {
+					height -= 40;
+				}
+				
+				var ratio = model.getConfig('aspectratio');
+				if (ratio && !fp && !fs) {
+					var arr = ratio.match(/(\d+)\:(\d+)/);
+					if (arr && arr.length > 2) {
+						var w = parseInt(arr[1]);
+						var h = parseInt(arr[2]);
+						height = width * h / w;
 					}
-					_renderLayer.style.height = height + 'px';
 				}
 				
 				_bulletscreen.resize(width, height);
@@ -7630,6 +7702,7 @@ playease.version = '1.0.50';
 		var _defaults = {
 			width: 640,
 			height: 400,
+			aspectratio: '16:9',
 			file: '',
 			sources: [],
 			type: rendertypes.VOD,

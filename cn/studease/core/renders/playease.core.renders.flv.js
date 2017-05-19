@@ -42,10 +42,14 @@
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.playsinline = _video['webkit-playsinline'] = _this.config.playsinline;
+			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
+			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
+			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('playing', _onPlaying);
+			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			/*
@@ -123,10 +127,12 @@
 			}
 			
 			_video.play();
+			_video.controls = false;
 		};
 		
 		_this.pause = function() {
 			_video.pause();
+			_video.controls = false;
 		};
 		
 		_this.reload = function() {
@@ -135,7 +141,12 @@
 		};
 		
 		_this.seek = function(offset) {
-			
+			if (_video.duration === NaN) {
+				_this.play();
+			} else {
+				_video.currentTime = offset * _video.duration / 100;
+			}
+			_video.controls = false;
 		};
 		
 		_this.stop = function() {
@@ -146,6 +157,7 @@
 			
 			_video.pause();
 			_video.src = _src = '';
+			_video.controls = false;
 		};
 		
 		_this.mute = function(muted) {
@@ -391,6 +403,14 @@
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
+		function _onPlaying(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+		}
+		
+		function _onPause(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+		}
+		
 		function _onEnded(e) {
 			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
 		}
@@ -404,7 +424,10 @@
 		};
 		
 		_this.resize = function(width, height) {
-			
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
 		};
 		
 		_this.destroy = function() {

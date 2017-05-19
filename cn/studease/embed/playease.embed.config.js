@@ -13,6 +13,7 @@
 		var _defaults = {
 			width: 640,
 			height: 400,
+			aspectratio: '16:9',
 			file: '',
 			sources: [],
 			type: rendertypes.VOD,

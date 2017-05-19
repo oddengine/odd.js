@@ -108,6 +108,7 @@
 				id: model.getConfig('id'),
 				width: model.getConfig('width'),
 				height: model.getConfig('height') - 40,
+				aspectratio: model.getConfig('aspectratio'),
 				playlist: model.getProperty('playlist'),
 				bufferTime: model.getConfig('bufferTime'),
 				muted: model.getProperty('muted'),
@@ -153,6 +154,8 @@
 			if (_render) {
 				_render.removeEventListener(events.PLAYEASE_READY, _forward);
 				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
+				_render.removeEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
+				_render.removeEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
 				_render.removeEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 				
@@ -162,6 +165,8 @@
 			_render = _this.render = _renders[name];
 			_render.addEventListener(events.PLAYEASE_READY, _forward);
 			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
@@ -352,10 +357,10 @@
 		};
 		
 		_this.setDuration = function(duration) {
-			if (duration && duration !== Infinity) {
-				utils.addClass(_wrapper, 'vod');
-			} else {
+			if (!duration || isNaN(duration) || duration == Infinity) {
 				utils.removeClass(_wrapper, 'vod');
+			} else {
+				utils.addClass(_wrapper, 'vod');
 			}
 			
 			_controlbar.setDuration(duration);
@@ -468,24 +473,29 @@
 		}
 		
 		_this.resize = function(width, height) {
-			if (utils.isMSIE(8)) {
-				var fp = model.getProperty('fullpage');
-				_renderLayer.style.height = fp ? '100%' : model.getConfig('height') + 'px';
-			}
-			
 			setTimeout(function() {
-				width = _renderLayer.clientWidth;
-				height = _renderLayer.clientHeight;
+				var fp = model.getProperty('fullpage');
+				var fs = model.getProperty('fullscreen');
 				
-				if (utils.isMSIE(8)) {
-					width = _wrapper.clientWidth;
+				width = _renderLayer.clientWidth;
+				height = model.getConfig('height');
+				
+				if (fs || fp) {
 					height = _wrapper.clientHeight;
-					
-					var fs = model.getProperty('fullscreen');
-					if (!fs) {
-						height -= 40;
+				}
+				
+				if (!fs) {
+					height -= 40;
+				}
+				
+				var ratio = model.getConfig('aspectratio');
+				if (ratio && !fp && !fs) {
+					var arr = ratio.match(/(\d+)\:(\d+)/);
+					if (arr && arr.length > 2) {
+						var w = parseInt(arr[1]);
+						var h = parseInt(arr[2]);
+						height = width * h / w;
 					}
-					_renderLayer.style.height = height + 'px';
 				}
 				
 				_bulletscreen.resize(width, height);

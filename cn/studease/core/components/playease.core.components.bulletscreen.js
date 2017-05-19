@@ -58,6 +58,7 @@
 			_rows = [];
 			
 			_canvas = utils.createElement('canvas');
+			
 			_this.resize(_this.config.width, _this.config.height);
 		}
 		
@@ -194,7 +195,7 @@
 				return;
 			}
 			
-			_context.font = 'bold ' + _this.config.fontsize + 'px 微软雅黑';
+			_context.font = 'bold ' + _this.config.fontsize + 'px Microsoft YaHei,arial,sans-serif';
 			_context.fillStyle = '#E6E6E6';
 			_context.globalAlpha = _this.config.alpha;
 			_context.textAlign = 'left';
