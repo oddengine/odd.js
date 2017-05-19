@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.49';
+playease.version = '1.0.50';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4518,6 +4518,7 @@ playease.version = '1.0.49';
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
+			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
 			_video.addEventListener('ended', _onEnded);
