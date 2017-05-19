@@ -140,6 +140,10 @@
 		
 		_this.resize = function(width, height) {
 			try {
+				css.style(_video, {
+					width: width + 'px',
+					height: height + 'px'
+				});
 				_video.resize(width, height);
 			} catch (err) {
 				/* void */

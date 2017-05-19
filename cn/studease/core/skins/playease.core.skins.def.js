@@ -48,7 +48,7 @@
 			css('.' + WRAP_CLASS + ' *', {
 				margin: '0',
 				padding: '0',
-				'font-family': '微软雅黑,arial,sans-serif',
+				'font-family': 'Microsoft YaHei,arial,sans-serif',
 				'font-size': '12px',
 				'font-weight': CSS_NORMAL,
 				'box-sizing': 'content-box'
@@ -79,7 +79,7 @@
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS, {
 				width: CSS_100PCT,
-				height: utils.isMSIE(8) ? (_height - 40 + 'px') : 'calc(100% - 40px)',
+				height: 'calc(100% - 40px)',
 				'font-size': '0',
 				'line-height': '0',
 				background: 'black'
