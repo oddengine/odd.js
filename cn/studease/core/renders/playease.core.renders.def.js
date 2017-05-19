@@ -25,6 +25,7 @@
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
 			_video.poster = _this.config.poster;
+			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
 			_video.addEventListener('ended', _onEnded);

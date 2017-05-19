@@ -4,8 +4,8 @@
 
 > [[source] https://github.com/studease/playease](https://github.com/studease/playease)
 
-This is a HTML5 media player for FLV live streaming, FLV VoD and original HTML5 media resources, eg. Ogg, Mpeg4, WebM, HLS.
-It also supports RTMP streaming for MSIE with flash embed in.
+This is a HTML5 rich media player for FLV live streaming, FLV VoD and original HTML5 media resources, eg. Ogg, Mpeg4, WebM, HLS.
+It also supports RTMP streaming for MSIE8/9 while flash embed in.
 
 
 ## Example
@@ -52,6 +52,7 @@ _defaults = {
 	bufferTime: .1,
 	controls: true,
 	autoplay: true,
+	airplay: 'allow',
 	playsinline: true,
 	poster: '',
 	report: true,
