@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.52';
+playease.version = '1.0.53';
 
 (function(playease) {
 	var utils = playease.utils = {};
