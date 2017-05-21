@@ -55,6 +55,7 @@
 			_video.addEventListener('error', _onError);
 			
 			_initNetConnection();
+			_initNetStream();
 			_initMSE();
 		}
 		
@@ -103,6 +104,13 @@
 					break;
 					
 				case status.NETCONNECTION_CONNECT_CLOSED:
+				case status.NETSTREAM_FAILED:
+				case status.NETSTREAM_PLAY_FAILED:
+				case status.NETSTREAM_PLAY_FILESTRUCTUREINVALID:
+				case status.NETSTREAM_PLAY_STOP:
+				case status.NETSTREAM_PLAY_STREAMNOTFOUND:
+				case status.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
+				case status.NETSTREAM_SEEK_FAILED:
 					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
 					break;
 			}
@@ -143,7 +151,7 @@
 				}
 				
 				if (_stream) {
-					_stream.dispose();
+					_stream.close();
 				}
 				_segments.audio = [];
 				_segments.video = [];
@@ -264,7 +272,7 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_initNetStream();
+			utils.log('Playing ' + _streamname + ' ...');
 			_stream.play(_streamname);
 		}
 		

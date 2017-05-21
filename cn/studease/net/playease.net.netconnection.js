@@ -16,12 +16,12 @@
 			RESUME:  0x000003,
 			PAUSE:   0x000004,
 			SEEK:    0x000005, // offset
-			CLOSE:   0x000006,
-			DISPOSE: 0x000007,
+			STOP:    0x000006,
+			CLOSE:   0x000007,
 			
 			PUBLISH: 0x000010, // name = null, type = live
 			
-			ON_META_DATA: 'onMetaData'
+			ON_META_DATA: 0x000009
 		};
 	
 	net.netconnection = function() {
@@ -102,7 +102,7 @@
 					break;
 					
 				default:
-					
+					ab = new Uint8Array(4);
 					break;
 			}
 			
@@ -150,18 +150,16 @@
 					command |= data[pos++];
 					
 					var tmp = data.slice(pos);
-					var str = String.fromCharCode.apply(null, tmp);
-					
-					var info = JSON.parse(str);
 					
 					if (command === commands.ON_META_DATA) {
-						_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: info });
+						//_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: tmp });
 						return;
 					}
 					
-					if (info.req && _responders.hasOwnProperty(info.req)) {
+					var str = String.fromCharCode.apply(null, tmp);
+					var info = JSON.parse(str);
+					if (info.hasOwnProperty('req') && _responders.hasOwnProperty(info.req)) {
 						var responder = _responders[info.req];
-						
 						var fn = responder.result;
 						if (info.level == 'error') {
 							fn = responder.status;
@@ -196,6 +194,10 @@
 		}
 		
 		_this.close = function() {
+			if (_connected) {
+				_this.send(packages.SCRIPT, commands.CLOSE);
+			}
+			
 			if (_websocket) {
 				_websocket.close();
 			}
