@@ -101,13 +101,13 @@
 		
 		_this.close = function() {
 			if (_connection.connected()) {
-				_connection.send(packages.SCRIPT, commands.CLOSE);
+				//_connection.send(packages.SCRIPT, commands.STOP);
 			}
 		};
 		
 		_this.dispose = function() {
 			if (_connection.connected()) {
-				_connection.send(packages.SCRIPT, commands.DISPOSE);
+				_connection.send(packages.SCRIPT, commands.STOP);
 			}
 			
 			_bytesLoaded = 0;
