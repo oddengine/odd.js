@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.55';
+playease.version = '1.0.56';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -5896,22 +5896,9 @@ playease.version = '1.0.55';
 			
 			offsetX = x;
 			offsetY = y;
-			for (var node = _container; node != document.body.parentNode; node = node.parentNode) {
+			for (var node = _container; node; node = node.offsetParent) {
 				offsetX -= node.offsetLeft;
 				offsetY -= node.offsetTop;
-			}
-			
-			switch (_this.config.name) {
-				case 'time':
-					offsetX = x - _container.parentNode.parentNode.offsetLeft;
-					offsetY = y - _container.parentNode.parentNode.offsetTop;
-					break;
-				case 'volume':
-					offsetX = x - _container.offsetLeft - _container.parentNode.offsetLeft - _container.parentNode.parentNode.parentNode.offsetLeft;
-					offsetY = y - _container.offsetTop - _container.parentNode.offsetTop - _container.parentNode.parentNode.parentNode.offsetTop;
-					break;
-				default:
-					break;
 			}
 			
 			if (_direction == directions.HORIZONTAL) {
