@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.56';
+playease.version = '1.0.57';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4104,10 +4104,11 @@ playease.version = '1.0.56';
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		BULLET_CLASS = 'pla-bullet',
 		WARN_CLASS = 'pla-warn',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
+		
+		POSTER_CLASS = 'poster',
 		
 		DEVIDER_CLASS = 'pldevider',
 		LABEL_CLASS = 'pllabel',
@@ -4178,6 +4179,7 @@ playease.version = '1.0.56';
 				height: 'calc(100% - 40px)',
 				'font-size': '0',
 				'line-height': '0',
+				position: CSS_RELATIVE,
 				background: 'black'
 			});
 			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
@@ -4190,6 +4192,19 @@ playease.version = '1.0.56';
 				+ ', .' + SKIN_CLASS + ' .' + RENDER_CLASS + ' object', {
 				width: CSS_100PCT,
 				height: CSS_100PCT
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
+				width: CSS_100PCT,
+				height: CSS_100PCT,
+				position: CSS_ABSOLUTE
+			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS + ' img', {
+				position: CSS_ABSOLUTE
+			});
+			css('.' + SKIN_CLASS + '.playing .' + RENDER_CLASS + ' .' + POSTER_CLASS
+				+ ', .' + SKIN_CLASS + '.paused .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
+				display: CSS_NONE
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + WARN_CLASS, {
@@ -4495,11 +4510,11 @@ playease.version = '1.0.56';
 
 (function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		events = playease.events,
 		core = playease.core,
 		renders = core.renders,
-		rendermodes = renders.modes,
-		css = utils.css;
+		rendermodes = renders.modes;
 	
 	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -4519,7 +4534,6 @@ playease.version = '1.0.56';
 			_video = utils.createElement('video');
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
-			_video.poster = _this.config.poster;
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -4697,13 +4711,13 @@ playease.version = '1.0.56';
 
 (function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		core = playease.core,
 		muxer = playease.muxer,
 		renders = core.renders,
 		rendermodes = renders.modes,
-		css = utils.css,
 		
 		AMF = muxer.AMF,
 		TAG = muxer.flv.TAG,
@@ -4741,7 +4755,6 @@ playease.version = '1.0.56';
 			_video = utils.createElement('video');
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
-			_video.poster = _this.config.poster;
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -5155,6 +5168,7 @@ playease.version = '1.0.56';
 
 (function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		events = playease.events,
 		net = playease.net,
 		responder = net.responder,
@@ -5163,8 +5177,7 @@ playease.version = '1.0.56';
 		netstream = net.netstream,
 		core = playease.core,
 		renders = core.renders,
-		rendermodes = renders.modes,
-		css = utils.css;
+		rendermodes = renders.modes;
 	
 	renders.wss = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.wss')),
@@ -5200,7 +5213,6 @@ playease.version = '1.0.56';
 			_video = utils.createElement('video');
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
-			_video.poster = _this.config.poster;
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -5571,12 +5583,12 @@ playease.version = '1.0.56';
 
 (function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		events = playease.events,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendermodes = renders.modes,
-		css = utils.css;
+		rendermodes = renders.modes;
 	
 	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
@@ -6472,6 +6484,75 @@ playease.version = '1.0.56';
 
 (function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		POSTER_CLASS = 'poster';
+	
+	components.poster = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.poster')),
+			_defaults = {
+				url: ''
+			},
+			_container,
+			_image,
+			_ratio;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_container = utils.createElement('div', POSTER_CLASS);
+			if (_this.config.url) {
+				_image = new Image();
+				_image.onload = function(e) {
+					_ratio = _image.width / _image.height;
+					_container.appendChild(_image);
+				};
+				_image.onerror = function(e) {
+					utils.log('Poster not available.');
+				};
+				
+				_image.src = _this.config.url;
+			}
+		}
+		
+		_this.element = function() {
+			return _container;
+		};
+		
+		_this.resize = function(width, height) {
+			if (!_image || !_ratio) {
+				return;
+			}
+			
+			var w, h;
+			if (width / height >= _ratio) {
+				w = height * _ratio;
+				h = height;
+			} else {
+				w = width;
+				h = width / _ratio;
+			}
+			
+			var top = (height - h) / 2;
+			var left = (width - w) / 2;
+			
+			css.style(_image, {
+				width: w + 'px',
+				height: h + 'px',
+				top: top + 'px',
+				left: left + 'px'
+			});
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
 		core = playease.core,
 		renders = core.renders,
 		priority = renders.priority;
@@ -6757,9 +6838,10 @@ playease.version = '1.0.56';
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
+			_warnLayer,
 			_controlsLayer,
 			_contextmenuLayer,
-			_warnLayer,
+			_poster,
 			_renders,
 			_render,
 			_controlbar,
@@ -6797,22 +6879,21 @@ playease.version = '1.0.56';
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
 			try {
-				//_renderLayer.addEventListener('click', _onRenderClick);
 				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
 			} catch (err) {
-				//_renderLayer.attachEvent('onclick', _onRenderClick);
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
 			}
 		}
 		
 		function _initComponents() {
-			var cbcfg = utils.extend({}, {
+			// controlbar
+			var cbcfg = {
 				report: model.getConfig('report'),
 				playlist: model.getProperty('playlist'),
 				bulletscreen: model.getConfig('bulletscreen')
-			});
+			};
 			
 			try {
 				_controlbar = new components.controlbar(_controlsLayer, cbcfg);
@@ -6823,6 +6904,7 @@ playease.version = '1.0.56';
 				utils.log('Failed to init controlbar!');
 			}
 			
+			// bulletscreen
 			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
 				width: model.getConfig('width'),
 				height: model.getConfig('height') - 40
@@ -6836,6 +6918,22 @@ playease.version = '1.0.56';
 				_renderLayer.appendChild(_canvas);
 			} catch (err) {
 				utils.log('Failed to init bullet!');
+			}
+			
+			// poster
+			var ptcfg = {
+				url: model.getConfig('poster'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			};
+			
+			try {
+				_poster = new components.poster(ptcfg);
+				_poster.addGlobalListener(_forward);
+				
+				_renderLayer.appendChild(_poster.element());
+			} catch (err) {
+				utils.log('Failed to init poster!');
 			}
 		}
 		
@@ -6940,7 +7038,9 @@ playease.version = '1.0.56';
 		};
 		
 		_this.play = function(url) {
+			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
+			
 			_startTimer();
 			
 			if (_render) {
@@ -6950,6 +7050,7 @@ playease.version = '1.0.56';
 		
 		_this.pause = function() {
 			utils.removeClass(_wrapper, 'playing');
+			utils.addClass(_wrapper, 'paused');
 			
 			if (_render) {
 				_render.pause();
@@ -6957,7 +7058,9 @@ playease.version = '1.0.56';
 		};
 		
 		_this.reload = function(url) {
+			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
+			
 			_startTimer();
 			
 			if (_render) {
@@ -6966,7 +7069,9 @@ playease.version = '1.0.56';
 		};
 		
 		_this.seek = function(offset) {
+			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
+			
 			_controlbar.setPosition(offset);
 			_startTimer();
 			
@@ -6976,7 +7081,9 @@ playease.version = '1.0.56';
 		};
 		
 		_this.stop = function() {
+			utils.removeClass(_wrapper, 'paused');
 			utils.removeClass(_wrapper, 'playing');
+			
 			_stopTimer();
 			_controlbar.setBuffered(0);
 			_controlbar.setPosition(0);
@@ -7149,20 +7256,7 @@ playease.version = '1.0.56';
 		function _autoHideControlBar(e) {
 			_controlsLayer.style.display = 'none';
 		}
-		/*
-		function _onRenderClick(e) {
-			if (!utils.isMobile()) {
-				return;
-			}
-			
-			var state = model.getState();
-			if (state == states.PLAYING) {
-				//_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
-			} else {
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-			}
-		}
-		*/
+		
 		function _onKeyDown(e) {
 			if (e.ctrlKey || e.metaKey) {
 				return true;
@@ -7235,6 +7329,7 @@ playease.version = '1.0.56';
 				}
 				
 				_bulletscreen.resize(width, height);
+				_poster.resize(width, height);
 				if (_render) {
 					_render.resize(width, height);
 				}

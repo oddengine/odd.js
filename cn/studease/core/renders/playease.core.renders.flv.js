@@ -1,12 +1,12 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		core = playease.core,
 		muxer = playease.muxer,
 		renders = core.renders,
 		rendermodes = renders.modes,
-		css = utils.css,
 		
 		AMF = muxer.AMF,
 		TAG = muxer.flv.TAG,
@@ -44,7 +44,6 @@
 			_video = utils.createElement('video');
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
-			_video.poster = _this.config.poster;
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);

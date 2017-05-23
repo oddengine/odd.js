@@ -21,9 +21,10 @@
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
+			_warnLayer,
 			_controlsLayer,
 			_contextmenuLayer,
-			_warnLayer,
+			_poster,
 			_renders,
 			_render,
 			_controlbar,
@@ -61,22 +62,21 @@
 			replace.parentNode.replaceChild(_wrapper, replace);
 			
 			try {
-				//_renderLayer.addEventListener('click', _onRenderClick);
 				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
 			} catch (err) {
-				//_renderLayer.attachEvent('onclick', _onRenderClick);
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
 			}
 		}
 		
 		function _initComponents() {
-			var cbcfg = utils.extend({}, {
+			// controlbar
+			var cbcfg = {
 				report: model.getConfig('report'),
 				playlist: model.getProperty('playlist'),
 				bulletscreen: model.getConfig('bulletscreen')
-			});
+			};
 			
 			try {
 				_controlbar = new components.controlbar(_controlsLayer, cbcfg);
@@ -87,6 +87,7 @@
 				utils.log('Failed to init controlbar!');
 			}
 			
+			// bulletscreen
 			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
 				width: model.getConfig('width'),
 				height: model.getConfig('height') - 40
@@ -100,6 +101,22 @@
 				_renderLayer.appendChild(_canvas);
 			} catch (err) {
 				utils.log('Failed to init bullet!');
+			}
+			
+			// poster
+			var ptcfg = {
+				url: model.getConfig('poster'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			};
+			
+			try {
+				_poster = new components.poster(ptcfg);
+				_poster.addGlobalListener(_forward);
+				
+				_renderLayer.appendChild(_poster.element());
+			} catch (err) {
+				utils.log('Failed to init poster!');
 			}
 		}
 		
@@ -204,7 +221,9 @@
 		};
 		
 		_this.play = function(url) {
+			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
+			
 			_startTimer();
 			
 			if (_render) {
@@ -214,6 +233,7 @@
 		
 		_this.pause = function() {
 			utils.removeClass(_wrapper, 'playing');
+			utils.addClass(_wrapper, 'paused');
 			
 			if (_render) {
 				_render.pause();
@@ -221,7 +241,9 @@
 		};
 		
 		_this.reload = function(url) {
+			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
+			
 			_startTimer();
 			
 			if (_render) {
@@ -230,7 +252,9 @@
 		};
 		
 		_this.seek = function(offset) {
+			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
+			
 			_controlbar.setPosition(offset);
 			_startTimer();
 			
@@ -240,7 +264,9 @@
 		};
 		
 		_this.stop = function() {
+			utils.removeClass(_wrapper, 'paused');
 			utils.removeClass(_wrapper, 'playing');
+			
 			_stopTimer();
 			_controlbar.setBuffered(0);
 			_controlbar.setPosition(0);
@@ -413,20 +439,7 @@
 		function _autoHideControlBar(e) {
 			_controlsLayer.style.display = 'none';
 		}
-		/*
-		function _onRenderClick(e) {
-			if (!utils.isMobile()) {
-				return;
-			}
-			
-			var state = model.getState();
-			if (state == states.PLAYING) {
-				//_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
-			} else {
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-			}
-		}
-		*/
+		
 		function _onKeyDown(e) {
 			if (e.ctrlKey || e.metaKey) {
 				return true;
@@ -499,6 +512,7 @@
 				}
 				
 				_bulletscreen.resize(width, height);
+				_poster.resize(width, height);
 				if (_render) {
 					_render.resize(width, height);
 				}
