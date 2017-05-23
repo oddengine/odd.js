@@ -176,8 +176,8 @@ input {
 			events: {
 				onFullpage: function(e) {
 					fp.style.margin = e.exit ? '4rem auto' : '0';
-					fp.style.height = e.exit ? 'auto' : '100%';
-					fp.style.position = e.exit ? 'inherit' : 'fixed';
+					fp.style.height = e.exit ? '' : '100%';
+					fp.style.position = e.exit ? '' : 'fixed';
 					fp.style.maxWidth = e.exit ? '640px' : '100%';
 				}
 			}
