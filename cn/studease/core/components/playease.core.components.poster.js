@@ -12,25 +12,27 @@
 			_defaults = {
 				url: ''
 			},
+			_ratio,
 			_container,
-			_image,
-			_ratio;
+			_image;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
+			
+			_ratio = _this.config.width / _this.config.height;
 			
 			_container = utils.createElement('div', POSTER_CLASS);
 			if (_this.config.url) {
 				_image = new Image();
 				_image.onload = function(e) {
 					_ratio = _image.width / _image.height;
-					_container.appendChild(_image);
 				};
 				_image.onerror = function(e) {
 					utils.log('Poster not available.');
 				};
 				
 				_image.src = _this.config.url;
+				_container.appendChild(_image);
 			}
 		}
 		
