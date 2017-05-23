@@ -8,10 +8,11 @@
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		BULLET_CLASS = 'pla-bullet',
 		WARN_CLASS = 'pla-warn',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
+		
+		POSTER_CLASS = 'poster',
 		
 		DEVIDER_CLASS = 'pldevider',
 		LABEL_CLASS = 'pllabel',
@@ -82,6 +83,7 @@
 				height: 'calc(100% - 40px)',
 				'font-size': '0',
 				'line-height': '0',
+				position: CSS_RELATIVE,
 				background: 'black'
 			});
 			css('.' + SKIN_CLASS + '.fs .' + RENDER_CLASS, {
@@ -94,6 +96,19 @@
 				+ ', .' + SKIN_CLASS + ' .' + RENDER_CLASS + ' object', {
 				width: CSS_100PCT,
 				height: CSS_100PCT
+			});
+			
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
+				width: CSS_100PCT,
+				height: CSS_100PCT,
+				position: CSS_ABSOLUTE
+			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS + ' img', {
+				position: CSS_ABSOLUTE
+			});
+			css('.' + SKIN_CLASS + '.playing .' + RENDER_CLASS + ' .' + POSTER_CLASS
+				+ ', .' + SKIN_CLASS + '.paused .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
+				display: CSS_NONE
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + WARN_CLASS, {

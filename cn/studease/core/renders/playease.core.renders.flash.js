@@ -1,11 +1,11 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		events = playease.events,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendermodes = renders.modes,
-		css = utils.css;
+		rendermodes = renders.modes;
 	
 	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),

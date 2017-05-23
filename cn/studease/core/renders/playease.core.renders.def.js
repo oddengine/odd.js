@@ -1,10 +1,10 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		events = playease.events,
 		core = playease.core,
 		renders = core.renders,
-		rendermodes = renders.modes,
-		css = utils.css;
+		rendermodes = renders.modes;
 	
 	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -24,7 +24,6 @@
 			_video = utils.createElement('video');
 			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
 			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
-			_video.poster = _this.config.poster;
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
