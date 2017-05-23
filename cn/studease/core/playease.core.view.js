@@ -499,7 +499,7 @@
 				}
 				
 				_bulletscreen.resize(width, height);
-				if (_render && _render.name == rendermodes.FLASH) {
+				if (_render) {
 					_render.resize(width, height);
 				}
 			}, 0);
