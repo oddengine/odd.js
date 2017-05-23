@@ -104,6 +104,8 @@
 				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS + ' img', {
+				width: CSS_100PCT,
+				height: CSS_100PCT,
 				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + '.playing .' + RENDER_CLASS + ' .' + POSTER_CLASS
