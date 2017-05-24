@@ -68,7 +68,7 @@
 				document.addEventListener('fullscreenchange', _onFullscreenChange);
 				document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
 				document.addEventListener('mozfullscreenchange', _onFullscreenChange);
-				document.addEventListener('msfullscreenchange', _onFullscreenChange);
+				document.addEventListener('MSFullscreenChange', _onFullscreenChange);
 			} catch (err) {
 				/* void */
 			}

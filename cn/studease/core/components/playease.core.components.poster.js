@@ -25,7 +25,7 @@
 			if (_this.config.url) {
 				_image = new Image();
 				_image.onload = function(e) {
-					_ratio = _image.width / _image.height;
+					_ratio = _image.naturalWidth / _image.naturalHeight;
 				};
 				_image.onerror = function(e) {
 					utils.log('Poster not available.');

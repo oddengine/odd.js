@@ -25,7 +25,8 @@
 			_duration = 0;
 			
 			if (utils.isMSIE(8)) {
-				layer.innerHTML = ''
+				var div = utils.createElement('div');
+				div.innerHTML = ''
 					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
 						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
@@ -36,7 +37,7 @@
 						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
 					+ '</object>';
 				
-				_video = layer.firstChild;
+				_video = div.firstChild;
 				
 				return;
 			}

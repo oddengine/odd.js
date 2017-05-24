@@ -122,8 +122,9 @@
 				'font-weight': 'bold',
 				color: '#FFFFFF',
 				'text-align': 'center',
+				top: '45%',
 				position: CSS_ABSOLUTE,
-				top: '45%'
+				overflow: CSS_HIDDEN
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
@@ -146,16 +147,15 @@
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plright', {
-				'float': 'right',
-				position: CSS_ABSOLUTE,
-				right: '0'
+				right: '0',
+				position: CSS_ABSOLUTE
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time', {
 				width: CSS_100PCT,
 				height: '2px',
-				position: CSS_ABSOLUTE,
 				top: '-2px',
+				position: CSS_ABSOLUTE,
 				display: CSS_NONE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ':hover .plslider.time', {
@@ -165,8 +165,8 @@
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail', {
 				width: '0',
 				height: CSS_100PCT,
-				position: CSS_ABSOLUTE,
-				top: '0'
+				top: '0',
+				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.bg', {
 				width: CSS_100PCT,
@@ -281,8 +281,8 @@
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail', {
 				width: CSS_100PCT,
 				height: '4px',
-				position: CSS_ABSOLUTE,
-				top: '4px'
+				top: '4px',
+				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail.buf', {
 				background: '#909090'
