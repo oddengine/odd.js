@@ -87,22 +87,6 @@
 				utils.log('Failed to init controlbar!');
 			}
 			
-			// bulletscreen
-			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
-				width: model.getConfig('width'),
-				height: model.getConfig('height') - 40
-			});
-			
-			try {
-				_bulletscreen = new components.bulletscreen(bscfg);
-				_bulletscreen.addGlobalListener(_forward);
-				
-				_canvas = _bulletscreen.element();
-				_renderLayer.appendChild(_canvas);
-			} catch (err) {
-				utils.log('Failed to init bullet!');
-			}
-			
 			// poster
 			var ptcfg = {
 				url: model.getConfig('poster'),
@@ -117,6 +101,22 @@
 				_renderLayer.appendChild(_poster.element());
 			} catch (err) {
 				utils.log('Failed to init poster!');
+			}
+			
+			// bulletscreen
+			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			});
+			
+			try {
+				_bulletscreen = new components.bulletscreen(bscfg);
+				_bulletscreen.addGlobalListener(_forward);
+				
+				_canvas = _bulletscreen.element();
+				_renderLayer.appendChild(_canvas);
+			} catch (err) {
+				utils.log('Failed to init bullet!');
 			}
 		}
 		
