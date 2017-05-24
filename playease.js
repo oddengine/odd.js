@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.57';
+playease.version = '1.0.58';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4218,8 +4218,9 @@ playease.version = '1.0.57';
 				'font-weight': 'bold',
 				color: '#FFFFFF',
 				'text-align': 'center',
+				top: '45%',
 				position: CSS_ABSOLUTE,
-				top: '45%'
+				overflow: CSS_HIDDEN
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
@@ -4242,16 +4243,15 @@ playease.version = '1.0.57';
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plright', {
-				'float': 'right',
-				position: CSS_ABSOLUTE,
-				right: '0'
+				right: '0',
+				position: CSS_ABSOLUTE
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time', {
 				width: CSS_100PCT,
 				height: '2px',
-				position: CSS_ABSOLUTE,
 				top: '-2px',
+				position: CSS_ABSOLUTE,
 				display: CSS_NONE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ':hover .plslider.time', {
@@ -4261,8 +4261,8 @@ playease.version = '1.0.57';
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail', {
 				width: '0',
 				height: CSS_100PCT,
-				position: CSS_ABSOLUTE,
-				top: '0'
+				top: '0',
+				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.bg', {
 				width: CSS_100PCT,
@@ -4377,8 +4377,8 @@ playease.version = '1.0.57';
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail', {
 				width: CSS_100PCT,
 				height: '4px',
-				position: CSS_ABSOLUTE,
-				top: '4px'
+				top: '4px',
+				position: CSS_ABSOLUTE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.volume .plrail.buf', {
 				background: '#909090'
@@ -5611,7 +5611,8 @@ playease.version = '1.0.57';
 			_duration = 0;
 			
 			if (utils.isMSIE(8)) {
-				layer.innerHTML = ''
+				var div = utils.createElement('div');
+				div.innerHTML = ''
 					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
 						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
@@ -5622,7 +5623,7 @@ playease.version = '1.0.57';
 						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
 					+ '</object>';
 				
-				_video = layer.firstChild;
+				_video = div.firstChild;
 				
 				return;
 			}
@@ -6004,7 +6005,7 @@ playease.version = '1.0.57';
 				document.addEventListener('fullscreenchange', _onFullscreenChange);
 				document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
 				document.addEventListener('mozfullscreenchange', _onFullscreenChange);
-				document.addEventListener('msfullscreenchange', _onFullscreenChange);
+				document.addEventListener('MSFullscreenChange', _onFullscreenChange);
 			} catch (err) {
 				/* void */
 			}
@@ -6512,7 +6513,7 @@ playease.version = '1.0.57';
 			if (_this.config.url) {
 				_image = new Image();
 				_image.onload = function(e) {
-					_ratio = _image.width / _image.height;
+					_ratio = _image.naturalWidth / _image.naturalHeight;
 				};
 				_image.onerror = function(e) {
 					utils.log('Poster not available.');

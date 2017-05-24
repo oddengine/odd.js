@@ -18,9 +18,9 @@ html {
 body {
 	margin: 0;
 	font-family: Karbon, Helvetica, Arial, sans-serif;
-	font-size: 1.4rem;
 	font-style: normal;
-	line-height: 1.6rem;
+	font-size: 14px;
+	line-height: 16px;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	color: #E6E6E6;
@@ -36,22 +36,24 @@ a:active, a:focus, a:hover {
 }
 
 input {
-	padding: .2rem .6rem;
+	padding: 2px 6px;
 	font-family: sans-serif;
-	font-size: 1.4rem;
+	font-size: 14px;
 	border: none;
 }
 
 .btn {
-	padding: .6rem 1.4rem;
+	padding: 6px 14px;
 	font-style: normal;
 	font-weight: bold;
+	font-size: 14px;
+	line-height: 16px;
 	text-align: center;
 	text-transform: uppercase;
 	white-space: nowrap;
 	word-spacing: normal;
 	border: none;
-	border-radius: .1875rem;
+	border-radius: 2px;
 	cursor: pointer;
 	display: inline-block;
 	-webkit-font-smoothing: subpixel-antialiased;
@@ -68,24 +70,25 @@ input {
 }
 
 .input-container {
-	margin-top: .8rem;
+	margin-top: 8px;
 	width: 100%;
-	height: 2.8rem;
+	height: 28px;
 	position: relative;
 	overflow: hidden;
 }
 .input-container span {
-	margin-right: 7.4rem;
+	margin-right: 74px;
 	display: block;
 }
 .input-container span input {
-	padding: .2rem 1%;
+	padding: 2px 1%;
 	width: 98%;
-	height: 2.38rem;
+	height: 24px;
+	line-height: 24px;
 	background-color: #999999;
 }
 .input-container .btn {
-	width: 4rem;
+	width: 40px;
 	top: 0;
 	right: 0;
 	position: absolute;
@@ -140,7 +143,7 @@ input {
 	<script type='text/javascript' src='../cn/studease/embed/playease.embed.embedder.js'></script>
 </head>
 <body ontouchstart=''>
-	<div id='fp' style='margin: 4rem auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
+	<div id='fp' style='margin: 40px auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
 		<div id='player'></div>
 		<div class='input-container'>
 			<span>
@@ -186,7 +189,7 @@ input {
 			},
 			events: {
 				onFullpage: function(e) {
-					fp.style.margin = e.exit ? '4rem auto' : '0';
+					fp.style.margin = e.exit ? '40px auto' : '0';
 					fp.style.height = e.exit ? '' : '100%';
 					fp.style.position = e.exit ? '' : 'fixed';
 					fp.style.maxWidth = e.exit ? '640px' : '100%';
