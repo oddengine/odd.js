@@ -201,9 +201,11 @@
 			_segments.audio = [];
 			_segments.video = [];
 			
-			_video.pause();
-			_video.src = _src = '';
+			_video.removeAttribute('src');
+			_video.load();
 			_video.controls = false;
+			
+			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -364,7 +366,7 @@
 		}
 		
 		function _onError(e) {
-			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
 		}
 		
 		_this.element = function() {

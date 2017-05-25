@@ -20,7 +20,7 @@ body {
 	font-family: Karbon, Helvetica, Arial, sans-serif;
 	font-style: normal;
 	font-size: 14px;
-	line-height: 16px;
+	line-height: 18px;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	color: #E6E6E6;
@@ -176,6 +176,8 @@ input {
 			type: 'vod',
 			cors: 'no-cors',
 			bufferTime: 1,
+			maxretries: 0,
+			retrydelay: 3000,
 			controls: true,
 			autoplay: false,
 			poster: 'sample.png',

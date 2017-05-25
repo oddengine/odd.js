@@ -19,6 +19,8 @@
 			type: rendertypes.VOD,
 			cors: 'no-cors',
 			bufferTime: .1,
+			maxretries: -1,
+	 		retrydelay: 3000,
 			controls: true,
 			autoplay: true,
 			airplay: 'allow',

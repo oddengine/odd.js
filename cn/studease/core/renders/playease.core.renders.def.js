@@ -22,8 +22,14 @@
 			_src = '';
 			
 			_video = utils.createElement('video');
-			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
-			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
+			if (_this.config.airplay) {
+				_video.setAttribute('x-webkit-airplay', 'allow');
+			}
+			if (_this.config.playsinline) {
+				_video.setAttribute('playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('webkit-playsinline', '');
+			}
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -84,9 +90,11 @@
 		};
 		
 		_this.stop = function() {
-			_video.pause();
-			_video.src = _src = '';
+			_video.removeAttribute('src');
+			_video.load();
 			_video.controls = false;
+			
+			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -139,7 +147,7 @@
 		}
 		
 		function _onError(e) {
-			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
 		}
 		
 		_this.element = function() {
