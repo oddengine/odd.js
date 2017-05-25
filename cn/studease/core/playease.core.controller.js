@@ -7,7 +7,8 @@
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
 			_ready = false,
-			_urgent;
+			_urgent,
+			_timer;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -229,11 +230,39 @@
 					_this.dispatchEvent(events.PLAYEASE_STOPPED);
 					break;
 				case states.ERROR:
-					// do nothing here.
+					_retry();
 					break;
 				default:
 					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
 					break;
+			}
+		}
+		
+		function _retry() {
+			if (model.config.maxretries < 0 || _retrycount < model.config.maxretries) {
+				var delay = Math.ceil(model.config.retrydelay + Math.random() * 5000);
+				
+				utils.log('Retry delay ' + delay / 1000 + 's ...');
+				
+				_startTimer(delay);
+			}
+		}
+		
+		function _startTimer(delay) {
+			if (!_timer) {
+				_timer = new utils.timer(delay, 1);
+				_timer.addEventListener(events.PLAYEASE_TIMER, function(e) {
+					_this.play();
+				});
+			}
+			_timer.delay = delay;
+			_timer.reset();
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
 			}
 		}
 		

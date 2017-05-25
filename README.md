@@ -50,6 +50,8 @@ _defaults = {
 	type: rendertypes.VOD,
 	cors: 'no-cors',
 	bufferTime: .1,
+	maxretries: 0,
+	retrydelay: 3000,
 	controls: true,
 	autoplay: true,
 	airplay: 'allow',

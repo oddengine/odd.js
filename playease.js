@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.58';
+playease.version = '1.0.59';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4535,8 +4535,14 @@ playease.version = '1.0.58';
 			_src = '';
 			
 			_video = utils.createElement('video');
-			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
-			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
+			if (_this.config.airplay) {
+				_video.setAttribute('x-webkit-airplay', 'allow');
+			}
+			if (_this.config.playsinline) {
+				_video.setAttribute('playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('webkit-playsinline', '');
+			}
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -4597,9 +4603,11 @@ playease.version = '1.0.58';
 		};
 		
 		_this.stop = function() {
-			_video.pause();
-			_video.src = _src = '';
+			_video.removeAttribute('src');
+			_video.load();
 			_video.controls = false;
+			
+			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -4652,7 +4660,7 @@ playease.version = '1.0.58';
 		}
 		
 		function _onError(e) {
-			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
 		}
 		
 		_this.element = function() {
@@ -4868,9 +4876,11 @@ playease.version = '1.0.58';
 			_segments.audio = [];
 			_segments.video = [];
 			
-			_video.pause();
-			_video.src = _src = '';
+			_video.removeAttribute('src');
+			_video.load();
 			_video.controls = false;
+			
+			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -5129,7 +5139,7 @@ playease.version = '1.0.58';
 		}
 		
 		function _onError(e) {
-			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
 		}
 		
 		_this.element = function() {
@@ -5372,9 +5382,11 @@ playease.version = '1.0.58';
 			_segments.audio = [];
 			_segments.video = [];
 			
-			_video.pause();
-			_video.src = _src = '';
+			_video.removeAttribute('src');
+			_video.load();
 			_video.controls = false;
+			
+			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -5535,7 +5547,7 @@ playease.version = '1.0.58';
 		}
 		
 		function _onError(e) {
-			//_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: undefined });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
 		}
 		
 		_this.element = function() {
@@ -5649,13 +5661,11 @@ playease.version = '1.0.58';
 		}
 		
 		_this.setup = function() {
-			//setTimeout(function() {
-				if (_video.setup) {
-					_video.setup(_this.config);
-					_video.resize(_video.clientWidth, _video.clientHeight);
-					_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-				}
-			//}, 0);
+			if (_video.setup) {
+				_video.setup(_this.config);
+				_video.resize(_video.clientWidth, _video.clientHeight);
+				_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+			}
 		};
 		
 		_this.play = function(url) {
@@ -7379,7 +7389,8 @@ playease.version = '1.0.58';
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
 			_ready = false,
-			_urgent;
+			_urgent,
+			_timer;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -7601,11 +7612,39 @@ playease.version = '1.0.58';
 					_this.dispatchEvent(events.PLAYEASE_STOPPED);
 					break;
 				case states.ERROR:
-					// do nothing here.
+					_retry();
 					break;
 				default:
 					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
 					break;
+			}
+		}
+		
+		function _retry() {
+			if (model.config.maxretries < 0 || _retrycount < model.config.maxretries) {
+				var delay = Math.ceil(model.config.retrydelay + Math.random() * 5000);
+				
+				utils.log('Retry delay ' + delay / 1000 + 's ...');
+				
+				_startTimer(delay);
+			}
+		}
+		
+		function _startTimer(delay) {
+			if (!_timer) {
+				_timer = new utils.timer(delay, 1);
+				_timer.addEventListener(events.PLAYEASE_TIMER, function(e) {
+					_this.play();
+				});
+			}
+			_timer.delay = delay;
+			_timer.reset();
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
 			}
 		}
 		
@@ -7806,6 +7845,8 @@ playease.version = '1.0.58';
 			type: rendertypes.VOD,
 			cors: 'no-cors',
 			bufferTime: .1,
+			maxretries: 0,
+	 		retrydelay: 3000,
 			controls: true,
 			autoplay: true,
 			airplay: 'allow',
