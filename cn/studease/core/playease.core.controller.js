@@ -8,7 +8,8 @@
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
 			_ready = false,
 			_urgent,
-			_timer;
+			_timer,
+			_retrycount = 0;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -244,6 +245,7 @@
 				
 				utils.log('Retry delay ' + delay / 1000 + 's ...');
 				
+				_retrycount++;
 				_startTimer(delay);
 			}
 		}

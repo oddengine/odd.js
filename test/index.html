@@ -70,7 +70,7 @@ input {
 }
 
 .input-container {
-	margin-top: 8px;
+	margin: 10px auto 40px;
 	width: 100%;
 	height: 28px;
 	position: relative;
@@ -143,14 +143,14 @@ input {
 	<script type='text/javascript' src='../cn/studease/embed/playease.embed.embedder.js'></script>
 </head>
 <body ontouchstart=''>
-	<div id='fp' style='margin: 40px auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
+	<div id='playwrap' style='margin: 40px auto 0; width: 100%; max-width: 640px; top: 0; left: 0;'>
 		<div id='player'></div>
-		<div class='input-container'>
-			<span>
-				<input id='url-input' value='/vod/sample.mp4' />
-			</span>
-			<a class='btn red' onclick='playTheURL();'>Play</a>
-		</div>
+	</div>
+	<div class='input-container' style='width: 100%; max-width: 640px;'>
+		<span>
+			<input id='url-input' value='/vod/sample.mp4'>
+		</span>
+		<a class='btn red' onclick='playTheURL();'>Play</a>
 	</div>
 	
 	<script type="text/javascript">
@@ -191,7 +191,7 @@ input {
 			},
 			events: {
 				onFullpage: function(e) {
-					fp.style.margin = e.exit ? '40px auto' : '0';
+					fp.style.margin = e.exit ? '40px auto 0' : '0';
 					fp.style.height = e.exit ? '' : '100%';
 					fp.style.position = e.exit ? '' : 'fixed';
 					fp.style.maxWidth = e.exit ? '640px' : '100%';

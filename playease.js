@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.59';
+playease.version = '1.0.61';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4226,7 +4226,7 @@ playease.version = '1.0.59';
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
 				width: CSS_100PCT,
 				height: '40px',
-				background: '#222',
+				background: '#171717',
 				position: CSS_RELATIVE
 			});
 			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS, {
@@ -7390,7 +7390,8 @@ playease.version = '1.0.59';
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
 			_ready = false,
 			_urgent,
-			_timer;
+			_timer,
+			_retrycount = 0;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -7626,6 +7627,7 @@ playease.version = '1.0.59';
 				
 				utils.log('Retry delay ' + delay / 1000 + 's ...');
 				
+				_retrycount++;
 				_startTimer(delay);
 			}
 		}
