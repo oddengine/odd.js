@@ -130,7 +130,7 @@
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
 				width: CSS_100PCT,
 				height: '40px',
-				background: '#222',
+				background: '#171717',
 				position: CSS_RELATIVE
 			});
 			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS, {
