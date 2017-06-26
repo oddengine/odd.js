@@ -154,8 +154,8 @@ input {
 	</div>
 	
 	<script type="text/javascript">
-		var fp = document.getElementById('fp');
-		var width = fp.clientWidth;
+		var pw = document.getElementById('playwrap');
+		var width = pw.clientWidth;
 		var height = width * 9 / 16 + 40;
 		
 		var player = playease('player').setup({
@@ -191,10 +191,11 @@ input {
 			},
 			events: {
 				onFullpage: function(e) {
-					fp.style.margin = e.exit ? '40px auto 0' : '0';
-					fp.style.height = e.exit ? '' : '100%';
-					fp.style.position = e.exit ? '' : 'fixed';
-					fp.style.maxWidth = e.exit ? '640px' : '100%';
+					pw.style.margin = e.exit ? '40px auto 0' : '0';
+					pw.style.height = e.exit ? '' : '100%';
+					pw.style.position = e.exit ? '' : 'fixed';
+					pw.style.maxWidth = e.exit ? '640px' : '100%';
+					pw.style.zIndex = e.exit ? '' : '99';
 				}
 			}
 		});
