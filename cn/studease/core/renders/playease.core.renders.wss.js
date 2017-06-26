@@ -43,8 +43,14 @@
 			_segments = { audio: [], video: [] };
 			
 			_video = utils.createElement('video');
-			_video.setAttribute('x-webkit-airplay', _this.config.airplay);
-			_video.setAttribute('webkit-playsinline', _this.config.playsinline);
+			if (_this.config.airplay) {
+				_video.setAttribute('x-webkit-airplay', 'allow');
+			}
+			if (_this.config.playsinline) {
+				_video.setAttribute('playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('webkit-playsinline', '');
+			}
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
