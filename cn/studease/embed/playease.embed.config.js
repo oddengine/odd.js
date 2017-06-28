@@ -31,6 +31,8 @@
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
+				interval: 30,
+				duration: 12000,
 				alpha: alphas.LOW,
 				position: positions.FULLSCREEN,
 				visible: true
