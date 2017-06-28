@@ -23,6 +23,8 @@
 				height: 360,
 				enable: true,
 				fontsize: 14,
+				interval: 30,
+				duration: 12000,
 				alpha: alphas.LOW,
 				position: positions.FULLSCREEN,
 				visible: true
@@ -40,7 +42,7 @@
 				
 				_self.doublechars = _getDoubleChars();
 				_self.width = (_self.text.length + _self.doublechars * 0.96) / 2 * _this.config.fontsize;
-				_self.weight = (_canvas.width + _self.width) / (8000 / 30);
+				_self.weight = (_canvas.width + _self.width) / (_this.config.duration / _this.config.interval);
 				_self.tick = 0;
 			}
 			

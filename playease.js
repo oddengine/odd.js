@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.62';
+playease.version = '1.0.63';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -6322,6 +6322,8 @@ playease.version = '1.0.62';
 				height: 360,
 				enable: true,
 				fontsize: 14,
+				interval: 30,
+				duration: 12000,
 				alpha: alphas.LOW,
 				position: positions.FULLSCREEN,
 				visible: true
@@ -6339,7 +6341,7 @@ playease.version = '1.0.62';
 				
 				_self.doublechars = _getDoubleChars();
 				_self.width = (_self.text.length + _self.doublechars * 0.96) / 2 * _this.config.fontsize;
-				_self.weight = (_canvas.width + _self.width) / (8000 / 30);
+				_self.weight = (_canvas.width + _self.width) / (_this.config.duration / _this.config.interval);
 				_self.tick = 0;
 			}
 			
@@ -7871,6 +7873,8 @@ playease.version = '1.0.62';
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
+				interval: 30,
+				duration: 12000,
 				alpha: alphas.LOW,
 				position: positions.FULLSCREEN,
 				visible: true
