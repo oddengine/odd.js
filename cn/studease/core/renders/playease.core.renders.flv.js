@@ -138,7 +138,11 @@
 				_src = _video.src;
 			}
 			
-			_video.play();
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(err) { /* void */ });
+			}
+			
 			_video.controls = false;
 		};
 		

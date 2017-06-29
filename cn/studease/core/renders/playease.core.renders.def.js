@@ -71,7 +71,11 @@
 				_src = _video.src;
 			}
 			
-			_video.play();
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(err) { /* void */ });
+			}
+			
 			_video.controls = false;
 		};
 		
@@ -80,9 +84,9 @@
 			_video.controls = false;
 		};
 		
-		_this.reload = function(url) {
+		_this.reload = function() {
 			_this.stop();
-			_this.play(url);
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -131,7 +135,7 @@
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				//_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -147,7 +151,7 @@
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			//_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {

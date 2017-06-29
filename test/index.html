@@ -174,7 +174,7 @@ input {
 				type: 'def'
 			}],*/
 			type: 'vod',
-			cors: 'no-cors',
+			cors: 'cors',
 			bufferTime: 1,
 			maxretries: 0,
 			retrydelay: 3000,
@@ -199,6 +199,14 @@ input {
 				}
 			}
 		});
+		
+		if (playease.utils.isMobile()) {
+			window.addEventListener('resize', function(e) {
+				setTimeout(function() {
+					player.fullscreen(!playease.utils.isHorizontal());
+				}, 500);
+			});
+		}
 		
 		function playTheURL() {
 			var input = document.getElementById('url-input');

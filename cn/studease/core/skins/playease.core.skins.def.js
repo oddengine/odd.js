@@ -97,6 +97,9 @@
 				width: CSS_100PCT,
 				height: CSS_100PCT
 			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video::-webkit-media-controls-start-playback-button', {
+				display: CSS_NONE
+			});
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
 				width: CSS_100PCT,
