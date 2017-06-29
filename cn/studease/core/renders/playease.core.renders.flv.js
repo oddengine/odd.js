@@ -28,6 +28,7 @@
 			_segments,
 			//_fileindex,
 			//_filekeeper,
+			_waiting,
 			_endOfStream = false;
 		
 		function _init() {
@@ -37,6 +38,7 @@
 			
 			_url = '';
 			_src = '';
+			_waiting = true;
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -53,14 +55,17 @@
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
+			
 			/*
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
+			
 			_initMuxer();
 			_initMSE();
 		}
@@ -118,6 +123,8 @@
 					_url = url;
 				}
 				
+				_waiting = true;
+				
 				_segments.audio = [];
 				_segments.video = [];
 				
@@ -157,14 +164,15 @@
 		_this.stop = function() {
 			_loader.abort();
 			
+			_src = '';
+			_waiting = true;
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
-			
-			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -274,6 +282,7 @@
 			_filekeeper.append(e.data);
 			//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			*/
+			
 			_this.appendInitSegment(e.tp, e.data);
 		}
 		
@@ -283,7 +292,9 @@
 			_filekeeper.append(e.data);
 			//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
 			*/
-			_this.appendSegment(e.tp, e.data);
+			
+			_segments[e.tp].push(e.data);
+			_this.appendSegment(e.tp);
 		}
 		
 		function _onRemuxerError(e) {
@@ -315,8 +326,10 @@
 			sb.appendBuffer(seg);
 		};
 		
-		_this.appendSegment = function(type, seg) {
-			_segments[type].push(seg);
+		_this.appendSegment = function(type) {
+			if (_segments[type].length == 0) {
+				return;
+			}
 			
 			var sb = _sb[type];
 			if (sb.updating) {
@@ -324,7 +337,11 @@
 			}
 			
 			var seg = _segments[type].shift();
-			sb.appendBuffer(seg);
+			try {
+				sb.appendBuffer(seg);
+			} catch (err) {
+				utils.log(err);
+			}
 		};
 		
 		function _onMediaSourceOpen(e) {
@@ -350,21 +367,7 @@
 				}
 			}
 			
-			if (_segments[type].length == 0) {
-				return;
-			}
-			
-			var sb = _sb[type];
-			if (sb.updating) {
-				return;
-			}
-			
-			var seg = _segments[type].shift();
-			try {
-				sb.appendBuffer(seg);
-			} catch (err) {
-				utils.log(err);
-			}
+			_this.appendSegment(type);
 		}
 		
 		function _onSourceBufferError(e) {
@@ -389,13 +392,18 @@
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered;
+			var ranges = _video.buffered, start, end;
 			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
+				start = ranges.start(i);
+				end = ranges.end(i);
 				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -408,6 +416,11 @@
 		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {

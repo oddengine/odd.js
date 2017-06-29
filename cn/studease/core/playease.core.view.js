@@ -182,6 +182,7 @@
 			_render = _this.render = _renders[name];
 			_render.addEventListener(events.PLAYEASE_READY, _forward);
 			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);

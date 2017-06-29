@@ -17,6 +17,7 @@
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
+			view.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _onBuffering);
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
 			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
@@ -66,50 +67,38 @@
 			}
 			
 			var playlist = model.getProperty('playlist');
-			if (url) {
-				_urgent = url;
-				
-				var render = core.renders[view.render.name];
-				if (render && render.isSupported(url)) {
-					model.setState(states.PLAYING);
-					view.play(url);
-					
+			
+			var type = view.render.name;
+			if (url == undefined) {
+				var item = playlist.getItemAt(playlist.index);
+				if (!item) {
+					_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item at ' + playlist.index + '!' });
 					return;
 				}
 				
-				var name = playlist.getSupported(url);
-				if (!name) {
+				url = item.file;
+				type = item.type;
+			} else {
+				_urgent = url;
+			}
+			
+			var render = core.renders[type];
+			if (render == undefined || render.isSupported(url) == false) {
+				type = playlist.getSupported(url);
+				if (!type) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
 					return;
 				}
-				
-				if (view.render.name != name) {
-					_ready = false;
-					view.activeRender(name);
-					return;
-				}
-				
-				model.setState(states.PLAYING);
-				view.play(url);
-				
+			}
+			
+			if (view.render.name != type) {
+				_ready = false;
+				view.activeRender(type);
 				return;
 			}
 			
-			var item = playlist.getItemAt(playlist.index);
-			if (item) {
-				if (view.render.name != item.type) {
-					_ready = false;
-					view.activeRender(item.type);
-					return;
-				}
-				
-				model.setState(states.PLAYING);
-				view.play(item.file);
-				
-				return;
-			}
-			
-			_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item!' });
+			model.setState(states.PLAYING);
+			view.play(url);
 		};
 		
 		_this.pause = function() {
@@ -125,19 +114,35 @@
 				return;
 			}
 			
+			var playlist = model.getProperty('playlist');
+			
 			var url = _urgent;
-			if (!url) {
-				var playlist = model.getProperty('playlist');
+			var type = view.render.name;
+			
+			if (url == undefined) {
 				var item = playlist.getItemAt(playlist.index);
-				if (item) {
-					if (view.render.name != item.type) {
-						_ready = false;
-						view.activeRender(item.type);
-						return;
-					}
-					
-					url = item.file;
+				if (!item) {
+					_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item at ' + playlist.index + '!' });
+					return;
 				}
+				
+				url = item.file;
+				type = item.type;
+			}
+			
+			var render = core.renders[type];
+			if (render == undefined || render.isSupported(url) == false) {
+				type = playlist.getSupported(url);
+				if (!type) {
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
+					return;
+				}
+			}
+			
+			if (view.render.name != type) {
+				_ready = false;
+				view.activeRender(type);
+				return;
 			}
 			
 			model.setState(states.RELOADING);
@@ -266,6 +271,12 @@
 			if (_timer) {
 				_timer.stop();
 			}
+		}
+		
+		function _onBuffering(e) {
+			model.setState(states.BUFFERING);
+			view.pause();
+			_forward(e);
 		}
 		
 		function _onPlay(e) {

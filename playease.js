@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.63';
+playease.version = '1.0.64';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -565,6 +565,7 @@ playease.version = '1.0.63';
 		PLAYEASE_FULLSCREEN: 'playeaseFullscreen',
 		
 		// View Events
+		PLAYEASE_VIEW_BUFFERING: 'playeaseViewBuffering',
 		PLAYEASE_VIEW_PLAY: 'playeaseViewPlay',
 		PLAYEASE_VIEW_PAUSE: 'playeaseViewPause',
 		PLAYEASE_VIEW_RELOAD: 'playeaseViewReload',
@@ -2422,7 +2423,7 @@ playease.version = '1.0.63';
 			_hasAudio = (data[4] & 4) >>> 2 !== 0;
 			_hasVideo = (data[4] & 1) !== 0;
 			if (!_hasAudio && !_hasVideo) {
-				return 0;
+				// Not strict, don't return 0.
 			}
 			
 			var offset = utils.getUint32(data, 5);
@@ -4524,7 +4525,8 @@ playease.version = '1.0.63';
 			_defaults = {},
 			_video,
 			_url,
-			_src;
+			_src,
+			_waiting;
 		
 		function _init() {
 			_this.name = rendermodes.DEFAULT;
@@ -4533,6 +4535,7 @@ playease.version = '1.0.63';
 			
 			_url = '';
 			_src = '';
+			_waiting = true;
 			
 			_video = utils.createElement('video');
 			if (_this.config.airplay) {
@@ -4546,6 +4549,7 @@ playease.version = '1.0.63';
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
@@ -4572,6 +4576,8 @@ playease.version = '1.0.63';
 					
 					_url = url;
 				}
+				
+				_waiting = true;
 				
 				_video.src = _url;
 				_video.load();
@@ -4603,11 +4609,12 @@ playease.version = '1.0.63';
 		};
 		
 		_this.stop = function() {
+			_src = '';
+			_waiting = true;
+			
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
-			
-			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -4627,13 +4634,18 @@ playease.version = '1.0.63';
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered;
+			var ranges = _video.buffered, start, end;
 			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
+				start = ranges.start(i);
+				end = ranges.end(i);
 				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -4645,6 +4657,11 @@ playease.version = '1.0.63';
 		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {
@@ -4660,7 +4677,7 @@ playease.version = '1.0.63';
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
 		}
 		
 		_this.element = function() {
@@ -4750,6 +4767,7 @@ playease.version = '1.0.63';
 			_segments,
 			//_fileindex,
 			//_filekeeper,
+			_waiting,
 			_endOfStream = false;
 		
 		function _init() {
@@ -4759,6 +4777,7 @@ playease.version = '1.0.63';
 			
 			_url = '';
 			_src = '';
+			_waiting = true;
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -4775,14 +4794,17 @@ playease.version = '1.0.63';
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
+			
 			/*
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
+			
 			_initMuxer();
 			_initMSE();
 		}
@@ -4840,6 +4862,8 @@ playease.version = '1.0.63';
 					_url = url;
 				}
 				
+				_waiting = true;
+				
 				_segments.audio = [];
 				_segments.video = [];
 				
@@ -4879,14 +4903,15 @@ playease.version = '1.0.63';
 		_this.stop = function() {
 			_loader.abort();
 			
+			_src = '';
+			_waiting = true;
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
-			
-			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -4919,6 +4944,7 @@ playease.version = '1.0.63';
 		
 		function _onLoaderError(e) {
 			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Loader error ocurred.' });
 		}
 		
 		/**
@@ -4985,6 +5011,7 @@ playease.version = '1.0.63';
 		
 		function _onDemuxerError(e) {
 			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Demuxer error ocurred.' });
 		}
 		
 		/**
@@ -4996,6 +5023,7 @@ playease.version = '1.0.63';
 			_filekeeper.append(e.data);
 			//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			*/
+			
 			_this.appendInitSegment(e.tp, e.data);
 		}
 		
@@ -5005,11 +5033,14 @@ playease.version = '1.0.63';
 			_filekeeper.append(e.data);
 			//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
 			*/
-			_this.appendSegment(e.tp, e.data);
+			
+			_segments[e.tp].push(e.data);
+			_this.appendSegment(e.tp);
 		}
 		
 		function _onRemuxerError(e) {
 			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Remuxer error ocurred.' });
 		}
 		
 		/**
@@ -5037,8 +5068,10 @@ playease.version = '1.0.63';
 			sb.appendBuffer(seg);
 		};
 		
-		_this.appendSegment = function(type, seg) {
-			_segments[type].push(seg);
+		_this.appendSegment = function(type) {
+			if (_segments[type].length == 0) {
+				return;
+			}
 			
 			var sb = _sb[type];
 			if (sb.updating) {
@@ -5046,7 +5079,11 @@ playease.version = '1.0.63';
 			}
 			
 			var seg = _segments[type].shift();
-			sb.appendBuffer(seg);
+			try {
+				sb.appendBuffer(seg);
+			} catch (err) {
+				utils.log(err);
+			}
 		};
 		
 		function _onMediaSourceOpen(e) {
@@ -5072,21 +5109,7 @@ playease.version = '1.0.63';
 				}
 			}
 			
-			if (_segments[type].length == 0) {
-				return;
-			}
-			
-			var sb = _sb[type];
-			if (sb.updating) {
-				return;
-			}
-			
-			var seg = _segments[type].shift();
-			try {
-				sb.appendBuffer(seg);
-			} catch (err) {
-				utils.log(err);
-			}
+			_this.appendSegment(type);
 		}
 		
 		function _onSourceBufferError(e) {
@@ -5103,6 +5126,7 @@ playease.version = '1.0.63';
 		
 		function _onMediaSourceError(e) {
 			utils.log('media source error');
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
 		}
 		
 		
@@ -5111,13 +5135,18 @@ playease.version = '1.0.63';
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered;
+			var ranges = _video.buffered, start, end;
 			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
+				start = ranges.start(i);
+				end = ranges.end(i);
 				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -5130,6 +5159,11 @@ playease.version = '1.0.63';
 		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {
@@ -5145,7 +5179,7 @@ playease.version = '1.0.63';
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
 		}
 		
 		_this.element = function() {
@@ -5212,6 +5246,7 @@ playease.version = '1.0.63';
 			_ms,
 			_sb,
 			_segments,
+			_waiting,
 			_endOfStream = false;
 		
 		function _init() {
@@ -5221,6 +5256,8 @@ playease.version = '1.0.63';
 			
 			_url = '';
 			_src = '';
+			_waiting = true;
+			
 			_metadata = {
 				audioCodec: 'mp4a.40.2',
 				videoCodec: 'avc1.42E01E'
@@ -5241,6 +5278,7 @@ playease.version = '1.0.63';
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
@@ -5254,8 +5292,8 @@ playease.version = '1.0.63';
 		function _initNetConnection() {
 			_connection = new netconnection();
 			_connection.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
-			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _errorHandler);
-			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _errorHandler);
+			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _onConnectionError);
+			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _onConnectionError);
 			_connection.client = _this;
 		}
 		
@@ -5264,7 +5302,7 @@ playease.version = '1.0.63';
 			_stream.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
 			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
 			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _errorHandler);
+			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _onStreamError);
 			_stream.client = _this;
 		}
 		
@@ -5303,14 +5341,19 @@ playease.version = '1.0.63';
 				case status.NETSTREAM_PLAY_STREAMNOTFOUND:
 				case status.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
 				case status.NETSTREAM_SEEK_FAILED:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.info.code });
 					break;
 			}
 		}
 		
-		function _errorHandler(e) {
+		function _onConnectionError(e) {
 			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetConnection error ocurred.' });
+		}
+		
+		function _onStreamError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetStream error ocurred.' });
 		}
 		
 		_this.play = function(url) {
@@ -5345,6 +5388,9 @@ playease.version = '1.0.63';
 				if (_stream) {
 					_stream.close();
 				}
+				
+				_waiting = true;
+				
 				_segments.audio = [];
 				_segments.video = [];
 				
@@ -5391,14 +5437,15 @@ playease.version = '1.0.63';
 			}
 			_connection.close();
 			
+			_src = '';
+			_waiting = true;
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
-			
-			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -5423,7 +5470,8 @@ playease.version = '1.0.63';
 		}
 		
 		function _onMP4Segment(e) {
-			_this.appendSegment(e.tp, e.data);
+			_segments[e.tp].push(e.data);
+			_this.appendSegment(e.tp);
 		}
 		
 		/**
@@ -5452,7 +5500,9 @@ playease.version = '1.0.63';
 		};
 		
 		_this.appendSegment = function(type, seg) {
-			_segments[type].push(seg);
+			if (_segments[type].length == 0) {
+				return;
+			}
 			
 			var sb = _sb[type];
 			if (sb.updating) {
@@ -5460,7 +5510,11 @@ playease.version = '1.0.63';
 			}
 			
 			var seg = _segments[type].shift();
-			sb.appendBuffer(seg);
+			try {
+				sb.appendBuffer(seg);
+			} catch (err) {
+				utils.log(err);
+			}
 		};
 		
 		function _onMediaSourceOpen(e) {
@@ -5487,21 +5541,7 @@ playease.version = '1.0.63';
 				}
 			}
 			
-			if (_segments[type].length == 0) {
-				return;
-			}
-			
-			var sb = _sb[type];
-			if (sb.updating) {
-				return;
-			}
-			
-			var seg = _segments[type].shift();
-			try {
-				sb.appendBuffer(seg);
-			} catch (err) {
-				utils.log(err);
-			}
+			_this.appendSegment(type);
 		}
 		
 		function _onSourceBufferError(e) {
@@ -5518,6 +5558,7 @@ playease.version = '1.0.63';
 		
 		function _onMediaSourceError(e) {
 			utils.log('media source error');
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
 		}
 		
 		
@@ -5526,13 +5567,18 @@ playease.version = '1.0.63';
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered;
+			var ranges = _video.buffered, start, end;
 			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
+				start = ranges.start(i);
+				end = ranges.end(i);
 				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -5544,6 +5590,11 @@ playease.version = '1.0.63';
 		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {
@@ -5559,7 +5610,7 @@ playease.version = '1.0.63';
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
 		}
 		
 		_this.element = function() {
@@ -7029,6 +7080,7 @@ playease.version = '1.0.63';
 			_render = _this.render = _renders[name];
 			_render.addEventListener(events.PLAYEASE_READY, _forward);
 			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
 			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
@@ -7413,6 +7465,7 @@ playease.version = '1.0.63';
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
+			view.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _onBuffering);
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
 			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
@@ -7462,50 +7515,38 @@ playease.version = '1.0.63';
 			}
 			
 			var playlist = model.getProperty('playlist');
-			if (url) {
-				_urgent = url;
-				
-				var render = core.renders[view.render.name];
-				if (render && render.isSupported(url)) {
-					model.setState(states.PLAYING);
-					view.play(url);
-					
+			
+			var type = view.render.name;
+			if (url == undefined) {
+				var item = playlist.getItemAt(playlist.index);
+				if (!item) {
+					_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item at ' + playlist.index + '!' });
 					return;
 				}
 				
-				var name = playlist.getSupported(url);
-				if (!name) {
+				url = item.file;
+				type = item.type;
+			} else {
+				_urgent = url;
+			}
+			
+			var render = core.renders[type];
+			if (render == undefined || render.isSupported(url) == false) {
+				type = playlist.getSupported(url);
+				if (!type) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
 					return;
 				}
-				
-				if (view.render.name != name) {
-					_ready = false;
-					view.activeRender(name);
-					return;
-				}
-				
-				model.setState(states.PLAYING);
-				view.play(url);
-				
+			}
+			
+			if (view.render.name != type) {
+				_ready = false;
+				view.activeRender(type);
 				return;
 			}
 			
-			var item = playlist.getItemAt(playlist.index);
-			if (item) {
-				if (view.render.name != item.type) {
-					_ready = false;
-					view.activeRender(item.type);
-					return;
-				}
-				
-				model.setState(states.PLAYING);
-				view.play(item.file);
-				
-				return;
-			}
-			
-			_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item!' });
+			model.setState(states.PLAYING);
+			view.play(url);
 		};
 		
 		_this.pause = function() {
@@ -7521,19 +7562,35 @@ playease.version = '1.0.63';
 				return;
 			}
 			
+			var playlist = model.getProperty('playlist');
+			
 			var url = _urgent;
-			if (!url) {
-				var playlist = model.getProperty('playlist');
+			var type = view.render.name;
+			
+			if (url == undefined) {
 				var item = playlist.getItemAt(playlist.index);
-				if (item) {
-					if (view.render.name != item.type) {
-						_ready = false;
-						view.activeRender(item.type);
-						return;
-					}
-					
-					url = item.file;
+				if (!item) {
+					_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item at ' + playlist.index + '!' });
+					return;
 				}
+				
+				url = item.file;
+				type = item.type;
+			}
+			
+			var render = core.renders[type];
+			if (render == undefined || render.isSupported(url) == false) {
+				type = playlist.getSupported(url);
+				if (!type) {
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
+					return;
+				}
+			}
+			
+			if (view.render.name != type) {
+				_ready = false;
+				view.activeRender(type);
+				return;
 			}
 			
 			model.setState(states.RELOADING);
@@ -7662,6 +7719,12 @@ playease.version = '1.0.63';
 			if (_timer) {
 				_timer.stop();
 			}
+		}
+		
+		function _onBuffering(e) {
+			model.setState(states.BUFFERING);
+			view.pause();
+			_forward(e);
 		}
 		
 		function _onPlay(e) {

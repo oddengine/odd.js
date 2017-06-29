@@ -743,7 +743,7 @@
 			_hasAudio = (data[4] & 4) >>> 2 !== 0;
 			_hasVideo = (data[4] & 1) !== 0;
 			if (!_hasAudio && !_hasVideo) {
-				return 0;
+				// Not strict, don't return 0.
 			}
 			
 			var offset = utils.getUint32(data, 5);
