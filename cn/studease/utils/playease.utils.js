@@ -194,6 +194,14 @@
 		return utils.isIOS() || utils.isAndroid();
 	};
 	
+	utils.isHorizontal = function() {
+		if (window.orientation != undefined) {
+			return (window.orientation == 90 || window.orientation == -90);
+		} else {
+			return window.innerWidth > window.innerHeight;
+		}
+	};
+	
 	function _userAgentMatch(regex) {
 		var agent = navigator.userAgent.toLowerCase();
 		return (agent.match(regex) !== null);

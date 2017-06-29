@@ -517,7 +517,7 @@
 				if (_render) {
 					_render.resize(width, height);
 				}
-			}, 0);
+			});
 		};
 		
 		_this.destroy = function() {

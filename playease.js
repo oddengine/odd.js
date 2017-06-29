@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.64';
+playease.version = '1.0.65';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -200,6 +200,14 @@ playease.version = '1.0.64';
 	
 	utils.isMobile = function() {
 		return utils.isIOS() || utils.isAndroid();
+	};
+	
+	utils.isHorizontal = function() {
+		if (window.orientation != undefined) {
+			return (window.orientation == 90 || window.orientation == -90);
+		} else {
+			return window.innerWidth > window.innerHeight;
+		}
 	};
 	
 	function _userAgentMatch(regex) {
@@ -4194,6 +4202,9 @@ playease.version = '1.0.64';
 				width: CSS_100PCT,
 				height: CSS_100PCT
 			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video::-webkit-media-controls-start-playback-button', {
+				display: CSS_NONE
+			});
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
 				width: CSS_100PCT,
@@ -4585,7 +4596,11 @@ playease.version = '1.0.64';
 				_src = _video.src;
 			}
 			
-			_video.play();
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(err) { /* void */ });
+			}
+			
 			_video.controls = false;
 		};
 		
@@ -4594,9 +4609,9 @@ playease.version = '1.0.64';
 			_video.controls = false;
 		};
 		
-		_this.reload = function(url) {
+		_this.reload = function() {
 			_this.stop();
-			_this.play(url);
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -4645,7 +4660,7 @@ playease.version = '1.0.64';
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				//_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -4661,7 +4676,7 @@ playease.version = '1.0.64';
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			//_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {
@@ -4877,7 +4892,11 @@ playease.version = '1.0.64';
 				_src = _video.src;
 			}
 			
-			_video.play();
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(err) { /* void */ });
+			}
+			
 			_video.controls = false;
 		};
 		
@@ -6803,7 +6822,7 @@ playease.version = '1.0.64';
 		_this.setup = function() {
 			setTimeout(function() {
 				_controller.setup();
-			}, 0);
+			});
 		};
 		
 		function _forward(e) {
@@ -7412,7 +7431,7 @@ playease.version = '1.0.64';
 				if (_render) {
 					_render.resize(width, height);
 				}
-			}, 0);
+			});
 		};
 		
 		_this.destroy = function() {

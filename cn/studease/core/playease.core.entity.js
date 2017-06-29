@@ -46,7 +46,7 @@
 		_this.setup = function() {
 			setTimeout(function() {
 				_controller.setup();
-			}, 0);
+			});
 		};
 		
 		function _forward(e) {
