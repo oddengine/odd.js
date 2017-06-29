@@ -25,6 +25,7 @@
 			_ms,
 			_sb,
 			_segments,
+			_waiting,
 			_endOfStream = false;
 		
 		function _init() {
@@ -34,6 +35,8 @@
 			
 			_url = '';
 			_src = '';
+			_waiting = true;
+			
 			_metadata = {
 				audioCodec: 'mp4a.40.2',
 				videoCodec: 'avc1.42E01E'
@@ -54,6 +57,7 @@
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
@@ -158,6 +162,9 @@
 				if (_stream) {
 					_stream.close();
 				}
+				
+				_waiting = true;
+				
 				_segments.audio = [];
 				_segments.video = [];
 				
@@ -204,14 +211,15 @@
 			}
 			_connection.close();
 			
+			_src = '';
+			_waiting = true;
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
-			
-			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -236,7 +244,8 @@
 		}
 		
 		function _onMP4Segment(e) {
-			_this.appendSegment(e.tp, e.data);
+			_segments[e.tp].push(e.data);
+			_this.appendSegment(e.tp);
 		}
 		
 		/**
@@ -265,7 +274,9 @@
 		};
 		
 		_this.appendSegment = function(type, seg) {
-			_segments[type].push(seg);
+			if (_segments[type].length == 0) {
+				return;
+			}
 			
 			var sb = _sb[type];
 			if (sb.updating) {
@@ -273,7 +284,11 @@
 			}
 			
 			var seg = _segments[type].shift();
-			sb.appendBuffer(seg);
+			try {
+				sb.appendBuffer(seg);
+			} catch (err) {
+				utils.log(err);
+			}
 		};
 		
 		function _onMediaSourceOpen(e) {
@@ -300,21 +315,7 @@
 				}
 			}
 			
-			if (_segments[type].length == 0) {
-				return;
-			}
-			
-			var sb = _sb[type];
-			if (sb.updating) {
-				return;
-			}
-			
-			var seg = _segments[type].shift();
-			try {
-				sb.appendBuffer(seg);
-			} catch (err) {
-				utils.log(err);
-			}
+			_this.appendSegment(type);
 		}
 		
 		function _onSourceBufferError(e) {
@@ -339,13 +340,18 @@
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered;
+			var ranges = _video.buffered, start, end;
 			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
+				start = ranges.start(i);
+				end = ranges.end(i);
 				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -357,6 +363,11 @@
 		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {

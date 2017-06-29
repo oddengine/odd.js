@@ -11,7 +11,8 @@
 			_defaults = {},
 			_video,
 			_url,
-			_src;
+			_src,
+			_waiting;
 		
 		function _init() {
 			_this.name = rendermodes.DEFAULT;
@@ -20,6 +21,7 @@
 			
 			_url = '';
 			_src = '';
+			_waiting = true;
 			
 			_video = utils.createElement('video');
 			if (_this.config.airplay) {
@@ -33,6 +35,7 @@
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
@@ -59,6 +62,8 @@
 					
 					_url = url;
 				}
+				
+				_waiting = true;
 				
 				_video.src = _url;
 				_video.load();
@@ -90,11 +95,12 @@
 		};
 		
 		_this.stop = function() {
+			_src = '';
+			_waiting = true;
+			
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
-			
-			_src = '';
 		};
 		
 		_this.mute = function(muted) {
@@ -114,13 +120,18 @@
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered;
+			var ranges = _video.buffered, start, end;
 			for (var i = 0; i < ranges.length; i++) {
-				var start = ranges.start(i);
-				var end = ranges.end(i);
+				start = ranges.start(i);
+				end = ranges.end(i);
 				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -132,6 +143,11 @@
 		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
 		}
 		
 		function _onPlaying(e) {
