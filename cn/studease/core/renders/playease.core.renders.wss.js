@@ -71,8 +71,8 @@
 		function _initNetConnection() {
 			_connection = new netconnection();
 			_connection.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
-			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _errorHandler);
-			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _errorHandler);
+			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _onConnectionError);
+			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _onConnectionError);
 			_connection.client = _this;
 		}
 		
@@ -81,7 +81,7 @@
 			_stream.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
 			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
 			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _errorHandler);
+			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _onStreamError);
 			_stream.client = _this;
 		}
 		
@@ -120,14 +120,19 @@
 				case status.NETSTREAM_PLAY_STREAMNOTFOUND:
 				case status.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
 				case status.NETSTREAM_SEEK_FAILED:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.info.code });
 					break;
 			}
 		}
 		
-		function _errorHandler(e) {
+		function _onConnectionError(e) {
 			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetConnection error ocurred.' });
+		}
+		
+		function _onStreamError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetStream error ocurred.' });
 		}
 		
 		_this.play = function(url) {
@@ -185,9 +190,6 @@
 		_this.pause = function() {
 			_video.pause();
 			_video.controls = false;
-			if (_stream) {
-				_stream.pause();
-			}
 		};
 		
 		_this.reload = function() {
@@ -332,6 +334,7 @@
 		
 		function _onMediaSourceError(e) {
 			utils.log('media source error');
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
 		}
 		
 		
@@ -383,7 +386,7 @@
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
 		}
 		
 		_this.element = function() {
