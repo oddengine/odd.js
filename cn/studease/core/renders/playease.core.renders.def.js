@@ -163,7 +163,7 @@
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
 		}
 		
 		_this.element = function() {

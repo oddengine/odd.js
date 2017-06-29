@@ -205,6 +205,7 @@
 		
 		function _onLoaderError(e) {
 			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Loader error ocurred.' });
 		}
 		
 		/**
@@ -271,6 +272,7 @@
 		
 		function _onDemuxerError(e) {
 			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Demuxer error ocurred.' });
 		}
 		
 		/**
@@ -299,6 +301,7 @@
 		
 		function _onRemuxerError(e) {
 			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Remuxer error ocurred.' });
 		}
 		
 		/**
@@ -384,6 +387,7 @@
 		
 		function _onMediaSourceError(e) {
 			utils.log('media source error');
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
 		}
 		
 		
@@ -436,7 +440,7 @@
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Render error ocurred!' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
 		}
 		
 		_this.element = function() {

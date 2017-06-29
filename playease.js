@@ -5411,9 +5411,6 @@ playease.version = '1.0.64';
 		_this.pause = function() {
 			_video.pause();
 			_video.controls = false;
-			if (_stream) {
-				_stream.pause();
-			}
 		};
 		
 		_this.reload = function() {
