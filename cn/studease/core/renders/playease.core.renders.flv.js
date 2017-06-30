@@ -60,12 +60,10 @@
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
-			
 			/*
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
-			
 			_initMuxer();
 			_initMSE();
 		}
@@ -283,21 +281,24 @@
 		 * Remuxer
 		 */
 		function _onMP4InitSegment(e) {
-			/*
-			_fileindex++
-			_filekeeper.append(e.data);
-			//_filekeeper.save('sample.' + e.tp + '.init.mp4');
-			*/
+			/*if (e.tp == 'video') {
+				_fileindex++
+				_filekeeper.append(e.data);
+				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
+			}*/
 			
 			_this.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
-			/*
-			_fileindex++
-			_filekeeper.append(e.data);
-			//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-			*/
+			/*if (e.tp == 'video') {
+				_fileindex++
+				_filekeeper.append(e.data);
+				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
+				if (_fileindex == 500) {
+					_filekeeper.save('sample.flv.mp4');
+				}
+			}*/
 			
 			_segments[e.tp].push(e.data);
 			_this.appendSegment(e.tp);
@@ -368,7 +369,7 @@
 				}
 				
 				if (!_segments.audio.length && !_segments.video.length) {
-					//_filekeeper.save();
+					//_filekeeper.save('sample.flv.mp4');
 					_ms.endOfStream();
 					return;
 				}

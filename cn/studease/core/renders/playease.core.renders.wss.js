@@ -1,6 +1,7 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		css = utils.css,
+		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		net = playease.net,
 		responder = net.responder,
@@ -25,6 +26,8 @@
 			_ms,
 			_sb,
 			_segments,
+			//_fileindex,
+			//_filekeeper,
 			_waiting,
 			_endOfStream = false;
 		
@@ -62,7 +65,10 @@
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
-			
+			/*
+			_fileindex = 0;
+			_filekeeper = new filekeeper();
+			*/
 			_initNetConnection();
 			_initNetStream();
 			_initMSE();
@@ -242,10 +248,25 @@
 		};
 		
 		function _onMP4InitSegment(e) {
+			/*if (e.tp == 'video') {
+				_fileindex++
+				_filekeeper.append(e.data);
+				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
+			}*/
+			
 			_this.appendInitSegment(e.tp, e.data);
 		}
 		
 		function _onMP4Segment(e) {
+			/*if (e.tp == 'video') {
+				_fileindex++
+				_filekeeper.append(e.data);
+				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
+				if (_fileindex == 500) {
+					_filekeeper.save('sample.wss.normal.mp4');
+				}
+			}*/
+			
 			_segments[e.tp].push(e.data);
 			_this.appendSegment(e.tp);
 		}
@@ -311,7 +332,7 @@
 				}
 				
 				if (!_segments.audio.length && !_segments.video.length) {
-					//_filekeeper.save();
+					//_filekeeper.save('sample.wss.mp4');
 					_ms.endOfStream();
 					return;
 				}
