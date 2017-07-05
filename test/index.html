@@ -103,10 +103,14 @@ input {
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.css.js'></script>
 	<script type='text/javascript' src='../cn/studease/events/playease.events.js'></script>
 	<script type='text/javascript' src='../cn/studease/events/playease.events.eventdispatcher.js'></script>
-	<script type='text/javascript' src='../cn/studease/utils/playease.utils.loader.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.filekeeper.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.timer.js'></script>
 	<script type='text/javascript' src='../cn/studease/api/playease.api.js'></script>
+	<script type='text/javascript' src='../cn/studease/io/playease.io.js'></script>
+	<script type='text/javascript' src='../cn/studease/io/playease.io.fetch-stream-loader.js'></script>
+	<script type='text/javascript' src='../cn/studease/io/playease.io.xhr-ms-stream-loader.js'></script>
+	<script type='text/javascript' src='../cn/studease/io/playease.io.xhr-moz-stream-loader.js'></script>
+	<script type='text/javascript' src='../cn/studease/io/playease.io.xhr-chunked-loader.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.AMF.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.SPS.js'></script>
@@ -120,10 +124,8 @@ input {
 	<script type='text/javascript' src='../cn/studease/core/playease.core.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.states.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.js'></script>
-	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.modes.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.js'></script>
-	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.modes.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.wss.js'></script>
@@ -173,16 +175,18 @@ input {
 				file: 'http://127.0.0.1/live/sample.m3u8',
 				type: 'def'
 			}],*/
-			type: 'vod',
-			cors: 'cors',
+			mode: 'vod',
 			bufferTime: 1,
 			maxretries: 0,
 			retrydelay: 3000,
 			controls: true,
 			autoplay: false,
 			poster: 'sample.png',
-			/*report: false,
-			bulletscreen: {
+			//report: false,
+			loader: {
+				mode: 'cors'
+			},
+			/*bulletscreen: {
 				visible: false
 			},*/
 			render: {

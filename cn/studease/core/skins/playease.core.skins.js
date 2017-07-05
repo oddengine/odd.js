@@ -1,3 +1,7 @@
 ﻿(function(playease) {
-	playease.core.skins = {};
+	var skins = playease.core.skins = {};
+	
+	skins.types = {
+		DEFAULT: 'def'
+	};
 })(playease);

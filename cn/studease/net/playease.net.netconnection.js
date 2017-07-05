@@ -28,7 +28,7 @@
 		var _this = utils.extend(this, new events.eventdispatcher('net.netconnection')),
 			_websocket,
 			_connected,
-			_uri,
+			_url,
 			_protocol,
 			_responders,
 			_requestId;
@@ -39,17 +39,17 @@
 			_requestId = 0;
 		}
 		
-		_this.connect = function(uri) {
-			_uri = uri;
+		_this.connect = function(url) {
+			_url = url;
 			
-			if (_uri === undefined || _uri === null) {
+			if (_url === undefined || _url === null) {
 				// http mode
 				return;
 			}
 			
 			try {
 				window.WebSocket = window.WebSocket || window.MozWebSocket;
-				_websocket = new WebSocket(_uri);
+				_websocket = new WebSocket(_url);
 				_websocket.binaryType = 'arraybuffer';
 			} catch (err) {
 				utils.log('Failed to initialize websocket: ' + err);
@@ -198,7 +198,7 @@
 				_this.send(packages.SCRIPT, commands.CLOSE);
 			}
 			
-			if (_websocket) {
+			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
 				_websocket.close();
 			}
 		};
@@ -207,8 +207,8 @@
 			return _connected;
 		};
 		
-		_this.uri = function() {
-			return _uri;
+		_this.url = function() {
+			return _url;
 		};
 		
 		_this.protocol = function() {

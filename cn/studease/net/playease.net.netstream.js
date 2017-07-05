@@ -1,6 +1,8 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
+		io = playease.io,
+		readystates = io.readystates,
 		net = playease.net,
 		status = net.netstatus,
 		netconnection = net.netconnection,
@@ -28,7 +30,10 @@
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
-			_info = {};
+			
+			_info = {
+				state: readystates.UNINITIALIZED
+			};
 		}
 		
 		_this.attach = function(c) {
@@ -112,6 +117,7 @@
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
+			
 			_info = {};
 		};
 		
@@ -145,6 +151,10 @@
 		
 		_this.info = function() {
 			return _info;
+		};
+		
+		_this.state = function() {
+			return _info.state;
 		};
 		
 		function _forward(e) {

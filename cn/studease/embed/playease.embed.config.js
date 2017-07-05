@@ -2,12 +2,17 @@
 	var utils = playease.utils,
 		events = playease.events,
 		embed = playease.embed,
+		io = playease.io,
+		iomodes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
 		core = playease.core,
 		alphas = core.components.bulletscreen.alphas,
 		positions = core.components.bulletscreen.positions,
-		rendertypes = core.renders.types,
 		rendermodes = core.renders.modes,
-		skinmodes = core.skins.modes;
+		rendertypes = core.renders.types,
+		skintypes = core.skins.types;
 	
 	embed.config = function(config) {
 		var _defaults = {
@@ -16,8 +21,7 @@
 			aspectratio: '16:9',
 			file: '',
 			sources: [],
-			type: rendertypes.VOD,
-			cors: 'no-cors',
+			mode: rendermodes.VOD,
 			bufferTime: .1,
 			maxretries: 0,
 	 		retrydelay: 3000,
@@ -28,6 +32,9 @@
 			poster: '',
 			report: true,
 			debug: false,
+			loader: {
+				mode: iomodes.CORS
+			},
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
@@ -38,11 +45,11 @@
 				visible: true
 			},
 			render: {
-				name: rendermodes.DEFAULT,
+				name: rendertypes.DEFAULT,
 				swf: 'swf/playease.swf'
 			},
 			skin: {
-				name: skinmodes.DEFAULT
+				name: skintypes.DEFAULT
 			},
 			events: {}
 		},

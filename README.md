@@ -26,11 +26,13 @@ playease('player').setup({
 		file: '/vod/sample.mp4',
 		type: 'def'
 	}],*/
-	type: 'vod',
-	cors: 'no-cors',
+	mode: 'vod',
 	controls: true,
 	autoplay: true,
 	poster: 'sample.png',
+	loader: {
+		mode: 'cors'
+	},
 	render: {
 		name: 'flv'
 	}
@@ -45,10 +47,10 @@ Please have a look at cn/studease/embed/playease.embed.config.js.
 _defaults = {
 	width: 640,
 	height: 400,
+	aspectratio: '16:9',
 	file: '',
 	sources: [],
-	type: rendertypes.VOD,
-	cors: 'no-cors',
+	mode: rendermodes.VOD,
 	bufferTime: .1,
 	maxretries: 0,
 	retrydelay: 3000,
@@ -59,19 +61,24 @@ _defaults = {
 	poster: '',
 	report: true,
 	debug: false,
+	loader: {
+		mode: iomodes.CORS
+	},
 	bulletscreen: {
 		enable: true,
 		fontsize: 14,
+		interval: 30,
+		duration: 12000,
 		alpha: alphas.LOW,
 		position: positions.FULLSCREEN,
 		visible: true
 	},
 	render: {
-		name: rendermodes.DEFAULT,
+		name: rendertypes.DEFAULT,
 		swf: 'swf/playease.swf'
 	},
 	skin: {
-		name: skinmodes.DEFAULT
+		name: skintypes.DEFAULT
 	},
 	events: {}
 };

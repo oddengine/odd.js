@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.66';
+playease.version = '1.0.67';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -161,23 +161,28 @@ playease.version = '1.0.66';
 	
 	/* Browser */
 	utils.isMSIE = function(version) {
-		if (version) {
-			version = parseFloat(version).toFixed(1);
-			return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
-		}
-		return _userAgentMatch(/msie/i);
+		version = version || '';
+		return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
 	};
 	
-	utils.isSafari = function() {
-		return (_userAgentMatch(/safari/i) && !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i));
+	utils.isIETrident = function() {
+		return _userAgentMatch(/trident\/.+rv:\s*11/i);
+	};
+	
+	utils.isEdge = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\sedge\\/' + version, 'i'));
+	};
+	
+	utils.isSafari = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\ssafari\\/' + version, 'i'))
+				&& !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i);
 	};
 	
 	utils.isIOS = function(version) {
-		if (version) {
-			return _userAgentMatch(new RegExp('iP(hone|ad|od).+\\sOS\\s' + version, 'i'));
-		}
-		
-		return _userAgentMatch(/iP(hone|ad|od)/i);
+		version = version || '';
+		return _userAgentMatch(new RegExp('iP(hone|ad|od).+\\sOS\\s' + version, 'i'));
 	};
 	
 	utils.isAndroid = function(version, excludeChrome) {
@@ -186,20 +191,27 @@ playease.version = '1.0.66';
 			return false;
 		}
 		
-		if (version) {
-			// make sure whole number version check ends with point '.'
-			if (utils.isInt(version) && !/\./.test(version)) {
-				version = '' + version + '.';
-			}
-			
-			return _userAgentMatch(new RegExp('Android\\s*' + version, 'i'));
-		}
-		
-		return _userAgentMatch(/Android/i);
+		version = version || '';
+		return _userAgentMatch(new RegExp('Android\\s*' + version, 'i'));
 	};
 	
 	utils.isMobile = function() {
 		return utils.isIOS() || utils.isAndroid();
+	};
+	
+	utils.isChrome = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\s(?:Chrome|CriOS)\\/' + version, 'i')) && !utils.isEdge();
+	};
+	
+	utils.isFirefox = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+	};
+	
+	function _userAgentMatch(regex) {
+		var agent = navigator.userAgent.toLowerCase();
+		return (agent.match(regex) !== null);
 	};
 	
 	utils.isHorizontal = function() {
@@ -208,11 +220,6 @@ playease.version = '1.0.66';
 		} else {
 			return window.innerWidth > window.innerHeight;
 		}
-	};
-	
-	function _userAgentMatch(regex) {
-		var agent = navigator.userAgent.toLowerCase();
-		return (agent.match(regex) !== null);
 	};
 	
 	
@@ -226,6 +233,17 @@ playease.version = '1.0.66';
 		}
 		
 		return protocol;
+	};
+	
+	utils.getOrigin = function(file) {
+		var origin = '';
+		
+		var arr = file.match(/^[a-z]+\:\/\/([a-z0-9.:])\//i);
+		if (arr && arr.length > 1) {
+			origin = arr[1];
+		}
+		
+		return origin;
 	};
 	
 	utils.getFileName = function(file) {
@@ -255,6 +273,7 @@ playease.version = '1.0.66';
 	var console = window.console = window.console || {
 		log: function() {}
 	};
+	
 	utils.log = function() {
 		var args = Array.prototype.slice.call(arguments, 0);
 		if (utils.typeOf(console.log) === 'object') {
@@ -739,123 +758,6 @@ playease.version = '1.0.66';
 })(playease);
 
 (function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		
-		readystates = {
-			UNINITIALIZED: 0,
-			OPEN:          1,
-			SENT:          2,
-			LOADING:       3,
-			DONE:          4
-		};
-	
-	utils.loader = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('utils.loader')),
-			_defaults = {
-				method: 'GET',
-				headers: {},
-				mode: 'cors',
-				credentials: 'omit',
-				cache: 'default',
-				redirect: 'follow'
-			},
-			_state,
-			_url,
-			_abort;
-		
-		function _init() {
-			_this.config = utils.extend({}, _defaults, config);
-			
-			_state = readystates.UNINITIALIZED;
-		}
-		
-		_this.load = function(url, start, end) {
-			_url = url;
-			
-			if (!fetch) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: Fetch is not supported.' });
-				return;
-			}
-			
-			var options = utils.extend({}, _this.config, {
-				headers: new Headers(_this.config.headers)
-			});
-			
-			_state = readystates.OPEN;
-			
-			Promise.race([
-				new Promise(function(resolve, reject) {
-					_abort = function() {
-						reject({ message: 'Promise aborted.' });
-					};
-				})
-				['catch'](function(e) {
-					utils.log(e.message);
-				}),
-				
-				fetch(_url, options)
-				['then'](function(res) {
-					if (_state == readystates.UNINITIALIZED) {
-						return;
-					}
-					
-					if (res.ok && res.status >= 200 && res.status <= 299) {
-						var len = res.headers.get('Content-Length');
-						if (len) {
-							len = parseInt(len);
-							_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
-						}
-						
-						return _pump(res.body.getReader());
-					} else {
-						_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + res.status + ' ' + res.statusText + ').' });
-					}
-				})
-				['catch'](function(e) {
-					_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message + '.' });
-				})
-			]);
-		};
-		
-		function _pump(reader) {
-			return reader.read()
-				['then'](function(res) {
-					if (res.done) {
-						_state = readystates.DONE;
-						_this.dispatchEvent(events.PLAYEASE_COMPLETE);
-						return;
-					}
-					
-					if (_state == readystates.UNINITIALIZED) {
-						return reader.cancel();
-					}
-					
-					_state = readystates.LOADING;
-					_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: res.value.buffer });
-					
-					return _pump(reader);
-				})
-				['catch'](function(e) {
-					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Failed to read response data.' });
-				});
-		}
-		
-		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
-			
-			if (_abort) {
-				_abort();
-			}
-		};
-		
-		_init();
-	};
-	
-	utils.loader.readystates = readystates;
-})(playease);
-
-(function(playease) {
 	var utils = playease.utils;
 	
 	utils.filekeeper = function(config) {
@@ -1079,6 +981,660 @@ playease.version = '1.0.66';
 		if (warnLayer && message !== undefined) {
 			warnLayer.innerHTML = message;
 		}
+	};
+})(playease);
+
+(function(playease) {
+	var io = playease.io = {};
+	
+	io.modes = {
+		CORS:        'cors',
+		NO_CORS:     'no-cors',
+		SAME_ORIGIN: 'same-origin'
+	},
+	io.credentials = {
+		OMIT:        'omit',
+		INCLUDE:     'include',
+		SAME_ORIGIN: 'same-origin'
+	},
+	io.caches = {
+		DEFAULT:        'default',
+		NO_STAORE:      'no-store',
+		RELOAD:         'reload',
+		NO_CACHE:       'no-cache',
+		FORCE_CACHE:    'force-cache',
+		ONLY_IF_CACHED: 'only-if-cached'
+	},
+	io.redirects = {
+		FOLLOW: 'follow',
+		MANUAL: 'manual',
+		ERROR:  'error'
+	},
+	io.readystates = {
+		UNINITIALIZED: 0,
+		OPEN:          1,
+		SENT:          2,
+		LOADING:       3,
+		DONE:          4
+	},
+	
+	io.types = {
+		FETCH_STREAM_LOADER:   'fetch-stream-loader',
+		XHR_MS_STREAM_LOADER:  'xhr-ms-stream-loader',
+		XHR_MOZ_STREAM_LOADER: 'xhr-moz-stream-loader',
+		XHR_CHUNKED_LOADER:    'xhr-chunked-loader'
+	},
+	
+	io.priority = [
+		io.types.FETCH_STREAM_LOADER,
+		io.types.XHR_MS_STREAM_LOADER,
+		io.types.XHR_MOZ_STREAM_LOADER,
+		io.types.XHR_CHUNKED_LOADER
+	];
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		io = playease.io,
+		modes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
+		readystates = io.readystates;
+	
+	io['fetch-stream-loader'] = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.fetch-stream-loader')),
+			_defaults = {
+				method: 'GET',
+				headers: {},
+				mode: modes.CORS,
+				credentials: credentials.OMIT,
+				cache: caches.DEFAULT,
+				redirect: redirects.FOLLOW
+			},
+			_state,
+			_url,
+			_abort;
+		
+		function _init() {
+			_this.name = io.types.FETCH_STREAM_LOADER;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_state = readystates.UNINITIALIZED;
+			_abort = undefined;
+		}
+		
+		_this.load = function(url, start, end) {
+			_url = url;
+			
+			if (!io[_this.name].isSupported()) {
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: fetch-stream-loader is not supported.' });
+				return;
+			}
+			
+			_state = readystates.OPEN;
+			
+			if (start || end) {
+				utils.extend(_this.config.headers, {
+					Range: 'bytes=' + start + '-' + end
+				});
+			}
+			
+			var options = utils.extend({}, _this.config, {
+				headers: new Headers(_this.config.headers)
+			});
+			
+			Promise.race([
+				new Promise(function(resolve, reject) {
+					_abort = function() {
+						reject(new Error('Loader aborted.'));
+					};
+				})
+				['catch'](function(e) {
+					utils.log(e.message);
+				}),
+				
+				fetch(_url, options)
+				['then'](function(res) {
+					if (_state == readystates.UNINITIALIZED) {
+						return Promise.reject(new Error('Promise rejected.'));
+					}
+					
+					if (res.ok && res.status >= 200 && res.status <= 299) {
+						var len = res.headers.get('Content-Length');
+						if (len) {
+							len = parseInt(len);
+						}
+						
+						if (res.status == 206) {
+							var range = res.headers.get('Content-Range');
+							if (range) {
+								var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
+								if (arr && arr.length > 3) {
+									len = parseInt(arr[3]);
+								}
+							}
+						}
+						
+						_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len || 0 });
+						
+						return _pump(res.body.getReader());
+					} else {
+						_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + res.status + ' ' + res.statusText + ').' });
+						return Promise.reject(new Error('Promise rejected.'));
+					}
+				})
+				['catch'](function(e) {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+				})
+			]);
+		};
+		
+		function _pump(reader) {
+			return reader.read()
+				['then'](function(res) {
+					if (res.done) {
+						_state = readystates.DONE;
+						_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+						return Promise.resolve('Loader completed.');
+					}
+					
+					if (_state == readystates.UNINITIALIZED) {
+						return reader.cancel();
+					}
+					
+					_state = readystates.LOADING;
+					_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: res.value.buffer });
+					
+					return _pump(reader);
+				})
+				['catch'](function(e) {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Failed to read response data.' });
+				});
+		}
+		
+		_this.abort = function() {
+			_state = readystates.UNINITIALIZED;
+			
+			if (_abort) {
+				_abort.apply(null);
+			}
+		};
+		
+		_this.state = function() {
+			return _state;
+		};
+		
+		_init();
+	};
+	
+	io['fetch-stream-loader'].isSupported = function() {
+		if (!utils.isChrome() || !fetch) {
+			return false;
+		}
+		
+		return true;
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		io = playease.io,
+		modes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
+		readystates = io.readystates;
+	
+	io['xhr-ms-stream-loader'] = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-ms-stream-loader')),
+			_defaults = {
+				method: 'GET',
+				headers: {},
+				mode: modes.CORS,
+				credentials: credentials.OMIT,
+				cache: caches.DEFAULT,
+				redirect: redirects.FOLLOW
+			},
+			_state,
+			_url,
+			_reader,
+			_xhr,
+			_abort;
+		
+		function _init() {
+			_this.name = io.types.XHR_MS_STREAM_LOADER;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_state = readystates.UNINITIALIZED;
+			_abort = undefined;
+		}
+		
+		_this.load = function(url, start, end) {
+			_url = url;
+			
+			if (!io[_this.name].isSupported()) {
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-ms-stream-loader is not supported.' });
+				return;
+			}
+			
+			_reader = new MSStreamReader();
+			_reader.position = 0;
+			_reader.onprogress = _onMSRProgress;
+			_reader.onload = _onMSRLoad;
+			_reader.onerror = _onMSRError;
+			
+			_xhr = new XMLHttpRequest();
+			_xhr.open(_this.config.method, _url, true);
+			_xhr.responseType = 'ms-stream';
+			_xhr.onreadystatechange = _onXHRReadyStateChange;
+			_xhr.onerror = _onXHRError;
+			
+			if (start || end) {
+				utils.extend(_this.config.headers, {
+					Range: 'bytes=' + start + '-' + end
+				});
+			}
+			
+			utils.foreach(_this.config.headers, function(key, value) {
+				_xhr.setRequestHeader(key, value);
+			});
+			
+			switch (_this.config.credentials) {
+				case credentials.INCLUDE:
+					_xhr.withCredentials = true;
+					break;
+				case credentials.SAME_ORIGIN:
+					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
+					break;
+				default:
+					_xhr.withCredentials = false;
+			}
+			
+			_abort = _xhr.abort;
+			
+			_xhr.send();
+		};
+		
+		function _onXHRReadyStateChange(e) {
+			_state = _xhr.readyState;
+			
+			if (_xhr.readyState == readystates.SENT) {
+				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					var len = _xhr.getResponseHeader('Content-Length');
+					if (len) {
+						len = parseInt(len);
+					}
+					
+					if (_xhr.status == 206) {
+						var range = _xhr.getResponseHeader('Content-Range');
+						if (range) {
+							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
+							if (arr && arr.length > 3) {
+								len = parseInt(arr[3]);
+							}
+						}
+					}
+					
+					_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len || 0 });
+				} else {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
+				}
+			} else if (_xhr.readyState == readystates.LOADING) {
+				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					var mss = _xhr.response;
+					_reader.readAsArrayBuffer(mss);
+				} else {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
+				}
+			}
+		}
+		
+		function _onXHRError(e) {
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+		}
+		
+		function _onMSRProgress(e) {
+			var data = _reader.result;
+			if (data == null) {
+				utils.log('Something went wrong???');
+				return;
+			}
+			
+			var pos = _reader.position;
+			_reader.position = data.byteLength;
+			
+			var chunk = new Uint8Array(data.slice(pos));
+			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: chunk.buffer });
+		}
+		
+		function _onMSRLoad(e) {
+			_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+		}
+		
+		function _onMSRError(e) {
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+		}
+		
+		_this.abort = function() {
+			_state = readystates.UNINITIALIZED;
+			
+			if (_abort) {
+				_abort.apply(_xhr);
+			}
+		};
+		
+		_this.state = function() {
+			return _state;
+		};
+		
+		_init();
+	};
+	
+	io['xhr-ms-stream-loader'].isSupported = function() {
+		if (utils.isMSIE(10) || utils.isIETrident() || utils.isEdge()) {
+			return true;
+		}
+		
+		return false;
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		io = playease.io,
+		modes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
+		readystates = io.readystates;
+	
+	io['xhr-moz-stream-loader'] = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-moz-stream-loader')),
+			_defaults = {
+				method: 'GET',
+				headers: {},
+				mode: modes.CORS,
+				credentials: credentials.OMIT,
+				cache: caches.DEFAULT,
+				redirect: redirects.FOLLOW
+			},
+			_state,
+			_url,
+			_xhr,
+			_abort;
+		
+		function _init() {
+			_this.name = io.types.XHR_MOZ_STREAM_LOADER;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_state = readystates.UNINITIALIZED;
+			_abort = undefined;
+		}
+		
+		_this.load = function(url, start, end) {
+			_url = url;
+			
+			if (!io[_this.name].isSupported()) {
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-moz-stream-loader is not supported.' });
+				return;
+			}
+			
+			_xhr = new XMLHttpRequest();
+			_xhr.open(_this.config.method, _url, true);
+			_xhr.responseType = 'moz-chunked-arraybuffer';
+			_xhr.onreadystatechange = _onXHRReadyStateChange;
+			_xhr.onprogress = _onXHRProgress;
+			_xhr.onloadend = _onXHRLoadend;
+			_xhr.onerror = _onXHRError;
+			
+			if (start || end) {
+				utils.extend(_this.config.headers, {
+					Range: 'bytes=' + start + '-' + end
+				});
+			}
+			
+			utils.foreach(_this.config.headers, function(key, value) {
+				_xhr.setRequestHeader(key, value);
+			});
+			
+			switch (_this.config.credentials) {
+				case credentials.INCLUDE:
+					_xhr.withCredentials = true;
+					break;
+				case credentials.SAME_ORIGIN:
+					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
+					break;
+				default:
+					_xhr.withCredentials = false;
+			}
+			
+			_abort = _xhr.abort;
+			
+			_xhr.send();
+		};
+		
+		function _onXHRReadyStateChange(e) {
+			_state = _xhr.readyState;
+			
+			if (_xhr.readyState == readystates.SENT) {
+				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					var len = _xhr.getResponseHeader('Content-Length');
+					if (len) {
+						len = parseInt(len);
+					}
+					
+					if (_xhr.status == 206) {
+						var range = _xhr.getResponseHeader('Content-Range');
+						if (range) {
+							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
+							if (arr && arr.length > 3) {
+								len = parseInt(arr[3]);
+							}
+						}
+					}
+					
+					_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len || 0 });
+				} else {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
+				}
+			}
+		}
+		
+		function _onXHRProgress(e) {
+			var data = new Uint8Array(_xhr.response);
+			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data.buffer });
+		}
+		
+		function _onXHRLoadend(e) {
+			_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+		}
+		
+		function _onXHRError(e) {
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+		}
+		
+		_this.abort = function() {
+			_state = readystates.UNINITIALIZED;
+			
+			if (_abort) {
+				_abort.apply(_xhr);
+			}
+		};
+		
+		_this.state = function() {
+			return _state;
+		};
+		
+		_init();
+	};
+	
+	io['xhr-moz-stream-loader'].isSupported = function() {
+		return utils.isFirefox();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		io = playease.io,
+		modes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
+		readystates = io.readystates,
+		
+		CHUNK_SIZE = 2 * 1024 * 1024;
+	
+	io['xhr-chunked-loader'] = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
+			_defaults = {
+				method: 'GET',
+				headers: {},
+				mode: modes.CORS,
+				credentials: credentials.OMIT,
+				cache: caches.DEFAULT,
+				redirect: redirects.FOLLOW
+			},
+			_state,
+			_url,
+			_xhr,
+			_range,
+			_abort;
+		
+		function _init() {
+			_this.name = io.types.XHR_CHUNKED_LOADER;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_state = readystates.UNINITIALIZED;
+			_abort = undefined;
+			
+			_range = { start: 0, end: '', position: 0 };
+		}
+		
+		_this.load = function(url, start, end) {
+			_url = url;
+			
+			if (!io[_this.name].isSupported()) {
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-chunked-loader is not supported.' });
+				return;
+			}
+			
+			_xhr = new XMLHttpRequest();
+			_xhr.open(_this.config.method, _url, true);
+			_xhr.responseType = 'arraybuffer';
+			_xhr.onreadystatechange = _onXHRReadyStateChange;
+			_xhr.onprogress = _onXHRProgress;
+			_xhr.onload = _onXHRLoad;
+			_xhr.onerror = _onXHRError;
+			
+			if (start || end) {
+				_range.start = start;
+				_range.end = end;
+			}
+			utils.extend(_this.config.headers, {
+				Range: 'bytes=' + _range.position + '-' + (_range.position + CHUNK_SIZE - 1)
+			});
+			
+			utils.foreach(_this.config.headers, function(key, value) {
+				_xhr.setRequestHeader(key, value);
+			});
+			
+			switch (_this.config.credentials) {
+				case credentials.INCLUDE:
+					_xhr.withCredentials = true;
+					break;
+				case credentials.SAME_ORIGIN:
+					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
+					break;
+				default:
+					_xhr.withCredentials = false;
+			}
+			
+			_abort = _xhr.abort;
+			
+			_xhr.send();
+		};
+		
+		function _onXHRReadyStateChange(e) {
+			_state = _xhr.readyState;
+			
+			if (_xhr.readyState == readystates.SENT) {
+				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					var len = _xhr.getResponseHeader('Content-Length');
+					if (len) {
+						len = parseInt(len);
+					}
+					
+					if (_xhr.status == 206) {
+						var range = _xhr.getResponseHeader('Content-Range');
+						if (range) {
+							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
+							if (arr && arr.length > 3) {
+								if (arr[1] == _range.position && arr[2] == _range.position + CHUNK_SIZE - 1) {
+									_range.position += CHUNK_SIZE;
+									
+									utils.extend(_this.config.headers, {
+										Range: 'bytes=' + _range.position + '-' + (_range.position + CHUNK_SIZE - 1)
+									});
+									
+									_xhr.setRequestHeader('Range', _this.config.headers.Range);
+									_xhr.send();
+								}
+								
+								len = parseInt(arr[3]);
+							}
+						}
+					}
+					
+					_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
+				} else {
+					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
+				}
+			}
+		}
+		
+		function _onXHRProgress(e) {
+			/* void */
+		}
+		
+		function _onXHRLoad(e) {
+			var data = new Uint8Array(_xhr.response);
+			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data.buffer });
+			
+			if (e.loaded == e.total) {
+				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+			}
+		}
+		
+		function _onXHRError(e) {
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+		}
+		
+		_this.abort = function() {
+			_state = readystates.UNINITIALIZED;
+			
+			if (_abort) {
+				_abort();
+			}
+		};
+		
+		_this.state = function() {
+			return _state;
+		};
+		
+		_init();
+	};
+	
+	io['xhr-chunked-loader'].isSupported = function() {
+		return true;
 	};
 })(playease);
 
@@ -3753,7 +4309,7 @@ playease.version = '1.0.66';
 		var _this = utils.extend(this, new events.eventdispatcher('net.netconnection')),
 			_websocket,
 			_connected,
-			_uri,
+			_url,
 			_protocol,
 			_responders,
 			_requestId;
@@ -3764,17 +4320,17 @@ playease.version = '1.0.66';
 			_requestId = 0;
 		}
 		
-		_this.connect = function(uri) {
-			_uri = uri;
+		_this.connect = function(url) {
+			_url = url;
 			
-			if (_uri === undefined || _uri === null) {
+			if (_url === undefined || _url === null) {
 				// http mode
 				return;
 			}
 			
 			try {
 				window.WebSocket = window.WebSocket || window.MozWebSocket;
-				_websocket = new WebSocket(_uri);
+				_websocket = new WebSocket(_url);
 				_websocket.binaryType = 'arraybuffer';
 			} catch (err) {
 				utils.log('Failed to initialize websocket: ' + err);
@@ -3923,7 +4479,7 @@ playease.version = '1.0.66';
 				_this.send(packages.SCRIPT, commands.CLOSE);
 			}
 			
-			if (_websocket) {
+			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
 				_websocket.close();
 			}
 		};
@@ -3932,8 +4488,8 @@ playease.version = '1.0.66';
 			return _connected;
 		};
 		
-		_this.uri = function() {
-			return _uri;
+		_this.url = function() {
+			return _url;
 		};
 		
 		_this.protocol = function() {
@@ -3950,6 +4506,8 @@ playease.version = '1.0.66';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
+		io = playease.io,
+		readystates = io.readystates,
 		net = playease.net,
 		status = net.netstatus,
 		netconnection = net.netconnection,
@@ -3977,7 +4535,10 @@ playease.version = '1.0.66';
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
-			_info = {};
+			
+			_info = {
+				state: readystates.UNINITIALIZED
+			};
 		}
 		
 		_this.attach = function(c) {
@@ -4061,6 +4622,7 @@ playease.version = '1.0.66';
 			
 			_bytesLoaded = 0;
 			_bytesTotal = 0;
+			
 			_info = {};
 		};
 		
@@ -4096,6 +4658,10 @@ playease.version = '1.0.66';
 			return _info;
 		};
 		
+		_this.state = function() {
+			return _info.state;
+		};
+		
 		function _forward(e) {
 			_this.dispatchEvent(e.type, e);
 		}
@@ -4121,11 +4687,9 @@ playease.version = '1.0.66';
 })(playease);
 
 (function(playease) {
-	playease.core.skins = {};
-})(playease);
-
-(function(playease) {
-	playease.core.skins.modes = {
+	var skins = playease.core.skins = {};
+	
+	skins.types = {
 		DEFAULT: 'def'
 	};
 })(playease);
@@ -4134,7 +4698,7 @@ playease.version = '1.0.66';
 	var utils = playease.utils,
 		events = playease.events,
 		skins = playease.core.skins,
-		skinmodes = skins.modes,
+		skintypes = skins.types,
 		css = utils.css,
 		
 		WRAP_CLASS = 'pla-wrapper',
@@ -4168,7 +4732,7 @@ playease.version = '1.0.66';
 			_height = config.height;
 		
 		function _init() {
-			_this.name = skinmodes.DEFAULT;
+			_this.name = skintypes.DEFAULT;
 			
 			SKIN_CLASS += '-' + _this.name;
 			
@@ -4305,9 +4869,9 @@ playease.version = '1.0.66';
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.bg', {
 				width: CSS_100PCT,
-				background: '#CCC',
-				filter: 'alpha(opacity=50)',
-				opacity: '0.5'
+				background: '#CCCCCC',
+				filter: 'alpha(opacity=70)',
+				opacity: '0.7'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.buf', {
 				background: '#707070'
@@ -4532,22 +5096,18 @@ playease.version = '1.0.66';
 	var renders = playease.core.renders = {};
 	
 	renders.types = {
+		DEFAULT: 'def',
+		FLV:     'flv',
+		WSS:     'wss',
+		FLASH:   'flash'
+	},
+	
+	renders.priority = ['def', 'flv', 'wss', 'flash'],
+	
+	renders.modes = {
 		LIVE: 'live',
 		VOD:  'vod'
 	};
-})(playease);
-
-(function(playease) {
-	var renders = playease.core.renders;
-	
-	renders.modes = {
-		DEFAULT: 'def',
-		FLV: 'flv',
-		WSS: 'wss',
-		FLASH: 'flash'
-	};
-	
-	renders.priority = ['def', 'flv', 'wss', 'flash'];
 })(playease);
 
 (function(playease) {
@@ -4556,7 +5116,7 @@ playease.version = '1.0.66';
 		events = playease.events,
 		core = playease.core,
 		renders = core.renders,
-		rendermodes = renders.modes;
+		rendertypes = renders.types;
 	
 	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -4567,7 +5127,7 @@ playease.version = '1.0.66';
 			_waiting;
 		
 		function _init() {
-			_this.name = rendermodes.DEFAULT;
+			_this.name = rendertypes.DEFAULT;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -4625,7 +5185,7 @@ playease.version = '1.0.66';
 			
 			var promise = _video.play();
 			if (promise) {
-				promise['catch'](function(err) { /* void */ });
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
@@ -4646,6 +5206,11 @@ playease.version = '1.0.66';
 				_this.play();
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
 			}
 			_video.controls = false;
 		};
@@ -4784,9 +5349,13 @@ playease.version = '1.0.66';
 		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
+		io = playease.io,
+		readystates = io.readystates,
+		priority = io.priority,
 		core = playease.core,
 		muxer = playease.muxer,
 		renders = core.renders,
+		rendertypes = renders.types,
 		rendermodes = renders.modes,
 		
 		AMF = muxer.AMF,
@@ -4800,6 +5369,8 @@ playease.version = '1.0.66';
 			_video,
 			_url,
 			_src,
+			_range,
+			_contentLength,
 			_loader,
 			_demuxer,
 			_remuxer,
@@ -4813,13 +5384,16 @@ playease.version = '1.0.66';
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendermodes.FLV;
+			_this.name = rendertypes.FLV;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_url = '';
 			_src = '';
+			_contentLength = 0;
 			_waiting = true;
+			
+			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -4845,17 +5419,40 @@ playease.version = '1.0.66';
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
+			_initLoader();
 			_initMuxer();
 			_initMSE();
 		}
 		
-		function _initMuxer() {
-			_loader = new utils.loader(config.loader);
-			_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-			_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-			_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-			_loader.addEventListener(events.ERROR, _onLoaderError);
+		function _initLoader() {
+			for (var i = 0; i < priority.length; i++) {
+				var name = priority[i];
+				if (!io[name].isSupported()) {
+					continue;
+				}
+				
+				try {
+					_loader = new io[name](config.loader);
+					_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+					_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+					_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+					_loader.addEventListener(events.ERROR, _onLoaderError);
+					
+					utils.log('Loader "' + name + '" initialized.');
+				} catch (err) {
+					utils.log('Failed to init loader "' + name + '"!');
+					continue;
+				}
+				
+				break;
+			}
 			
+			if (!_loader) {
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+			}
+		}
+		
+		function _initMuxer() {
 			_demuxer = new muxer.flv();
 			_demuxer.addEventListener(events.PLAYEASE_FLV_TAG, _onFLVTag);
 			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
@@ -4919,7 +5516,7 @@ playease.version = '1.0.66';
 			
 			var promise = _video.play();
 			if (promise) {
-				promise['catch'](function(err) { /* void */ });
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
@@ -4932,7 +5529,9 @@ playease.version = '1.0.66';
 		
 		_this.reload = function() {
 			_this.stop();
-			_this.play(_url);
+			setTimeout(function() {
+				_this.play(_url);
+			}, 100);
 		};
 		
 		_this.seek = function(offset) {
@@ -4940,6 +5539,11 @@ playease.version = '1.0.66';
 				_this.play();
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
 			}
 			_video.controls = false;
 		};
@@ -4975,6 +5579,7 @@ playease.version = '1.0.66';
 		 */
 		function _onContenLength(e) {
 			utils.log('onContenLength: ' + e.length);
+			_contentLength = e.length;
 		}
 		
 		function _onLoaderProgress(e) {
@@ -5081,7 +5686,9 @@ playease.version = '1.0.66';
 				}
 			}*/
 			
+			e.data.info = e.info;
 			_segments[e.tp].push(e.data);
+			
 			_this.appendSegment(e.tp);
 		}
 		
@@ -5108,7 +5715,14 @@ playease.version = '1.0.66';
 				return;
 			}
 			
-			var sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			var sb;
+			try {
+				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			} catch (err) {
+				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				return;
+			}
+			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
@@ -5121,22 +5735,23 @@ playease.version = '1.0.66';
 			}
 			
 			var sb = _sb[type];
-			if (sb.updating) {
+			if (!sb || sb.updating) {
 				return;
 			}
 			
-			var seg = _segments[type].shift();
+			var seg = _segments[type][0];
 			try {
 				sb.appendBuffer(seg);
+				_segments[type].shift();
 			} catch (err) {
-				utils.log(err);
+				utils.log('Failed to appendBuffer: ' + err.toString());
 			}
 		};
 		
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_loader.load(_url);
+			_loader.load(_url, _range.start, _range.end);
 		}
 		
 		function _onUpdateEnd(e) {
@@ -5186,7 +5801,7 @@ playease.version = '1.0.66';
 			for (var i = 0; i < ranges.length; i++) {
 				start = ranges.start(i);
 				end = ranges.end(i);
-				if (start <= position && position < end) {
+				if (/*start <= position && */position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
 			}
@@ -5194,6 +5809,23 @@ playease.version = '1.0.66';
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
 				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			}
+			
+			if (_this.config.mode == rendermodes.VOD && _loader.state() == readystates.DONE) {
+				var dts = end * 1000;
+				
+				if (_segments.video.length) {
+					dts = Math.max(dts, _segments.video[_segments.video.length - 1].info.endDts);
+				}
+				if (_segments.audio.length) {
+					dts = Math.max(dts, _segments.audio[_segments.audio.length - 1].info.endDts);
+				}
+				
+				if (dts && dts / 1000 - position < 120 && _range.end < _contentLength - 1) {
+					_range.start = _range.end + 1;
+					_range.end += 32 * 1024 * 1024;
+					_loader.load(_url, _range.start, _range.end);
+				}
 			}
 			
 			return {
@@ -5253,7 +5885,7 @@ playease.version = '1.0.66';
 			return false;
 		}
 		
-		if (utils.isMSIE(8) || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
 			return false;
 		}
 		
@@ -5278,6 +5910,7 @@ playease.version = '1.0.66';
 		netstream = net.netstream,
 		core = playease.core,
 		renders = core.renders,
+		rendertypes = renders.types,
 		rendermodes = renders.modes;
 	
 	renders.wss = function(layer, config) {
@@ -5286,6 +5919,8 @@ playease.version = '1.0.66';
 			_video,
 			_url,
 			_src,
+			_range,
+			_contentLength,
 			_application,
 			_streamname,
 			_connection,
@@ -5300,13 +5935,16 @@ playease.version = '1.0.66';
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendermodes.WSS;
+			_this.name = rendertypes.WSS;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_url = '';
 			_src = '';
+			_contentLength = 0;
 			_waiting = true;
+			
+			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_metadata = {
 				audioCodec: 'mp4a.40.2',
@@ -5455,7 +6093,7 @@ playease.version = '1.0.66';
 			
 			var promise = _video.play();
 			if (promise) {
-				promise['catch'](function(err) { /* void */ });
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
@@ -5468,7 +6106,9 @@ playease.version = '1.0.66';
 		
 		_this.reload = function() {
 			_this.stop();
-			_this.play(_url);
+			setTimeout(function() {
+				_this.play(_url);
+			}, 100);
 		};
 		
 		_this.seek = function(offset) {
@@ -5478,7 +6118,13 @@ playease.version = '1.0.66';
 				if (_stream) {
 					_stream.seek(offset * _video.duration / 100);
 				}
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
 			}
+			_video.controls = false;
 		};
 		
 		_this.stop = function() {
@@ -5574,9 +6220,10 @@ playease.version = '1.0.66';
 				return;
 			}
 			
-			var seg = _segments[type].shift();
+			var seg = _segments[type][0];
 			try {
 				sb.appendBuffer(seg);
+				_segments[type].shift();
 			} catch (err) {
 				utils.log(err);
 			}
@@ -5636,7 +6283,7 @@ playease.version = '1.0.66';
 			for (var i = 0; i < ranges.length; i++) {
 				start = ranges.start(i);
 				end = ranges.end(i);
-				if (start <= position && position < end) {
+				if (/*start <= position && */position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
 			}
@@ -5644,6 +6291,23 @@ playease.version = '1.0.66';
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
 				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			}
+			
+			if (_this.config.mode == rendermodes.VOD && _stream.state() == readystates.DONE) {
+				var dts = end * 1000;
+				
+				if (_segments.video.length) {
+					dts = Math.max(dts, _segments.video[_segments.video.length - 1].info.endDts);
+				}
+				if (_segments.audio.length) {
+					dts = Math.max(dts, _segments.audio[_segments.audio.length - 1].info.endDts);
+				}
+				
+				if (dts && dts / 1000 - position < 120 && _range.end < _contentLength - 1) {
+					_range.start = _range.end + 1;
+					_range.end += 32 * 1024 * 1024;
+					_loader.load(_url, _range.start, _range.end);
+				}
 			}
 			
 			return {
@@ -5702,7 +6366,7 @@ playease.version = '1.0.66';
 			return false;
 		}
 		
-		if (utils.isMSIE(8) || utils.isMSIE(9) || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
 			return false;
 		}
 		
@@ -5731,7 +6395,7 @@ playease.version = '1.0.66';
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendermodes = renders.modes;
+		rendertypes = renders.types;
 	
 	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
@@ -5743,7 +6407,7 @@ playease.version = '1.0.66';
 			_duration;
 		
 		function _init() {
-			_this.name = rendermodes.FLASH;
+			_this.name = rendertypes.FLASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -7090,6 +7754,7 @@ playease.version = '1.0.66';
 				height: model.getConfig('height') - 40,
 				aspectratio: model.getConfig('aspectratio'),
 				playlist: model.getProperty('playlist'),
+				mode: model.getConfig('mode'),
 				bufferTime: model.getConfig('bufferTime'),
 				muted: model.getProperty('muted'),
 				volume: model.getProperty('volume'),
@@ -7097,9 +7762,7 @@ playease.version = '1.0.66';
 				airplay: model.getConfig('airplay'),
 				playsinline: model.getConfig('playsinline'),
 				poster: model.getConfig('poster'),
-				loader: {
-					mode: model.getConfig('cors')
-				}
+				loader: model.getConfig('loader')
 			});
 			
 			_renders = {};
@@ -7110,9 +7773,9 @@ playease.version = '1.0.66';
 					var render = new renders[name](_renderLayer, cfg);
 					_renders[name] = render;
 					
-					utils.log('Render ' + name + ' initialized!');
+					utils.log('Render "' + name + '" initialized.');
 				} catch (err) {
-					utils.log('Failed to init render ' + name + '!');
+					utils.log('Failed to init render "' + name + '"!');
 				}
 			}
 			
@@ -7156,7 +7819,7 @@ playease.version = '1.0.66';
 			
 			_this.setup();
 			
-			utils.log('Actived render ' + _render.name + '!');
+			utils.log('Actived render "' + _render.name + '".');
 		};
 		
 		function _initSkin() {
@@ -7972,12 +8635,17 @@ playease.version = '1.0.66';
 	var utils = playease.utils,
 		events = playease.events,
 		embed = playease.embed,
+		io = playease.io,
+		iomodes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
 		core = playease.core,
 		alphas = core.components.bulletscreen.alphas,
 		positions = core.components.bulletscreen.positions,
-		rendertypes = core.renders.types,
 		rendermodes = core.renders.modes,
-		skinmodes = core.skins.modes;
+		rendertypes = core.renders.types,
+		skintypes = core.skins.types;
 	
 	embed.config = function(config) {
 		var _defaults = {
@@ -7986,8 +8654,7 @@ playease.version = '1.0.66';
 			aspectratio: '16:9',
 			file: '',
 			sources: [],
-			type: rendertypes.VOD,
-			cors: 'no-cors',
+			mode: rendermodes.VOD,
 			bufferTime: .1,
 			maxretries: 0,
 	 		retrydelay: 3000,
@@ -7998,6 +8665,9 @@ playease.version = '1.0.66';
 			poster: '',
 			report: true,
 			debug: false,
+			loader: {
+				mode: iomodes.CORS
+			},
 			bulletscreen: {
 				enable: true,
 				fontsize: 14,
@@ -8008,11 +8678,11 @@ playease.version = '1.0.66';
 				visible: true
 			},
 			render: {
-				name: rendermodes.DEFAULT,
+				name: rendertypes.DEFAULT,
 				swf: 'swf/playease.swf'
 			},
 			skin: {
-				name: skinmodes.DEFAULT
+				name: skintypes.DEFAULT
 			},
 			events: {}
 		},

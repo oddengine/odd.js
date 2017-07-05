@@ -2,7 +2,7 @@
 	var utils = playease.utils,
 		events = playease.events,
 		skins = playease.core.skins,
-		skinmodes = skins.modes,
+		skintypes = skins.types,
 		css = utils.css,
 		
 		WRAP_CLASS = 'pla-wrapper',
@@ -36,7 +36,7 @@
 			_height = config.height;
 		
 		function _init() {
-			_this.name = skinmodes.DEFAULT;
+			_this.name = skintypes.DEFAULT;
 			
 			SKIN_CLASS += '-' + _this.name;
 			
@@ -173,9 +173,9 @@
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.bg', {
 				width: CSS_100PCT,
-				background: '#CCC',
-				filter: 'alpha(opacity=50)',
-				opacity: '0.5'
+				background: '#CCCCCC',
+				filter: 'alpha(opacity=70)',
+				opacity: '0.7'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .plslider.time .plrail.buf', {
 				background: '#707070'

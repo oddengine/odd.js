@@ -10,6 +10,7 @@
 		netstream = net.netstream,
 		core = playease.core,
 		renders = core.renders,
+		rendertypes = renders.types,
 		rendermodes = renders.modes;
 	
 	renders.wss = function(layer, config) {
@@ -18,6 +19,8 @@
 			_video,
 			_url,
 			_src,
+			_range,
+			_contentLength,
 			_application,
 			_streamname,
 			_connection,
@@ -32,13 +35,16 @@
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendermodes.WSS;
+			_this.name = rendertypes.WSS;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_url = '';
 			_src = '';
+			_contentLength = 0;
 			_waiting = true;
+			
+			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_metadata = {
 				audioCodec: 'mp4a.40.2',
@@ -187,7 +193,7 @@
 			
 			var promise = _video.play();
 			if (promise) {
-				promise['catch'](function(err) { /* void */ });
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
@@ -200,7 +206,9 @@
 		
 		_this.reload = function() {
 			_this.stop();
-			_this.play(_url);
+			setTimeout(function() {
+				_this.play(_url);
+			}, 100);
 		};
 		
 		_this.seek = function(offset) {
@@ -210,7 +218,13 @@
 				if (_stream) {
 					_stream.seek(offset * _video.duration / 100);
 				}
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
 			}
+			_video.controls = false;
 		};
 		
 		_this.stop = function() {
@@ -306,9 +320,10 @@
 				return;
 			}
 			
-			var seg = _segments[type].shift();
+			var seg = _segments[type][0];
 			try {
 				sb.appendBuffer(seg);
+				_segments[type].shift();
 			} catch (err) {
 				utils.log(err);
 			}
@@ -368,7 +383,7 @@
 			for (var i = 0; i < ranges.length; i++) {
 				start = ranges.start(i);
 				end = ranges.end(i);
-				if (start <= position && position < end) {
+				if (/*start <= position && */position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
 			}
@@ -376,6 +391,23 @@
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
 				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			}
+			
+			if (_this.config.mode == rendermodes.VOD && _stream.state() == readystates.DONE) {
+				var dts = end * 1000;
+				
+				if (_segments.video.length) {
+					dts = Math.max(dts, _segments.video[_segments.video.length - 1].info.endDts);
+				}
+				if (_segments.audio.length) {
+					dts = Math.max(dts, _segments.audio[_segments.audio.length - 1].info.endDts);
+				}
+				
+				if (dts && dts / 1000 - position < 120 && _range.end < _contentLength - 1) {
+					_range.start = _range.end + 1;
+					_range.end += 32 * 1024 * 1024;
+					_loader.load(_url, _range.start, _range.end);
+				}
 			}
 			
 			return {
@@ -434,7 +466,7 @@
 			return false;
 		}
 		
-		if (utils.isMSIE(8) || utils.isMSIE(9) || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
 			return false;
 		}
 		
