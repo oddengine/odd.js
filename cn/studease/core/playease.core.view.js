@@ -127,6 +127,7 @@
 				height: model.getConfig('height') - 40,
 				aspectratio: model.getConfig('aspectratio'),
 				playlist: model.getProperty('playlist'),
+				mode: model.getConfig('mode'),
 				bufferTime: model.getConfig('bufferTime'),
 				muted: model.getProperty('muted'),
 				volume: model.getProperty('volume'),
@@ -134,9 +135,7 @@
 				airplay: model.getConfig('airplay'),
 				playsinline: model.getConfig('playsinline'),
 				poster: model.getConfig('poster'),
-				loader: {
-					mode: model.getConfig('cors')
-				}
+				loader: model.getConfig('loader')
 			});
 			
 			_renders = {};
@@ -147,9 +146,9 @@
 					var render = new renders[name](_renderLayer, cfg);
 					_renders[name] = render;
 					
-					utils.log('Render ' + name + ' initialized!');
+					utils.log('Render "' + name + '" initialized.');
 				} catch (err) {
-					utils.log('Failed to init render ' + name + '!');
+					utils.log('Failed to init render "' + name + '"!');
 				}
 			}
 			
@@ -193,7 +192,7 @@
 			
 			_this.setup();
 			
-			utils.log('Actived render ' + _render.name + '!');
+			utils.log('Actived render "' + _render.name + '".');
 		};
 		
 		function _initSkin() {

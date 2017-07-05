@@ -4,7 +4,7 @@
 		events = playease.events,
 		core = playease.core,
 		renders = core.renders,
-		rendermodes = renders.modes;
+		rendertypes = renders.types;
 	
 	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -15,7 +15,7 @@
 			_waiting;
 		
 		function _init() {
-			_this.name = rendermodes.DEFAULT;
+			_this.name = rendertypes.DEFAULT;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -73,7 +73,7 @@
 			
 			var promise = _video.play();
 			if (promise) {
-				promise['catch'](function(err) { /* void */ });
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
@@ -94,6 +94,11 @@
 				_this.play();
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
 			}
 			_video.controls = false;
 		};

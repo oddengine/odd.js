@@ -153,23 +153,28 @@
 	
 	/* Browser */
 	utils.isMSIE = function(version) {
-		if (version) {
-			version = parseFloat(version).toFixed(1);
-			return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
-		}
-		return _userAgentMatch(/msie/i);
+		version = version || '';
+		return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
 	};
 	
-	utils.isSafari = function() {
-		return (_userAgentMatch(/safari/i) && !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i));
+	utils.isIETrident = function() {
+		return _userAgentMatch(/trident\/.+rv:\s*11/i);
+	};
+	
+	utils.isEdge = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\sedge\\/' + version, 'i'));
+	};
+	
+	utils.isSafari = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\ssafari\\/' + version, 'i'))
+				&& !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i);
 	};
 	
 	utils.isIOS = function(version) {
-		if (version) {
-			return _userAgentMatch(new RegExp('iP(hone|ad|od).+\\sOS\\s' + version, 'i'));
-		}
-		
-		return _userAgentMatch(/iP(hone|ad|od)/i);
+		version = version || '';
+		return _userAgentMatch(new RegExp('iP(hone|ad|od).+\\sOS\\s' + version, 'i'));
 	};
 	
 	utils.isAndroid = function(version, excludeChrome) {
@@ -178,20 +183,27 @@
 			return false;
 		}
 		
-		if (version) {
-			// make sure whole number version check ends with point '.'
-			if (utils.isInt(version) && !/\./.test(version)) {
-				version = '' + version + '.';
-			}
-			
-			return _userAgentMatch(new RegExp('Android\\s*' + version, 'i'));
-		}
-		
-		return _userAgentMatch(/Android/i);
+		version = version || '';
+		return _userAgentMatch(new RegExp('Android\\s*' + version, 'i'));
 	};
 	
 	utils.isMobile = function() {
 		return utils.isIOS() || utils.isAndroid();
+	};
+	
+	utils.isChrome = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\s(?:Chrome|CriOS)\\/' + version, 'i')) && !utils.isEdge();
+	};
+	
+	utils.isFirefox = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+	};
+	
+	function _userAgentMatch(regex) {
+		var agent = navigator.userAgent.toLowerCase();
+		return (agent.match(regex) !== null);
 	};
 	
 	utils.isHorizontal = function() {
@@ -200,11 +212,6 @@
 		} else {
 			return window.innerWidth > window.innerHeight;
 		}
-	};
-	
-	function _userAgentMatch(regex) {
-		var agent = navigator.userAgent.toLowerCase();
-		return (agent.match(regex) !== null);
 	};
 	
 	
@@ -218,6 +225,17 @@
 		}
 		
 		return protocol;
+	};
+	
+	utils.getOrigin = function(file) {
+		var origin = '';
+		
+		var arr = file.match(/^[a-z]+\:\/\/([a-z0-9.:])\//i);
+		if (arr && arr.length > 1) {
+			origin = arr[1];
+		}
+		
+		return origin;
 	};
 	
 	utils.getFileName = function(file) {
@@ -247,6 +265,7 @@
 	var console = window.console = window.console || {
 		log: function() {}
 	};
+	
 	utils.log = function() {
 		var args = Array.prototype.slice.call(arguments, 0);
 		if (utils.typeOf(console.log) === 'object') {
