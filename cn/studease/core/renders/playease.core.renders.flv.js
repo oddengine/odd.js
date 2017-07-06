@@ -539,7 +539,7 @@
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isEdge() || utils.isIOS()) {
 			return false;
 		}
 		
