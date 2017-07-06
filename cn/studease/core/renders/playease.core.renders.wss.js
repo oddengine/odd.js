@@ -3,6 +3,8 @@
 		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
+		io = playease.io,
+		readystates = io.readystates,
 		net = playease.net,
 		responder = net.responder,
 		status = net.netstatus,
@@ -281,7 +283,9 @@
 				}
 			}*/
 			
+			e.data.info = e.info;
 			_segments[e.tp].push(e.data);
+			
 			_this.appendSegment(e.tp);
 		}
 		
@@ -303,29 +307,35 @@
 				return;
 			}
 			
-			var sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			var sb;
+			try {
+				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			} catch (err) {
+				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				return;
+			}
+			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
 			sb.appendBuffer(seg);
 		};
 		
-		_this.appendSegment = function(type, seg) {
+		_this.appendSegment = function(type) {
 			if (_segments[type].length == 0) {
 				return;
 			}
 			
 			var sb = _sb[type];
-			if (sb.updating) {
+			if (!sb || sb.updating) {
 				return;
 			}
 			
-			var seg = _segments[type][0];
+			var seg = _segments[type].shift();
 			try {
 				sb.appendBuffer(seg);
-				_segments[type].shift();
 			} catch (err) {
-				utils.log(err);
+				utils.log('Failed to appendBuffer: ' + err.toString());
 			}
 		};
 		

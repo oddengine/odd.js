@@ -129,6 +129,9 @@
 			switch (type) {
 				case packages.AUDIO:
 				case packages.VIDEO:
+					var segtype = type == packages.AUDIO ? 'audio' : 'video';
+					var seg = new Uint8Array(e.data, pos);
+					
 					//pos += 3; // skip 3 bytes of command
 					pos += 4; // skip 4 bytes of box size
 					
@@ -136,9 +139,6 @@
 					if (data[pos] === 0x66 && data[pos + 1] === 0x74 && data[pos + 2] === 0x79 && data[pos + 3] === 0x70) { // is ftyp box
 						evttype = events.PLAYEASE_MP4_INIT_SEGMENT;
 					}
-					
-					var segtype = type == packages.AUDIO ? 'audio' : 'video';
-					var seg = data.slice(1);
 					
 					_this.dispatchEvent(evttype, { tp: segtype, data: seg });
 					break;

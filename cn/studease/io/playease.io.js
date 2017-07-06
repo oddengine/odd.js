@@ -36,13 +36,15 @@
 		FETCH_STREAM_LOADER:   'fetch-stream-loader',
 		XHR_MS_STREAM_LOADER:  'xhr-ms-stream-loader',
 		XHR_MOZ_STREAM_LOADER: 'xhr-moz-stream-loader',
-		XHR_CHUNKED_LOADER:    'xhr-chunked-loader'
+		XHR_CHUNKED_LOADER:    'xhr-chunked-loader',
+		WEBSOCKET_LOADER:      'websocket-loader'
 	},
 	
 	io.priority = [
 		io.types.FETCH_STREAM_LOADER,
 		io.types.XHR_MS_STREAM_LOADER,
 		io.types.XHR_MOZ_STREAM_LOADER,
-		io.types.XHR_CHUNKED_LOADER
+		io.types.XHR_CHUNKED_LOADER,
+		io.types.WEBSOCKET_LOADER
 	];
 })(playease);
