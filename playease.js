@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.67';
+playease.version = '1.0.68';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -1022,14 +1022,16 @@ playease.version = '1.0.67';
 		FETCH_STREAM_LOADER:   'fetch-stream-loader',
 		XHR_MS_STREAM_LOADER:  'xhr-ms-stream-loader',
 		XHR_MOZ_STREAM_LOADER: 'xhr-moz-stream-loader',
-		XHR_CHUNKED_LOADER:    'xhr-chunked-loader'
+		XHR_CHUNKED_LOADER:    'xhr-chunked-loader',
+		WEBSOCKET_LOADER:      'websocket-loader'
 	},
 	
 	io.priority = [
 		io.types.FETCH_STREAM_LOADER,
 		io.types.XHR_MS_STREAM_LOADER,
 		io.types.XHR_MOZ_STREAM_LOADER,
-		io.types.XHR_CHUNKED_LOADER
+		io.types.XHR_CHUNKED_LOADER,
+		io.types.WEBSOCKET_LOADER
 	];
 })(playease);
 
@@ -1202,8 +1204,7 @@ playease.version = '1.0.67';
 			_state,
 			_url,
 			_reader,
-			_xhr,
-			_abort;
+			_xhr;
 		
 		function _init() {
 			_this.name = io.types.XHR_MS_STREAM_LOADER;
@@ -1211,14 +1212,13 @@ playease.version = '1.0.67';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_state = readystates.UNINITIALIZED;
-			_abort = undefined;
 		}
 		
 		_this.load = function(url, start, end) {
 			_url = url;
 			
 			if (!io[_this.name].isSupported()) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-ms-stream-loader is not supported.' });
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
@@ -1254,8 +1254,6 @@ playease.version = '1.0.67';
 				default:
 					_xhr.withCredentials = false;
 			}
-			
-			_abort = _xhr.abort;
 			
 			_xhr.send();
 		};
@@ -1323,8 +1321,8 @@ playease.version = '1.0.67';
 		_this.abort = function() {
 			_state = readystates.UNINITIALIZED;
 			
-			if (_abort) {
-				_abort.apply(_xhr);
+			if (_xhr) {
+				_xhr.abort();
 			}
 		};
 		
@@ -1366,8 +1364,7 @@ playease.version = '1.0.67';
 			},
 			_state,
 			_url,
-			_xhr,
-			_abort;
+			_xhr;
 		
 		function _init() {
 			_this.name = io.types.XHR_MOZ_STREAM_LOADER;
@@ -1375,14 +1372,13 @@ playease.version = '1.0.67';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_state = readystates.UNINITIALIZED;
-			_abort = undefined;
 		}
 		
 		_this.load = function(url, start, end) {
 			_url = url;
 			
 			if (!io[_this.name].isSupported()) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-moz-stream-loader is not supported.' });
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
@@ -1414,8 +1410,6 @@ playease.version = '1.0.67';
 				default:
 					_xhr.withCredentials = false;
 			}
-			
-			_abort = _xhr.abort;
 			
 			_xhr.send();
 		};
@@ -1463,8 +1457,8 @@ playease.version = '1.0.67';
 		_this.abort = function() {
 			_state = readystates.UNINITIALIZED;
 			
-			if (_abort) {
-				_abort.apply(_xhr);
+			if (_xhr) {
+				_xhr.abort();
 			}
 		};
 		
@@ -1505,8 +1499,7 @@ playease.version = '1.0.67';
 			_state,
 			_url,
 			_xhr,
-			_range,
-			_abort;
+			_range;
 		
 		function _init() {
 			_this.name = io.types.XHR_CHUNKED_LOADER;
@@ -1514,8 +1507,6 @@ playease.version = '1.0.67';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_state = readystates.UNINITIALIZED;
-			_abort = undefined;
-			
 			_range = { start: 0, end: '', position: 0 };
 		}
 		
@@ -1523,7 +1514,7 @@ playease.version = '1.0.67';
 			_url = url;
 			
 			if (!io[_this.name].isSupported()) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-chunked-loader is not supported.' });
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
@@ -1557,8 +1548,6 @@ playease.version = '1.0.67';
 				default:
 					_xhr.withCredentials = false;
 			}
-			
-			_abort = _xhr.abort;
 			
 			_xhr.send();
 		};
@@ -1621,8 +1610,8 @@ playease.version = '1.0.67';
 		_this.abort = function() {
 			_state = readystates.UNINITIALIZED;
 			
-			if (_abort) {
-				_abort();
+			if (_xhr) {
+				_xhr.abort();
 			}
 		};
 		
@@ -1634,6 +1623,110 @@ playease.version = '1.0.67';
 	};
 	
 	io['xhr-chunked-loader'].isSupported = function() {
+		return true;
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		io = playease.io,
+		modes = io.modes,
+		credentials = io.credentials,
+		caches = io.caches,
+		redirects = io.redirects,
+		readystates = io.readystates;
+	
+	io['websocket-loader'] = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.websocket-loader')),
+			_defaults = {
+				method: 'GET',
+				headers: {},
+				mode: modes.CORS,
+				credentials: credentials.OMIT,
+				cache: caches.DEFAULT,
+				redirect: redirects.FOLLOW
+			},
+			_state,
+			_url,
+			_websocket;
+		
+		function _init() {
+			_this.name = io.types.WEBSOCKET_LOADER;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_state = readystates.UNINITIALIZED;
+		}
+		
+		_this.load = function(url, start, end) {
+			_url = url;
+			
+			if (!io[_this.name].isSupported()) {
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
+				return;
+			}
+			
+			window.WebSocket = window.WebSocket || window.MozWebSocket;
+			if (window.WebSocket) {
+				_websocket = new WebSocket(_url.replace(/^http/i, 'ws'));
+				_websocket.binaryType = 'arraybuffer';
+				
+				_websocket.onopen = _onOpen;
+				_websocket.onmessage = _onMessage;
+				_websocket.onerror = _onError;
+				_websocket.onclose = _onClose;
+			}
+			
+			if (!_websocket) {
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: Failed to initialize websocket.' });
+				return;
+			}
+			
+			//_websocket.send();
+		};
+		
+		function _onOpen(e) {
+			_state = readystates.SENT;
+		}
+		
+		function _onMessage(e) {
+			var data = new Uint8Array(e.data);
+			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data.buffer });
+		}
+		
+		function _onError(e) {
+			_state = readystates.UNINITIALIZED;
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+		}
+		
+		function _onClose(e) {
+			_state = readystates.UNINITIALIZED;
+			
+			// No event dispatching
+			//_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+		}
+		
+		_this.abort = function() {
+			_state = readystates.UNINITIALIZED;
+			
+			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
+				_websocket.close();
+			}
+		};
+		
+		_this.state = function() {
+			return _state;
+		};
+		
+		_init();
+	};
+	
+	io['websocket-loader'].isSupported = function() {
+		if (utils.isMSIE('(8|9)')) {
+			return false;
+		}
+		
 		return true;
 	};
 })(playease);
@@ -4410,6 +4503,9 @@ playease.version = '1.0.67';
 			switch (type) {
 				case packages.AUDIO:
 				case packages.VIDEO:
+					var segtype = type == packages.AUDIO ? 'audio' : 'video';
+					var seg = new Uint8Array(e.data, pos);
+					
 					//pos += 3; // skip 3 bytes of command
 					pos += 4; // skip 4 bytes of box size
 					
@@ -4417,9 +4513,6 @@ playease.version = '1.0.67';
 					if (data[pos] === 0x66 && data[pos + 1] === 0x74 && data[pos + 2] === 0x79 && data[pos + 3] === 0x70) { // is ftyp box
 						evttype = events.PLAYEASE_MP4_INIT_SEGMENT;
 					}
-					
-					var segtype = type == packages.AUDIO ? 'audio' : 'video';
-					var seg = data.slice(1);
 					
 					_this.dispatchEvent(evttype, { tp: segtype, data: seg });
 					break;
@@ -5425,29 +5518,30 @@ playease.version = '1.0.67';
 		}
 		
 		function _initLoader() {
-			for (var i = 0; i < priority.length; i++) {
-				var name = priority[i];
-				if (!io[name].isSupported()) {
-					continue;
+			var name, type = _this.config.loader.name;
+			
+			if (type && io.hasOwnProperty(type) && io[type].isSupported()) {
+				name = type;
+			} else {
+				for (var i = 0; i < priority.length; i++) {
+					type = priority[i];
+					if (io[type].isSupported()) {
+						name = type;
+						break;
+					}
 				}
-				
-				try {
-					_loader = new io[name](config.loader);
-					_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-					_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-					_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-					_loader.addEventListener(events.ERROR, _onLoaderError);
-					
-					utils.log('Loader "' + name + '" initialized.');
-				} catch (err) {
-					utils.log('Failed to init loader "' + name + '"!');
-					continue;
-				}
-				
-				break;
 			}
 			
-			if (!_loader) {
+			try {
+				_loader = new io[name](_this.config.loader);
+				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_loader.addEventListener(events.ERROR, _onLoaderError);
+				
+				utils.log('Loader "' + name + '" initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '"!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
 			}
 		}
@@ -5739,10 +5833,9 @@ playease.version = '1.0.67';
 				return;
 			}
 			
-			var seg = _segments[type][0];
+			var seg = _segments[type].shift();
 			try {
 				sb.appendBuffer(seg);
-				_segments[type].shift();
 			} catch (err) {
 				utils.log('Failed to appendBuffer: ' + err.toString());
 			}
@@ -5903,6 +5996,8 @@ playease.version = '1.0.67';
 		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
+		io = playease.io,
+		readystates = io.readystates,
 		net = playease.net,
 		responder = net.responder,
 		status = net.netstatus,
@@ -6181,7 +6276,9 @@ playease.version = '1.0.67';
 				}
 			}*/
 			
+			e.data.info = e.info;
 			_segments[e.tp].push(e.data);
+			
 			_this.appendSegment(e.tp);
 		}
 		
@@ -6203,29 +6300,35 @@ playease.version = '1.0.67';
 				return;
 			}
 			
-			var sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			var sb;
+			try {
+				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			} catch (err) {
+				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				return;
+			}
+			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
 			sb.appendBuffer(seg);
 		};
 		
-		_this.appendSegment = function(type, seg) {
+		_this.appendSegment = function(type) {
 			if (_segments[type].length == 0) {
 				return;
 			}
 			
 			var sb = _sb[type];
-			if (sb.updating) {
+			if (!sb || sb.updating) {
 				return;
 			}
 			
-			var seg = _segments[type][0];
+			var seg = _segments[type].shift();
 			try {
 				sb.appendBuffer(seg);
-				_segments[type].shift();
 			} catch (err) {
-				utils.log(err);
+				utils.log('Failed to appendBuffer: ' + err.toString());
 			}
 		};
 		

@@ -79,29 +79,30 @@
 		}
 		
 		function _initLoader() {
-			for (var i = 0; i < priority.length; i++) {
-				var name = priority[i];
-				if (!io[name].isSupported()) {
-					continue;
+			var name, type = _this.config.loader.name;
+			
+			if (type && io.hasOwnProperty(type) && io[type].isSupported()) {
+				name = type;
+			} else {
+				for (var i = 0; i < priority.length; i++) {
+					type = priority[i];
+					if (io[type].isSupported()) {
+						name = type;
+						break;
+					}
 				}
-				
-				try {
-					_loader = new io[name](config.loader);
-					_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-					_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-					_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-					_loader.addEventListener(events.ERROR, _onLoaderError);
-					
-					utils.log('Loader "' + name + '" initialized.');
-				} catch (err) {
-					utils.log('Failed to init loader "' + name + '"!');
-					continue;
-				}
-				
-				break;
 			}
 			
-			if (!_loader) {
+			try {
+				_loader = new io[name](_this.config.loader);
+				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_loader.addEventListener(events.ERROR, _onLoaderError);
+				
+				utils.log('Loader "' + name + '" initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '"!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
 			}
 		}
@@ -393,10 +394,9 @@
 				return;
 			}
 			
-			var seg = _segments[type][0];
+			var seg = _segments[type].shift();
 			try {
 				sb.appendBuffer(seg);
-				_segments[type].shift();
 			} catch (err) {
 				utils.log('Failed to appendBuffer: ' + err.toString());
 			}

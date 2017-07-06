@@ -23,8 +23,7 @@
 			_state,
 			_url,
 			_xhr,
-			_range,
-			_abort;
+			_range;
 		
 		function _init() {
 			_this.name = io.types.XHR_CHUNKED_LOADER;
@@ -32,8 +31,6 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_state = readystates.UNINITIALIZED;
-			_abort = undefined;
-			
 			_range = { start: 0, end: '', position: 0 };
 		}
 		
@@ -41,7 +38,7 @@
 			_url = url;
 			
 			if (!io[_this.name].isSupported()) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-chunked-loader is not supported.' });
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
@@ -75,8 +72,6 @@
 				default:
 					_xhr.withCredentials = false;
 			}
-			
-			_abort = _xhr.abort;
 			
 			_xhr.send();
 		};
@@ -139,8 +134,8 @@
 		_this.abort = function() {
 			_state = readystates.UNINITIALIZED;
 			
-			if (_abort) {
-				_abort();
+			if (_xhr) {
+				_xhr.abort();
 			}
 		};
 		

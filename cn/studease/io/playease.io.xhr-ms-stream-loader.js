@@ -21,8 +21,7 @@
 			_state,
 			_url,
 			_reader,
-			_xhr,
-			_abort;
+			_xhr;
 		
 		function _init() {
 			_this.name = io.types.XHR_MS_STREAM_LOADER;
@@ -30,14 +29,13 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_state = readystates.UNINITIALIZED;
-			_abort = undefined;
 		}
 		
 		_this.load = function(url, start, end) {
 			_url = url;
 			
 			if (!io[_this.name].isSupported()) {
-				_this.dispatchEvent(events.ERROR, { message: 'Loader error: xhr-ms-stream-loader is not supported.' });
+				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
@@ -73,8 +71,6 @@
 				default:
 					_xhr.withCredentials = false;
 			}
-			
-			_abort = _xhr.abort;
 			
 			_xhr.send();
 		};
@@ -142,8 +138,8 @@
 		_this.abort = function() {
 			_state = readystates.UNINITIALIZED;
 			
-			if (_abort) {
-				_abort.apply(_xhr);
+			if (_xhr) {
+				_xhr.abort();
 			}
 		};
 		
