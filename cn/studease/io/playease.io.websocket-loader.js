@@ -33,14 +33,14 @@
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
 			window.WebSocket = window.WebSocket || window.MozWebSocket;
 			if (window.WebSocket) {
-				_websocket = new WebSocket(_url.replace(/^http/i, 'ws'));
+				_websocket = new WebSocket(_url);
 				_websocket.binaryType = 'arraybuffer';
 				
 				_websocket.onopen = _onOpen;
@@ -93,7 +93,12 @@
 		_init();
 	};
 	
-	io['websocket-loader'].isSupported = function() {
+	io['websocket-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'ws' && protocol != 'wss') {
+			return false;
+		}
+		
 		if (utils.isMSIE('(8|9)')) {
 			return false;
 		}

@@ -73,7 +73,6 @@
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
-			_initLoader();
 			_initMuxer();
 			_initMSE();
 		}
@@ -86,10 +85,25 @@
 			} else {
 				for (var i = 0; i < priority.length; i++) {
 					type = priority[i];
-					if (io[type].isSupported()) {
+					if (io[type].isSupported(_url)) {
 						name = type;
 						break;
 					}
+				}
+			}
+			
+			if (_loader) {
+				_loader.abort();
+				
+				if (_loader.name == name) {
+					return;
+				} else {
+					_loader.removeEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+					_loader.removeEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+					_loader.removeEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+					_loader.removeEventListener(events.ERROR, _onLoaderError);
+					
+					delete _loader;
 				}
 			}
 			
@@ -100,7 +114,7 @@
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
 				_loader.addEventListener(events.ERROR, _onLoaderError);
 				
-				utils.log('Loader "' + name + '" initialized.');
+				utils.log('"' + name + '" initialized.');
 			} catch (err) {
 				utils.log('Failed to init loader "' + name + '"!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
@@ -159,7 +173,8 @@
 				_segments.audio = [];
 				_segments.video = [];
 				
-				_loader.abort();
+				_initLoader();
+				
 				_demuxer.reset();
 				_remuxer.reset();
 				
@@ -204,13 +219,15 @@
 		};
 		
 		_this.stop = function() {
-			_loader.abort();
-			
 			_src = '';
 			_waiting = true;
 			
 			_segments.audio = [];
 			_segments.video = [];
+			
+			if (_loader) {
+				_loader.abort();
+			}
 			
 			_video.removeAttribute('src');
 			_video.load();
@@ -465,7 +482,7 @@
 				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _loader.state() == readystates.DONE) {
+			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {
@@ -535,7 +552,8 @@
 	
 	renders.flv.isSupported = function(file) {
 		var protocol = utils.getProtocol(file);
-		if (protocol != 'http' && protocol != 'https') {
+		if (protocol != 'http' && protocol != 'https'
+				&& protocol != 'ws' && protocol != 'wss') {
 			return false;
 		}
 		
@@ -544,7 +562,7 @@
 		}
 		
 		var extension = utils.getExtension(file);
-		if (extension != 'flv' && extension != '') {
+		if (extension != 'flv' && extension != undefined) {
 			return false;
 		}
 		
