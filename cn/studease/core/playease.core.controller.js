@@ -216,6 +216,8 @@
 		};
 		
 		function _modelStateHandler(e) {
+			view.display(e.state, '');
+			
 			switch (e.state) {
 				case states.BUFFERING:
 					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
@@ -353,6 +355,7 @@
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
+			view.display(null, e.message);
 			_this.stop();
 			_forward(e);
 		}
@@ -365,6 +368,7 @@
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
+			view.display(null, e.message);
 			_this.stop();
 			_forward(e);
 		}

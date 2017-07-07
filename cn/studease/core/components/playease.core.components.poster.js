@@ -5,7 +5,7 @@
 		core = playease.core,
 		components = core.components,
 		
-		POSTER_CLASS = 'poster';
+		POSTER_CLASS = 'pla-poster';
 	
 	components.poster = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.poster')),

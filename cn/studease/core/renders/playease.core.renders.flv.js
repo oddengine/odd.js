@@ -265,7 +265,7 @@
 		
 		function _onLoaderError(e) {
 			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Loader error ocurred.' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
 		}
 		
 		/**
@@ -521,7 +521,9 @@
 		}
 		
 		function _onPause(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			}
 		}
 		
 		function _onEnded(e) {

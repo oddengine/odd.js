@@ -111,9 +111,9 @@
 	};
 	
 	playease.api.displayError = function(message, config) {
-		var warnLayer = document.getElementById(config.id + '-warn');
-		if (warnLayer && message !== undefined) {
-			warnLayer.innerHTML = message;
+		var displayLayer = document.getElementById(config.id + '-display');
+		if (displayLayer && message !== undefined) {
+			(displayLayer.lastChild || displayLayer).innerText = message;
 		}
 	};
 })(playease);
