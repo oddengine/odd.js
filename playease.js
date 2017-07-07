@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.68';
+playease.version = '1.0.69';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -1071,7 +1071,7 @@ playease.version = '1.0.68';
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: fetch-stream-loader is not supported.' });
 				return;
 			}
@@ -1172,7 +1172,12 @@ playease.version = '1.0.68';
 		_init();
 	};
 	
-	io['fetch-stream-loader'].isSupported = function() {
+	io['fetch-stream-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
 		if (!utils.isChrome() || !fetch) {
 			return false;
 		}
@@ -1217,7 +1222,7 @@ playease.version = '1.0.68';
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
@@ -1333,7 +1338,12 @@ playease.version = '1.0.68';
 		_init();
 	};
 	
-	io['xhr-ms-stream-loader'].isSupported = function() {
+	io['xhr-ms-stream-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
 		if (utils.isMSIE(10) || utils.isIETrident() || utils.isEdge()) {
 			return true;
 		}
@@ -1377,7 +1387,7 @@ playease.version = '1.0.68';
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
@@ -1469,7 +1479,12 @@ playease.version = '1.0.68';
 		_init();
 	};
 	
-	io['xhr-moz-stream-loader'].isSupported = function() {
+	io['xhr-moz-stream-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
 		return utils.isFirefox();
 	};
 })(playease);
@@ -1513,7 +1528,7 @@ playease.version = '1.0.68';
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
@@ -1622,7 +1637,12 @@ playease.version = '1.0.68';
 		_init();
 	};
 	
-	io['xhr-chunked-loader'].isSupported = function() {
+	io['xhr-chunked-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
 		return true;
 	};
 })(playease);
@@ -1662,14 +1682,14 @@ playease.version = '1.0.68';
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + _this.name + ' is not supported.' });
 				return;
 			}
 			
 			window.WebSocket = window.WebSocket || window.MozWebSocket;
 			if (window.WebSocket) {
-				_websocket = new WebSocket(_url.replace(/^http/i, 'ws'));
+				_websocket = new WebSocket(_url);
 				_websocket.binaryType = 'arraybuffer';
 				
 				_websocket.onopen = _onOpen;
@@ -1722,7 +1742,12 @@ playease.version = '1.0.68';
 		_init();
 	};
 	
-	io['websocket-loader'].isSupported = function() {
+	io['websocket-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'ws' && protocol != 'wss') {
+			return false;
+		}
+		
 		if (utils.isMSIE('(8|9)')) {
 			return false;
 		}
@@ -5512,7 +5537,6 @@ playease.version = '1.0.68';
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
-			_initLoader();
 			_initMuxer();
 			_initMSE();
 		}
@@ -5525,10 +5549,25 @@ playease.version = '1.0.68';
 			} else {
 				for (var i = 0; i < priority.length; i++) {
 					type = priority[i];
-					if (io[type].isSupported()) {
+					if (io[type].isSupported(_url)) {
 						name = type;
 						break;
 					}
+				}
+			}
+			
+			if (_loader) {
+				_loader.abort();
+				
+				if (_loader.name == name) {
+					return;
+				} else {
+					_loader.removeEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+					_loader.removeEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+					_loader.removeEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+					_loader.removeEventListener(events.ERROR, _onLoaderError);
+					
+					delete _loader;
 				}
 			}
 			
@@ -5539,7 +5578,7 @@ playease.version = '1.0.68';
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
 				_loader.addEventListener(events.ERROR, _onLoaderError);
 				
-				utils.log('Loader "' + name + '" initialized.');
+				utils.log('"' + name + '" initialized.');
 			} catch (err) {
 				utils.log('Failed to init loader "' + name + '"!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
@@ -5598,7 +5637,8 @@ playease.version = '1.0.68';
 				_segments.audio = [];
 				_segments.video = [];
 				
-				_loader.abort();
+				_initLoader();
+				
 				_demuxer.reset();
 				_remuxer.reset();
 				
@@ -5643,13 +5683,15 @@ playease.version = '1.0.68';
 		};
 		
 		_this.stop = function() {
-			_loader.abort();
-			
 			_src = '';
 			_waiting = true;
 			
 			_segments.audio = [];
 			_segments.video = [];
+			
+			if (_loader) {
+				_loader.abort();
+			}
 			
 			_video.removeAttribute('src');
 			_video.load();
@@ -5904,7 +5946,7 @@ playease.version = '1.0.68';
 				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _loader.state() == readystates.DONE) {
+			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {
@@ -5974,7 +6016,8 @@ playease.version = '1.0.68';
 	
 	renders.flv.isSupported = function(file) {
 		var protocol = utils.getProtocol(file);
-		if (protocol != 'http' && protocol != 'https') {
+		if (protocol != 'http' && protocol != 'https'
+				&& protocol != 'ws' && protocol != 'wss') {
 			return false;
 		}
 		
@@ -5983,7 +6026,7 @@ playease.version = '1.0.68';
 		}
 		
 		var extension = utils.getExtension(file);
-		if (extension != 'flv' && extension != '') {
+		if (extension != 'flv' && extension != undefined) {
 			return false;
 		}
 		

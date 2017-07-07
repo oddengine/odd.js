@@ -34,7 +34,7 @@
 		_this.load = function(url, start, end) {
 			_url = url;
 			
-			if (!io[_this.name].isSupported()) {
+			if (!io[_this.name].isSupported(url)) {
 				_this.dispatchEvent(events.ERROR, { message: 'Loader error: fetch-stream-loader is not supported.' });
 				return;
 			}
@@ -135,7 +135,12 @@
 		_init();
 	};
 	
-	io['fetch-stream-loader'].isSupported = function() {
+	io['fetch-stream-loader'].isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
 		if (!utils.isChrome() || !fetch) {
 			return false;
 		}
