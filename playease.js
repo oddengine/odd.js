@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.69';
+playease.version = '1.0.70';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -977,9 +977,9 @@ playease.version = '1.0.69';
 	};
 	
 	playease.api.displayError = function(message, config) {
-		var warnLayer = document.getElementById(config.id + '-warn');
-		if (warnLayer && message !== undefined) {
-			warnLayer.innerHTML = message;
+		var displayLayer = document.getElementById(config.id + '-display');
+		if (displayLayer && message !== undefined) {
+			(displayLayer.lastChild || displayLayer).innerText = message;
 		}
 	};
 })(playease);
@@ -1717,14 +1717,14 @@ playease.version = '1.0.69';
 		
 		function _onError(e) {
 			_state = readystates.UNINITIALIZED;
-			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+			
+			// No event dispatching
+			//_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
 		}
 		
 		function _onClose(e) {
 			_state = readystates.UNINITIALIZED;
-			
-			// No event dispatching
-			//_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.code + (e.reason ? ' - ' + e.reason : '') });
 		}
 		
 		_this.abort = function() {
@@ -4822,11 +4822,13 @@ playease.version = '1.0.69';
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		WARN_CLASS = 'pla-warn',
+		DISPLAY_CLASS = 'pla-display',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu',
 		
-		POSTER_CLASS = 'poster',
+		POSTER_CLASS = 'pla-poster',
+		DISPLAY_ICON_CLASS = 'pla-display-icon',
+		DISPLAY_LABEL_CLASS = 'pla-display-label'
 		
 		DEVIDER_CLASS = 'pldevider',
 		LABEL_CLASS = 'pllabel',
@@ -4842,6 +4844,7 @@ playease.version = '1.0.69';
 		CSS_IMPORTANT = ' !important',
 		CSS_HIDDEN = 'hidden',
 		CSS_NONE = 'none',
+		CSS_CENTER = 'center',
 		CSS_BLOCK = 'block';
 	
 	skins.def = function(config) {
@@ -4884,7 +4887,7 @@ playease.version = '1.0.69';
 			
 			css('.' + SKIN_CLASS + ' .' + BUTTON_CLASS, {
 				'background-repeat': 'no-repeat',
-				'background-position': 'center',
+				'background-position': CSS_CENTER,
 				cursor: 'pointer'
 			});
 			
@@ -4931,17 +4934,34 @@ playease.version = '1.0.69';
 				display: CSS_NONE
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + WARN_CLASS, {
+			css('.' + SKIN_CLASS + ' .' + DISPLAY_CLASS, {
 				width: CSS_100PCT,
-				height: CSS_100PCT,
-				'max-height': '15%',
-				'font-size': '1em',
-				'font-weight': 'bold',
-				color: '#FFFFFF',
-				'text-align': 'center',
+				height: '10%',
+				'text-align': CSS_CENTER,
 				top: '45%',
 				position: CSS_ABSOLUTE,
 				overflow: CSS_HIDDEN
+			});
+			css('.' + SKIN_CLASS + ' .' + DISPLAY_CLASS + ' > div', {
+				display: 'inline-block'
+			});
+			css('.' + SKIN_CLASS + ' .' + DISPLAY_CLASS + ' > div .' + DISPLAY_ICON_CLASS, {
+				'float': 'left',
+				margin: '0 auto',
+				width: '32px',
+				height: '32px',
+				filter: 'alpha(opacity=70)',
+				opacity: '0.7',
+				'background-repeat': 'no-repeat',
+				'background-position': CSS_CENTER,
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + ' .' + DISPLAY_CLASS + ' > div .' + DISPLAY_LABEL_CLASS, {
+				'font-size': '14px',
+				'font-weight': 'bold',
+				'line-height': '32px',
+				color: '#FFFFFF',
+				'text-align': CSS_CENTER
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS, {
@@ -5119,7 +5139,7 @@ playease.version = '1.0.69';
 				height: '12px',
 				position: CSS_ABSOLUTE,
 				'background-repeat': 'no-repeat',
-				'background-position': 'center',
+				'background-position': CSS_CENTER,
 				'background-image': 'url(data:image/png;base64,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)'
 			});
 			
@@ -5729,7 +5749,7 @@ playease.version = '1.0.69';
 		
 		function _onLoaderError(e) {
 			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Loader error ocurred.' });
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
 		}
 		
 		/**
@@ -5985,7 +6005,9 @@ playease.version = '1.0.69';
 		}
 		
 		function _onPause(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			}
 		}
 		
 		function _onEnded(e) {
@@ -7225,6 +7247,77 @@ playease.version = '1.0.69';
 
 (function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
+		events = playease.events,
+		core = playease.core,
+		components = core.components,
+		
+		POSTER_CLASS = 'pla-poster';
+	
+	components.poster = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.poster')),
+			_defaults = {
+				url: ''
+			},
+			_ratio,
+			_container,
+			_image;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_ratio = _this.config.width / _this.config.height;
+			
+			_container = utils.createElement('div', POSTER_CLASS);
+			if (_this.config.url) {
+				_image = new Image();
+				_image.onload = function(e) {
+					_ratio = _image.naturalWidth / _image.naturalHeight;
+				};
+				_image.onerror = function(e) {
+					utils.log('Poster not available.');
+				};
+				
+				_image.src = _this.config.url;
+				_container.appendChild(_image);
+			}
+		}
+		
+		_this.element = function() {
+			return _container;
+		};
+		
+		_this.resize = function(width, height) {
+			if (!_image || !_ratio) {
+				return;
+			}
+			
+			var w, h;
+			if (width / height >= _ratio) {
+				w = height * _ratio;
+				h = height;
+			} else {
+				w = width;
+				h = width / _ratio;
+			}
+			
+			var top = (height - h) / 2;
+			var left = (width - w) / 2;
+			
+			css.style(_image, {
+				width: w + 'px',
+				height: h + 'px',
+				top: top + 'px',
+				left: left + 'px'
+			});
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core,
 		components = core.components,
@@ -7443,7 +7536,7 @@ playease.version = '1.0.69';
 		core = playease.core,
 		components = core.components,
 		
-		POSTER_CLASS = 'poster';
+		POSTER_CLASS = 'pla-poster';
 	
 	components.poster = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.poster')),
@@ -7786,7 +7879,7 @@ playease.version = '1.0.69';
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		WARN_CLASS = 'pla-warn',
+		DISPLAY_CLASS = 'pla-display',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
@@ -7794,14 +7887,15 @@ playease.version = '1.0.69';
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
-			_warnLayer,
+			_displayLayer,
 			_controlsLayer,
 			_contextmenuLayer,
+			_controlbar,
 			_poster,
+			_bulletscreen,
+			_display,
 			_renders,
 			_render,
-			_controlbar,
-			_bulletscreen,
 			_skin,
 			_canvas,
 			_video,
@@ -7811,19 +7905,17 @@ playease.version = '1.0.69';
 		
 		function _init() {
 			SKIN_CLASS += '-' + model.getConfig('skin').name;
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('type') === 'vod' ? ' vod' : ''));
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
 			_wrapper.id = model.getConfig('id');
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_warnLayer = utils.createElement('div', WARN_CLASS);
+			_displayLayer = utils.createElement('div', DISPLAY_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
-			_warnLayer.id = model.getConfig('id') + '-warn';
-			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_warnLayer);
+			_wrapper.appendChild(_displayLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
@@ -7857,7 +7949,7 @@ playease.version = '1.0.69';
 				
 				_controlbar.setVolume(model.getProperty('volume'));
 			} catch (err) {
-				utils.log('Failed to init controlbar!');
+				utils.log('Failed to init "controlbar" component!');
 			}
 			
 			// poster
@@ -7873,7 +7965,7 @@ playease.version = '1.0.69';
 				
 				_renderLayer.appendChild(_poster.element());
 			} catch (err) {
-				utils.log('Failed to init poster!');
+				utils.log('Failed to init "poster" component!');
 			}
 			
 			// bulletscreen
@@ -7889,7 +7981,21 @@ playease.version = '1.0.69';
 				_canvas = _bulletscreen.element();
 				_renderLayer.appendChild(_canvas);
 			} catch (err) {
-				utils.log('Failed to init bullet!');
+				utils.log('Failed to init "bulletscreen" component!');
+			}
+			
+			// display
+			var dicfg = utils.extend({}, model.getConfig('display'), {
+				id: model.getConfig('id') + '-display'
+			});
+			
+			try {
+				_display = new components.display(dicfg);
+				_display.addGlobalListener(_forward);
+				
+				_displayLayer.appendChild(_display.element());
+			} catch (err) {
+				utils.log('Failed to init "display" component!');
 			}
 		}
 		
@@ -8250,8 +8356,10 @@ playease.version = '1.0.69';
 			}
 		};
 		
-		_this.display = function(icon, message) {
-			
+		_this.display = function(state, message) {
+			if (_display) {
+				_display.show(state, message);
+			}
 		};
 		
 		function _onResize(e) {
@@ -8538,6 +8646,8 @@ playease.version = '1.0.69';
 		};
 		
 		function _modelStateHandler(e) {
+			view.display(e.state, '');
+			
 			switch (e.state) {
 				case states.BUFFERING:
 					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
@@ -8675,6 +8785,7 @@ playease.version = '1.0.69';
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
+			view.display(null, e.message);
 			_this.stop();
 			_forward(e);
 		}
@@ -8687,6 +8798,7 @@ playease.version = '1.0.69';
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
+			view.display(null, e.message);
 			_this.stop();
 			_forward(e);
 		}

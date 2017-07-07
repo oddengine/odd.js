@@ -13,7 +13,7 @@
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		WARN_CLASS = 'pla-warn',
+		DISPLAY_CLASS = 'pla-display',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
@@ -21,14 +21,15 @@
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
-			_warnLayer,
+			_displayLayer,
 			_controlsLayer,
 			_contextmenuLayer,
+			_controlbar,
 			_poster,
+			_bulletscreen,
+			_display,
 			_renders,
 			_render,
-			_controlbar,
-			_bulletscreen,
 			_skin,
 			_canvas,
 			_video,
@@ -38,19 +39,17 @@
 		
 		function _init() {
 			SKIN_CLASS += '-' + model.getConfig('skin').name;
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('type') === 'vod' ? ' vod' : ''));
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
 			_wrapper.id = model.getConfig('id');
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_warnLayer = utils.createElement('div', WARN_CLASS);
+			_displayLayer = utils.createElement('div', DISPLAY_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
-			_warnLayer.id = model.getConfig('id') + '-warn';
-			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_warnLayer);
+			_wrapper.appendChild(_displayLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
@@ -84,7 +83,7 @@
 				
 				_controlbar.setVolume(model.getProperty('volume'));
 			} catch (err) {
-				utils.log('Failed to init controlbar!');
+				utils.log('Failed to init "controlbar" component!');
 			}
 			
 			// poster
@@ -100,7 +99,7 @@
 				
 				_renderLayer.appendChild(_poster.element());
 			} catch (err) {
-				utils.log('Failed to init poster!');
+				utils.log('Failed to init "poster" component!');
 			}
 			
 			// bulletscreen
@@ -116,7 +115,21 @@
 				_canvas = _bulletscreen.element();
 				_renderLayer.appendChild(_canvas);
 			} catch (err) {
-				utils.log('Failed to init bullet!');
+				utils.log('Failed to init "bulletscreen" component!');
+			}
+			
+			// display
+			var dicfg = utils.extend({}, model.getConfig('display'), {
+				id: model.getConfig('id') + '-display'
+			});
+			
+			try {
+				_display = new components.display(dicfg);
+				_display.addGlobalListener(_forward);
+				
+				_displayLayer.appendChild(_display.element());
+			} catch (err) {
+				utils.log('Failed to init "display" component!');
 			}
 		}
 		
@@ -477,8 +490,10 @@
 			}
 		};
 		
-		_this.display = function(icon, message) {
-			
+		_this.display = function(state, message) {
+			if (_display) {
+				_display.show(state, message);
+			}
 		};
 		
 		function _onResize(e) {
