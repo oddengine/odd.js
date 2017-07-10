@@ -11,6 +11,7 @@
 		netconnection = net.netconnection,
 		netstream = net.netstream,
 		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types,
 		rendermodes = renders.modes;
@@ -208,9 +209,7 @@
 		
 		_this.reload = function() {
 			_this.stop();
-			setTimeout(function() {
-				_this.play(_url);
-			}, 100);
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -226,6 +225,7 @@
 					promise['catch'](function(e) { /* void */ });
 				}
 			}
+			
 			_video.controls = false;
 		};
 		
@@ -400,7 +400,7 @@
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_this.config.mode == rendermodes.VOD && _stream.state() == readystates.DONE) {
@@ -427,30 +427,36 @@
 			};
 		};
 		
+		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 		}
 		
 		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 		}
 		
 		function _onPause(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
+			}
 		}
 		
 		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
 		}
+		
 		
 		_this.element = function() {
 			return _video;
@@ -481,7 +487,7 @@
 		}
 		
 		var map = [
-			undefined, // live stream
+			undefined, '', // live stream
 			'flv',
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a', 'aac',

@@ -181,6 +181,14 @@
 		
 		_this.setProperty = function(key, value) {
 			_this.config[key] = value;
+			
+			switch (key) {
+				case 'enable':
+					_this.dispatchEvent(events.PLAYEASE_BULLET, { bullet: value ? 'on' : 'off' });
+					break;
+				default:
+					break;
+			}
 		};
 		
 		_this.element = function() {

@@ -123,6 +123,7 @@
 			css('.' + SKIN_CLASS + ' .' + DISPLAY_CLASS, {
 				width: CSS_100PCT,
 				height: '10%',
+				'min-height': '32px',
 				'text-align': CSS_CENTER,
 				top: '45%',
 				position: CSS_ABSOLUTE,
@@ -136,8 +137,6 @@
 				margin: '0 auto',
 				width: '32px',
 				height: '32px',
-				filter: 'alpha(opacity=70)',
-				opacity: '0.7',
 				'background-repeat': 'no-repeat',
 				'background-position': CSS_CENTER,
 				display: CSS_NONE

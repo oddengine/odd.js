@@ -6,8 +6,9 @@
 		io = playease.io,
 		readystates = io.readystates,
 		priority = io.priority,
-		core = playease.core,
 		muxer = playease.muxer,
+		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types,
 		rendermodes = renders.modes,
@@ -199,9 +200,7 @@
 		
 		_this.reload = function() {
 			_this.stop();
-			setTimeout(function() {
-				_this.play(_url);
-			}, 100);
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -215,6 +214,7 @@
 					promise['catch'](function(e) { /* void */ });
 				}
 			}
+			
 			_video.controls = false;
 		};
 		
@@ -479,7 +479,7 @@
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
@@ -513,26 +513,29 @@
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 		}
 		
 		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 		}
 		
 		function _onPause(e) {
 			if (!_waiting) {
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
 			}
 		}
 		
 		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
 		}
+		
 		
 		_this.element = function() {
 			return _video;

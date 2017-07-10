@@ -17,7 +17,8 @@
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
-			view.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _onBuffering);
+			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
+			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
 			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
@@ -33,6 +34,31 @@
 			
 			view.addEventListener(events.PLAYEASE_DURATION, _onDuration);
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+		}
+		
+		function _modelStateHandler(e) {
+			view.display(e.state, '');
+			
+			switch (e.state) {
+				case states.BUFFERING:
+					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
+					break;
+				case states.PLAYING:
+					_this.dispatchEvent(events.PLAYEASE_PLAYING);
+					break;
+				case states.PAUSED:
+					_this.dispatchEvent(events.PLAYEASE_PAUSED);
+					break;
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_STOPPED);
+					break;
+				case states.ERROR:
+					_retry();
+					break;
+				default:
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
+					break;
+			}
 		}
 		
 		function _onReady(e) {
@@ -97,12 +123,10 @@
 				return;
 			}
 			
-			model.setState(states.PLAYING);
 			view.play(url);
 		};
 		
 		_this.pause = function() {
-			model.setState(states.PAUSED);
 			view.pause();
 		};
 		
@@ -145,7 +169,6 @@
 				return;
 			}
 			
-			model.setState(states.RELOADING);
 			view.reload(url);
 		};
 		
@@ -155,7 +178,6 @@
 				return;
 			}
 			
-			model.setState(states.SEEKING);
 			view.seek(offset);
 		};
 		
@@ -165,29 +187,27 @@
 			
 			_urgent = undefined;
 			
-			model.setState(states.STOPPED);
 			view.stop();
 		};
 		
 		_this.report = function() {
 			view.report();
-			_this.dispatchEvent(events.PLAYEASE_REPORT);
 		};
 		
 		_this.mute = function() {
 			var muted = model.getProperty('muted');
+			
 			model.setProperty('muted', !muted);
 			view.mute(!muted);
-			_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: !muted });
 		};
 		
 		_this.volume = function(vol) {
 			if (vol == 0) {
 				model.setProperty('muted', true);
 			}
+			
 			model.setProperty('volume', vol);
 			view.volume(vol);
-			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 		};
 		
 		_this.hd = function(index) {
@@ -201,50 +221,18 @@
 		
 		_this.bullet = function() {
 			var bullet = model.getProperty('bullet');
+			
 			model.setProperty('bullet', !bullet);
 			view.bullet(!bullet);
-			_this.dispatchEvent(events.PLAYEASE_BULLET, { bullet: !bullet ? 'on' : 'off' });
 		};
 		
 		_this.fullpage = function(exit) {
 			view.fullpage(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
 		}
 		_this.fullscreen = function(exit) {
 			view.fullscreen(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
 		};
 		
-		function _modelStateHandler(e) {
-			view.display(e.state, '');
-			
-			switch (e.state) {
-				case states.BUFFERING:
-					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
-					break;
-				case states.PLAYING:
-					_this.dispatchEvent(events.PLAYEASE_PLAYING);
-					break;
-				case states.PAUSED:
-					_this.dispatchEvent(events.PLAYEASE_PAUSED);
-					break;
-				case states.RELOADING:
-					_this.dispatchEvent(events.PLAYEASE_RELOADING);
-					break;
-				case states.SEEKING:
-					_this.dispatchEvent(events.PLAYEASE_SEEKING);
-					break;
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_STOPPED);
-					break;
-				case states.ERROR:
-					_retry();
-					break;
-				default:
-					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
-					break;
-			}
-		}
 		
 		function _retry() {
 			if (model.config.maxretries < 0 || _retrycount < model.config.maxretries) {
@@ -275,9 +263,9 @@
 			}
 		}
 		
-		function _onBuffering(e) {
-			model.setState(states.BUFFERING);
-			view.pause();
+		
+		function _renderStateHandler(e) {
+			model.setState(e.state);
 			_forward(e);
 		}
 		
@@ -340,7 +328,7 @@
 			}
 			
 			_this.fullpage(fp);
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, e);
 		}
 		
 		function _onFullscreen(e) {
@@ -350,12 +338,13 @@
 			}
 			
 			_this.fullscreen(fs);
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, e);
 		}
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
 			view.display(null, e.message);
+			
 			_this.stop();
 			_forward(e);
 		}
@@ -363,12 +352,14 @@
 		function _onDuration(e) {
 			model.setProperty('duration', e.duration);
 			view.setDuration(e.duration);
+			
 			_forward(e);
 		}
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
 			view.display(null, e.message);
+			
 			_this.stop();
 			_forward(e);
 		}

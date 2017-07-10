@@ -3,6 +3,7 @@
 		css = utils.css,
 		events = playease.events,
 		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types;
 	
@@ -36,6 +37,7 @@
 			
 			_video.addEventListener('durationchange', _onDurationChange);
 			_video.addEventListener('waiting', _onWaiting);
+			_video.addEventListener('canplay', _onPlaying);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
@@ -100,6 +102,7 @@
 					promise['catch'](function(e) { /* void */ });
 				}
 			}
+			
 			_video.controls = false;
 		};
 		
@@ -124,6 +127,7 @@
 			
 		};
 		
+		
 		_this.getRenderInfo = function() {
 			var buffered;
 			var position = _video.currentTime;
@@ -140,7 +144,7 @@
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				//_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -150,30 +154,36 @@
 			};
 		};
 		
+		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			//_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 		}
 		
 		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 		}
 		
 		function _onPause(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
+			}
 		}
 		
 		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
 		}
+		
 		
 		_this.element = function() {
 			return _video;

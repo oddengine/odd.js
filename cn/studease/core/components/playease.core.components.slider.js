@@ -59,7 +59,7 @@
 		}
 		
 		_this.buffered = function(percentage) {
-			_rails.buf.style.width = percentage + '%';
+			_rails.buf.style.width = (percentage || 0) + '%';
 		};
 		
 		_this.update = function(percentage) {

@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.70';
+playease.version = '1.0.71';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -592,7 +592,6 @@ playease.version = '1.0.70';
 		PLAYEASE_FULLSCREEN: 'playeaseFullscreen',
 		
 		// View Events
-		PLAYEASE_VIEW_BUFFERING: 'playeaseViewBuffering',
 		PLAYEASE_VIEW_PLAY: 'playeaseViewPlay',
 		PLAYEASE_VIEW_PAUSE: 'playeaseViewPause',
 		PLAYEASE_VIEW_RELOAD: 'playeaseViewReload',
@@ -4354,50 +4353,6 @@ playease.version = '1.0.70';
 })(playease);
 
 (function(playease) {
-	var net = playease.net;
-	
-	net.netstatus = {
-		NETCONNECTION_CALL_FAILED: 'NetConnection.Call.Failed',
-		NETCONNECTION_CONNECT_APPSHUTDOWN: 'NetConnection.Connect.AppShutdown',
-		NETCONNECTION_CONNECT_CLOSED: 'NetConnection.Connect.Closed',
-		NETCONNECTION_CONNECT_FAILED: 'NetConnection.Connect.Failed',
-		NETCONNECTION_CONNECT_IDLETIMEOUT: 'NetConnection.Connect.IdleTimeout',
-		NETCONNECTION_CONNECT_INVALIDAPP: 'NetConnection.Connect.InvalidApp',
-		NETCONNECTION_CONNECT_REJECTED: 'NetConnection.Connect.Rejected',
-		NETCONNECTION_CONNECT_SUCCESS: 'NetConnection.Connect.Success',
-		
-		NETSTREAM_BUFFER_EMPTY: 'NetStream.Buffer.Empty',
-		NETSTREAM_BUFFER_FLUSH: 'NetStream.Buffer.Flush',
-		NETSTREAM_BUFFER_FULL: 'NetStream.Buffer.Full',
-		NETSTREAM_FAILED: 'NetStream.Failed',
-		NETSTREAM_PAUSE_NOTIFY: 'NetStream.Pause.Notify',
-		NETSTREAM_PLAY_FAILED: 'NetStream.Play.Failed',
-		NETSTREAM_PLAY_FILESTRUCTUREINVALID: 'NetStream.Play.FileStructureInvalid',
-		NETSTREAM_PLAY_PUBLISHNOTIFY: 'NetStream.Play.PublishNotify',
-		NETSTREAM_PLAY_RESET: 'NetStream.Play.Reset',
-		NETSTREAM_PLAY_START: 'NetStream.Play.Start',
-		NETSTREAM_PLAY_STOP: 'NetStream.Play.Stop',
-		NETSTREAM_PLAY_STREAMNOTFOUND: 'NetStream.Play.StreamNotFound',
-		NETSTREAM_PLAY_UNPUBLISHNOTIFY: 'NetStream.Play.UnpublishNotify',
-		NETSTREAM_PUBLISH_BADNAME: 'NetStream.Publish.BadName',
-		NETSTREAM_PUBLISH_IDLE: 'NetStream.Publish.Idle',
-		NETSTREAM_PUBLISH_START: 'NetStream.Publish.Start',
-		NETSTREAM_RECORD_ALREADYEXISTS: 'NetStream.Record.AlreadyExists',
-		NETSTREAM_RECORD_FAILED: 'NetStream.Record.Failed',
-		NETSTREAM_RECORD_NOACCESS: 'NetStream.Record.NoAccess',
-		NETSTREAM_RECORD_START: 'NetStream.Record.Start',
-		NETSTREAM_RECORD_STOP: 'NetStream.Record.Stop',
-		NETSTREAM_SEEK_FAILED: 'NetStream.Seek.Failed',
-		NETSTREAM_SEEK_INVALIDTIME: 'NetStream.Seek.InvalidTime',
-		NETSTREAM_SEEK_NOTIFY: 'NetStream.Seek.Notify',
-		NETSTREAM_STEP_NOTIFY: 'NetStream.Step.Notify',
-		NETSTREAM_UNPAUSE_NOTIFY: 'NetStream.Unpause.Notify',
-		NETSTREAM_UNPUBLISH_SUCCESS: 'NetStream.Unpublish.Success',
-		NETSTREAM_VIDEO_DIMENSIONCHANGE: 'NetStream.Video.DimensionChange'
-	};
-})(playease);
-
-(function(playease) {
 	var utils = playease.utils,
 		crypt = utils.crypt,
 		events = playease.events,
@@ -4797,8 +4752,6 @@ playease.version = '1.0.70';
 		BUFFERING: 'buffering',
 		PLAYING: 'playing',
 		PAUSED: 'paused',
-		RELOADING: 'reloading',
-		SEEKING: 'seeking',
 		STOPPED: 'stopped',
 		ERROR: 'error'
 	};
@@ -4937,6 +4890,7 @@ playease.version = '1.0.70';
 			css('.' + SKIN_CLASS + ' .' + DISPLAY_CLASS, {
 				width: CSS_100PCT,
 				height: '10%',
+				'min-height': '32px',
 				'text-align': CSS_CENTER,
 				top: '45%',
 				position: CSS_ABSOLUTE,
@@ -4950,8 +4904,6 @@ playease.version = '1.0.70';
 				margin: '0 auto',
 				width: '32px',
 				height: '32px',
-				filter: 'alpha(opacity=70)',
-				opacity: '0.7',
 				'background-repeat': 'no-repeat',
 				'background-position': CSS_CENTER,
 				display: CSS_NONE
@@ -5253,6 +5205,7 @@ playease.version = '1.0.70';
 		css = utils.css,
 		events = playease.events,
 		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types;
 	
@@ -5286,6 +5239,7 @@ playease.version = '1.0.70';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
 			_video.addEventListener('waiting', _onWaiting);
+			_video.addEventListener('canplay', _onPlaying);
 			_video.addEventListener('playing', _onPlaying);
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
@@ -5350,6 +5304,7 @@ playease.version = '1.0.70';
 					promise['catch'](function(e) { /* void */ });
 				}
 			}
+			
 			_video.controls = false;
 		};
 		
@@ -5374,6 +5329,7 @@ playease.version = '1.0.70';
 			
 		};
 		
+		
 		_this.getRenderInfo = function() {
 			var buffered;
 			var position = _video.currentTime;
@@ -5390,7 +5346,7 @@ playease.version = '1.0.70';
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				//_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 			}
 			
 			return {
@@ -5400,30 +5356,36 @@ playease.version = '1.0.70';
 			};
 		};
 		
+		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			//_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 		}
 		
 		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 		}
 		
 		function _onPause(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
+			}
 		}
 		
 		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
 		}
+		
 		
 		_this.element = function() {
 			return _video;
@@ -5490,8 +5452,9 @@ playease.version = '1.0.70';
 		io = playease.io,
 		readystates = io.readystates,
 		priority = io.priority,
-		core = playease.core,
 		muxer = playease.muxer,
+		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types,
 		rendermodes = renders.modes,
@@ -5683,9 +5646,7 @@ playease.version = '1.0.70';
 		
 		_this.reload = function() {
 			_this.stop();
-			setTimeout(function() {
-				_this.play(_url);
-			}, 100);
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -5699,6 +5660,7 @@ playease.version = '1.0.70';
 					promise['catch'](function(e) { /* void */ });
 				}
 			}
+			
 			_video.controls = false;
 		};
 		
@@ -5963,7 +5925,7 @@ playease.version = '1.0.70';
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
@@ -5997,26 +5959,29 @@ playease.version = '1.0.70';
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 		}
 		
 		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 		}
 		
 		function _onPause(e) {
 			if (!_waiting) {
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
 			}
 		}
 		
 		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
 		}
+		
 		
 		_this.element = function() {
 			return _video;
@@ -6069,6 +6034,7 @@ playease.version = '1.0.70';
 		netconnection = net.netconnection,
 		netstream = net.netstream,
 		core = playease.core,
+		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types,
 		rendermodes = renders.modes;
@@ -6266,9 +6232,7 @@ playease.version = '1.0.70';
 		
 		_this.reload = function() {
 			_this.stop();
-			setTimeout(function() {
-				_this.play(_url);
-			}, 100);
+			_this.play(_url);
 		};
 		
 		_this.seek = function(offset) {
@@ -6284,6 +6248,7 @@ playease.version = '1.0.70';
 					promise['catch'](function(e) { /* void */ });
 				}
 			}
+			
 			_video.controls = false;
 		};
 		
@@ -6458,7 +6423,7 @@ playease.version = '1.0.70';
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
 				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_this.config.mode == rendermodes.VOD && _stream.state() == readystates.DONE) {
@@ -6485,30 +6450,36 @@ playease.version = '1.0.70';
 			};
 		};
 		
+		
 		function _onDurationChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
 		}
 		
 		function _onWaiting(e) {
 			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_VIEW_BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 		}
 		
 		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 		}
 		
 		function _onPause(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_PAUSE);
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
+			}
 		}
 		
 		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		}
 		
 		function _onError(e) {
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Video error ocurred!' });
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
 		}
+		
 		
 		_this.element = function() {
 			return _video;
@@ -6539,7 +6510,7 @@ playease.version = '1.0.70';
 		}
 		
 		var map = [
-			undefined, // live stream
+			undefined, '', // live stream
 			'flv',
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a', 'aac',
@@ -6638,7 +6609,7 @@ playease.version = '1.0.70';
 				_url = url;
 			}
 			
-			_video.iplay(_url);
+			_video.xplay(_url);
 		};
 		
 		_this.pause = function() {
@@ -6646,7 +6617,7 @@ playease.version = '1.0.70';
 		};
 		
 		_this.reload = function() {
-			_video.load();
+			_video.reload();
 		};
 		
 		_this.seek = function(offset) {
@@ -6670,24 +6641,14 @@ playease.version = '1.0.70';
 			
 		};
 		
+		
 		_this.getRenderInfo = function() {
 			var info = _video.getRenderInfo();
 			
 			if (_duration !== info.duration) {
 				_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: info.duration });
 			}
-			/*
-			switch (info.state) {
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-					break;
-				case states.ERROR:
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
-					break;
-				default:
-					break;
-			}
-			*/
+			
 			return info;
 		};
 		
@@ -6696,14 +6657,17 @@ playease.version = '1.0.70';
 		};
 		
 		_this.resize = function(width, height) {
-			try {
-				css.style(_video, {
-					width: width + 'px',
-					height: height + 'px'
-				});
+			if (!_video) {
+				return;
+			}
+			
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
+			
+			if (_video.resize) {
 				_video.resize(width, height);
-			} catch (err) {
-				/* void */
 			}
 		};
 		
@@ -6725,7 +6689,7 @@ playease.version = '1.0.70';
 		}
 		
 		var map = [
-			undefined, // live stream
+			undefined, '', // live stream
 			'flv',
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a', 'aac',
@@ -6807,7 +6771,7 @@ playease.version = '1.0.70';
 		}
 		
 		_this.buffered = function(percentage) {
-			_rails.buf.style.width = percentage + '%';
+			_rails.buf.style.width = (percentage || 0) + '%';
 		};
 		
 		_this.update = function(percentage) {
@@ -7499,6 +7463,14 @@ playease.version = '1.0.70';
 		
 		_this.setProperty = function(key, value) {
 			_this.config[key] = value;
+			
+			switch (key) {
+				case 'enable':
+					_this.dispatchEvent(events.PLAYEASE_BULLET, { bullet: value ? 'on' : 'off' });
+					break;
+				default:
+					break;
+			}
 		};
 		
 		_this.element = function() {
@@ -7534,37 +7506,82 @@ playease.version = '1.0.70';
 		css = utils.css,
 		events = playease.events,
 		core = playease.core,
+		states = core.states,
 		components = core.components,
 		
-		POSTER_CLASS = 'pla-poster';
+		DISPLAY_ICON_CLASS = 'pla-display-icon',
+		DISPLAY_LABEL_CLASS = 'pla-display-label';
 	
-	components.poster = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.poster')),
+	components.display = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.display')),
 			_defaults = {
-				url: ''
+				id: 'pla-display'
 			},
-			_ratio,
 			_container,
-			_image;
+			_icon,
+			_label,
+			_timer;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_ratio = _this.config.width / _this.config.height;
+			_container = utils.createElement('div');
+			_container.id = _this.config.id;
 			
-			_container = utils.createElement('div', POSTER_CLASS);
-			if (_this.config.url) {
-				_image = new Image();
-				_image.onload = function(e) {
-					_ratio = _image.naturalWidth / _image.naturalHeight;
-				};
-				_image.onerror = function(e) {
-					utils.log('Poster not available.');
-				};
-				
-				_image.src = _this.config.url;
-				_container.appendChild(_image);
+			_icon = utils.createElement('span', DISPLAY_ICON_CLASS);
+			_label = utils.createElement('span', DISPLAY_LABEL_CLASS);
+			
+			_container.appendChild(_icon);
+			_container.appendChild(_label);
+		}
+		
+		_this.show = function(state, message) {
+			switch (state) {
+				case states.BUFFERING:
+					css.style(_icon, {
+						'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACm0lEQVRYR81XS3LaQBDtLrSQVoENVerZOCcAnyDkBHZuACeIc4LYJ4h9A3ICOycIPkHwCUIWjKrYYDZAFZ92NTWihDQCjYSrMsv5dL/p6fe6B6HCiKKoy8wtRHwFgOcwDAeu5tD1gOyPouhiu90+ImI7df6eiL652CwFQGstN/2U4+gLET0VBeEMYDqd1heLxfSIg19EdF0ZQBRFHWa+YuY6Ig6J6MGEX+Z/H3HwTESdSgDG4/EtIn5PGmHmoVLqUua01vxuEZhMJu31ev3H5oCZ75RSt1rrewD4atuDiJ9d2JDJAdvtE4524TV50AeAq8TaDBFvwjCU+f3QWks+PALAAxHdpEGXAhAbMdHqGB0YhGE4SjtIXMianBkARZ6gaILF+yShfd8fNhoNEayDYaWh7Y2Z+UUplRYeVyyZ/bk6YN5O6HQBAAMiksQ7+3AWonMjOAAg77/ZbFq1Wu2l2WwOz+3MStt4Umst+r2nFTP3lVK99waxi4DWWvj5I5OhiL00r6sCMrRseZ53J1GOAeRVN6fCcgpcQpRk6852DOAg/AlDP4moe8pw0fWUxuxsxwBiuTwUCUddLwLEVNl2EAR9EaY9C0we3ALABwCYAUDXpbEo4vwoC8oaqHru/xKiqrcpcz43Aqm+4CkIgp6tmp1yKr3DcrlsAcA/W7nOq4Y2VjhTUpzP5/O/iFgXoJ7nXaYlvnA5BoAREX08dePkuqHcvoGNW7rknjwANmm2drvySfF9/9X2PLImzayhtvjN/BmsAEzoBogobydj5nleJxk+0xdKr7drwTGnboj6rVara9PaZz4sR2ko2m3eL9Pv2QpYEAQN10QtrQO27tmWZKdypjSAdPNatmcsDUBuZrJcKDuKi8upG6fX3wDkiU4w8YbpAwAAAABJRU5ErkJggg==)',
+						display: 'inline-block'
+					});
+					
+					_startTimer();
+					break;
+				default:
+					css.style(_icon, {
+						display: ''
+					});
+					
+					_stopTimer();
+					break;
 			}
+			
+			_label.innerText = message;
+		};
+		
+		function _startTimer() {
+			if (!_timer) {
+				_timer = new utils.timer(125);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _rotateIcon);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		function _rotateIcon(e) {
+			var angle = _timer.currentCount() * 45 % 360;
+			
+			css.style(_icon, {
+				filter: 'progid:DXImageTransform.Microsoft.BasicImage(rotation=' + angle * Math.PI / 180 + ')',
+				'transform': 'rotate(' + angle + 'deg)',
+				'-ms-transform': 'rotate(' + angle + 'deg)',
+				'-moz-transform': 'rotate(' + angle + 'deg)',
+				'-webkit-transform': 'rotate(' + angle + 'deg)',
+				'-o-transform': 'rotate(' + angle + 'deg)',
+			});
 		}
 		
 		_this.element = function() {
@@ -7572,28 +7589,7 @@ playease.version = '1.0.70';
 		};
 		
 		_this.resize = function(width, height) {
-			if (!_image || !_ratio) {
-				return;
-			}
 			
-			var w, h;
-			if (width / height >= _ratio) {
-				w = height * _ratio;
-				h = height;
-			} else {
-				w = width;
-				h = width / _ratio;
-			}
-			
-			var top = (height - h) / 2;
-			var left = (width - w) / 2;
-			
-			css.style(_image, {
-				width: w + 'px',
-				height: h + 'px',
-				top: top + 'px',
-				left: left + 'px'
-			});
 		};
 		
 		_init();
@@ -8048,10 +8044,8 @@ playease.version = '1.0.70';
 			
 			if (_render) {
 				_render.removeEventListener(events.PLAYEASE_READY, _forward);
+				_render.removeEventListener(events.PLAYEASE_STATE, _forward);
 				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
-				_render.removeEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
-				_render.removeEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
-				_render.removeEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 				
 				_renderLayer.removeChild(_render.element());
@@ -8059,11 +8053,8 @@ playease.version = '1.0.70';
 			
 			_render = _this.render = _renders[name];
 			_render.addEventListener(events.PLAYEASE_READY, _forward);
+			_render.addEventListener(events.PLAYEASE_STATE, _forward);
 			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
 			_video = _render.element();
@@ -8103,11 +8094,11 @@ playease.version = '1.0.70';
 			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
 			
-			_startTimer();
-			
 			if (_render) {
 				_render.play(url);
 			}
+			
+			_startTimer();
 		};
 		
 		_this.pause = function() {
@@ -8120,41 +8111,39 @@ playease.version = '1.0.70';
 		};
 		
 		_this.reload = function(url) {
-			utils.removeClass(_wrapper, 'paused');
-			utils.addClass(_wrapper, 'playing');
-			
-			_startTimer();
-			
-			if (_render) {
-				_render.reload(url);
-			}
+			_this.stop();
+			setTimeout(function() {
+				_this.play(url);
+			}, 100);
 		};
 		
 		_this.seek = function(offset) {
+			_controlbar.setPosition(offset);
+			
 			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
-			
-			_controlbar.setPosition(offset);
-			_startTimer();
 			
 			if (_render) {
 				_render.seek(offset);
 			}
+			
+			_startTimer();
 		};
 		
 		_this.stop = function() {
 			utils.removeClass(_wrapper, 'paused');
 			utils.removeClass(_wrapper, 'playing');
 			
+			if (_render) {
+				_render.stop();
+			}
+			
 			_stopTimer();
+			
 			_controlbar.setBuffered(0);
 			_controlbar.setPosition(0);
 			_controlbar.setElapsed(0);
 			_controlbar.setDuration(0);
-			
-			if (_render) {
-				_render.stop();
-			}
 		};
 		
 		_this.report = function() {
@@ -8166,6 +8155,7 @@ playease.version = '1.0.70';
 			
 			if (_render) {
 				_render.mute(muted);
+				_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: muted });
 			}
 		};
 		
@@ -8174,6 +8164,7 @@ playease.version = '1.0.70';
 			
 			if (_render) {
 				_render.volume(vol);
+				_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 			}
 		};
 		
@@ -8214,6 +8205,8 @@ playease.version = '1.0.70';
 			
 			model.setProperty('fullpage', !exit);
 			_this.resize();
+			
+			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -8259,6 +8252,8 @@ playease.version = '1.0.70';
 			
 			model.setProperty('fullscreen', !exit);
 			_this.resize();
+			
+			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: exit });
 		};
 		
 		_this.setDuration = function(duration) {
@@ -8276,6 +8271,7 @@ playease.version = '1.0.70';
 				_bulletscreen.shoot(text);
 			}
 		};
+		
 		
 		function _startTimer() {
 			if (!_timer) {
@@ -8342,18 +8338,10 @@ playease.version = '1.0.70';
 			}
 		}
 		
+		
 		_this.onSWFState = function(e) {
 			utils.log('onSWFState: ' + e.state);
-			
-			switch (e.state) {
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-					break;
-					
-				case states.ERROR:
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
-					break;
-			}
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: e.state });
 		};
 		
 		_this.display = function(state, message) {
@@ -8447,7 +8435,8 @@ playease.version = '1.0.70';
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
-			view.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _onBuffering);
+			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
+			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
 			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
@@ -8463,6 +8452,31 @@ playease.version = '1.0.70';
 			
 			view.addEventListener(events.PLAYEASE_DURATION, _onDuration);
 			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+		}
+		
+		function _modelStateHandler(e) {
+			view.display(e.state, '');
+			
+			switch (e.state) {
+				case states.BUFFERING:
+					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
+					break;
+				case states.PLAYING:
+					_this.dispatchEvent(events.PLAYEASE_PLAYING);
+					break;
+				case states.PAUSED:
+					_this.dispatchEvent(events.PLAYEASE_PAUSED);
+					break;
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_STOPPED);
+					break;
+				case states.ERROR:
+					_retry();
+					break;
+				default:
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
+					break;
+			}
 		}
 		
 		function _onReady(e) {
@@ -8527,12 +8541,10 @@ playease.version = '1.0.70';
 				return;
 			}
 			
-			model.setState(states.PLAYING);
 			view.play(url);
 		};
 		
 		_this.pause = function() {
-			model.setState(states.PAUSED);
 			view.pause();
 		};
 		
@@ -8575,7 +8587,6 @@ playease.version = '1.0.70';
 				return;
 			}
 			
-			model.setState(states.RELOADING);
 			view.reload(url);
 		};
 		
@@ -8585,7 +8596,6 @@ playease.version = '1.0.70';
 				return;
 			}
 			
-			model.setState(states.SEEKING);
 			view.seek(offset);
 		};
 		
@@ -8595,29 +8605,27 @@ playease.version = '1.0.70';
 			
 			_urgent = undefined;
 			
-			model.setState(states.STOPPED);
 			view.stop();
 		};
 		
 		_this.report = function() {
 			view.report();
-			_this.dispatchEvent(events.PLAYEASE_REPORT);
 		};
 		
 		_this.mute = function() {
 			var muted = model.getProperty('muted');
+			
 			model.setProperty('muted', !muted);
 			view.mute(!muted);
-			_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: !muted });
 		};
 		
 		_this.volume = function(vol) {
 			if (vol == 0) {
 				model.setProperty('muted', true);
 			}
+			
 			model.setProperty('volume', vol);
 			view.volume(vol);
-			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 		};
 		
 		_this.hd = function(index) {
@@ -8631,50 +8639,18 @@ playease.version = '1.0.70';
 		
 		_this.bullet = function() {
 			var bullet = model.getProperty('bullet');
+			
 			model.setProperty('bullet', !bullet);
 			view.bullet(!bullet);
-			_this.dispatchEvent(events.PLAYEASE_BULLET, { bullet: !bullet ? 'on' : 'off' });
 		};
 		
 		_this.fullpage = function(exit) {
 			view.fullpage(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
 		}
 		_this.fullscreen = function(exit) {
 			view.fullscreen(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
 		};
 		
-		function _modelStateHandler(e) {
-			view.display(e.state, '');
-			
-			switch (e.state) {
-				case states.BUFFERING:
-					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
-					break;
-				case states.PLAYING:
-					_this.dispatchEvent(events.PLAYEASE_PLAYING);
-					break;
-				case states.PAUSED:
-					_this.dispatchEvent(events.PLAYEASE_PAUSED);
-					break;
-				case states.RELOADING:
-					_this.dispatchEvent(events.PLAYEASE_RELOADING);
-					break;
-				case states.SEEKING:
-					_this.dispatchEvent(events.PLAYEASE_SEEKING);
-					break;
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_STOPPED);
-					break;
-				case states.ERROR:
-					_retry();
-					break;
-				default:
-					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
-					break;
-			}
-		}
 		
 		function _retry() {
 			if (model.config.maxretries < 0 || _retrycount < model.config.maxretries) {
@@ -8705,9 +8681,9 @@ playease.version = '1.0.70';
 			}
 		}
 		
-		function _onBuffering(e) {
-			model.setState(states.BUFFERING);
-			view.pause();
+		
+		function _renderStateHandler(e) {
+			model.setState(e.state);
 			_forward(e);
 		}
 		
@@ -8770,7 +8746,7 @@ playease.version = '1.0.70';
 			}
 			
 			_this.fullpage(fp);
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, e);
 		}
 		
 		function _onFullscreen(e) {
@@ -8780,12 +8756,13 @@ playease.version = '1.0.70';
 			}
 			
 			_this.fullscreen(fs);
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, e);
 		}
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
 			view.display(null, e.message);
+			
 			_this.stop();
 			_forward(e);
 		}
@@ -8793,12 +8770,14 @@ playease.version = '1.0.70';
 		function _onDuration(e) {
 			model.setProperty('duration', e.duration);
 			view.setDuration(e.duration);
+			
 			_forward(e);
 		}
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
 			view.display(null, e.message);
+			
 			_this.stop();
 			_forward(e);
 		}
