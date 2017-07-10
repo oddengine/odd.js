@@ -182,10 +182,8 @@
 			
 			if (_render) {
 				_render.removeEventListener(events.PLAYEASE_READY, _forward);
+				_render.removeEventListener(events.PLAYEASE_STATE, _forward);
 				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
-				_render.removeEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
-				_render.removeEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
-				_render.removeEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 				
 				_renderLayer.removeChild(_render.element());
@@ -193,11 +191,8 @@
 			
 			_render = _this.render = _renders[name];
 			_render.addEventListener(events.PLAYEASE_READY, _forward);
+			_render.addEventListener(events.PLAYEASE_STATE, _forward);
 			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_BUFFERING, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_PLAY, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_PAUSE, _forward);
-			_render.addEventListener(events.PLAYEASE_VIEW_STOP, _forward);
 			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
 			
 			_video = _render.element();
@@ -237,11 +232,11 @@
 			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
 			
-			_startTimer();
-			
 			if (_render) {
 				_render.play(url);
 			}
+			
+			_startTimer();
 		};
 		
 		_this.pause = function() {
@@ -254,41 +249,39 @@
 		};
 		
 		_this.reload = function(url) {
-			utils.removeClass(_wrapper, 'paused');
-			utils.addClass(_wrapper, 'playing');
-			
-			_startTimer();
-			
-			if (_render) {
-				_render.reload(url);
-			}
+			_this.stop();
+			setTimeout(function() {
+				_this.play(url);
+			}, 100);
 		};
 		
 		_this.seek = function(offset) {
+			_controlbar.setPosition(offset);
+			
 			utils.removeClass(_wrapper, 'paused');
 			utils.addClass(_wrapper, 'playing');
-			
-			_controlbar.setPosition(offset);
-			_startTimer();
 			
 			if (_render) {
 				_render.seek(offset);
 			}
+			
+			_startTimer();
 		};
 		
 		_this.stop = function() {
 			utils.removeClass(_wrapper, 'paused');
 			utils.removeClass(_wrapper, 'playing');
 			
+			if (_render) {
+				_render.stop();
+			}
+			
 			_stopTimer();
+			
 			_controlbar.setBuffered(0);
 			_controlbar.setPosition(0);
 			_controlbar.setElapsed(0);
 			_controlbar.setDuration(0);
-			
-			if (_render) {
-				_render.stop();
-			}
 		};
 		
 		_this.report = function() {
@@ -300,6 +293,7 @@
 			
 			if (_render) {
 				_render.mute(muted);
+				_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: muted });
 			}
 		};
 		
@@ -308,6 +302,7 @@
 			
 			if (_render) {
 				_render.volume(vol);
+				_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 			}
 		};
 		
@@ -348,6 +343,8 @@
 			
 			model.setProperty('fullpage', !exit);
 			_this.resize();
+			
+			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -393,6 +390,8 @@
 			
 			model.setProperty('fullscreen', !exit);
 			_this.resize();
+			
+			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: exit });
 		};
 		
 		_this.setDuration = function(duration) {
@@ -410,6 +409,7 @@
 				_bulletscreen.shoot(text);
 			}
 		};
+		
 		
 		function _startTimer() {
 			if (!_timer) {
@@ -476,18 +476,10 @@
 			}
 		}
 		
+		
 		_this.onSWFState = function(e) {
 			utils.log('onSWFState: ' + e.state);
-			
-			switch (e.state) {
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-					break;
-					
-				case states.ERROR:
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
-					break;
-			}
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: e.state });
 		};
 		
 		_this.display = function(state, message) {

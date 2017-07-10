@@ -30,7 +30,6 @@
 		PLAYEASE_FULLSCREEN: 'playeaseFullscreen',
 		
 		// View Events
-		PLAYEASE_VIEW_BUFFERING: 'playeaseViewBuffering',
 		PLAYEASE_VIEW_PLAY: 'playeaseViewPlay',
 		PLAYEASE_VIEW_PAUSE: 'playeaseViewPause',
 		PLAYEASE_VIEW_RELOAD: 'playeaseViewReload',

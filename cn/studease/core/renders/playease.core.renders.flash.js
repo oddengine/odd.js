@@ -80,7 +80,7 @@
 				_url = url;
 			}
 			
-			_video.iplay(_url);
+			_video.xplay(_url);
 		};
 		
 		_this.pause = function() {
@@ -88,7 +88,7 @@
 		};
 		
 		_this.reload = function() {
-			_video.load();
+			_video.reload();
 		};
 		
 		_this.seek = function(offset) {
@@ -112,24 +112,14 @@
 			
 		};
 		
+		
 		_this.getRenderInfo = function() {
 			var info = _video.getRenderInfo();
 			
 			if (_duration !== info.duration) {
 				_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: info.duration });
 			}
-			/*
-			switch (info.state) {
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_STOP);
-					break;
-				case states.ERROR:
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR);
-					break;
-				default:
-					break;
-			}
-			*/
+			
 			return info;
 		};
 		
@@ -138,14 +128,17 @@
 		};
 		
 		_this.resize = function(width, height) {
-			try {
-				css.style(_video, {
-					width: width + 'px',
-					height: height + 'px'
-				});
+			if (!_video) {
+				return;
+			}
+			
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
+			
+			if (_video.resize) {
 				_video.resize(width, height);
-			} catch (err) {
-				/* void */
 			}
 		};
 		
@@ -167,7 +160,7 @@
 		}
 		
 		var map = [
-			undefined, // live stream
+			undefined, '', // live stream
 			'flv',
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a', 'aac',
