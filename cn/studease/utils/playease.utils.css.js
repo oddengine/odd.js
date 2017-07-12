@@ -45,7 +45,7 @@
 			}
 			
 			utils.foreach(rules, function(style, value) {
-				var name = getStyleName(style);
+				var name = _getStyleName(style);
 				if (element.style[name] !== value) {
 					element.style[name] = value;
 				}
@@ -53,7 +53,7 @@
 		}
 	};
 	
-	function getStyleName(name) {
+	function _getStyleName(name) {
 		name = name.split('-');
 		for (var i = 1; i < name.length; i++) {
 			name[i] = name[i].charAt(0).toUpperCase() + name[i].slice(1);

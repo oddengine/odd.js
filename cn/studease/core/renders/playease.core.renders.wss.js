@@ -203,6 +203,8 @@
 		};
 		
 		_this.pause = function() {
+			_waiting = false;
+			
 			_video.pause();
 			_video.controls = false;
 		};

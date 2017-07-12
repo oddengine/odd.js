@@ -4,16 +4,13 @@
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendermodes = renders.modes,
 		priority = renders.priority,
 		components = core.components,
 		skins = core.skins,
-		skinmodes = skins.modes,
 		
 		WRAP_CLASS = 'pla-wrapper',
 		SKIN_CLASS = 'pla-skin',
 		RENDER_CLASS = 'pla-render',
-		DISPLAY_CLASS = 'pla-display',
 		CONTROLS_CLASS = 'pla-controls',
 		CONTEXTMENU_CLASS = 'pla-contextmenu';
 	
@@ -21,13 +18,13 @@
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
 			_wrapper,
 			_renderLayer,
-			_displayLayer,
 			_controlsLayer,
 			_contextmenuLayer,
 			_controlbar,
 			_poster,
 			_bulletscreen,
 			_display,
+			_logo,
 			_renders,
 			_render,
 			_skin,
@@ -38,18 +35,15 @@
 			_errorOccurred = false;
 		
 		function _init() {
-			SKIN_CLASS += '-' + model.getConfig('skin').name;
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + '-' + model.getConfig('skin').name + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
 			_wrapper.id = model.getConfig('id');
 			_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_displayLayer = utils.createElement('div', DISPLAY_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
 			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
 			
 			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_displayLayer);
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
@@ -66,6 +60,15 @@
 			} catch (err) {
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
+			}
+			
+			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
+		}
+		
+		function _modelStateHandler(e) {
+			utils.removeClass(_wrapper, [states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
+			if (e.state != states.STOPPED) {
+				utils.addClass(_wrapper, e.state);
 			}
 		}
 		
@@ -127,9 +130,20 @@
 				_display = new components.display(dicfg);
 				_display.addGlobalListener(_forward);
 				
-				_displayLayer.appendChild(_display.element());
+				_renderLayer.appendChild(_display.element());
 			} catch (err) {
 				utils.log('Failed to init "display" component!');
+			}
+			
+			// logo
+			var lgcfg = utils.extend({}, model.getConfig('display'));
+			
+			try {
+				_logo = new components.logo(lgcfg);
+				
+				_renderLayer.appendChild(_logo.element());
+			} catch (err) {
+				utils.log('Failed to init "logo" component!');
 			}
 		}
 		
@@ -229,9 +243,6 @@
 		};
 		
 		_this.play = function(url) {
-			utils.removeClass(_wrapper, 'paused');
-			utils.addClass(_wrapper, 'playing');
-			
 			if (_render) {
 				_render.play(url);
 			}
@@ -240,9 +251,6 @@
 		};
 		
 		_this.pause = function() {
-			utils.removeClass(_wrapper, 'playing');
-			utils.addClass(_wrapper, 'paused');
-			
 			if (_render) {
 				_render.pause();
 			}
@@ -258,9 +266,6 @@
 		_this.seek = function(offset) {
 			_controlbar.setPosition(offset);
 			
-			utils.removeClass(_wrapper, 'paused');
-			utils.addClass(_wrapper, 'playing');
-			
 			if (_render) {
 				_render.seek(offset);
 			}
@@ -269,9 +274,6 @@
 		};
 		
 		_this.stop = function() {
-			utils.removeClass(_wrapper, 'paused');
-			utils.removeClass(_wrapper, 'playing');
-			
 			if (_render) {
 				_render.stop();
 			}
@@ -304,6 +306,10 @@
 				_render.volume(vol);
 				_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 			}
+		};
+		
+		_this.hd = function(index, label) {
+			_controlbar.activeHDItem(index, label);
 		};
 		
 		_this.bullet = function(bullet) {
@@ -518,6 +524,7 @@
 					}
 				}
 				
+				_controlbar.resize(width, height);
 				_bulletscreen.resize(width, height);
 				_poster.resize(width, height);
 				if (_render) {

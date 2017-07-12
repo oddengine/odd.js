@@ -1,5 +1,6 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
+		css = utils.css,
 		events = playease.events,
 		core = playease.core,
 		components = core.components,
@@ -9,7 +10,10 @@
 			LABEL:   1,
 			BUTTON:  2,
 			SLIDER:  3
-		};
+		},
+		
+		OVERLAY_CLASS = 'pla-overlay',
+		TOOLTIP_ITEM_CLASS = 'pla-tooltip-item';
 	
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
@@ -17,16 +21,18 @@
 				bulletscreen: {}
 			},
 			_layout,
-			_leftgroup,
-			_centergroup,
-			_rightgroup,
-			_timeBar,
-			_volumeBar,
 			_labels,
-			_buttons;
+			_buttons,
+			_overlays,
+			_timeBar,
+			_volumeBar;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
+			
+			_labels = {};
+			_buttons = {};
+			_overlays = {};
 			
 			_layout = {
 				left: [
@@ -58,9 +64,6 @@
 			_timeBar = new components.slider({ name: 'time' });
 			_timeBar.addEventListener(events.PLAYEASE_SLIDER_CHANGE, _onTimeBarChange);
 			layer.appendChild(_timeBar.element());
-			
-			_labels = {};
-			_buttons = {};
 			
 			_buildLayout();
 			
@@ -178,7 +181,7 @@
 			if (name === 'report' && !_this.config.report) {
 				return null;
 			}
-			if (name === 'hd' && (utils.typeOf(_this.config.sources) !== 'array' || _this.config.sources < 2)) {
+			if (name === 'hd' && (utils.typeOf(_this.config.playlist.sources) !== 'array' || _this.config.playlist.sources.length < 2)) {
 				return null;
 			}
 			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
@@ -189,10 +192,36 @@
 			element.name = name;
 			try {
 				element.addEventListener('click', _onButtonClick);
-			} catch(err) {
+			} catch (err) {
 				element.attachEvent('onclick', function(e) {
 					_onButtonClick.call(element, arguments);
 				});
+			}
+			
+			if (name === 'hd') {
+				var tooltip = new components.tooltip({ name: name });
+				
+				var sources = _this.config.playlist.sources;
+				for (var i = 0; i < sources.length; i++) {
+					var item = utils.createElement('div', TOOLTIP_ITEM_CLASS);
+					item.index = i;
+					item.innerText = sources[i].label || i;
+					
+					try {
+						item.addEventListener('click', _onHDItemClick);
+					} catch (err) {
+						item.attachEvent('onclick', function(e) {
+							_onHDItemClick.call(item, arguments);
+						});
+					}
+					
+					tooltip.appendChild(item);
+				}
+				
+				_overlays[name] = tooltip;
+				
+				element.innerHTML = '<span>高清</span>';
+				element.appendChild(tooltip.element());
 			}
 			
 			_buttons[name] = element;
@@ -223,7 +252,7 @@
 					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
 					break;
 				case 'hd':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_HD);
+					/* void */
 					break;
 				case 'bullet':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
@@ -245,6 +274,11 @@
 			}
 		}
 		
+		function _onHDItemClick(e) {
+			var item = e.target || this;
+			_this.dispatchEvent(events.PLAYEASE_VIEW_HD, { index: item.index });
+		}
+		
 		function _onFullscreenChange(e) {
 			if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
 				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: true });
@@ -258,6 +292,7 @@
 		function _onVolumeBarChange(e) {
 			_this.dispatchEvent(events.PLAYEASE_VIEW_VOLUME, { volume: e.value });
 		}
+		
 		
 		_this.setBuffered = function(buffered) {
 			_timeBar.buffered(buffered);
@@ -314,6 +349,16 @@
 			_volumeBar.update(vol);
 		};
 		
+		_this.activeHDItem = function(index, label) {
+			if (_overlays.hasOwnProperty('hd') && utils.typeOf(_overlays.hd) == 'object') {
+				_overlays.hd.activeItemAt(index);
+				
+				if (_buttons.hasOwnProperty('hd') && utils.typeOf(_overlays.hd) == 'object') {
+					_buttons.hd.childNodes[0].innerText = label || '高清';
+				}
+			}
+		};
+		
 		_this.setBullet = function(on) {
 			if (on) {
 				utils.removeClass(_buttons.bullet, 'off');
@@ -323,7 +368,9 @@
 		};
 		
 		_this.resize = function(width, height) {
-			
+			utils.foreach(_overlays, function(name, tooltip) {
+				tooltip.resize(width, height);
+			});
 		};
 		
 		_this.destroy = function() {
