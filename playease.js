@@ -9246,6 +9246,7 @@ playease.version = '1.0.72';
 				visible: true
 			},
 			bulletscreen: {
+				enable: true,
 				visible: true
 			},
 			render: {

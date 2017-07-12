@@ -80,6 +80,7 @@ _defaults = {
 		visible: true
 	},
 	bulletscreen: {
+		enable: true,
 		visible: true
 	},
 	render: {
