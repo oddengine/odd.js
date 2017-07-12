@@ -78,7 +78,9 @@
 					return arr[1].toLowerCase();
 				}
 			} catch (err) {
-				/* void */
+				if ((utils.isMSIE() || utils.isIETrident()) && value.hasOwnProperty('length')) {
+					return 'array';
+				}
 			}
 		}
 		

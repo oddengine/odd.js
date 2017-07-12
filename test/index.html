@@ -124,19 +124,21 @@ input {
 	<script type='text/javascript' src='../cn/studease/net/playease.net.netstream.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.states.js'></script>
-	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.js'></script>
-	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.wss.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flash.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.slider.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.tooltip.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.controlbar.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.poster.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.bulletscreen.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.display.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/components/playease.core.components.logo.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.playlist.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.entity.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.model.js'></script>
@@ -167,17 +169,27 @@ input {
 			height: height,
 			aspectratio: '16:9',
 			file: '/vod/sample.mp4',
+			//file: 'http://127.0.0.1/live/sample.flv',
 			//file: 'ws://127.0.0.1:8080/live/sample',
 			//file: 'rtmp://127.0.0.1/live/sample',
 			//file: 'http://127.0.0.1/live/sample.m3u8',
 			/*sources: [{
+				file: 'http://127.0.0.1/live/sample.flv',
+				type: 'flv',
+				label: '1080P'
+			}, {
+				file: 'ws://127.0.0.1/live/sample.flv',
+				type: 'flv',
+				label: '720P'
+			}, {
 				file: 'rtmp://127.0.0.1/live/sample',
-				type: 'flash'
+				type: 'flash',
+				label: '720P'
 			}, {
 				file: 'http://127.0.0.1/live/sample.m3u8',
 				type: 'def'
 			}],*/
-			mode: 'vod',
+			mode: 'live',
 			bufferTime: 1,
 			maxretries: 0,
 			retrydelay: 3000,

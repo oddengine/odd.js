@@ -29,7 +29,6 @@
 						type: name,
 						label: item.label || _this.sources.length
 					});
-					continue;
 				}
 			}
 		};

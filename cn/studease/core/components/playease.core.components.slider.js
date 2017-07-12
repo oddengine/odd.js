@@ -71,15 +71,15 @@
 				} catch (err) {
 					setTimeout(function() {
 						_thumb.style.left = _container.clientWidth * _percentage / 100 - 5 + 'px';
-					}, 0);
+					});
 				}
 			} else {
 				try {
 					_thumb.style.bottom = 'calc(' + _percentage + '% - 5px)';
-				} catch (err) {
+				} catch(err) {
 					setTimeout(function() {
 						_thumb.style.bottom = _container.clientHeight * _percentage / 100 - 5 + 'px';
-					}, 0);
+					});
 				}
 			}
 		};

@@ -65,6 +65,10 @@
 			if (!_ready) {
 				utils.log('Player ready!');
 				
+				var playlist = model.getProperty('playlist');
+				var item = playlist.getItemAt(playlist.index);
+				view.hd(playlist.index, item.label);
+				
 				_ready = true;
 				_forward(e);
 				
@@ -182,11 +186,7 @@
 		};
 		
 		_this.stop = function() {
-			var playlist = model.getProperty('playlist');
-			playlist.activeNextItem();
-			
 			_urgent = undefined;
-			
 			view.stop();
 		};
 		
@@ -211,12 +211,19 @@
 		};
 		
 		_this.hd = function(index) {
-			var sources = model.getProperty('sources');
-			if (!sources || !sources[index]) {
+			var playlist = model.getProperty('playlist');
+			if (utils.typeOf(playlist.sources) !== 'array' || index >= playlist.sources.length) {
 				return;
 			}
 			
-			_this.play(sources[index]);
+			if (playlist.activeItemAt(index) == false) {
+				return;
+			}
+			
+			var item = playlist.getItemAt(playlist.index);
+			view.hd(playlist.index, item.label);
+			
+			_this.play();
 		};
 		
 		_this.bullet = function() {
@@ -313,7 +320,7 @@
 		}
 		
 		function _onHD(e) {
-			
+			_this.hd(e.index);
 		}
 		
 		function _onBullet(e) {
@@ -343,7 +350,7 @@
 		
 		function _onSetupError(e) {
 			model.setState(states.ERROR);
-			view.display(null, e.message);
+			view.display(states.ERROR, e.message);
 			
 			_this.stop();
 			_forward(e);
@@ -358,7 +365,7 @@
 		
 		function _onRenderError(e) {
 			model.setState(states.ERROR);
-			view.display(null, e.message);
+			view.display(states.ERROR, e.message);
 			
 			_this.stop();
 			_forward(e);
