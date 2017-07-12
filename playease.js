@@ -7849,7 +7849,7 @@ playease.version = '1.0.72';
 	components.logo = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.logo')),
 			_defaults = {
-				file: 'logo.png',
+				file: '',
 				link: 'http://studease.cn/playease',
 				target: '_blank',
 				margin: 20,
@@ -8317,7 +8317,7 @@ playease.version = '1.0.72';
 			}
 			
 			// logo
-			var lgcfg = utils.extend({}, model.getConfig('display'));
+			var lgcfg = utils.extend({}, model.getConfig('logo'));
 			
 			try {
 				_logo = new components.logo(lgcfg);
