@@ -136,7 +136,7 @@
 			}
 			
 			// logo
-			var lgcfg = utils.extend({}, model.getConfig('display'));
+			var lgcfg = utils.extend({}, model.getConfig('logo'));
 			
 			try {
 				_logo = new components.logo(lgcfg);
