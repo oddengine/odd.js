@@ -37,7 +37,7 @@ playease('player').setup({
 	}, {
 		file: 'rtmp://127.0.0.1/live/sample',
 		type: 'flash',
-		label: 'RTMP-fMP4'
+		label: 'RTMP'
 	}, {
 		file: 'http://127.0.0.1/live/sample.m3u8',
 		type: 'def'
