@@ -23,7 +23,23 @@ playease('player').setup({
 	height: 400,
 	file: '/vod/sample.flv',
 	/*sources: [{
-		file: '/vod/sample.mp4',
+		file: 'http://127.0.0.1/live/sample.flv',
+		type: 'flv',
+		label: 'HTTP-FLV'
+	}, {
+		file: 'ws://127.0.0.1/live/sample.flv',
+		type: 'flv',
+		label: 'WS-FLV'
+	}, {
+		file: 'ws://127.0.0.1/live/sample',
+		type: 'wss',
+		label: 'WS-fMP4'
+	}, {
+		file: 'rtmp://127.0.0.1/live/sample',
+		type: 'flash',
+		label: 'RTMP-fMP4'
+	}, {
+		file: 'http://127.0.0.1/live/sample.m3u8',
 		type: 'def'
 	}],*/
 	mode: 'vod',
