@@ -24,7 +24,7 @@
 			mode: rendermodes.VOD,
 			bufferTime: .1,
 			maxretries: 0,
-	 		retrydelay: 3000,
+			retrydelay: 3000,
 			controls: true,
 			autoplay: true,
 			airplay: 'allow',
@@ -35,13 +35,10 @@
 			loader: {
 				mode: iomodes.CORS
 			},
+			logo: {
+				visible: true
+			},
 			bulletscreen: {
-				enable: true,
-				fontsize: 14,
-				interval: 30,
-				duration: 12000,
-				alpha: alphas.LOW,
-				position: positions.FULLSCREEN,
 				visible: true
 			},
 			render: {
@@ -51,7 +48,9 @@
 			skin: {
 				name: skintypes.DEFAULT
 			},
-			events: {}
+			events: {
+				
+			}
 		},
 		
 		_config = utils.extend({}, _defaults, config);

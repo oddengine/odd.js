@@ -7866,6 +7866,10 @@ playease.version = '1.0.72';
 			_container = utils.createElement('div', LOGO_CLASS);
 			_logo = utils.createElement('a');
 			
+			css.style(_container, {
+				visibility: _this.config.visible ? 'visible' : 'hidden'
+			});
+			
 			_img = new Image();
 			_img.onload = _onload;
 			_img.onabort = _onerror;
@@ -9227,7 +9231,7 @@ playease.version = '1.0.72';
 			mode: rendermodes.VOD,
 			bufferTime: .1,
 			maxretries: 0,
-	 		retrydelay: 3000,
+			retrydelay: 3000,
 			controls: true,
 			autoplay: true,
 			airplay: 'allow',
@@ -9238,13 +9242,10 @@ playease.version = '1.0.72';
 			loader: {
 				mode: iomodes.CORS
 			},
+			logo: {
+				visible: true
+			},
 			bulletscreen: {
-				enable: true,
-				fontsize: 14,
-				interval: 30,
-				duration: 12000,
-				alpha: alphas.LOW,
-				position: positions.FULLSCREEN,
 				visible: true
 			},
 			render: {
@@ -9254,7 +9255,9 @@ playease.version = '1.0.72';
 			skin: {
 				name: skintypes.DEFAULT
 			},
-			events: {}
+			events: {
+				
+			}
 		},
 		
 		_config = utils.extend({}, _defaults, config);
