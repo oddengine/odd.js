@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.72';
+playease.version = '1.0.73';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -80,15 +80,13 @@ playease.version = '1.0.72';
 		var typeofString = typeof value;
 		if (typeofString === 'object') {
 			try {
-				var str = toString.call(value);
+				var str = Object.prototype.toString.call(value);
 				var arr = str.match(/^\[object ([a-z]+)\]$/i);
 				if (arr && arr.length > 1 && arr[1]) {
 					return arr[1].toLowerCase();
 				}
 			} catch (err) {
-				if ((utils.isMSIE() || utils.isIETrident()) && value.hasOwnProperty('length')) {
-					return 'array';
-				}
+				/* void */
 			}
 		}
 		
@@ -6554,6 +6552,9 @@ playease.version = '1.0.72';
 				'z-index': '1'
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + LOGO_CLASS + ' > a', {
+				'background-size': CSS_100PCT + ' ' + CSS_100PCT,
+				'background-repeat': 'no-repeat',
+				'background-position': CSS_CENTER,
 				position: CSS_ABSOLUTE
 			});
 			
@@ -7041,6 +7042,10 @@ playease.version = '1.0.72';
 					utils.removeClass(node, 'active');
 				}
 			});
+			
+			setTimeout(function() {
+				_this.resize();
+			});
 		};
 		
 		_this.element = function() {
@@ -7281,7 +7286,7 @@ playease.version = '1.0.72';
 				
 				_overlays[name] = tooltip;
 				
-				element.innerHTML = '<span>高清</span>';
+				element.innerHTML = '<span>HD</span>';
 				element.appendChild(tooltip.element());
 			}
 			
@@ -7411,11 +7416,11 @@ playease.version = '1.0.72';
 		};
 		
 		_this.activeHDItem = function(index, label) {
-			if (_overlays.hasOwnProperty('hd') && utils.typeOf(_overlays.hd) == 'object') {
+			if (_overlays.hd) {
 				_overlays.hd.activeItemAt(index);
 				
-				if (_buttons.hasOwnProperty('hd') && utils.typeOf(_overlays.hd) == 'object') {
-					_buttons.hd.childNodes[0].innerText = label || '高清';
+				if (_buttons.hd) {
+					_buttons.hd.childNodes[0].innerText = label || 'HD';
 				}
 			}
 		};
@@ -7858,7 +7863,8 @@ playease.version = '1.0.72';
 			},
 			_container,
 			_logo,
-			_img;
+			_img,
+			_loaded = false;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
@@ -7879,6 +7885,8 @@ playease.version = '1.0.72';
 		}
 		
 		function _onload(e) {
+			_loaded = true;
+			
 			var style = {
 				width: _img.width + 'px',
 				height: _img.height + 'px',
@@ -7899,6 +7907,10 @@ playease.version = '1.0.72';
 			_logo.target = _this.config.target;
 			
 			_container.appendChild(_logo);
+			
+			setTimeout(function() {
+				_this.resize();
+			});
 		}
 		
 		function _onerror(e) {
@@ -7911,7 +7923,20 @@ playease.version = '1.0.72';
 		};
 		
 		_this.resize = function(width, height) {
+			if (!_loaded) {
+				return;
+			}
 			
+			width = _img.width * _container.clientWidth / 640;
+			width = Math.max(width, _img.width * 0.7);
+			width = Math.min(width, _img.width * 1.2);
+			
+			height = width * _img.height / _img.width;
+			
+			css.style(_logo, {
+				width: width + 'px',
+				height: height + 'px'
+			});
 		};
 		
 		_init();
@@ -8321,7 +8346,10 @@ playease.version = '1.0.72';
 			}
 			
 			// logo
-			var lgcfg = utils.extend({}, model.getConfig('logo'));
+			var lgcfg = utils.extend({}, model.getConfig('logo'), {
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			});
 			
 			try {
 				_logo = new components.logo(lgcfg);
@@ -8711,6 +8739,7 @@ playease.version = '1.0.72';
 				
 				_controlbar.resize(width, height);
 				_bulletscreen.resize(width, height);
+				_logo.resize(width, height);
 				_poster.resize(width, height);
 				if (_render) {
 					_render.resize(width, height);

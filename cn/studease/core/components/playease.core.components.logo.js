@@ -26,7 +26,8 @@
 			},
 			_container,
 			_logo,
-			_img;
+			_img,
+			_loaded = false;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
@@ -47,6 +48,8 @@
 		}
 		
 		function _onload(e) {
+			_loaded = true;
+			
 			var style = {
 				width: _img.width + 'px',
 				height: _img.height + 'px',
@@ -67,6 +70,10 @@
 			_logo.target = _this.config.target;
 			
 			_container.appendChild(_logo);
+			
+			setTimeout(function() {
+				_this.resize();
+			});
 		}
 		
 		function _onerror(e) {
@@ -79,7 +86,20 @@
 		};
 		
 		_this.resize = function(width, height) {
+			if (!_loaded) {
+				return;
+			}
 			
+			width = _img.width * _container.clientWidth / 640;
+			width = Math.max(width, _img.width * 0.7);
+			width = Math.min(width, _img.width * 1.2);
+			
+			height = width * _img.height / _img.width;
+			
+			css.style(_logo, {
+				width: width + 'px',
+				height: height + 'px'
+			});
 		};
 		
 		_init();

@@ -211,6 +211,9 @@
 				'z-index': '1'
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + LOGO_CLASS + ' > a', {
+				'background-size': CSS_100PCT + ' ' + CSS_100PCT,
+				'background-repeat': 'no-repeat',
+				'background-position': CSS_CENTER,
 				position: CSS_ABSOLUTE
 			});
 			
