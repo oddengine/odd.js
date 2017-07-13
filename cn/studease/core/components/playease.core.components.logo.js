@@ -12,7 +12,7 @@
 			BOTTOM_RIGHT: 'bottom-right'
 		},
 		
-		LOGO_CLASS = 'pla-logo';
+		LOGO_CLASS = 'pe-logo';
 	
 	components.logo = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.logo')),

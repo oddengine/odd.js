@@ -10,7 +10,7 @@
 	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
 			_defaults = {
-				debug: true//playease.debug
+				debug: playease.debug
 			},
 			_video,
 			_url,
@@ -27,7 +27,7 @@
 			if (utils.isMSIE(8)) {
 				var div = utils.createElement('div');
 				div.innerHTML = ''
-					+ '<object id="pla-swf" name="pla-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
+					+ '<object id="pe-swf" name="pe-swf" align="middle" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000">'
 						+ '<param name="movie" value="' + _this.config.swf + '">'
 						+ '<param name="quality" value="high">'
 						+ '<param name="bgcolor" value="#ffffff">'
@@ -43,7 +43,7 @@
 			}
 			
 			_video = utils.createElement('object');
-			_video.id = _video.name = 'pla-swf';
+			_video.id = _video.name = 'pe-swf';
 			_video.align = 'middle';
 			_video.innerHTML = ''
 				+ '<param name="quality" value="high">'
