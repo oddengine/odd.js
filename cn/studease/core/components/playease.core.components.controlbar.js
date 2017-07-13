@@ -220,7 +220,7 @@
 				
 				_overlays[name] = tooltip;
 				
-				element.innerHTML = '<span>高清</span>';
+				element.innerHTML = '<span>HD</span>';
 				element.appendChild(tooltip.element());
 			}
 			
@@ -350,11 +350,11 @@
 		};
 		
 		_this.activeHDItem = function(index, label) {
-			if (_overlays.hasOwnProperty('hd') && utils.typeOf(_overlays.hd) == 'object') {
+			if (_overlays.hd) {
 				_overlays.hd.activeItemAt(index);
 				
-				if (_buttons.hasOwnProperty('hd') && utils.typeOf(_overlays.hd) == 'object') {
-					_buttons.hd.childNodes[0].innerText = label || '高清';
+				if (_buttons.hd) {
+					_buttons.hd.childNodes[0].innerText = label || 'HD';
 				}
 			}
 		};

@@ -41,6 +41,10 @@
 					utils.removeClass(node, 'active');
 				}
 			});
+			
+			setTimeout(function() {
+				_this.resize();
+			});
 		};
 		
 		_this.element = function() {

@@ -136,7 +136,10 @@
 			}
 			
 			// logo
-			var lgcfg = utils.extend({}, model.getConfig('logo'));
+			var lgcfg = utils.extend({}, model.getConfig('logo'), {
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			});
 			
 			try {
 				_logo = new components.logo(lgcfg);
@@ -526,6 +529,7 @@
 				
 				_controlbar.resize(width, height);
 				_bulletscreen.resize(width, height);
+				_logo.resize(width, height);
 				_poster.resize(width, height);
 				if (_render) {
 					_render.resize(width, height);
