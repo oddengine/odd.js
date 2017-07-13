@@ -5,18 +5,7 @@
 > [[source] https://github.com/studease/playease](https://github.com/studease/playease)
 
 This is a HTML5 video player for FLV/fMP4 live streaming, FLV/fMP4 VoD and original HTML5 media resources, eg. Ogg, Mpeg4, WebM, HLS.
-It also supports RTMP streaming for MSIE8/9 while flash embed in.
-
-
-## Tested
----------
-
-* **Chrome**
-* **Firefox**
-* **Opera**
-* **Safari**
-* **IE10-11, Edge**
-* **IE7-9 (Flash is needed.)**
+It also supports RTMP streaming for MSIE8-10 with flash embed in.
 
 
 ## Example
@@ -34,7 +23,23 @@ playease('player').setup({
 	height: 400,
 	file: '/vod/sample.flv',
 	/*sources: [{
-		file: '/vod/sample.mp4',
+		file: 'http://127.0.0.1/live/sample.flv',
+		type: 'flv',
+		label: 'HTTP-FLV'
+	}, {
+		file: 'ws://127.0.0.1/live/sample.flv',
+		type: 'flv',
+		label: 'WS-FLV'
+	}, {
+		file: 'ws://127.0.0.1/live/sample',
+		type: 'wss',
+		label: 'WS-fMP4'
+	}, {
+		file: 'rtmp://127.0.0.1/live/sample',
+		type: 'flash',
+		label: 'RTMP'
+	}, {
+		file: 'http://127.0.0.1/live/sample.m3u8',
 		type: 'def'
 	}],*/
 	mode: 'vod',
