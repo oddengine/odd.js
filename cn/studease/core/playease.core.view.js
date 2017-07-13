@@ -8,11 +8,11 @@
 		components = core.components,
 		skins = core.skins,
 		
-		WRAP_CLASS = 'pla-wrapper',
-		SKIN_CLASS = 'pla-skin',
-		RENDER_CLASS = 'pla-render',
-		CONTROLS_CLASS = 'pla-controls',
-		CONTEXTMENU_CLASS = 'pla-contextmenu';
+		WRAP_CLASS = 'pe-wrapper',
+		SKIN_CLASS = 'pe-skin',
+		RENDER_CLASS = 'pe-render',
+		CONTROLS_CLASS = 'pe-controls',
+		CONTEXTMENU_CLASS = 'pe-contextmenu';
 	
 	core.view = function(model) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.view')),

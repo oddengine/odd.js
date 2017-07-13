@@ -6,9 +6,9 @@
 		states = core.states,
 		components = core.components,
 		
-		DISPLAY_CLASS = 'pla-display',
-		DISPLAY_ICON_CLASS = 'pla-display-icon',
-		DISPLAY_LABEL_CLASS = 'pla-display-label';
+		DISPLAY_CLASS = 'pe-display',
+		DISPLAY_ICON_CLASS = 'pe-display-icon',
+		DISPLAY_LABEL_CLASS = 'pe-display-label';
 	
 	components.display = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.display')),

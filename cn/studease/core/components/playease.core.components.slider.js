@@ -7,7 +7,11 @@
 		directions = {
 			HORIZONTAL: 0,
 			VERTICAL:   1
-		};
+		},
+		
+		SLIDER_CLASS = 'pe-slider'
+		RAIL_CLASS = 'pe-rail',
+		THUMB_CLASS = 'pe-thumb';
 	
 	components.slider = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.slider')),
@@ -46,15 +50,15 @@
 		}
 		
 		function _build() {
-			_container = utils.createElement('div', 'plslider ' + _this.config.name);
+			_container = utils.createElement('div', SLIDER_CLASS + ' ' + _this.config.name);
 			
 			for (var i = 0; i < _railnames.length; i++) {
 				var name = _railnames[i];
-				var rail = _rails[name] = utils.createElement('span', 'plrail ' + name);
+				var rail = _rails[name] = utils.createElement('span', RAIL_CLASS + ' ' + name);
 				_container.appendChild(rail);
 			}
 			
-			_thumb = utils.createElement('span', 'plthumb');
+			_thumb = utils.createElement('span', THUMB_CLASS);
 			_container.appendChild(_thumb);
 		}
 		

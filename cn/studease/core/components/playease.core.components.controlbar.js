@@ -12,8 +12,12 @@
 			SLIDER:  3
 		},
 		
-		OVERLAY_CLASS = 'pla-overlay',
-		TOOLTIP_ITEM_CLASS = 'pla-tooltip-item';
+		DEVIDER_CLASS = 'pe-devider',
+		LABEL_CLASS = 'pe-label',
+		BUTTON_CLASS = 'pe-button',
+		
+		OVERLAY_CLASS = 'pe-overlay',
+		TOOLTIP_ITEM_CLASS = 'pe-tooltip-item';
 	
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
@@ -92,7 +96,7 @@
 		}
 		
 		function _buildGroup(pos, elts) {
-			var group = utils.createElement('div', 'pl' + pos);
+			var group = utils.createElement('div', 'pe-' + pos);
 			
 			for (var i = 0; i < elts.length; i++) {
 				var element = _buildElement(elts[i], pos);
@@ -132,15 +136,13 @@
 		}
 		
 		function _buildDevider(name) {
-			var className = 'pldevider';
-			var element = utils.createElement('span', className);
+			var element = utils.createElement('span', DEVIDER_CLASS);
 			element.innerHTML = '/';
 			
 			return element;
 		}
 		
 		function _buildLabel(name) {
-			var className = 'pllabel pl' + name;
 			var text = '';
 			
 			switch (name) {
@@ -149,7 +151,6 @@
 					break;
 				case 'elapsed':
 				case 'duration':
-					className += ' plhidden';
 					text = '00:00';
 					break;
 				case 'devider':
@@ -159,7 +160,7 @@
 					break;
 			}
 			
-			var element = utils.createElement('span', className);
+			var element = utils.createElement('span', LABEL_CLASS + ' ' + name);
 			element.innerHTML = text;
 			
 			_labels[name] = element;
@@ -188,7 +189,7 @@
 				return null;
 			}
 			
-			var element = utils.createElement('span', 'plbutton pl' + name + (className ? ' ' + className : ''));
+			var element = utils.createElement('span', BUTTON_CLASS + ' ' + name + (className ? ' ' + className : ''));
 			element.name = name;
 			try {
 				element.addEventListener('click', _onButtonClick);

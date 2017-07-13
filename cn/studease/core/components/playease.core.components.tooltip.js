@@ -5,7 +5,7 @@
 		core = playease.core,
 		components = core.components,
 		
-		TOOLTIP_CLASS = 'pla-tooltip';
+		TOOLTIP_CLASS = 'pe-tooltip';
 	
 	components.tooltip = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.tooltip')),
