@@ -25,6 +25,7 @@
 			_bulletscreen,
 			_display,
 			_logo,
+			_contextmenu,
 			_renders,
 			_render,
 			_skin,
@@ -37,7 +38,7 @@
 		function _init() {
 			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + '-' + model.getConfig('skin').name + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
 			_wrapper.id = model.getConfig('id');
-			_wrapper.tabIndex = 0;
+			//_wrapper.tabIndex = 0;
 			
 			_renderLayer = utils.createElement('div', RENDER_CLASS);
 			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
@@ -47,22 +48,32 @@
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
+			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
+			
 			_initComponents();
 			_initRenders();
 			_initSkin();
 			
-			var replace = document.getElementById(model.getConfig('id'));
-			replace.parentNode.replaceChild(_wrapper, replace);
+			_wrapper.oncontextmenu = function(e) {
+				e = e || window.event;
+				e.preventDefault ? e.preventDefault() : e.returnValue = false;
+				return false;
+			};
 			
 			try {
-				_wrapper.addEventListener('keydown', _onKeyDown);
 				window.addEventListener('resize', _onResize);
+				_wrapper.addEventListener('keydown', _onKeyDown);
+				_wrapper.addEventListener('mousedown', _onMouseDown);
+				document.addEventListener('mousedown', _onMouseDown);
 			} catch (err) {
-				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				window.attachEvent('onresize', _onResize);
+				_wrapper.attachEvent('onkeydown', _onKeyDown);
+				_wrapper.attachEvent('onmousedown', _onMouseDown);
+				document.attachEvent('onmousedown', _onMouseDown);
 			}
 			
-			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
+			var replace = document.getElementById(model.getConfig('id'));
+			replace.parentNode.replaceChild(_wrapper, replace);
 		}
 		
 		function _modelStateHandler(e) {
@@ -147,6 +158,16 @@
 				_renderLayer.appendChild(_logo.element());
 			} catch (err) {
 				utils.log('Failed to init "logo" component!');
+			}
+			
+			// contextmenu
+			var ctxcfg = utils.extend({}, model.getConfig('contextmenu'));
+			
+			try {
+				_contextmenu = new components.contextmenu(_contextmenuLayer, ctxcfg);
+				_contextmenu.addGlobalListener(_forward);
+			} catch (err) {
+				utils.log('Failed to init "contextmenu" component!');
 			}
 		}
 		
@@ -485,6 +506,42 @@
 			}
 		}
 		
+		function _onMouseDown(e) {
+			if (!_contextmenu) {
+				return;
+			}
+			
+			if (e.currentTarget == undefined) {
+				for (var node = e.srcElement; node; node = node.offsetParent) {
+					if (node == _wrapper) {
+						e.currentTarget = _wrapper;
+						break;
+					}
+				}
+			}
+			
+			if (e.button == (utils.isMSIE(8) ? 1 : 0) || e.currentTarget != _wrapper) {
+				setTimeout(function() {
+					_contextmenu.hide();
+				}, 100);
+			} else if (e.button == 2) {
+				var offsetX = 0;
+				var offsetY = 0;
+				
+				for (var node = _wrapper; node; node = node.offsetParent) {
+					offsetX += node.offsetLeft;
+					offsetY += node.offsetTop;
+				}
+				
+				_contextmenu.show(e.clientX - offsetX, e.clientY - offsetY);
+				
+				e.preventDefault ? e.preventDefault() : e.returnValue = false;
+				e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
+				
+				return false;
+			}
+		}
+		
 		
 		_this.onSWFState = function(e) {
 			utils.log('onSWFState: ' + e.state);
@@ -528,9 +585,11 @@
 				}
 				
 				_controlbar.resize(width, height);
+				_poster.resize(width, height);
 				_bulletscreen.resize(width, height);
 				_logo.resize(width, height);
-				_poster.resize(width, height);
+				_contextmenu.resize(width, height);
+				
 				if (_render) {
 					_render.resize(width, height);
 				}
@@ -540,11 +599,11 @@
 		_this.destroy = function() {
 			if (_wrapper) {
 				try {
-					_wrapper.removeEventListener('keydown', _onKeyDown);
 					window.removeEventListener('resize', _onResize);
-				} catch (e) {
-					_wrapper.detachEvent('onkeydown', _onKeyDown);
+					_wrapper.removeEventListener('keydown', _onKeyDown);
+				} catch (err) {
 					window.detachEvent('onresize', _onResize);
+					_wrapper.detachEvent('onkeydown', _onKeyDown);
 				}
 			}
 			if (_render) {
