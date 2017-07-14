@@ -523,7 +523,6 @@
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li.' + FEATURED_CLASS + ' a', {
 				color: '#BDBDBD',
-				'font-weight': CSS_BOLD,
 				background: '#454545'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li.' + FEATURED_CLASS + ' a:hover', {
