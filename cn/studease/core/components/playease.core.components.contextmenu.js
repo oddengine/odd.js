@@ -13,8 +13,8 @@
 				items: []
 			},
 			_info = {
-				icon: 'http://studease.cn/images/favicon.ico',
-				text: 'Playease.js ' + playease.version,
+				icon: 'http://studease.cn/images/favicon.png',
+				text: 'Playease ' + playease.version,
 				link: 'http://studease.cn/playease',
 				target: '_blank'
 			},
@@ -57,7 +57,7 @@
 					a.insertAdjacentElement('afterbegin', span);
 					
 					css.style(span, {
-						background: 'url(' + item.icon + ') no-repeat center'
+						background: 'url(' + item.icon + ') no-repeat center left'
 					});
 				}
 				

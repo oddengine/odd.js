@@ -6895,7 +6895,6 @@ playease.version = '1.0.75';
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li.' + FEATURED_CLASS + ' a', {
 				color: '#BDBDBD',
-				'font-weight': CSS_BOLD,
 				background: '#454545'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li.' + FEATURED_CLASS + ' a:hover', {
@@ -8053,8 +8052,8 @@ playease.version = '1.0.75';
 				items: []
 			},
 			_info = {
-				icon: 'http://studease.cn/images/favicon.ico',
-				text: 'Playease.js ' + playease.version,
+				icon: 'http://studease.cn/images/favicon.png',
+				text: 'Playease ' + playease.version,
 				link: 'http://studease.cn/playease',
 				target: '_blank'
 			},
@@ -8097,7 +8096,7 @@ playease.version = '1.0.75';
 					a.insertAdjacentElement('afterbegin', span);
 					
 					css.style(span, {
-						background: 'url(' + item.icon + ') no-repeat center'
+						background: 'url(' + item.icon + ') no-repeat center left'
 					});
 				}
 				
