@@ -6890,6 +6890,7 @@ playease.version = '1.0.75';
 				display: CSS_BLOCK
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li a:hover', {
+				'text-decoration': CSS_NONE,
 				background: '#303030'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li.' + FEATURED_CLASS + ' a', {
@@ -6898,6 +6899,7 @@ playease.version = '1.0.75';
 				background: '#454545'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li.' + FEATURED_CLASS + ' a:hover', {
+				'text-decoration': CSS_NONE,
 				background: '#505050'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul li a span', {
