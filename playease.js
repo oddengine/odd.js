@@ -8925,15 +8925,7 @@ playease.version = '1.0.75';
 					_contextmenu.hide();
 				}, 100);
 			} else if (e.button == 2) {
-				var offsetX = 0;
-				var offsetY = 0;
-				
-				for (var node = _wrapper; node; node = node.offsetParent) {
-					offsetX += node.offsetLeft;
-					offsetY += node.offsetTop;
-				}
-				
-				_contextmenu.show(e.clientX - offsetX, e.clientY - offsetY);
+				_contextmenu.show(e.offsetX, e.offsetY);
 				
 				e.preventDefault ? e.preventDefault() : e.returnValue = false;
 				e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
