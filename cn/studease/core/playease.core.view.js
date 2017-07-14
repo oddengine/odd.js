@@ -525,7 +525,15 @@
 					_contextmenu.hide();
 				}, 100);
 			} else if (e.button == 2) {
-				_contextmenu.show(e.offsetX, e.offsetY);
+				var offsetX = 0;
+				var offsetY = 0;
+				
+				for (var node = e.srcElement; node && node != _wrapper; node = node.offsetParent) {
+					offsetX += node.offsetLeft;
+					offsetY += node.offsetTop;
+				}
+				
+				_contextmenu.show(e.offsetX + offsetX, e.offsetY + offsetY);
 				
 				e.preventDefault ? e.preventDefault() : e.returnValue = false;
 				e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
