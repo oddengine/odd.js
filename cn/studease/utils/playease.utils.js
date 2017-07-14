@@ -214,6 +214,37 @@
 		}
 	};
 	
+	utils.getFlashVersion = function() {
+		if (utils.isAndroid()) {
+			return 0;
+		}
+		
+		var plugins = navigator.plugins, flash;
+		if (plugins) {
+			flash = plugins['Shockwave Flash'];
+			if (flash && flash.description) {
+				var version = flash.description.replace(/\D+(\d+\.?\d*).*/, '$1');
+				return parseFloat(version);
+			}
+		}
+		
+		if (typeof window.ActiveXObject !== 'undefined') {
+			try {
+				flash = new window.ActiveXObject('ShockwaveFlash.ShockwaveFlash');
+				if (flash) {
+					var version = flash.GetVariable('$version').split(' ')[1].replace(/\s*,\s*/, '.')
+					return parseFloat(version);
+				}
+			} catch (err) {
+				return 0;
+			}
+			
+			return flash;
+		}
+		
+		return 0;
+	};
+	
 	
 	/* protocol & extension */
 	utils.getProtocol = function(url) {

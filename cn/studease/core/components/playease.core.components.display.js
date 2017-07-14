@@ -52,7 +52,7 @@
 		
 		function _startTimer() {
 			if (!_timer) {
-				_timer = new utils.timer(100);
+				_timer = new utils.timer(80);
 				_timer.addEventListener(events.PLAYEASE_TIMER, _rotateIcon);
 			}
 			_timer.start();
@@ -65,7 +65,7 @@
 		}
 		
 		function _rotateIcon(e) {
-			var angle = _timer.currentCount() * 45 % 360;
+			var angle = _timer.currentCount() * 30 % 360;
 			
 			css.style(_icon, {
 				filter: 'progid:DXImageTransform.Microsoft.BasicImage(rotation=' + angle * Math.PI / 180 + ')',
