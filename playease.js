@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.75';
+playease.version = '1.0.76';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4967,6 +4967,8 @@ playease.version = '1.0.75';
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
+			
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		};
 		
 		_this.mute = function(muted) {
@@ -5332,6 +5334,8 @@ playease.version = '1.0.75';
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
+			
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		};
 		
 		_this.mute = function(muted) {
@@ -5923,6 +5927,8 @@ playease.version = '1.0.75';
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
+			
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		};
 		
 		_this.mute = function(muted) {
