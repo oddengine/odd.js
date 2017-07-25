@@ -234,6 +234,8 @@
 			_video.removeAttribute('src');
 			_video.load();
 			_video.controls = false;
+			
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
 		};
 		
 		_this.mute = function(muted) {
