@@ -45,12 +45,6 @@
 		}
 		
 		_this.setup = function() {
-			var playlist = _this.config.playlist;
-			var item = playlist.getItemAt(playlist.index);
-			
-			_video.src = item.file;
-			_src = _video.src;
-			
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		};
 		

@@ -108,8 +108,6 @@
 				
 				url = item.file;
 				type = item.type;
-			} else {
-				_urgent = url;
 			}
 			
 			var render = core.renders[type];
@@ -123,6 +121,7 @@
 			
 			if (view.render.name != type) {
 				_ready = false;
+				_urgent = url;
 				view.activeRender(type);
 				return;
 			}
