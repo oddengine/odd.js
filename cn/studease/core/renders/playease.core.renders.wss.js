@@ -240,6 +240,18 @@
 			_src = '';
 			_waiting = true;
 			
+			if (_ms) {
+				if (_sb.audio) {
+					_ms.removeSourceBuffer(_sb.audio);
+				}
+				if (_sb.video) {
+					_ms.removeSourceBuffer(_sb.video);
+				}
+				
+				_sb.audio = null;
+				_sb.video = null;
+			}
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
