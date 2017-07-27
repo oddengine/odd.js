@@ -219,6 +219,9 @@
 			}
 			
 			if (_render) {
+				_render.stop();
+				_stopTimer();
+				
 				_render.removeEventListener(events.PLAYEASE_READY, _forward);
 				_render.removeEventListener(events.PLAYEASE_STATE, _forward);
 				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);

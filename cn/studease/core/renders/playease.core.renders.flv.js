@@ -224,6 +224,18 @@
 			_src = '';
 			_waiting = true;
 			
+			if (_ms) {
+				if (_sb.audio) {
+					_ms.removeSourceBuffer(_sb.audio);
+				}
+				if (_sb.video) {
+					_ms.removeSourceBuffer(_sb.video);
+				}
+				
+				_sb.audio = null;
+				_sb.video = null;
+			}
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
@@ -566,7 +578,7 @@
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isEdge() || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS()) {
 			return false;
 		}
 		

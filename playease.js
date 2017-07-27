@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.78';
+playease.version = '1.0.79';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -5318,6 +5318,18 @@ playease.version = '1.0.78';
 			_src = '';
 			_waiting = true;
 			
+			if (_ms) {
+				if (_sb.audio) {
+					_ms.removeSourceBuffer(_sb.audio);
+				}
+				if (_sb.video) {
+					_ms.removeSourceBuffer(_sb.video);
+				}
+				
+				_sb.audio = null;
+				_sb.video = null;
+			}
+			
 			_segments.audio = [];
 			_segments.video = [];
 			
@@ -5660,7 +5672,7 @@ playease.version = '1.0.78';
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isEdge() || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS()) {
 			return false;
 		}
 		
@@ -5914,6 +5926,18 @@ playease.version = '1.0.78';
 			
 			_src = '';
 			_waiting = true;
+			
+			if (_ms) {
+				if (_sb.audio) {
+					_ms.removeSourceBuffer(_sb.audio);
+				}
+				if (_sb.video) {
+					_ms.removeSourceBuffer(_sb.video);
+				}
+				
+				_sb.audio = null;
+				_sb.video = null;
+			}
 			
 			_segments.audio = [];
 			_segments.video = [];
@@ -8620,6 +8644,9 @@ playease.version = '1.0.78';
 			}
 			
 			if (_render) {
+				_render.stop();
+				_stopTimer();
+				
 				_render.removeEventListener(events.PLAYEASE_READY, _forward);
 				_render.removeEventListener(events.PLAYEASE_STATE, _forward);
 				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
