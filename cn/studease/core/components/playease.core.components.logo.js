@@ -20,7 +20,7 @@
 				file: '',
 				link: 'http://studease.cn/playease',
 				target: '_blank',
-				margin: '20px 30px 0 0',
+				margin: '3% 5%',
 				visible: true,
 				position: positions.TOP_RIGHT
 			},
