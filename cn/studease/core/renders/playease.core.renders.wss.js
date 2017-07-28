@@ -242,10 +242,18 @@
 			
 			if (_ms) {
 				if (_sb.audio) {
-					_ms.removeSourceBuffer(_sb.audio);
+					try {
+						_ms.removeSourceBuffer(_sb.audio);
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(audio): ' + err.toString());
+					}
 				}
 				if (_sb.video) {
-					_ms.removeSourceBuffer(_sb.video);
+					try {
+						_ms.removeSourceBuffer(_sb.video);
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(video): ' + err.toString());
+					}
 				}
 				
 				_sb.audio = null;
