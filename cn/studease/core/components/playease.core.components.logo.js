@@ -20,7 +20,7 @@
 				file: '',
 				link: 'http://studease.cn/playease',
 				target: '_blank',
-				margin: 20,
+				margin: '20px 30px 0 0',
 				visible: true,
 				position: positions.TOP_RIGHT
 			},
@@ -58,8 +58,7 @@
 			
 			var arr = _this.config.position.match(/([a-z]+)-([a-z]+)/i);
 			if (arr && arr.length > 2) {
-				style['margin-' + arr[1]] = _this.config.margin + 'px';
-				style['margin-' + arr[2]] = _this.config.margin + 'px';
+				style.margin = _this.config.margin;
 				style[arr[1]] = '0';
 				style[arr[2]] = '0';
 			}
