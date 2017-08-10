@@ -5,10 +5,17 @@
 		DEFAULT: 'def',
 		FLV:     'flv',
 		WSS:     'wss',
+		DASH:    'dash',
 		FLASH:   'flash'
 	},
 	
-	renders.priority = ['def', 'flv', 'wss', 'flash'],
+	renders.priority = [
+		renders.types.DEFAULT,
+		renders.types.FLV,
+		renders.types.WSS,
+		renders.types.DASH,
+		renders.types.FLASH
+	],
 	
 	renders.modes = {
 		LIVE: 'live',

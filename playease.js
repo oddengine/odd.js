@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.80';
+playease.version = '1.0.81';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -755,8 +755,9 @@ playease.version = '1.0.80';
 			}
 			utils.extend(data, {
 				id: _id,
-				version: playease.version,
-				type: type
+				type: type,
+				target: this,
+				version: playease.version
 			});
 			if (playease.debug) {
 				utils.log(type, data);
@@ -888,6 +889,724 @@ playease.version = '1.0.80';
 		
 		_this.running = function() {
 			return _running;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		
+		types = {
+			ELEMENT_NODE:       1,
+			TEXT_NODE:          3,
+			CDATA_SECTION_NODE: 4,
+			COMMENT_NODE:       8,
+			DOCUMENT_NODE:      9
+		};
+	
+	utils.xml2json = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('utils.xml2json')),
+			_defaults = {
+				ignoreRoot: true,
+				trimWhitespaces: false,
+				attributePrefix: '@',
+				matchers: []
+			};
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+		}
+		
+		_this.parse = function(str) {
+			var xml = null;
+			
+			if (window.DOMParser) {
+				var parser = new DOMParser();
+				
+				try {
+					xml = parser.parseFromString(str, 'text/xml');
+				} catch (err) {
+					utils.log('Failed to parse XML structure.');
+					return null;
+				}
+			} else {
+				if(str.indexOf('<?') == 0) {
+					str = str.substr(str.indexOf('?>') + 2);
+				}
+				
+				xml = new ActiveXObject('Microsoft.XMLDOM');
+				xml.async = 'false';
+				xml.loadXML(str);
+			}
+			
+			return _parseNode(xml);
+		};
+		
+		function _parseNode(node, path) {
+			var data = {};
+			
+			if (node.nodeType == types.DOCUMENT_NODE) {
+				for (var i = 0; i < node.childNodes.length; i++) {
+					var child = node.childNodes[i];
+					var name = _getNodeName(child);
+					
+					if (child.nodeType == types.ELEMENT_NODE) {
+						element = _parseNode(child);
+						element.parent = data;
+						
+						if (_this.config.ignoreRoot) {
+							delete element.parent;
+							data = element;
+						} else {
+							data[name] = element;
+						}
+					}
+				}
+				
+				return data;
+			}
+			
+			if (node.nodeType == types.ELEMENT_NODE) {
+				for (var i = 0; i < node.childNodes.length; i++) {
+					var child = node.childNodes[i];
+					var name = _getNodeName(child);
+					
+					if (child.nodeType == types.COMMENT_NODE) {
+						continue;
+					}
+					
+					var childPath = path + '.' + name;
+					var element = _parseNode(child, childPath);
+					element.parent = data;
+					
+					if (data.hasOwnProperty(name)) {
+						if (utils.typeOf(data[name]) != 'array') {
+							data[name] = [data[name]];
+						}
+						
+						data[name].push(element);
+					} else {
+						if (name != '#text' || /[^\s]/.test(element)) { // Don't add white-space text nodes
+							data[name] = element;
+						}
+					}
+				}
+				
+				// Attributes
+				var name = _getNodeName(node);
+				
+				// Node namespace prefix
+				if (node.prefix != null && node.prefix != '') {
+					name = node.prefix + ':' + name;
+				}
+				
+				for (var i = 0; i < node.attributes.length; i++) {
+					var attr = node.attributes[i];
+					var value = attr.value;
+					
+					for (var j = 0; j < _this.config.matchers.length; j++) {
+						var matcher = _this.config.matchers[j];
+						if (matcher.test(attr, name)) {
+							value = matcher.exec(attr.value);
+						}
+						
+						data[_this.config.attributePrefix + attr.name] = value;
+					}
+				}
+				
+				if (data['#text'] != null) {
+					if (_this.config.trimWhitespaces) {
+						data['#text'] = data['#text'].trim();
+					}
+				}
+				
+				if (data['#cdata-section'] != null) {
+					
+				}
+				
+				data.toString = function() {
+					return (this['#text'] == null ? '' : this['#text']) + (this['#cdata-section'] == null ? '' : this['#cdata-section']);
+				};
+				
+				return data;
+			}
+			
+			if (node.nodeType == types.TEXT_NODE || node.nodeType == types.CDATA_SECTION_NODE) {
+				return node.nodeValue;
+			}
+		}
+		
+		function _getNodeName(node) {
+			return node.localName || node.baseName || node.nodeName;
+    }
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils;
+	
+	utils.manifest = function(url) {
+		var _this = this,
+			_url,
+			_mpd,
+			_location,
+			_baseURL;
+		
+		function _init() {
+			_url = url || '';
+		}
+		
+		_this.update = function(mpd) {
+			// Location
+			_location = mpd.Location['#text'] || _url;
+			
+			// BaseURL
+			_baseURL = mpd.BaseURL || _location.substring(0, _location.lastIndexOf('/') + 1);
+			
+			if (mpd['@type'] == 'dynamic') {
+				_updatePeriod(mpd, _mpd);
+			}
+			
+			_mpd = mpd;
+		};
+		
+		function _updatePeriod(newMpd, oldMpd) {
+			var start = 0;
+			var duration = NaN;
+			
+			if (utils.typeOf(newMpd.Period) != 'array') {
+				newMpd.Period = [newMpd.Period];
+			}
+			
+			for (var i = 0; i < newMpd.Period.length; i++) {
+				var newPeriod = newMpd.Period[i];
+				
+				if (newPeriod.hasOwnProperty('@start')) {
+					start = newPeriod['@start'];
+				} else if (!isNaN(duration)) {
+					start += duration;
+				} else if (i == 0) {
+					if (newMpd['@type'] == 'dynamic') {
+						// TODO: Early Available Period
+					} else { // default: static
+						start = 0;
+					}
+				}
+				
+				if (newPeriod.hasOwnProperty('@duration')) {
+					duration = newPeriod['@duration'];
+				}
+				
+				newPeriod['@start'] = start;
+				newPeriod['@duration'] = duration;
+				
+				var oldPeriod = _getPeriod(oldMpd, newPeriod);
+				_updateAdaptationSet(newPeriod, oldPeriod);
+			}
+		}
+		
+		function _updateAdaptationSet(newPeriod, oldPeriod) {
+			for (var i = 0; i < newPeriod.AdaptationSet.length; i++) {
+				var newAdaptationSet = newPeriod.AdaptationSet[i];
+				var oldAdaptationSet = _getAdaptationSet(oldPeriod, newAdaptationSet);
+				_updateSegments(newAdaptationSet, oldAdaptationSet);
+			}
+		}
+		
+		function _updateSegments(newAdaptationSet, oldAdaptationSet) {
+			var oldT = 0;
+			var newT = 0;
+			var newS = [];
+			
+			if (newAdaptationSet.SegmentTemplate.hasOwnProperty('SegmentTimeline') == false) {
+				return;
+			}
+			
+			if (oldAdaptationSet) {
+				var oldSegmentTimeline = oldAdaptationSet.SegmentTemplate.SegmentTimeline;
+				if (utils.typeOf(oldSegmentTimeline.S) != 'array') {
+					oldSegmentTimeline.S = [oldSegmentTimeline.S];
+				}
+				
+				for (var i = 0; i < oldSegmentTimeline.S.length; i++) {
+					var s = oldSegmentTimeline.S[i];
+					
+					if (i == 0 && s.hasOwnProperty('@t')) {
+						oldT = s['@t'];
+					}
+					
+					oldT += s['@d'];
+					if (s['@r']) {
+						oldT += s['@d'] * s['@r'];
+					}
+					
+					newS.push(utils.extend({}, s));
+				}
+			}
+			
+			var newSegmentTimeline = newAdaptationSet.SegmentTemplate.SegmentTimeline;
+			if (utils.typeOf(newSegmentTimeline.S) != 'array') {
+				newSegmentTimeline.S = [newSegmentTimeline.S];
+			}
+			
+			for (var i = 0; i < newSegmentTimeline.S.length; i++) {
+				var s = newSegmentTimeline.S[i];
+			
+				if (i == 0 && s.hasOwnProperty('@t')) {
+					newT = s['@t'];
+				}
+				
+				if (newT >= oldT) {
+					newS.push(s);
+				}
+				
+				newT += s['@d'];
+				if (s['@r']) {
+					newT += s['@d'] * s['@r'];
+				}
+			}
+		}
+		
+		function _getPeriod(mpd, reference) {
+			if (!mpd) {
+				return undefined;
+			}
+			
+			for (var i = 0; i < mpd.Period.length; i++) {
+				var period = mpd.Period[i];
+				
+				if (period.hasOwnProperty('@id')) {
+					if (period['@id'] === reference['@id']) {
+						return period;
+					}
+				} else if (period.hasOwnProperty('@start')) {
+					if (period['@start'] === reference['@start']) {
+						return period;
+					}
+				} else {
+					return period; // Just return the first one.
+				}
+			}
+			
+			return undefined;
+		}
+		
+		function _getAdaptationSet(period, reference) {
+			if (!period) {
+				return undefined;
+			}
+			
+			for (var i = 0; i < period.AdaptationSet.length; i++) {
+				var adaptationSet = period.AdaptationSet[i];
+				
+				if (adaptationSet.hasOwnProperty('@id')) {
+					if (adaptationSet['@id'] === reference['@id']) {
+						return adaptationSet;
+					}
+				} else if (adaptationSet.hasOwnProperty('@contentType')) {
+					if (adaptationSet['@contentType'] === reference['@contentType']) {
+						return adaptationSet;
+					}
+				} else if (adaptationSet.hasOwnProperty('@mimeType')) {
+					if (adaptationSet['@mimeType'] === reference['@mimeType']) {
+						return adaptationSet;
+					}
+				} else if (adaptationSet.hasOwnProperty('@codecs')) {
+					if (adaptationSet['@codecs'] === reference['@codecs']) {
+						return adaptationSet;
+					}
+				} else {
+					// Can't get content type straightly.
+					// TODO: Recognize @width, @height, @sar, @frameRate, etc. as video AdaptationSet.
+					break;
+				}
+			}
+			
+			return undefined;
+		}
+		
+		_this.getSegmentInfo = function(time, type, isInitSegment, start, index, bandwidth) {
+			var period = _getPeriodByTime(time);
+			var adaptationSet = _getAdaptationSetByType(period, type);
+			if (!adaptationSet) {
+				return undefined;
+			}
+			
+			var representation = _getRepresentationByBandwidth(adaptationSet, bandwidth);
+			if (!representation) {
+				return undefined;
+			}
+			
+			var segmentTemplate = adaptationSet.SegmentTemplate;
+			
+			var url = segmentTemplate[isInitSegment ? '@initialization' : '@media'];
+			var timescale = segmentTemplate['@timescale'] || 1;
+			var duration = segmentTemplate['@duration'] || 0;
+			
+			url = url.replace(/\$RepresentationID\$/, representation['@id']);
+			
+			if (segmentTemplate['@media'].search(/\$Time\$/)) {
+				var s, segmentTimeline = segmentTemplate.SegmentTimeline;
+				if (isInitSegment) {
+					if (start > 0 || start == 0 && _mpd.hasOwnProperty('@suggestedPresentationDelay') == false) {
+						start = segmentTimeline.S[0]['@t'];
+					} else {
+						var delay = Math.abs(delay) || _mpd['@suggestedPresentationDelay'];
+						s = _getSegmentByDelay(segmentTimeline, delay * timescale);
+						if (s) {
+							start = s['@t'];
+							duration = s['@d'];
+						} else {
+							start = segmentTimeline.S[0]['@t'];
+						}
+					}
+				} else {
+					s = _getSegmentByTime(segmentTimeline, start);
+					if (s === undefined) {
+						return undefined;
+					}
+					
+					start = s['@t'];
+					duration = s['@d'];
+					
+					url = url.replace(/\$Time\$/, start);
+				}
+			}
+			
+			if (segmentTemplate['@media'].search(/\$Number\$/)) {
+				if (isInitSegment) {
+					index = segmentTemplate['@startNumber'];
+				} else {
+					url = url.replace(/\$Number\$/, index);
+				}
+			}
+			
+			var baseURL = representation.baseURL || adaptationSet.baseURL || period.baseURL;
+			url = (baseURL ? baseURL['#text'] : _baseURL) + url;
+			
+			return {
+				mimeType: representation['@mimeType'] || adaptationSet['@mimeType'],
+				codecs: representation['@codecs'] || adaptationSet['@codecs'],
+				index: index,
+				start: start,
+				duration: duration,
+				timescale: timescale,
+				url: url
+			};
+		};
+		
+		function _getPeriodByTime(time) {
+			var element = _mpd.Period[0];
+			
+			for (var i = 0; i < _mpd.Period.length; i++) {
+				var period = _mpd.Period[i];
+				
+				if (period.hasOwnProperty('@start')) {
+					if (period['@start'] > element['@start'] && period['@start'] <= time) {
+						element = period;
+					}
+				} else {
+					break; // Just return the first one.
+				}
+			}
+			
+			return element;
+		}
+		
+		function _getAdaptationSetByType(period, type) {
+			for (var i = 0; i < period.AdaptationSet.length; i++) {
+				var adaptationSet = period.AdaptationSet[i];
+				
+				if (adaptationSet.hasOwnProperty('@contentType')) {
+					if (adaptationSet['@contentType'] == type) {
+						return adaptationSet;
+					}
+				} else if (adaptationSet.hasOwnProperty('@mimeType')) {
+					var arr = adaptationSet['@mimeType'].match(/^([a-z]+)\/[a-z0-9]+/i);
+					if (arr && arr.length > 1 && arr[1] == type) {
+						return adaptationSet;
+					}
+				}
+			}
+			
+			return undefined;
+		}
+		
+		function _getRepresentationByBandwidth(adaptationSet, bandwidth) {
+			if (utils.typeOf(adaptationSet.Representation) != 'array') {
+				adaptationSet.Representation = [adaptationSet.Representation];
+			}
+			
+			var element = adaptationSet.Representation[0];
+			
+			for (var i = 0; i < adaptationSet.Representation.length; i++) {
+				var representation = adaptationSet.Representation[i];
+				if (representation['@bandwidth'] > element['@bandwidth'] && (!bandwidth || representation['@bandwidth'] <= bandwidth)) {
+					element = representation;
+				}
+			}
+			
+			return element;
+		}
+		
+		function _getSegmentByDelay(segmentTimeline, delay) {
+			for (var i = segmentTimeline.S.length - 1; i >= 0; i--) {
+				var s = segmentTimeline.S[i];
+				
+				delay -= s['@d'] * (s['@r'] || 1);
+				if (delay <= 0) {
+					var t = segmentTimeline.S[0]['@t'];
+					
+					for (var j = 0; j < i; j++) {
+						t += segmentTimeline.S[j]['@d'];
+						if (s['@r']) {
+							t += s['@d'] * s['@r'];
+						}
+					}
+					
+					s['@t'] = t;
+					
+					return s;
+				}
+			}
+			
+			return segmentTimeline.S[0];
+		}
+		
+		function _getSegmentByTime(segmentTimeline, start) {
+			var t = NaN;
+			
+			for ( ; segmentTimeline.S.length; ) {
+				var s = segmentTimeline.S.shift();
+				
+				if (isNaN(t)) {
+					t = s['@t'];
+				}
+				
+				if (t + s['@d'] * (s['@r'] || 0) >= start) {
+					s['@t'] = t;
+					
+					if (segmentTimeline.S.length) {
+						segmentTimeline.S[0]['@t'] = s['@t'] + s['@d'];
+					}
+					
+					return s;
+				}
+				
+				t += s['@d'];
+				if (s['@r']) {
+					t += s['@d'] * s['@r'];
+				}
+			}
+			
+			return undefined;
+		}
+		
+		_this.getLocation = function() {
+			return _location;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	playease.utils.matchers = {};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		matchers = utils.matchers,
+		
+		datetimeRegex = /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2})(?::([0-9]*)(\.[0-9]*)?)?(?:([+-])([0-9]{2})(?::?)([0-9]{2}))?/,
+		
+		MINUTES_IN_HOUR = 60,
+		SECONDS_IN_MINUTE = 60,
+		MILLISECONDS_IN_SECOND = 1000;
+	
+	matchers.datetime = function() {
+		var _this = this;
+		
+		function _init() {
+			
+		}
+		
+		_this.test = function(attr) {
+			return datetimeRegex.test(attr.value);
+		};
+		
+		_this.exec = function(str) {
+			var match = datetimeRegex.exec(str);
+			var utcDate;
+			
+			// If the string does not contain a timezone offset, different browsers can interpret it either as UTC or as a local time,
+			// so we have to parse the string manually to normalize the given date value for all browsers.
+			utcDate = Date.UTC(
+				parseInt(match[1], 10),
+				parseInt(match[2], 10) - 1, // months start from zero
+				parseInt(match[3], 10),
+				parseInt(match[4], 10),
+				parseInt(match[5], 10),
+				(match[6] && parseInt(match[6], 10) || 0),
+				(match[7] && parseFloat(match[7]) * MILLISECONDS_IN_SECOND) || 0
+			);
+			
+			// If the date has timezone offset take it into account as well
+			if (match[9] && match[10]) {
+				var timezoneOffset = parseInt(match[9], 10) * MINUTES_IN_HOUR + parseInt(match[10], 10);
+				utcDate += (match[8] === '+' ? -1 : +1) * timezoneOffset * SECONDS_IN_MINUTE * MILLISECONDS_IN_SECOND;
+			}
+			
+			return new Date(utcDate);
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		matchers = utils.matchers,
+		
+		durationRegex = /^([-])?P(([\d.]*)Y)?(([\d.]*)M)?(([\d.]*)D)?T?(([\d.]*)H)?(([\d.]*)M)?(([\d.]*)S)?/,
+		
+		SECONDS_IN_YEAR  = 365 * 24 * 60 * 60,
+		SECONDS_IN_MONTH =  30 * 24 * 60 * 60,
+		SECONDS_IN_DAY   =       24 * 60 * 60,
+		SECONDS_IN_HOUR  =            60 * 60,
+		SECONDS_IN_MIN   =                 60,
+		
+		attributes = [
+			'minBufferTime', 'mediaPresentationDuration',
+			'minimumUpdatePeriod', 'timeShiftBufferDepth', 'maxSegmentDuration',
+			'maxSubsegmentDuration', 'suggestedPresentationDelay', 'start',
+			'starttime', 'duration'
+		];
+	
+	matchers.duration = function() {
+		var _this = this;
+		
+		function _init() {
+			
+		}
+		
+		_this.test = function(attr) {
+			for (var i = 0; i < attributes.length; i++) {
+				if (_getNodeName(attr) === attributes[i]) {
+					return durationRegex.test(attr.value);
+				}
+			}
+			
+			return false;
+		};
+		
+		_this.exec = function(str) { // str = "P10Y10M10DT10H10M10.1S";
+			var match = durationRegex.exec(str);
+			var value = parseFloat(match[2] || 0) * SECONDS_IN_YEAR + parseFloat(match[4] || 0) * SECONDS_IN_MONTH + parseFloat(match[6] || 0) * SECONDS_IN_DAY +
+					parseFloat(match[8] || 0) * SECONDS_IN_HOUR + parseFloat(match[10] || 0) * SECONDS_IN_MIN + parseFloat(match[12] || 0);
+			
+			if (match[1] !== undefined) {
+				value *= -1;
+			}
+			
+			return value;
+		};
+		
+		function _getNodeName(node) {
+			return node.localName || node.baseName || node.nodeName;
+    }
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		matchers = utils.matchers,
+		
+		numericRegex = /^[-+]?[0-9]+[.]?[0-9]*([eE][-+]?[0-9]+)?$/;
+	
+	matchers.numeric = function() {
+		var _this = this;
+		
+		function _init() {
+			
+		}
+		
+		_this.test = function(attr) {
+			return numericRegex.test(attr.value);
+		};
+		
+		_this.exec = function(str) {
+			return parseFloat(str);
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		matchers = utils.matchers,
+		
+		attributes = {
+			'MPD':                        [ 'id', 'profiles' ],
+			'Period':                     [ 'id' ],
+			'BaseURL':                    [ 'serviceLocation', 'byteRange' ],
+			'SegmentBase':                [ 'indexRange' ],
+			'Initialization':             [ 'range' ],
+			'RepresentationIndex':        [ 'range' ],
+			'SegmentList':                [ 'indexRange' ],
+			'BitstreamSwitching':         [ 'range' ],
+			'SegmentURL':                 [ 'mediaRange', 'indexRange' ],
+			'SegmentTemplate':            [ 'indexRange', 'media', 'index', 'initialization', 'bitstreamSwitching' ],
+			'AssetIdentifier':            [ 'value', 'id' ],
+			'EventStream':                [ 'value' ],
+			'AdaptationSet':              [ 'profiles', 'mimeType', 'segmentProfiles', 'codecs', 'contentType' ],
+			'FramePacking':               [ 'value', 'id' ],
+			'AudioChannelConfiguration':  [ 'value', 'id' ],
+			'ContentProtection':          [ 'value', 'id' ],
+			'EssentialProperty':          [ 'value', 'id' ],
+			'SupplementalProperty':       [ 'value', 'id' ],
+			'InbandEventStream':          [ 'value', 'id' ],
+			'Accessibility':              [ 'value', 'id' ],
+			'Role':                       [ 'value', 'id' ],
+			'Rating':                     [ 'value', 'id' ],
+			'Viewpoint':                  [ 'value', 'id' ],
+			'ContentComponent':           [ 'contentType' ],
+			'Representation':             [ 'id', 'dependencyId', 'mediaStreamStructureId' ],
+			'Subset':                     [ 'id' ],
+			'Metrics':                    [ 'metrics' ],
+			'Reporting':                  [ 'value', 'id' ]
+		};
+	
+	matchers.string = function() {
+		var _this = this;
+		
+		function _init() {
+			
+		}
+		
+		_this.test = function(attr, name) {
+			if (attributes.hasOwnProperty(name)) {
+				var attrNames = attributes[name];
+				if (attrNames !== undefined) {
+					return attrNames.indexOf(attr.name) >= 0;
+				} else {
+					return false;
+				}
+			}
+			
+			return false;
+		};
+		
+		_this.exec = function(str) {
+			return String(str);
 		};
 		
 		_init();
@@ -1529,7 +2248,13 @@ playease.version = '1.0.80';
 		redirects = io.redirects,
 		readystates = io.readystates,
 		
-		CHUNK_SIZE = 2 * 1024 * 1024;
+		responseTypes = {
+			ARRAYBUFFER: 'arraybuffer',
+			BLOB:        'blob',
+			DOCUMENT:    'document',
+			JSON:        'json',
+			TEXT:        'text'
+		};
 	
 	io['xhr-chunked-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
@@ -1539,12 +2264,15 @@ playease.version = '1.0.80';
 				mode: modes.CORS,
 				credentials: credentials.OMIT,
 				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				redirect: redirects.FOLLOW,
+				chunkSize: 0,
+				responseType: responseTypes.TEXT
 			},
 			_state,
 			_url,
 			_xhr,
-			_range;
+			_range,
+			_filesize;
 		
 		function _init() {
 			_this.name = io.types.XHR_CHUNKED_LOADER;
@@ -1553,6 +2281,7 @@ playease.version = '1.0.80';
 			
 			_state = readystates.UNINITIALIZED;
 			_range = { start: 0, end: '', position: 0 };
+			_filesize = Number.MAX_VALUE;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -1565,7 +2294,7 @@ playease.version = '1.0.80';
 			
 			_xhr = new XMLHttpRequest();
 			_xhr.open(_this.config.method, _url, true);
-			_xhr.responseType = 'arraybuffer';
+			_xhr.responseType = _this.config.responseType;
 			_xhr.onreadystatechange = _onXHRReadyStateChange;
 			_xhr.onprogress = _onXHRProgress;
 			_xhr.onload = _onXHRLoad;
@@ -1575,9 +2304,11 @@ playease.version = '1.0.80';
 				_range.start = start;
 				_range.end = end;
 			}
-			utils.extend(_this.config.headers, {
-				Range: 'bytes=' + _range.position + '-' + (_range.position + CHUNK_SIZE - 1)
-			});
+			if (_range.start || _range.end || _this.config.chunkSize) {
+				utils.extend(_this.config.headers, {
+					Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+				});
+			}
 			
 			utils.foreach(_this.config.headers, function(key, value) {
 				_xhr.setRequestHeader(key, value);
@@ -1602,33 +2333,7 @@ playease.version = '1.0.80';
 			
 			if (_xhr.readyState == readystates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
-					var len = _xhr.getResponseHeader('Content-Length');
-					if (len) {
-						len = parseInt(len);
-					}
 					
-					if (_xhr.status == 206) {
-						var range = _xhr.getResponseHeader('Content-Range');
-						if (range) {
-							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
-							if (arr && arr.length > 3) {
-								if (arr[1] == _range.position && arr[2] == _range.position + CHUNK_SIZE - 1) {
-									_range.position += CHUNK_SIZE;
-									
-									utils.extend(_this.config.headers, {
-										Range: 'bytes=' + _range.position + '-' + (_range.position + CHUNK_SIZE - 1)
-									});
-									
-									_xhr.setRequestHeader('Range', _this.config.headers.Range);
-									_xhr.send();
-								}
-								
-								len = parseInt(arr[3]);
-							}
-						}
-					}
-					
-					_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
@@ -1640,12 +2345,44 @@ playease.version = '1.0.80';
 		}
 		
 		function _onXHRLoad(e) {
-			var data = new Uint8Array(_xhr.response);
-			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data.buffer });
+			var data, len;
 			
-			if (e.loaded == e.total) {
-				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+			switch (_xhr.responseType) {
+				case responseTypes.ARRAYBUFFER:
+					var arr = new Uint8Array(_xhr.response);
+					data = arr.buffer;
+					len = data.byteLength;
+					break;
+					
+				case responseTypes.BLOB:
+					// TODO: read blob.
+					break;
+					
+				default:
+					data = _xhr.response;
+					len = data.length;
+					break;
 			}
+			
+			_range.position = len;
+			_filesize = len;
+			_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
+			
+			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
+			
+			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
+			if (_range.position > end) {
+				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+				return;
+			}
+			
+			utils.extend(_this.config.headers, {
+				Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+			});
+			
+			_xhr.open(_this.config.method, _url, true);
+			_xhr.setRequestHeader('Range', _this.config.headers.Range);
+			_xhr.send();
 		}
 		
 		function _onXHRError(e) {
@@ -4839,10 +5576,17 @@ playease.version = '1.0.80';
 		DEFAULT: 'def',
 		FLV:     'flv',
 		WSS:     'wss',
+		DASH:    'dash',
 		FLASH:   'flash'
 	},
 	
-	renders.priority = ['def', 'flv', 'wss', 'flash'],
+	renders.priority = [
+		renders.types.DEFAULT,
+		renders.types.FLV,
+		renders.types.WSS,
+		renders.types.DASH,
+		renders.types.FLASH
+	],
 	
 	renders.modes = {
 		LIVE: 'live',
@@ -4940,7 +5684,7 @@ playease.version = '1.0.80';
 		};
 		
 		_this.seek = function(offset) {
-			if (_video.duration === NaN) {
+			if (isNaN(_video.duration)) {
 				_this.play();
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
@@ -5300,7 +6044,7 @@ playease.version = '1.0.80';
 		};
 		
 		_this.seek = function(offset) {
-			if (_video.duration === NaN) {
+			if (isNaN(_video.duration)) {
 				_this.play();
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
@@ -5592,6 +6336,10 @@ playease.version = '1.0.80';
 				end = ranges.end(i);
 				if (/*start <= position && */position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+				}
+				
+				if (i == 0 && position < start) {
+					_video.currentTime = start;
 				}
 			}
 			
@@ -5910,7 +6658,7 @@ playease.version = '1.0.80';
 		};
 		
 		_this.seek = function(offset) {
-			if (_video.duration === NaN) {
+			if (isNaN(_video.duration)) {
 				_this.play();
 			} else {
 				if (_stream) {
@@ -6115,6 +6863,10 @@ playease.version = '1.0.80';
 				if (/*start <= position && */position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
 				}
+				
+				if (i == 0 && position < start) {
+					_video.currentTime = start;
+				}
 			}
 			
 			if (_waiting && end - position >= _this.config.bufferTime) {
@@ -6220,6 +6972,642 @@ playease.version = '1.0.80';
 		}
 		
 		return false;
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		css = utils.css,
+		//filekeeper = utils.filekeeper,
+		events = playease.events,
+		matchers = utils.matchers,
+		io = playease.io,
+		readystates = io.readystates,
+		priority = io.priority,
+		muxer = playease.muxer,
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		rendertypes = renders.types,
+		rendermodes = renders.modes,
+		
+		fragmentTypes = {
+			INIT_SEGMENT: 0,
+			SEGMENT:      1
+		},
+		
+		request = function(type) {
+			var _this = this;
+			
+			function _init() {
+				_this.type = type;
+				_this.reset();
+			}
+			
+			_this.reset = function() {
+				_this.fragmentType = fragmentTypes.INIT_SEGMENT;
+				_this.mimeType = type + '/mp4';
+				_this.codecs = type == 'video' ? 'avc1.64001e' : 'mp4a.40.2';
+				_this.index = NaN;
+				_this.start = 0;
+				_this.duration = NaN;
+				_this.timescale = 1;
+				_this.url = '';
+			};
+			
+			_init();
+		};
+	
+	renders.dash = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.dash')),
+			_defaults = {
+				audioOnly: false
+			},
+			_video,
+			_url,
+			_src,
+			_loader,
+			_timer,
+			_parser,
+			_manifest,
+			_range,
+			_contentLength,
+			_ms,
+			_sb,
+			_mpd,
+			_segments,
+			//_fileindex,
+			//_filekeeper,
+			_waiting,
+			_endOfStream = false;
+		
+		function _init() {
+			_this.name = rendertypes.DASH;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_url = '';
+			_src = '';
+			_contentLength = 0;
+			_waiting = true;
+			
+			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			
+			_sb = { audio: null, video: null };
+			_segments = { audio: [], video: [] };
+			
+			_video = utils.createElement('video');
+			if (_this.config.airplay) {
+				_video.setAttribute('x-webkit-airplay', 'allow');
+			}
+			if (_this.config.playsinline) {
+				_video.setAttribute('playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('webkit-playsinline', '');
+			}
+			_video.preload = 'none';
+			
+			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
+			_video.addEventListener('playing', _onPlaying);
+			_video.addEventListener('pause', _onPause);
+			_video.addEventListener('ended', _onEnded);
+			_video.addEventListener('error', _onError);
+			/*
+			_fileindex = 0;
+			_filekeeper = new filekeeper();
+			*/
+			_initMSE();
+		}
+		
+		function _initLoader() {
+			if (_loader && _videoloader && _audioloader) {
+				return;
+			}
+			
+			var name = 'xhr-chunked-loader';
+			
+			try {
+				_loader = new io[name](_this.config.loader);
+				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_loader.addEventListener(events.ERROR, _onLoaderError);
+				
+				utils.log('"' + name + '" for MPD files initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '" for MPD files!');
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+				return;
+			}
+			
+			try {
+				_audioloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_audioloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_audioloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_audioloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_audioloader.addEventListener(events.ERROR, _onLoaderError);
+				_audioloader.request = new request('audio');
+				
+				utils.log('"' + name + '" for audio segments initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '" audio segments!');
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+				return;
+			}
+			
+			try {
+				_videoloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_videoloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_videoloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_videoloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_videoloader.addEventListener(events.ERROR, _onLoaderError);
+				_videoloader.request = new request('video');
+				
+				utils.log('"' + name + '" for video segments initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '" video segments!');
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+				return;
+			}
+		}
+		
+		function _initParser() {
+			if (!_parser) {
+				_parser = new utils.xml2json({
+					matchers: [
+						new matchers.duration(),
+						new matchers.datetime(),
+						new matchers.numeric(),
+						new matchers.string()
+					]
+				});
+			}
+		}
+		
+		function _initManifest() {
+			if (!_manifest) {
+				_manifest = new utils.manifest(_url);
+			}
+		}
+		
+		function _initMSE() {
+			window.MediaSource = window.MediaSource || window.WebKitMediaSource;
+			
+			_ms = new MediaSource();
+			_ms.addEventListener('sourceopen', _onMediaSourceOpen);
+			_ms.addEventListener('sourceended', _onMediaSourceEnded);
+			_ms.addEventListener('sourceclose', _onMediaSourceClose);
+			_ms.addEventListener('error', _onMediaSourceError);
+			
+			_ms.addEventListener('webkitsourceopen', _onMediaSourceOpen);
+			_ms.addEventListener('webkitsourceended', _onMediaSourceEnded);
+			_ms.addEventListener('webkitsourceclose', _onMediaSourceClose);
+			_ms.addEventListener('webkiterror', _onMediaSourceError);
+		}
+		
+		_this.setup = function() {
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+		};
+		
+		_this.play = function(url) {
+			if (!_video.src || _video.src !== _src || url && url != _url) {
+				if (url && url != _url) {
+					if (!renders.dash.isSupported(url)) {
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
+						return;
+					}
+					
+					_url = url;
+				}
+				
+				_waiting = true;
+				
+				_segments.audio = [];
+				_segments.video = [];
+				
+				_initLoader();
+				_audioloader.request.reset();
+				_videoloader.request.reset();
+				
+				_stopTimer();
+				
+				_video.src = URL.createObjectURL(_ms);
+				_video.load();
+				
+				_src = _video.src;
+			}
+			
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(e) { /* void */ });
+			}
+			
+			_video.controls = false;
+		};
+		
+		_this.pause = function() {
+			_waiting = false;
+			
+			_video.pause();
+			_video.controls = false;
+		};
+		
+		_this.reload = function() {
+			_this.stop();
+			_this.play(_url);
+		};
+		
+		_this.seek = function(offset) {
+			if (isNaN(_video.duration)) {
+				_this.play();
+			} else {
+				_video.currentTime = offset * _video.duration / 100;
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
+			}
+			
+			_video.controls = false;
+		};
+		
+		_this.stop = function() {
+			_src = '';
+			_waiting = true;
+			
+			if (_ms) {
+				if (_sb.audio) {
+					try {
+						_ms.removeSourceBuffer(_sb.audio);
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(audio): ' + err.toString());
+					}
+				}
+				if (_sb.video) {
+					try {
+						_ms.removeSourceBuffer(_sb.video);
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(video): ' + err.toString());
+					}
+				}
+				
+				_sb.audio = null;
+				_sb.video = null;
+			}
+			
+			_segments.audio = [];
+			_segments.video = [];
+			
+			if (_loader) {
+				_loader.abort();
+			}
+			if (_audioloader) {
+				_audioloader.abort();
+				_audioloader.request.reset();
+			}
+			if (_videoloader) {
+				_videoloader.abort();
+				_videoloader.request.reset();
+			}
+			
+			_stopTimer();
+			
+			_video.removeAttribute('src');
+			_video.load();
+			_video.controls = false;
+			
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
+		};
+		
+		_this.mute = function(muted) {
+			_video.muted = muted;
+		};
+		
+		_this.volume = function(vol) {
+			_video.volume = vol / 100;
+		};
+		
+		_this.hd = function(index) {
+			
+		};
+		
+		/**
+		 * Loader
+		 */
+		function _onContenLength(e) {
+			var request = e.target.request;
+			if (request) {
+				if (_mpd['@profiles'] == 'urn:mpeg:dash:profile:isoff-on-demand:2011') {
+					utils.log('onContenLength: ' + e.length);
+					_contentLength += e.length;
+				}
+			}
+		}
+		
+		function _onLoaderProgress(e) {
+			var request = e.target.request;
+			if (request) {
+				if (request.fragmentType == fragmentTypes.INIT_SEGMENT) {
+					_this.appendInitSegment(request.type, e.data);
+					request.fragmentType = fragmentTypes.SEGMENT;
+				} else {
+					e.data.info = e.info;
+					
+					_segments[request.type].push(e.data);
+					_this.appendSegment(request.type);
+					
+					request.index++;
+					request.start += request.duration;
+				}
+				
+				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+				if (segmentInfo) {
+					utils.extend(request, segmentInfo);
+					
+					var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
+					segmentLoader.load(request.url);
+					
+					return;
+				}
+				
+				if (_loader.state() == readystates.UNINITIALIZED || _loader.state() == readystates.DONE) {
+					_loader.load(_manifest.getLocation());
+				}
+				
+				return;
+			}
+			
+			_initParser();
+			_initManifest();
+			
+			_mpd = _parser.parse(e.data);
+			_manifest.update(_mpd);
+			
+			if (_audioloader.state() == readystates.UNINITIALIZED || _audioloader.state() == readystates.DONE) {
+				var request = _audioloader.request;
+				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+				if (segmentInfo) {
+					utils.extend(request, segmentInfo);
+					_audioloader.load(request.url);
+				}
+			}
+			
+			if (_videoloader.state() == readystates.UNINITIALIZED || _videoloader.state() == readystates.DONE) {
+				var request = _videoloader.request;
+				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+				if (segmentInfo) {
+					utils.extend(request, segmentInfo);
+					_videoloader.load(request.url);
+				}
+			}
+			
+			_startTimer(_mpd['@minBufferTime'] * 1000);
+		}
+		
+		function _onLoaderComplete(e) {
+			//utils.log('onLoaderComplete');
+		}
+		
+		function _onLoaderError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
+		}
+		
+		function _startTimer(delay) {
+			if (!_timer) {
+				_timer = new utils.timer(delay);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _loadManifest);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		function _loadManifest() {
+			_loader.load(_manifest.getLocation());
+		}
+		
+		/**
+		 * MSE
+		 */
+		_this.appendInitSegment = function(type, seg) {
+			var request = type == 'audio' ? _audioloader.request : _videoloader.request;
+			var mimetype = request.mimeType + '; codecs="' + request.codecs + '"';
+			utils.log('Mime type: ' + mimetype + '.');
+			
+			var issurpported = MediaSource.isTypeSupported(mimetype);
+			if (!issurpported) {
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Mime type is not surpported: ' + mimetype + '.' });
+				return;
+			}
+			
+			if (_ms.readyState == 'closed') {
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource is closed while appending init segment.' });
+				return;
+			}
+			
+			var sb;
+			try {
+				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			} catch (err) {
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
+				return;
+			}
+			
+			sb.type = type;
+			sb.addEventListener('updateend', _onUpdateEnd);
+			sb.addEventListener('error', _onSourceBufferError);
+			sb.appendBuffer(seg);
+		};
+		
+		_this.appendSegment = function(type) {
+			if (_segments[type].length == 0) {
+				return;
+			}
+			
+			var sb = _sb[type];
+			if (!sb || sb.updating) {
+				return;
+			}
+			
+			var seg = _segments[type].shift();
+			try {
+				sb.appendBuffer(seg);
+			} catch (err) {
+				utils.log('Failed to appendBuffer: ' + err.toString());
+			}
+		};
+		
+		function _onMediaSourceOpen(e) {
+			utils.log('media source open');
+			
+			_loader.load(_url);
+		}
+		
+		function _onUpdateEnd(e) {
+			utils.log('update end');
+			
+			var type = e.target.type;
+			
+			if (_endOfStream) {
+				if (!_ms || _ms.readyState !== 'open') {
+					return;
+				}
+				
+				if (!_segments.audio.length && !_segments.video.length) {
+					//_filekeeper.save('sample.flv.mp4');
+					_ms.endOfStream();
+					return;
+				}
+			}
+			
+			_this.appendSegment(type);
+		}
+		
+		function _onSourceBufferError(e) {
+			utils.log('source buffer error');
+		}
+		
+		function _onMediaSourceEnded(e) {
+			utils.log('media source ended');
+		}
+		
+		function _onMediaSourceClose(e) {
+			utils.log('media source close');
+		}
+		
+		function _onMediaSourceError(e) {
+			utils.log('media source error');
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
+		}
+		
+		
+		_this.getRenderInfo = function() {
+			var buffered;
+			var position = _video.currentTime;
+			var duration = _video.duration;
+			
+			var ranges = _video.buffered, start, end;
+			for (var i = 0; i < ranges.length; i++) {
+				start = ranges.start(i);
+				end = ranges.end(i);
+				if (/*start <= position && */position < end) {
+					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+				}
+				
+				if (i == 0 && position < start) {
+					_video.currentTime = start;
+				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
+			}
+			
+			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
+				var dts = end * 1000;
+				
+				if (_segments.video.length) {
+					dts = Math.max(dts, _segments.video[_segments.video.length - 1].info.endDts);
+				}
+				if (_segments.audio.length) {
+					dts = Math.max(dts, _segments.audio[_segments.audio.length - 1].info.endDts);
+				}
+				
+				if (dts && dts / 1000 - position < 120 && _range.end < _contentLength - 1) {
+					_range.start = _range.end + 1;
+					_range.end += 32 * 1024 * 1024;
+					_loader.load(_url, _range.start, _range.end);
+				}
+			}
+			
+			return {
+				buffered: buffered,
+				position: position,
+				duration: duration
+			};
+		};
+		
+		
+		function _onDurationChange(e) {
+			var duration = e.target.duration;
+			if (_mpd && _mpd.hasOwnProperty('@profiles')) {
+				var profiles = _mpd['@profiles'];
+				if (profiles.indexOf('urn:mpeg:dash:profile:isoff-live:2011') != -1) {
+					duration = 0;
+				}
+			}
+			
+			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
+		}
+		
+		function _onPlaying(e) {
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
+		}
+		
+		function _onPause(e) {
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
+			}
+		}
+		
+		function _onEnded(e) {
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
+		}
+		
+		function _onError(e) {
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
+		}
+		
+		
+		_this.element = function() {
+			return _video;
+		};
+		
+		_this.resize = function(width, height) {
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
+		};
+		
+		_this.destroy = function() {
+			
+		};
+		
+		_init();
+	};
+	
+	renders.dash.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'http' && protocol != 'https') {
+			return false;
+		}
+		
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS()) {
+			return false;
+		}
+		
+		var extension = utils.getExtension(file);
+		if (extension != 'mpd') {
+			return false;
+		}
+		
+		return true;
 	};
 })(playease);
 

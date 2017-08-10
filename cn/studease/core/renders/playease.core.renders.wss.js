@@ -215,7 +215,7 @@
 		};
 		
 		_this.seek = function(offset) {
-			if (_video.duration === NaN) {
+			if (isNaN(_video.duration)) {
 				_this.play();
 			} else {
 				if (_stream) {
@@ -419,6 +419,10 @@
 				end = ranges.end(i);
 				if (/*start <= position && */position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+				}
+				
+				if (i == 0 && position < start) {
+					_video.currentTime = start;
 				}
 			}
 			

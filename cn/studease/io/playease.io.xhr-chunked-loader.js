@@ -8,7 +8,13 @@
 		redirects = io.redirects,
 		readystates = io.readystates,
 		
-		CHUNK_SIZE = 2 * 1024 * 1024;
+		responseTypes = {
+			ARRAYBUFFER: 'arraybuffer',
+			BLOB:        'blob',
+			DOCUMENT:    'document',
+			JSON:        'json',
+			TEXT:        'text'
+		};
 	
 	io['xhr-chunked-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
@@ -18,12 +24,15 @@
 				mode: modes.CORS,
 				credentials: credentials.OMIT,
 				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				redirect: redirects.FOLLOW,
+				chunkSize: 0,
+				responseType: responseTypes.TEXT
 			},
 			_state,
 			_url,
 			_xhr,
-			_range;
+			_range,
+			_filesize;
 		
 		function _init() {
 			_this.name = io.types.XHR_CHUNKED_LOADER;
@@ -32,6 +41,7 @@
 			
 			_state = readystates.UNINITIALIZED;
 			_range = { start: 0, end: '', position: 0 };
+			_filesize = Number.MAX_VALUE;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -44,7 +54,7 @@
 			
 			_xhr = new XMLHttpRequest();
 			_xhr.open(_this.config.method, _url, true);
-			_xhr.responseType = 'arraybuffer';
+			_xhr.responseType = _this.config.responseType;
 			_xhr.onreadystatechange = _onXHRReadyStateChange;
 			_xhr.onprogress = _onXHRProgress;
 			_xhr.onload = _onXHRLoad;
@@ -54,9 +64,11 @@
 				_range.start = start;
 				_range.end = end;
 			}
-			utils.extend(_this.config.headers, {
-				Range: 'bytes=' + _range.position + '-' + (_range.position + CHUNK_SIZE - 1)
-			});
+			if (_range.start || _range.end || _this.config.chunkSize) {
+				utils.extend(_this.config.headers, {
+					Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+				});
+			}
 			
 			utils.foreach(_this.config.headers, function(key, value) {
 				_xhr.setRequestHeader(key, value);
@@ -81,33 +93,7 @@
 			
 			if (_xhr.readyState == readystates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
-					var len = _xhr.getResponseHeader('Content-Length');
-					if (len) {
-						len = parseInt(len);
-					}
 					
-					if (_xhr.status == 206) {
-						var range = _xhr.getResponseHeader('Content-Range');
-						if (range) {
-							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
-							if (arr && arr.length > 3) {
-								if (arr[1] == _range.position && arr[2] == _range.position + CHUNK_SIZE - 1) {
-									_range.position += CHUNK_SIZE;
-									
-									utils.extend(_this.config.headers, {
-										Range: 'bytes=' + _range.position + '-' + (_range.position + CHUNK_SIZE - 1)
-									});
-									
-									_xhr.setRequestHeader('Range', _this.config.headers.Range);
-									_xhr.send();
-								}
-								
-								len = parseInt(arr[3]);
-							}
-						}
-					}
-					
-					_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
@@ -119,12 +105,44 @@
 		}
 		
 		function _onXHRLoad(e) {
-			var data = new Uint8Array(_xhr.response);
-			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data.buffer });
+			var data, len;
 			
-			if (e.loaded == e.total) {
-				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+			switch (_xhr.responseType) {
+				case responseTypes.ARRAYBUFFER:
+					var arr = new Uint8Array(_xhr.response);
+					data = arr.buffer;
+					len = data.byteLength;
+					break;
+					
+				case responseTypes.BLOB:
+					// TODO: read blob.
+					break;
+					
+				default:
+					data = _xhr.response;
+					len = data.length;
+					break;
 			}
+			
+			_range.position = len;
+			_filesize = len;
+			_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
+			
+			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
+			
+			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
+			if (_range.position > end) {
+				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+				return;
+			}
+			
+			utils.extend(_this.config.headers, {
+				Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+			});
+			
+			_xhr.open(_this.config.method, _url, true);
+			_xhr.setRequestHeader('Range', _this.config.headers.Range);
+			_xhr.send();
 		}
 		
 		function _onXHRError(e) {

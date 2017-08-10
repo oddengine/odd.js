@@ -105,6 +105,13 @@ input {
 	<script type='text/javascript' src='../cn/studease/events/playease.events.eventdispatcher.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.filekeeper.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.timer.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.xml2json.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.manifest.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/matchers/playease.utils.matchers.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/matchers/playease.utils.matchers.datetime.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/matchers/playease.utils.matchers.duration.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/matchers/playease.utils.matchers.numeric.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/matchers/playease.utils.matchers.string.js'></script>
 	<script type='text/javascript' src='../cn/studease/api/playease.api.js'></script>
 	<script type='text/javascript' src='../cn/studease/io/playease.io.js'></script>
 	<script type='text/javascript' src='../cn/studease/io/playease.io.fetch-stream-loader.js'></script>
@@ -128,6 +135,7 @@ input {
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.wss.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.dash.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flash.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/skins/playease.core.skins.def.js'></script>
@@ -182,6 +190,10 @@ input {
 				file: 'ws://127.0.0.1/live/sample.flv',
 				type: 'flv',
 				label: 'WS-FLV'
+			}, {
+				file: 'http://127.0.0.1/live/sample/manifest.mpd',
+				type: 'dash',
+				label: 'HTTP-DASH'
 			}, {
 				file: 'rtmp://127.0.0.1/live/sample',
 				type: 'flash',
