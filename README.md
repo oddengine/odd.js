@@ -39,7 +39,7 @@ playease('player').setup({
 	}, {
 		file: 'http://127.0.0.1/live/sample/manifest.mpd',
 		type: 'dash',
-		label: 'HTTP-DASH'
+		label: 'MPEG-DASH'
 	}, {
 		file: 'rtmp://127.0.0.1/live/sample',
 		type: 'flash',
