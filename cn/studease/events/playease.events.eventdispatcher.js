@@ -87,8 +87,9 @@
 			}
 			utils.extend(data, {
 				id: _id,
-				version: playease.version,
-				type: type
+				type: type,
+				target: this,
+				version: playease.version
 			});
 			if (playease.debug) {
 				utils.log(type, data);

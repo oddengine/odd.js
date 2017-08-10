@@ -37,6 +37,10 @@ playease('player').setup({
 		type: 'wss',
 		label: 'WS-fMP4'
 	}, {
+		file: 'http://127.0.0.1/live/sample/manifest.mpd',
+		type: 'dash',
+		label: 'HTTP-DASH'
+	}, {
 		file: 'rtmp://127.0.0.1/live/sample',
 		type: 'flash',
 		label: 'RTMP-STREAM'

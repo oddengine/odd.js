@@ -3,6 +3,7 @@
 		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
+		matchers = utils.matchers,
 		io = playease.io,
 		readystates = io.readystates,
 		priority = io.priority,
@@ -13,25 +14,50 @@
 		rendertypes = renders.types,
 		rendermodes = renders.modes,
 		
-		AMF = muxer.AMF,
-		TAG = muxer.flv.TAG,
-		FORMATS = muxer.flv.FORMATS,
-		CODECS = muxer.flv.CODECS;
+		fragmentTypes = {
+			INIT_SEGMENT: 0,
+			SEGMENT:      1
+		},
+		
+		request = function(type) {
+			var _this = this;
+			
+			function _init() {
+				_this.type = type;
+				_this.reset();
+			}
+			
+			_this.reset = function() {
+				_this.fragmentType = fragmentTypes.INIT_SEGMENT;
+				_this.mimeType = type + '/mp4';
+				_this.codecs = type == 'video' ? 'avc1.64001e' : 'mp4a.40.2';
+				_this.index = NaN;
+				_this.start = 0;
+				_this.duration = NaN;
+				_this.timescale = 1;
+				_this.url = '';
+			};
+			
+			_init();
+		};
 	
-	renders.flv = function(layer, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
-			_defaults = {},
+	renders.dash = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.dash')),
+			_defaults = {
+				audioOnly: false
+			},
 			_video,
 			_url,
 			_src,
+			_loader,
+			_timer,
+			_parser,
+			_manifest,
 			_range,
 			_contentLength,
-			_loader,
-			_demuxer,
-			_remuxer,
-			_mediainfo,
 			_ms,
 			_sb,
+			_mpd,
 			_segments,
 			//_fileindex,
 			//_filekeeper,
@@ -39,7 +65,7 @@
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.FLV;
+			_this.name = rendertypes.DASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -74,39 +100,15 @@
 			_fileindex = 0;
 			_filekeeper = new filekeeper();
 			*/
-			_initMuxer();
 			_initMSE();
 		}
 		
 		function _initLoader() {
-			var name, type = _this.config.loader.name;
-			
-			if (type && io.hasOwnProperty(type) && io[type].isSupported()) {
-				name = type;
-			} else {
-				for (var i = 0; i < priority.length; i++) {
-					type = priority[i];
-					if (io[type].isSupported(_url)) {
-						name = type;
-						break;
-					}
-				}
+			if (_loader && _videoloader && _audioloader) {
+				return;
 			}
 			
-			if (_loader) {
-				_loader.abort();
-				
-				if (_loader.name == name) {
-					return;
-				} else {
-					_loader.removeEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
-					_loader.removeEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
-					_loader.removeEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
-					_loader.removeEventListener(events.ERROR, _onLoaderError);
-					
-					delete _loader;
-				}
-			}
+			var name = 'xhr-chunked-loader';
 			
 			try {
 				_loader = new io[name](_this.config.loader);
@@ -115,28 +117,61 @@
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
 				_loader.addEventListener(events.ERROR, _onLoaderError);
 				
-				utils.log('"' + name + '" initialized.');
+				utils.log('"' + name + '" for MPD files initialized.');
 			} catch (err) {
-				utils.log('Failed to init loader "' + name + '"!');
+				utils.log('Failed to init loader "' + name + '" for MPD files!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+				return;
+			}
+			
+			try {
+				_audioloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_audioloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_audioloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_audioloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_audioloader.addEventListener(events.ERROR, _onLoaderError);
+				_audioloader.request = new request('audio');
+				
+				utils.log('"' + name + '" for audio segments initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '" audio segments!');
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+				return;
+			}
+			
+			try {
+				_videoloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_videoloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
+				_videoloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
+				_videoloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
+				_videoloader.addEventListener(events.ERROR, _onLoaderError);
+				_videoloader.request = new request('video');
+				
+				utils.log('"' + name + '" for video segments initialized.');
+			} catch (err) {
+				utils.log('Failed to init loader "' + name + '" video segments!');
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
+				return;
 			}
 		}
 		
-		function _initMuxer() {
-			_demuxer = new muxer.flv();
-			_demuxer.addEventListener(events.PLAYEASE_FLV_TAG, _onFLVTag);
-			_demuxer.addEventListener(events.PLAYEASE_MEDIA_INFO, _onMediaInfo);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_CONFIG_RECORD, _onAVCConfigRecord);
-			_demuxer.addEventListener(events.PLAYEASE_AVC_SAMPLE, _onAVCSample);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
-			_demuxer.addEventListener(events.PLAYEASE_AAC_SAMPLE, _onAACSample);
-			_demuxer.addEventListener(events.PLAYEASE_END_OF_STREAM, _onEndOfStream);
-			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
-			
-			_remuxer = new muxer.mp4();
-			_remuxer.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
-			_remuxer.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_remuxer.addEventListener(events.ERROR, _onRemuxerError);
+		function _initParser() {
+			if (!_parser) {
+				_parser = new utils.xml2json({
+					matchers: [
+						new matchers.duration(),
+						new matchers.datetime(),
+						new matchers.numeric(),
+						new matchers.string()
+					]
+				});
+			}
+		}
+		
+		function _initManifest() {
+			if (!_manifest) {
+				_manifest = new utils.manifest(_url);
+			}
 		}
 		
 		function _initMSE() {
@@ -161,7 +196,7 @@
 		_this.play = function(url) {
 			if (!_video.src || _video.src !== _src || url && url != _url) {
 				if (url && url != _url) {
-					if (!renders.flv.isSupported(url)) {
+					if (!renders.dash.isSupported(url)) {
 						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
 						return;
 					}
@@ -175,9 +210,10 @@
 				_segments.video = [];
 				
 				_initLoader();
+				_audioloader.request.reset();
+				_videoloader.request.reset();
 				
-				_demuxer.reset();
-				_remuxer.reset();
+				_stopTimer();
 				
 				_video.src = URL.createObjectURL(_ms);
 				_video.load();
@@ -250,6 +286,16 @@
 			if (_loader) {
 				_loader.abort();
 			}
+			if (_audioloader) {
+				_audioloader.abort();
+				_audioloader.request.reset();
+			}
+			if (_videoloader) {
+				_videoloader.abort();
+				_videoloader.request.reset();
+			}
+			
+			_stopTimer();
 			
 			_video.removeAttribute('src');
 			_video.load();
@@ -274,17 +320,77 @@
 		 * Loader
 		 */
 		function _onContenLength(e) {
-			utils.log('onContenLength: ' + e.length);
-			_contentLength = e.length;
+			var request = e.target.request;
+			if (request) {
+				if (_mpd['@profiles'] == 'urn:mpeg:dash:profile:isoff-on-demand:2011') {
+					utils.log('onContenLength: ' + e.length);
+					_contentLength += e.length;
+				}
+			}
 		}
 		
 		function _onLoaderProgress(e) {
-			//utils.log('onLoaderProgress: ' + e.data.byteLength);
-			_demuxer.parse(e.data);
+			var request = e.target.request;
+			if (request) {
+				if (request.fragmentType == fragmentTypes.INIT_SEGMENT) {
+					_this.appendInitSegment(request.type, e.data);
+					request.fragmentType = fragmentTypes.SEGMENT;
+				} else {
+					e.data.info = e.info;
+					
+					_segments[request.type].push(e.data);
+					_this.appendSegment(request.type);
+					
+					request.index++;
+					request.start += request.duration;
+				}
+				
+				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+				if (segmentInfo) {
+					utils.extend(request, segmentInfo);
+					
+					var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
+					segmentLoader.load(request.url);
+					
+					return;
+				}
+				
+				if (_loader.state() == readystates.UNINITIALIZED || _loader.state() == readystates.DONE) {
+					_loader.load(_manifest.getLocation());
+				}
+				
+				return;
+			}
+			
+			_initParser();
+			_initManifest();
+			
+			_mpd = _parser.parse(e.data);
+			_manifest.update(_mpd);
+			
+			if (_audioloader.state() == readystates.UNINITIALIZED || _audioloader.state() == readystates.DONE) {
+				var request = _audioloader.request;
+				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+				if (segmentInfo) {
+					utils.extend(request, segmentInfo);
+					_audioloader.load(request.url);
+				}
+			}
+			
+			if (_videoloader.state() == readystates.UNINITIALIZED || _videoloader.state() == readystates.DONE) {
+				var request = _videoloader.request;
+				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+				if (segmentInfo) {
+					utils.extend(request, segmentInfo);
+					_videoloader.load(request.url);
+				}
+			}
+			
+			_startTimer(_mpd['@minBufferTime'] * 1000);
 		}
 		
 		function _onLoaderComplete(e) {
-			utils.log('onLoaderComplete');
+			//utils.log('onLoaderComplete');
 		}
 		
 		function _onLoaderError(e) {
@@ -292,112 +398,30 @@
 			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
 		}
 		
-		/**
-		 * Demuxer
-		 */
-		function _onFLVTag(e) {
-			//utils.log('onFlvTag { tag: ' + e.tag + ', offset: ' + e.offset + ', size: ' + e.size + ' }');
-			
-			switch (e.tag) {
-				case TAG.AUDIO:
-					if (e.format && e.format != FORMATS.AAC) {
-						utils.log('Unsupported audio format(' + e.format + ').');
-						break;
-					}
-					
-					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
-					break;
-				case TAG.VIDEO:
-					if (e.codec && e.codec != CODECS.AVC) {
-						utils.log('Unsupported video codec(' + e.codec + ').');
-						break;
-					}
-					
-					_demuxer.parseAVCVideoPacket(e.data, e.offset, e.size, e.timestamp, e.frametype);
-					break;
-				case TAG.SCRIPT:
-					var data = AMF.parse(e.data, e.offset, e.size);
-					utils.log(data.key + ': ' + JSON.stringify(data.value));
-					
-					if (data.key == 'onMetaData') {
-						_demuxer.setMetaData(data.value);
-					}
-					break;
-				default:
-					utils.log('Skipping unknown tag type ' + e.tag);
+		function _startTimer(delay) {
+			if (!_timer) {
+				_timer = new utils.timer(delay);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _loadManifest);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
 			}
 		}
 		
-		function _onMediaInfo(e) {
-			_mediainfo = e.info;
-		}
-		
-		function _onAVCConfigRecord(e) {
-			_remuxer.setVideoMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAVCSample(e) {
-			_remuxer.getVideoSegment(e.data);
-		}
-		
-		function _onAACSpecificConfig(e) {
-			_remuxer.setAudioMeta(e.data);
-			_remuxer.getInitSegment(e.data);
-		}
-		
-		function _onAACSample(e) {
-			_remuxer.getAudioSegment(e.data);
-		}
-		
-		function _onEndOfStream(e) {
-			_endOfStream = true;
-		}
-		
-		function _onDemuxerError(e) {
-			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Demuxer error ocurred.' });
-		}
-		
-		/**
-		 * Remuxer
-		 */
-		function _onMP4InitSegment(e) {
-			/*if (e.tp == 'video') {
-				_fileindex++
-				_filekeeper.append(e.data);
-				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
-			}*/
-			
-			_this.appendInitSegment(e.tp, e.data);
-		}
-		
-		function _onMP4Segment(e) {
-			/*if (e.tp == 'video') {
-				_fileindex++
-				_filekeeper.append(e.data);
-				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-				if (_fileindex == 500) {
-					_filekeeper.save('sample.flv.mp4');
-				}
-			}*/
-			
-			e.data.info = e.info;
-			_segments[e.tp].push(e.data);
-			
-			_this.appendSegment(e.tp);
-		}
-		
-		function _onRemuxerError(e) {
-			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Remuxer error ocurred.' });
+		function _loadManifest() {
+			_loader.load(_manifest.getLocation());
 		}
 		
 		/**
 		 * MSE
 		 */
 		_this.appendInitSegment = function(type, seg) {
-			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
+			var request = type == 'audio' ? _audioloader.request : _videoloader.request;
+			var mimetype = request.mimeType + '; codecs="' + request.codecs + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
 			var issurpported = MediaSource.isTypeSupported(mimetype);
@@ -415,7 +439,7 @@
 			try {
 				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
 			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
 				return;
 			}
 			
@@ -446,7 +470,7 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_loader.load(_url, _range.start, _range.end);
+			_loader.load(_url);
 		}
 		
 		function _onUpdateEnd(e) {
@@ -536,7 +560,15 @@
 		
 		
 		function _onDurationChange(e) {
-			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+			var duration = e.target.duration;
+			if (_mpd && _mpd.hasOwnProperty('@profiles')) {
+				var profiles = _mpd['@profiles'];
+				if (profiles.indexOf('urn:mpeg:dash:profile:isoff-live:2011') != -1) {
+					duration = 0;
+				}
+			}
+			
+			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: duration });
 		}
 		
 		function _onWaiting(e) {
@@ -583,10 +615,9 @@
 		_init();
 	};
 	
-	renders.flv.isSupported = function(file) {
+	renders.dash.isSupported = function(file) {
 		var protocol = utils.getProtocol(file);
-		if (protocol != 'http' && protocol != 'https'
-				&& protocol != 'ws' && protocol != 'wss') {
+		if (protocol != 'http' && protocol != 'https') {
 			return false;
 		}
 		
@@ -595,7 +626,7 @@
 		}
 		
 		var extension = utils.getExtension(file);
-		if (extension != 'flv' && extension != undefined) {
+		if (extension != 'mpd') {
 			return false;
 		}
 		

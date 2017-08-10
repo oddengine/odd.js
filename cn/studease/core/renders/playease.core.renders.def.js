@@ -88,7 +88,7 @@
 		};
 		
 		_this.seek = function(offset) {
-			if (_video.duration === NaN) {
+			if (isNaN(_video.duration)) {
 				_this.play();
 			} else {
 				_video.currentTime = offset * _video.duration / 100;
