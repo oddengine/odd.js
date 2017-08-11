@@ -137,6 +137,7 @@ _eventMapping = {
 	onReport: events.PLAYEASE_REPORT,
 	onMute: events.PLAYEASE_MUTE,
 	onVolume: events.PLAYEASE_VOLUME,
+	onVideoOff: events.PLAYEASE_VIDEOOFF,
 	onHD: events.PLAYEASE_HD,
 	onBullet: events.PLAYEASE_BULLET,
 	onFullpage: events.PLAYEASE_FULLPAGE,
