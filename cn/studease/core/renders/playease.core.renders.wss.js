@@ -285,6 +285,9 @@
 		
 		_this.onMetaData = function(data) {
 			_metadata = data;
+			
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
 		};
 		
 		function _onMP4InitSegment(e) {
@@ -294,7 +297,7 @@
 				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			}*/
 			
-			_this.appendInitSegment(e.tp, e.data);
+			_segments[e.tp].push(e.data);
 		}
 		
 		function _onMP4Segment(e) {
@@ -308,15 +311,15 @@
 			}*/
 			
 			e.data.info = e.info;
-			_segments[e.tp].push(e.data);
 			
+			_segments[e.tp].push(e.data);
 			_this.appendSegment(e.tp);
 		}
 		
 		/**
 		 * MSE
 		 */
-		_this.appendInitSegment = function(type, seg) {
+		_this.addSourceBuffer = function(type) {
 			var mimetype = type + '/mp4; codecs="' + _metadata[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
@@ -335,14 +338,13 @@
 			try {
 				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
 			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
 				return;
 			}
 			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
-			sb.appendBuffer(seg);
 		};
 		
 		_this.appendSegment = function(type) {
@@ -365,13 +367,17 @@
 		
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
-			
 			utils.log('Playing ' + _streamname + ' ...');
+			
+			// TODO: addSourceBuffer while metadata reached.
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
+			
 			_stream.play(_streamname);
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			

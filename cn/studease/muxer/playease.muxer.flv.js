@@ -519,9 +519,9 @@
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			//if (_mediainfo.isComplete()) {
+			if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			//}
+			}
 		}
 		
 		function _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, timestamp, frameType, cts) {
@@ -712,9 +712,9 @@
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			//if (_mediainfo.isComplete()) {
+			if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			//}
+			}
 		}
 		
 		function _parseAACAudioData(arrayBuffer, dataOffset, dataSize, timestamp) {
