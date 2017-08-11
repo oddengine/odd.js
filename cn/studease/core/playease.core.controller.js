@@ -27,6 +27,7 @@
 			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
 			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
 			view.addEventListener(events.PLAYEASE_VIEW_VOLUME, _onVolume);
+			view.addEventListener(events.PLAYEASE_VIEW_VIDEOOFF, _onVideoOff);
 			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
 			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
 			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
@@ -209,6 +210,12 @@
 			view.volume(vol);
 		};
 		
+		_this.videoOff = function(off) {
+			var off = model.getProperty('videooff');
+			model.setProperty('videooff', !off);
+			view.videoOff(!off);
+		};
+		
 		_this.hd = function(index) {
 			var playlist = model.getProperty('playlist');
 			if (utils.typeOf(playlist.sources) !== 'array' || index >= playlist.sources.length) {
@@ -227,7 +234,6 @@
 		
 		_this.bullet = function() {
 			var bullet = model.getProperty('bullet');
-			
 			model.setProperty('bullet', !bullet);
 			view.bullet(!bullet);
 		};
@@ -305,26 +311,32 @@
 		
 		function _onReport(e) {
 			_this.report();
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_REPORT, e);
 		}
 		
 		function _onMute(e) {
 			_this.mute();
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_MUTE, e);
 		}
 		
 		function _onVolume(e) {
 			_this.volume(e.volume);
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_VOLUME, e);
+		}
+		
+		function _onVideoOff(e) {
+			_this.videoOff();
+			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, e);
 		}
 		
 		function _onHD(e) {
 			_this.hd(e.index);
+			_this.dispatchEvent(events.PLAYEASE_HD, e);
 		}
 		
 		function _onBullet(e) {
 			_this.bullet();
-			_forward(e);
+			_this.dispatchEvent(events.PLAYEASE_BULLET, e);
 		}
 		
 		function _onFullpage(e) {

@@ -56,6 +56,7 @@
 					_layoutElement('report', types.BUTTON),
 					_layoutElement('volume', types.BUTTON),
 					_layoutElement('volume', types.SLIDER),
+					_layoutElement('videooff', types.BUTTON),
 					_layoutElement('hd', types.BUTTON),
 					_layoutElement('bullet', types.BUTTON, _this.config.bulletscreen.enable ? '' : 'off'),
 					_layoutElement('fullpage', types.BUTTON),
@@ -252,6 +253,9 @@
 				case 'volume':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
 					break;
+				case 'videooff':
+					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF);
+					break;
 				case 'hd':
 					/* void */
 					break;
@@ -347,7 +351,22 @@
 			} else {
 				utils.addClass(_buttons.volume, 'mute');
 			}
+			
 			_volumeBar.update(vol);
+		};
+		
+		_this.setVideoOff = function(off, enable) {
+			if (enable) {
+				utils.addClass(_buttons.videooff, 'enable');
+			} else {
+				utils.removeClass(_buttons.videooff, 'enable');
+			}
+			
+			if (off) {
+				utils.removeClass(_buttons.videooff, 'on');
+			} else {
+				utils.addClass(_buttons.videooff, 'on');
+			}
 		};
 		
 		_this.activeHDItem = function(index, label) {

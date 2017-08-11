@@ -44,7 +44,7 @@
 	renders.dash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.dash')),
 			_defaults = {
-				audioOnly: false
+				videoOff: false
 			},
 			_video,
 			_url,
@@ -312,6 +312,25 @@
 			_video.volume = vol / 100;
 		};
 		
+		_this.videoOff = function(off, playing) {
+			_this.config.videoOff = off;
+			
+			if (playing) {
+				if (off) {
+					try {
+						_ms.removeSourceBuffer(_sb.video);
+						
+						var mimetype = _videoloader.request.mimeType + '; codecs="' + _videoloader.request.codecs + '"';
+						utils.log('Removed SourceBuffer(video), mimeType: ' + mimetype + '.');
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(video): ' + err.toString());
+					}
+				} else {
+					_this.reload();
+				}
+			}
+		};
+		
 		_this.hd = function(index) {
 			
 		};
@@ -341,8 +360,8 @@
 				
 				e.data.info = e.info;
 				_segments[request.type].push(e.data);
-				
 				_this.appendSegment(request.type);
+				
 				_loadSegment(request);
 				
 				return;
@@ -371,11 +390,18 @@
 		}
 		
 		function _loadSegment(request) {
+			var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
+			if (segmentLoader.state() != readystates.UNINITIALIZED && segmentLoader.state() != readystates.DONE) {
+				return;
+			}
+			
+			if (_this.config.videoOff && request.type == 'video') {
+				return;
+			}
+			
 			var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
 			if (segmentInfo) {
 				utils.extend(request, segmentInfo);
-				
-				var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
 				segmentLoader.load(request.url);
 			}
 		}
@@ -411,6 +437,10 @@
 		 * MSE
 		 */
 		_this.addSourceBuffer = function(type) {
+			if (_this.config.videoOff && type == 'video') {
+				return;
+			}
+			
 			var request = type == 'audio' ? _audioloader.request : _videoloader.request;
 			var mimetype = request.mimeType + '; codecs="' + request.codecs + '"';
 			utils.log('Mime type: ' + mimetype + '.');

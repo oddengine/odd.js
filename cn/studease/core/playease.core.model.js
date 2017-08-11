@@ -24,6 +24,7 @@
 				duration: 0,
 				muted: false,
 				volume: 80,
+				videooff: false,
 				bullet: _this.config.bulletscreen.enable,
 				fullpage: false,
 				fullscreen: false

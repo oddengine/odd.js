@@ -4,6 +4,7 @@
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
+		rendertypes = renders.types,
 		priority = renders.priority,
 		components = core.components,
 		skins = core.skins,
@@ -33,6 +34,7 @@
 			_video,
 			_timer,
 			_autohidetimer,
+			_previousClick = 0,
 			_errorOccurred = false;
 		
 		function _init() {
@@ -65,11 +67,13 @@
 				_wrapper.addEventListener('keydown', _onKeyDown);
 				_wrapper.addEventListener('mousedown', _onMouseDown);
 				document.addEventListener('mousedown', _onMouseDown);
+				_renderLayer.addEventListener('click', _onRenderClick);
 			} catch (err) {
 				window.attachEvent('onresize', _onResize);
 				_wrapper.attachEvent('onkeydown', _onKeyDown);
 				_wrapper.attachEvent('onmousedown', _onMouseDown);
 				document.attachEvent('onmousedown', _onMouseDown);
+				_renderLayer.attachEvent('onclick', _onRenderClick);
 			}
 			
 			var replace = document.getElementById(model.getConfig('id'));
@@ -239,6 +243,7 @@
 			_video = _render.element();
 			_renderLayer.appendChild(_video);
 			
+			_this.videoOff(model.getProperty('videooff'), name == rendertypes.DASH);
 			_this.setup();
 			
 			utils.log('Actived render "' + _render.name + '".');
@@ -332,6 +337,17 @@
 			if (_render) {
 				_render.volume(vol);
 				_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
+			}
+		};
+		
+		_this.videoOff = function(off) {
+			var enable = _render && _render.name == rendertypes.DASH;
+			_controlbar.setVideoOff(off, enable);
+			
+			if (enable) {
+				var state = model.getState();
+				var playing = state != states.STOPPED && state != states.ERROR;
+				_render.videoOff(off, playing);
 			}
 		};
 		
@@ -543,6 +559,18 @@
 				
 				return false;
 			}
+		}
+		
+		function _onRenderClick(e) {
+			var date = new Date();
+			var time = date.getTime();
+			if (time <= _previousClick + 700) {
+				var fs = model.getProperty('fullscreen');
+				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: fs });
+				return; // Avoid triple click
+			}
+			
+			_previousClick = time;
 		}
 		
 		
