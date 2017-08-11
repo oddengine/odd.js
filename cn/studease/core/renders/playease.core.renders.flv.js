@@ -330,6 +330,9 @@
 		
 		function _onMediaInfo(e) {
 			_mediainfo = e.info;
+			
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
 		}
 		
 		function _onAVCConfigRecord(e) {
@@ -369,7 +372,7 @@
 				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			}*/
 			
-			_this.appendInitSegment(e.tp, e.data);
+			_segments[e.tp].push(e.data);
 		}
 		
 		function _onMP4Segment(e) {
@@ -383,8 +386,8 @@
 			}*/
 			
 			e.data.info = e.info;
-			_segments[e.tp].push(e.data);
 			
+			_segments[e.tp].push(e.data);
 			_this.appendSegment(e.tp);
 		}
 		
@@ -396,7 +399,7 @@
 		/**
 		 * MSE
 		 */
-		_this.appendInitSegment = function(type, seg) {
+		_this.addSourceBuffer = function(type) {
 			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
@@ -415,14 +418,13 @@
 			try {
 				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
 			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
 				return;
 			}
 			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
-			sb.appendBuffer(seg);
 		};
 		
 		_this.appendSegment = function(type) {
@@ -450,7 +452,7 @@
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			

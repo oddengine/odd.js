@@ -191,6 +191,10 @@ input {
 				type: 'flv',
 				label: 'WS-FLV'
 			}, {
+				file: 'ws://127.0.0.1/live/sample',
+				type: 'wss',
+				label: 'WS-fMP4'
+			}, {
 				file: 'http://127.0.0.1/live/sample/manifest.mpd',
 				type: 'dash',
 				label: 'HTTP-DASH'
@@ -202,7 +206,7 @@ input {
 				file: 'http://127.0.0.1/live/sample.m3u8',
 				type: 'def'
 			}],*/
-			mode: 'live',
+			mode: 'vod',
 			bufferTime: 1,
 			maxretries: 0,
 			retrydelay: 3000,

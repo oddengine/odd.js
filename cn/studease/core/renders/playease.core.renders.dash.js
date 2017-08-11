@@ -30,7 +30,7 @@
 			_this.reset = function() {
 				_this.fragmentType = fragmentTypes.INIT_SEGMENT;
 				_this.mimeType = type + '/mp4';
-				_this.codecs = type == 'video' ? 'avc1.64001e' : 'mp4a.40.2';
+				_this.codecs = type == 'video' ? 'avc1.64001E' : 'mp4a.40.2';
 				_this.index = NaN;
 				_this.start = 0;
 				_this.duration = NaN;
@@ -333,31 +333,17 @@
 			var request = e.target.request;
 			if (request) {
 				if (request.fragmentType == fragmentTypes.INIT_SEGMENT) {
-					_this.appendInitSegment(request.type, e.data);
 					request.fragmentType = fragmentTypes.SEGMENT;
 				} else {
-					e.data.info = e.info;
-					
-					_segments[request.type].push(e.data);
-					_this.appendSegment(request.type);
-					
 					request.index++;
 					request.start += request.duration;
 				}
 				
-				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
-				if (segmentInfo) {
-					utils.extend(request, segmentInfo);
-					
-					var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
-					segmentLoader.load(request.url);
-					
-					return;
-				}
+				e.data.info = e.info;
+				_segments[request.type].push(e.data);
 				
-				if (_loader.state() == readystates.UNINITIALIZED || _loader.state() == readystates.DONE) {
-					_loader.load(_manifest.getLocation());
-				}
+				_this.appendSegment(request.type);
+				_loadSegment(request);
 				
 				return;
 			}
@@ -368,25 +354,30 @@
 			_mpd = _parser.parse(e.data);
 			_manifest.update(_mpd);
 			
-			if (_audioloader.state() == readystates.UNINITIALIZED || _audioloader.state() == readystates.DONE) {
-				var request = _audioloader.request;
-				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
-				if (segmentInfo) {
-					utils.extend(request, segmentInfo);
-					_audioloader.load(request.url);
-				}
+			if (_audioloader.request.fragmentType == fragmentTypes.INIT_SEGMENT
+					&& _videoloader.request.fragmentType == fragmentTypes.INIT_SEGMENT) {
+				_this.addSourceBuffer('audio');
+				_this.addSourceBuffer('video');
 			}
 			
-			if (_videoloader.state() == readystates.UNINITIALIZED || _videoloader.state() == readystates.DONE) {
-				var request = _videoloader.request;
-				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
-				if (segmentInfo) {
-					utils.extend(request, segmentInfo);
-					_videoloader.load(request.url);
-				}
-			}
+			_loadSegment(_audioloader.request);
+			_loadSegment(_videoloader.request);
 			
-			_startTimer(_mpd['@minBufferTime'] * 1000);
+			_startTimer(_mpd['@minimumUpdatePeriod'] * 1000 || 2000);
+		}
+		
+		function _loadManifest() {
+			_loader.load(_manifest.getLocation());
+		}
+		
+		function _loadSegment(request) {
+			var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+			if (segmentInfo) {
+				utils.extend(request, segmentInfo);
+				
+				var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
+				segmentLoader.load(request.url);
+			}
 		}
 		
 		function _onLoaderComplete(e) {
@@ -400,9 +391,13 @@
 		
 		function _startTimer(delay) {
 			if (!_timer) {
-				_timer = new utils.timer(delay);
+				_timer = new utils.timer(delay, 1);
 				_timer.addEventListener(events.PLAYEASE_TIMER, _loadManifest);
 			}
+			
+			_timer.delay = _timer.running() ? Math.min(_timer.delay, delay) : delay;
+			
+			_timer.reset();
 			_timer.start();
 		}
 		
@@ -412,14 +407,10 @@
 			}
 		}
 		
-		function _loadManifest() {
-			_loader.load(_manifest.getLocation());
-		}
-		
 		/**
 		 * MSE
 		 */
-		_this.appendInitSegment = function(type, seg) {
+		_this.addSourceBuffer = function(type) {
 			var request = type == 'audio' ? _audioloader.request : _videoloader.request;
 			var mimetype = request.mimeType + '; codecs="' + request.codecs + '"';
 			utils.log('Mime type: ' + mimetype + '.');
@@ -446,7 +437,6 @@
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
-			sb.appendBuffer(seg);
 		};
 		
 		_this.appendSegment = function(type) {
@@ -474,7 +464,7 @@
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -534,7 +524,9 @@
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
+			if (_mpd['@type'] == 'static' 
+					&& _audioloader && _audioloader.state() == readystates.DONE
+					&& _videoloader && _videoloader.state() == readystates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {

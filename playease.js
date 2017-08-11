@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.81';
+playease.version = '1.0.82';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -3675,9 +3675,9 @@ playease.version = '1.0.81';
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			//if (_mediainfo.isComplete()) {
+			if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			//}
+			}
 		}
 		
 		function _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, timestamp, frameType, cts) {
@@ -3868,9 +3868,9 @@ playease.version = '1.0.81';
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			//if (_mediainfo.isComplete()) {
+			if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			//}
+			}
 		}
 		
 		function _parseAACAudioData(arrayBuffer, dataOffset, dataSize, timestamp) {
@@ -6168,6 +6168,9 @@ playease.version = '1.0.81';
 		
 		function _onMediaInfo(e) {
 			_mediainfo = e.info;
+			
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
 		}
 		
 		function _onAVCConfigRecord(e) {
@@ -6207,7 +6210,7 @@ playease.version = '1.0.81';
 				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			}*/
 			
-			_this.appendInitSegment(e.tp, e.data);
+			_segments[e.tp].push(e.data);
 		}
 		
 		function _onMP4Segment(e) {
@@ -6221,8 +6224,8 @@ playease.version = '1.0.81';
 			}*/
 			
 			e.data.info = e.info;
-			_segments[e.tp].push(e.data);
 			
+			_segments[e.tp].push(e.data);
 			_this.appendSegment(e.tp);
 		}
 		
@@ -6234,7 +6237,7 @@ playease.version = '1.0.81';
 		/**
 		 * MSE
 		 */
-		_this.appendInitSegment = function(type, seg) {
+		_this.addSourceBuffer = function(type) {
 			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
@@ -6253,14 +6256,13 @@ playease.version = '1.0.81';
 			try {
 				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
 			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
 				return;
 			}
 			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
-			sb.appendBuffer(seg);
 		};
 		
 		_this.appendSegment = function(type) {
@@ -6288,7 +6290,7 @@ playease.version = '1.0.81';
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -6728,6 +6730,9 @@ playease.version = '1.0.81';
 		
 		_this.onMetaData = function(data) {
 			_metadata = data;
+			
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
 		};
 		
 		function _onMP4InitSegment(e) {
@@ -6737,7 +6742,7 @@ playease.version = '1.0.81';
 				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			}*/
 			
-			_this.appendInitSegment(e.tp, e.data);
+			_segments[e.tp].push(e.data);
 		}
 		
 		function _onMP4Segment(e) {
@@ -6751,15 +6756,15 @@ playease.version = '1.0.81';
 			}*/
 			
 			e.data.info = e.info;
-			_segments[e.tp].push(e.data);
 			
+			_segments[e.tp].push(e.data);
 			_this.appendSegment(e.tp);
 		}
 		
 		/**
 		 * MSE
 		 */
-		_this.appendInitSegment = function(type, seg) {
+		_this.addSourceBuffer = function(type) {
 			var mimetype = type + '/mp4; codecs="' + _metadata[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
@@ -6778,14 +6783,13 @@ playease.version = '1.0.81';
 			try {
 				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
 			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mime: ' + mimetype + '.');
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
 				return;
 			}
 			
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
-			sb.appendBuffer(seg);
 		};
 		
 		_this.appendSegment = function(type) {
@@ -6808,13 +6812,17 @@ playease.version = '1.0.81';
 		
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
-			
 			utils.log('Playing ' + _streamname + ' ...');
+			
+			// TODO: addSourceBuffer while metadata reached.
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
+			
 			_stream.play(_streamname);
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -7007,7 +7015,7 @@ playease.version = '1.0.81';
 			_this.reset = function() {
 				_this.fragmentType = fragmentTypes.INIT_SEGMENT;
 				_this.mimeType = type + '/mp4';
-				_this.codecs = type == 'video' ? 'avc1.64001e' : 'mp4a.40.2';
+				_this.codecs = type == 'video' ? 'avc1.64001E' : 'mp4a.40.2';
 				_this.index = NaN;
 				_this.start = 0;
 				_this.duration = NaN;
@@ -7310,31 +7318,17 @@ playease.version = '1.0.81';
 			var request = e.target.request;
 			if (request) {
 				if (request.fragmentType == fragmentTypes.INIT_SEGMENT) {
-					_this.appendInitSegment(request.type, e.data);
 					request.fragmentType = fragmentTypes.SEGMENT;
 				} else {
-					e.data.info = e.info;
-					
-					_segments[request.type].push(e.data);
-					_this.appendSegment(request.type);
-					
 					request.index++;
 					request.start += request.duration;
 				}
 				
-				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
-				if (segmentInfo) {
-					utils.extend(request, segmentInfo);
-					
-					var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
-					segmentLoader.load(request.url);
-					
-					return;
-				}
+				e.data.info = e.info;
+				_segments[request.type].push(e.data);
 				
-				if (_loader.state() == readystates.UNINITIALIZED || _loader.state() == readystates.DONE) {
-					_loader.load(_manifest.getLocation());
-				}
+				_this.appendSegment(request.type);
+				_loadSegment(request);
 				
 				return;
 			}
@@ -7345,25 +7339,30 @@ playease.version = '1.0.81';
 			_mpd = _parser.parse(e.data);
 			_manifest.update(_mpd);
 			
-			if (_audioloader.state() == readystates.UNINITIALIZED || _audioloader.state() == readystates.DONE) {
-				var request = _audioloader.request;
-				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
-				if (segmentInfo) {
-					utils.extend(request, segmentInfo);
-					_audioloader.load(request.url);
-				}
+			if (_audioloader.request.fragmentType == fragmentTypes.INIT_SEGMENT
+					&& _videoloader.request.fragmentType == fragmentTypes.INIT_SEGMENT) {
+				_this.addSourceBuffer('audio');
+				_this.addSourceBuffer('video');
 			}
 			
-			if (_videoloader.state() == readystates.UNINITIALIZED || _videoloader.state() == readystates.DONE) {
-				var request = _videoloader.request;
-				var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
-				if (segmentInfo) {
-					utils.extend(request, segmentInfo);
-					_videoloader.load(request.url);
-				}
-			}
+			_loadSegment(_audioloader.request);
+			_loadSegment(_videoloader.request);
 			
-			_startTimer(_mpd['@minBufferTime'] * 1000);
+			_startTimer(_mpd['@minimumUpdatePeriod'] * 1000 || 2000);
+		}
+		
+		function _loadManifest() {
+			_loader.load(_manifest.getLocation());
+		}
+		
+		function _loadSegment(request) {
+			var segmentInfo = _manifest.getSegmentInfo(request.start, request.type, !request.fragmentType, request.start, request.index, 0);
+			if (segmentInfo) {
+				utils.extend(request, segmentInfo);
+				
+				var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
+				segmentLoader.load(request.url);
+			}
 		}
 		
 		function _onLoaderComplete(e) {
@@ -7377,9 +7376,13 @@ playease.version = '1.0.81';
 		
 		function _startTimer(delay) {
 			if (!_timer) {
-				_timer = new utils.timer(delay);
+				_timer = new utils.timer(delay, 1);
 				_timer.addEventListener(events.PLAYEASE_TIMER, _loadManifest);
 			}
+			
+			_timer.delay = _timer.running() ? Math.min(_timer.delay, delay) : delay;
+			
+			_timer.reset();
 			_timer.start();
 		}
 		
@@ -7389,14 +7392,10 @@ playease.version = '1.0.81';
 			}
 		}
 		
-		function _loadManifest() {
-			_loader.load(_manifest.getLocation());
-		}
-		
 		/**
 		 * MSE
 		 */
-		_this.appendInitSegment = function(type, seg) {
+		_this.addSourceBuffer = function(type) {
 			var request = type == 'audio' ? _audioloader.request : _videoloader.request;
 			var mimetype = request.mimeType + '; codecs="' + request.codecs + '"';
 			utils.log('Mime type: ' + mimetype + '.');
@@ -7423,7 +7422,6 @@ playease.version = '1.0.81';
 			sb.type = type;
 			sb.addEventListener('updateend', _onUpdateEnd);
 			sb.addEventListener('error', _onSourceBufferError);
-			sb.appendBuffer(seg);
 		};
 		
 		_this.appendSegment = function(type) {
@@ -7451,7 +7449,7 @@ playease.version = '1.0.81';
 		}
 		
 		function _onUpdateEnd(e) {
-			utils.log('update end');
+			//utils.log('update end');
 			
 			var type = e.target.type;
 			
@@ -7511,7 +7509,9 @@ playease.version = '1.0.81';
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
+			if (_mpd['@type'] == 'static' 
+					&& _audioloader && _audioloader.state() == readystates.DONE
+					&& _videoloader && _videoloader.state() == readystates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {
