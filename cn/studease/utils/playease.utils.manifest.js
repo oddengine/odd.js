@@ -14,7 +14,10 @@
 		
 		_this.update = function(mpd) {
 			// Location
-			_location = mpd.Location['#text'] || _url;
+			_location = _url;
+			if (mpd.Location && mpd.Location['#text']) {
+				_location = mpd.Location['#text']
+			}
 			
 			// BaseURL
 			_baseURL = mpd.BaseURL || _location.substring(0, _location.lastIndexOf('/') + 1);

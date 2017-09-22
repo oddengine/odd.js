@@ -50,6 +50,8 @@
 			_url,
 			_src,
 			_loader,
+			_audioloader,
+			_videoloader,
 			_timer,
 			_parser,
 			_manifest,

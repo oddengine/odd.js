@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.83';
+playease.version = '1.0.84';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -7038,6 +7038,8 @@ playease.version = '1.0.83';
 			_url,
 			_src,
 			_loader,
+			_audioloader,
+			_videoloader,
 			_timer,
 			_parser,
 			_manifest,
