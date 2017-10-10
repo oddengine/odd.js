@@ -298,7 +298,7 @@
 		
 		function _onSeek(e) {
 			var state = model.getState();
-			if (state != states.STOPPED && state != states.ERROR) {
+			if (state != states.IDLE && state != states.ERROR) {
 				_this.seek(e.offset);
 				_forward(e);
 			}

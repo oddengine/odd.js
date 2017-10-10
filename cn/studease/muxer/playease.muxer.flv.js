@@ -123,17 +123,17 @@
 			return _this.hasKeyframesIndex === true;
 		};
 		
-		_this.getNearestKeyframe = function(milliseconds) {
+		_this.getNearestKeyframe = function(time, fileposition) {
 			if (_this.keyframesIndex == null) {
 				return null;
 			}
 			
 			var table = _this.keyframesIndex;
-			var keyframeIndex = _search(table.times, milliseconds);
+			var keyframeIndex = _search(fileposition ? table.filepositions : table.times, fileposition ? fileposition : time);
 			
 			return {
 				index: keyframeIndex,
-				milliseconds: table.times[keyframeIndex],
+				time: table.times[keyframeIndex],
 				fileposition: table.filepositions[keyframeIndex]
 			};
 		};
@@ -146,8 +146,7 @@
 			var ubound = last;
 			
 			if (value < list[0]) {
-				index = 0;
-				lbound = ubound + 1;  // skip search
+				return 0;
 			}
 			
 			while (lbound <= ubound) {
@@ -225,11 +224,11 @@
 			_timestampBase = 0;
 		}
 		
-		_this.reset = function() {
+		_this.reset = function(seeking) {
 			_offset = 0;
 			_length = 0;
 			
-			_state = states.START;
+			_state = seeking ? states.HEADER : states.START;
 			
 			_header.position = 0;
 			_cachedchunks = [];
@@ -239,7 +238,6 @@
 			_videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0 };
 			_audioTrack = { type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0 };
 			
-			_lengthSizeMinusOne = 0;
 			_timestampBase = 0;
 		};
 		
@@ -776,6 +774,7 @@
 				}
 			}
 			if (typeof _metadata.keyframes === 'object') {
+				_mediainfo.keyframesIndex = _metadata.keyframes;
 				_mediainfo.hasKeyframesIndex = true;
 			} else {
 				_mediainfo.hasKeyframesIndex = false;

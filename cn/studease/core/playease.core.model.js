@@ -7,7 +7,7 @@
 	core.model = function(config) {
 		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
 		 	_defaults = {},
-		 	_state = states.STOPPED,
+		 	_state = states.IDLE,
 		 	_playlist,
 		 	_properties;
 		

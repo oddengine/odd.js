@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.84';
+playease.version = '1.0.85';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -2307,12 +2307,16 @@ playease.version = '1.0.84';
 			_xhr.onerror = _onXHRError;
 			
 			if (start || end) {
-				_range.start = start;
-				_range.end = end;
+				_range.start = _range.position = start;
+				_range.end = Math.min(end, _filesize);
+				
+				if (_range.position >= _range.end) {
+					return;
+				}
 			}
 			if (_range.start || _range.end || _this.config.chunkSize) {
 				utils.extend(_this.config.headers, {
-					Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+					Range: 'bytes=' + _range.position + '-' + Math.min(_range.end, _range.position + _this.config.chunkSize - 1)
 				});
 			}
 			
@@ -2339,7 +2343,25 @@ playease.version = '1.0.84';
 			
 			if (_xhr.readyState == readystates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					var len = _xhr.getResponseHeader('Content-Length');
+					if (len) {
+						len = parseInt(len);
+					}
 					
+					if (_xhr.status == 206) {
+						var range = _xhr.getResponseHeader('Content-Range');
+						if (range) {
+							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
+							if (arr && arr.length > 3) {
+								len = parseInt(arr[3]);
+							}
+						}
+					}
+					
+					if (len && len != _filesize) {
+						_filesize = len;
+						_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len || 0 });
+					}
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
@@ -2370,20 +2392,17 @@ playease.version = '1.0.84';
 					break;
 			}
 			
-			_range.position = len;
-			_filesize = len;
-			_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
-			
+			_range.position += len;
 			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
 			
 			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
-			if (_range.position > end) {
+			if (_range.position >= _filesize || _range.position > end) {
 				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 				return;
 			}
 			
 			utils.extend(_this.config.headers, {
-				Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+				Range: 'bytes=' + _range.position + '-' + Math.min(_range.end, _range.position + _this.config.chunkSize - 1)
 			});
 			
 			_xhr.open(_this.config.method, _url, true);
@@ -2396,7 +2415,7 @@ playease.version = '1.0.84';
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = readystates.DONE;
 			
 			if (_xhr) {
 				_xhr.abort();
@@ -3285,17 +3304,17 @@ playease.version = '1.0.84';
 			return _this.hasKeyframesIndex === true;
 		};
 		
-		_this.getNearestKeyframe = function(milliseconds) {
+		_this.getNearestKeyframe = function(time, fileposition) {
 			if (_this.keyframesIndex == null) {
 				return null;
 			}
 			
 			var table = _this.keyframesIndex;
-			var keyframeIndex = _search(table.times, milliseconds);
+			var keyframeIndex = _search(fileposition ? table.filepositions : table.times, fileposition ? fileposition : time);
 			
 			return {
 				index: keyframeIndex,
-				milliseconds: table.times[keyframeIndex],
+				time: table.times[keyframeIndex],
 				fileposition: table.filepositions[keyframeIndex]
 			};
 		};
@@ -3308,8 +3327,7 @@ playease.version = '1.0.84';
 			var ubound = last;
 			
 			if (value < list[0]) {
-				index = 0;
-				lbound = ubound + 1;  // skip search
+				return 0;
 			}
 			
 			while (lbound <= ubound) {
@@ -3387,11 +3405,11 @@ playease.version = '1.0.84';
 			_timestampBase = 0;
 		}
 		
-		_this.reset = function() {
+		_this.reset = function(seeking) {
 			_offset = 0;
 			_length = 0;
 			
-			_state = states.START;
+			_state = seeking ? states.HEADER : states.START;
 			
 			_header.position = 0;
 			_cachedchunks = [];
@@ -3401,7 +3419,6 @@ playease.version = '1.0.84';
 			_videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0 };
 			_audioTrack = { type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0 };
 			
-			_lengthSizeMinusOne = 0;
 			_timestampBase = 0;
 		};
 		
@@ -3938,6 +3955,7 @@ playease.version = '1.0.84';
 				}
 			}
 			if (typeof _metadata.keyframes === 'object') {
+				_mediainfo.keyframesIndex = _metadata.keyframes;
 				_mediainfo.hasKeyframesIndex = true;
 			} else {
 				_mediainfo.hasKeyframesIndex = false;
@@ -5567,6 +5585,7 @@ playease.version = '1.0.84';
 
 (function(playease) {
 	playease.core.states = {
+		IDLE: 'idle',
 		BUFFERING: 'buffering',
 		PLAYING: 'playing',
 		PAUSED: 'paused',
@@ -5864,7 +5883,9 @@ playease.version = '1.0.84';
 	
 	renders.flv = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
-			_defaults = {},
+			_defaults = {
+				bufferLength: 4 * 1024 * 1024
+			},
 			_video,
 			_url,
 			_src,
@@ -5892,7 +5913,10 @@ playease.version = '1.0.84';
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			_range = {
+				start: 0,
+				end: _this.config.mode == rendermodes.VOD ? _this.config.bufferLength - 1 : ''
+			};
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -5925,7 +5949,7 @@ playease.version = '1.0.84';
 		function _initLoader() {
 			var name, type = _this.config.loader.name;
 			
-			if (type && io.hasOwnProperty(type) && io[type].isSupported()) {
+			if (type && io.hasOwnProperty(type) && io[type].isSupported(_url)) {
 				name = type;
 			} else {
 				for (var i = 0; i < priority.length; i++) {
@@ -6015,8 +6039,8 @@ playease.version = '1.0.84';
 				
 				_waiting = true;
 				
-				_segments.audio = [];
-				_segments.video = [];
+				_segments.audio.splice(0, _segments.audio.length);
+				_segments.video.splice(0, _segments.video.length);
 				
 				_initLoader();
 				
@@ -6052,16 +6076,54 @@ playease.version = '1.0.84';
 		_this.seek = function(offset) {
 			if (isNaN(_video.duration)) {
 				_this.play();
-			} else {
-				_video.currentTime = offset * _video.duration / 100;
-				
-				var promise = _video.play();
-				if (promise) {
-					promise['catch'](function(e) { /* void */ });
-				}
+				return;
+			}
+			
+			var position = _video.duration * offset / 100;
+			_video.currentTime = position;
+			
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
+			
+			if (_this.config.mode == rendermodes.VOD && _mediainfo && _mediainfo.isSeekable()) {
+				_waiting = true;
+				_segments.audio.splice(0, _segments.audio.length);
+				_segments.video.splice(0, _segments.video.length);
+				
+				_loader.abort();
+				_demuxer.reset(true);
+				_remuxer.reset();
+				
+				var ranges = _video.buffered;
+				var start, end;
+				for (var i = 0; i < ranges.length; i++) {
+					start = ranges.start(i);
+					end = ranges.end(i);
+					if (start <= position && position < end) {
+						var endKeyframe = _mediainfo.getNearestKeyframe(end);
+						_range.end = endKeyframe.fileposition - 1;
+						return;
+					}
+					
+					if (position < start) {
+						break;
+					}
+				}
+				
+				var startKeyframe = _mediainfo.getNearestKeyframe(position);
+				_range.start = startKeyframe.fileposition;
+				_range.end = _range.start + _this.config.bufferLength - 1;
+				if (position < start) {
+					var endKeyframe = _mediainfo.getNearestKeyframe(start);
+					_range.end = Math.min(_range.end, endKeyframe.fileposition - 1);
+				}
+				
+				_loader.load(_url, _range.start, _range.end);
+			}
 		};
 		
 		_this.stop = function() {
@@ -6088,8 +6150,11 @@ playease.version = '1.0.84';
 				_sb.video = null;
 			}
 			
-			_segments.audio = [];
-			_segments.video = [];
+			_range.start = 0;
+			_range.end = _this.config.mode == rendermodes.VOD ? _this.config.bufferLength - 1 : '';
+			
+			_segments.audio.splice(0, _segments.audio.length);
+			_segments.video.splice(0, _segments.video.length);
 			
 			if (_loader) {
 				_loader.abort();
@@ -6224,7 +6289,7 @@ playease.version = '1.0.84';
 				_fileindex++
 				_filekeeper.append(e.data);
 				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-				if (_fileindex == 500) {
+				if (_fileindex == 300) {
 					_filekeeper.save('sample.flv.mp4');
 				}
 			}*/
@@ -6338,12 +6403,14 @@ playease.version = '1.0.84';
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered, start, end;
+			var ranges = _video.buffered;
+			var start, end;
 			for (var i = 0; i < ranges.length; i++) {
 				start = ranges.start(i);
 				end = ranges.end(i);
-				if (/*start <= position && */position < end) {
+				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+					break;
 				}
 				
 				if (i == 0 && position < start) {
@@ -6351,24 +6418,21 @@ playease.version = '1.0.84';
 				}
 			}
 			
-			if (_waiting && end - position >= _this.config.bufferTime) {
+			if (_waiting && position + _this.config.bufferTime <= end) {
 				_waiting = false;
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
-				var dts = end * 1000;
-				
+				var cached = end || 0;
 				if (_segments.video.length) {
-					dts = Math.max(dts, _segments.video[_segments.video.length - 1].info.endDts);
-				}
-				if (_segments.audio.length) {
-					dts = Math.max(dts, _segments.audio[_segments.audio.length - 1].info.endDts);
+					cached = Math.max(cached, _segments.video[_segments.video.length - 1].info.endDts);
 				}
 				
-				if (dts && dts / 1000 - position < 120 && _range.end < _contentLength - 1) {
+				if (cached < position + 60 && _range.end < _contentLength - 1) {
 					_range.start = _range.end + 1;
-					_range.end += 32 * 1024 * 1024;
+					_range.end = _range.start + _this.config.loader.chunkSize - 1;
+					
 					_loader.load(_url, _range.start, _range.end);
 				}
 			}
@@ -9848,7 +9912,7 @@ playease.version = '1.0.84';
 	core.model = function(config) {
 		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
 		 	_defaults = {},
-		 	_state = states.STOPPED,
+		 	_state = states.IDLE,
 		 	_playlist,
 		 	_properties;
 		
@@ -10864,7 +10928,7 @@ playease.version = '1.0.84';
 		
 		function _onSeek(e) {
 			var state = model.getState();
-			if (state != states.STOPPED && state != states.ERROR) {
+			if (state != states.IDLE && state != states.ERROR) {
 				_this.seek(e.offset);
 				_forward(e);
 			}
