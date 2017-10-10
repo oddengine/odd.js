@@ -61,12 +61,16 @@
 			_xhr.onerror = _onXHRError;
 			
 			if (start || end) {
-				_range.start = start;
-				_range.end = end;
+				_range.start = _range.position = start;
+				_range.end = Math.min(end, _filesize);
+				
+				if (_range.position >= _range.end) {
+					return;
+				}
 			}
 			if (_range.start || _range.end || _this.config.chunkSize) {
 				utils.extend(_this.config.headers, {
-					Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+					Range: 'bytes=' + _range.position + '-' + Math.min(_range.end, _range.position + _this.config.chunkSize - 1)
 				});
 			}
 			
@@ -93,7 +97,25 @@
 			
 			if (_xhr.readyState == readystates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					var len = _xhr.getResponseHeader('Content-Length');
+					if (len) {
+						len = parseInt(len);
+					}
 					
+					if (_xhr.status == 206) {
+						var range = _xhr.getResponseHeader('Content-Range');
+						if (range) {
+							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
+							if (arr && arr.length > 3) {
+								len = parseInt(arr[3]);
+							}
+						}
+					}
+					
+					if (len && len != _filesize) {
+						_filesize = len;
+						_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len || 0 });
+					}
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
@@ -124,20 +146,17 @@
 					break;
 			}
 			
-			_range.position = len;
-			_filesize = len;
-			_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len });
-			
+			_range.position += len;
 			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
 			
 			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
-			if (_range.position > end) {
+			if (_range.position >= _filesize || _range.position > end) {
 				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 				return;
 			}
 			
 			utils.extend(_this.config.headers, {
-				Range: 'bytes=' + _range.position + '-' + (Math.min(_filesize, _range.position + _this.config.chunkSize) - 1)
+				Range: 'bytes=' + _range.position + '-' + Math.min(_range.end, _range.position + _this.config.chunkSize - 1)
 			});
 			
 			_xhr.open(_this.config.method, _url, true);
@@ -150,7 +169,7 @@
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = readystates.DONE;
 			
 			if (_xhr) {
 				_xhr.abort();

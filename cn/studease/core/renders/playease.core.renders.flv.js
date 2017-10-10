@@ -20,7 +20,9 @@
 	
 	renders.flv = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flv')),
-			_defaults = {},
+			_defaults = {
+				bufferLength: 4 * 1024 * 1024
+			},
 			_video,
 			_url,
 			_src,
@@ -48,7 +50,10 @@
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			_range = {
+				start: 0,
+				end: _this.config.mode == rendermodes.VOD ? _this.config.bufferLength - 1 : ''
+			};
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -81,7 +86,7 @@
 		function _initLoader() {
 			var name, type = _this.config.loader.name;
 			
-			if (type && io.hasOwnProperty(type) && io[type].isSupported()) {
+			if (type && io.hasOwnProperty(type) && io[type].isSupported(_url)) {
 				name = type;
 			} else {
 				for (var i = 0; i < priority.length; i++) {
@@ -171,8 +176,8 @@
 				
 				_waiting = true;
 				
-				_segments.audio = [];
-				_segments.video = [];
+				_segments.audio.splice(0, _segments.audio.length);
+				_segments.video.splice(0, _segments.video.length);
 				
 				_initLoader();
 				
@@ -208,16 +213,54 @@
 		_this.seek = function(offset) {
 			if (isNaN(_video.duration)) {
 				_this.play();
-			} else {
-				_video.currentTime = offset * _video.duration / 100;
-				
-				var promise = _video.play();
-				if (promise) {
-					promise['catch'](function(e) { /* void */ });
-				}
+				return;
+			}
+			
+			var position = _video.duration * offset / 100;
+			_video.currentTime = position;
+			
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(e) { /* void */ });
 			}
 			
 			_video.controls = false;
+			
+			if (_this.config.mode == rendermodes.VOD && _mediainfo && _mediainfo.isSeekable()) {
+				_waiting = true;
+				_segments.audio.splice(0, _segments.audio.length);
+				_segments.video.splice(0, _segments.video.length);
+				
+				_loader.abort();
+				_demuxer.reset(true);
+				_remuxer.reset();
+				
+				var ranges = _video.buffered;
+				var start, end;
+				for (var i = 0; i < ranges.length; i++) {
+					start = ranges.start(i);
+					end = ranges.end(i);
+					if (start <= position && position < end) {
+						var endKeyframe = _mediainfo.getNearestKeyframe(end);
+						_range.end = endKeyframe.fileposition - 1;
+						return;
+					}
+					
+					if (position < start) {
+						break;
+					}
+				}
+				
+				var startKeyframe = _mediainfo.getNearestKeyframe(position);
+				_range.start = startKeyframe.fileposition;
+				_range.end = _range.start + _this.config.bufferLength - 1;
+				if (position < start) {
+					var endKeyframe = _mediainfo.getNearestKeyframe(start);
+					_range.end = Math.min(_range.end, endKeyframe.fileposition - 1);
+				}
+				
+				_loader.load(_url, _range.start, _range.end);
+			}
 		};
 		
 		_this.stop = function() {
@@ -244,8 +287,11 @@
 				_sb.video = null;
 			}
 			
-			_segments.audio = [];
-			_segments.video = [];
+			_range.start = 0;
+			_range.end = _this.config.mode == rendermodes.VOD ? _this.config.bufferLength - 1 : '';
+			
+			_segments.audio.splice(0, _segments.audio.length);
+			_segments.video.splice(0, _segments.video.length);
 			
 			if (_loader) {
 				_loader.abort();
@@ -380,7 +426,7 @@
 				_fileindex++
 				_filekeeper.append(e.data);
 				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-				if (_fileindex == 500) {
+				if (_fileindex == 300) {
 					_filekeeper.save('sample.flv.mp4');
 				}
 			}*/
@@ -494,12 +540,14 @@
 			var position = _video.currentTime;
 			var duration = _video.duration;
 			
-			var ranges = _video.buffered, start, end;
+			var ranges = _video.buffered;
+			var start, end;
 			for (var i = 0; i < ranges.length; i++) {
 				start = ranges.start(i);
 				end = ranges.end(i);
-				if (/*start <= position && */position < end) {
+				if (start <= position && position < end) {
 					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+					break;
 				}
 				
 				if (i == 0 && position < start) {
@@ -507,24 +555,21 @@
 				}
 			}
 			
-			if (_waiting && end - position >= _this.config.bufferTime) {
+			if (_waiting && position + _this.config.bufferTime <= end) {
 				_waiting = false;
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
-				var dts = end * 1000;
-				
+				var cached = end || 0;
 				if (_segments.video.length) {
-					dts = Math.max(dts, _segments.video[_segments.video.length - 1].info.endDts);
-				}
-				if (_segments.audio.length) {
-					dts = Math.max(dts, _segments.audio[_segments.audio.length - 1].info.endDts);
+					cached = Math.max(cached, _segments.video[_segments.video.length - 1].info.endDts);
 				}
 				
-				if (dts && dts / 1000 - position < 120 && _range.end < _contentLength - 1) {
+				if (cached < position + 60 && _range.end < _contentLength - 1) {
 					_range.start = _range.end + 1;
-					_range.end += 32 * 1024 * 1024;
+					_range.end = _range.start + _this.config.loader.chunkSize - 1;
+					
 					_loader.load(_url, _range.start, _range.end);
 				}
 			}
