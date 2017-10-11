@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.85';
+playease.version = '1.0.86';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -7750,6 +7750,7 @@ playease.version = '1.0.85';
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
 						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
+						+ '<p>Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.</p>'
 					+ '</object>';
 				
 				_video = div.firstChild;
@@ -7766,7 +7767,8 @@ playease.version = '1.0.85';
 				+ '<param name="allowscriptaccess" value="sameDomain">'
 				+ '<param name="allowfullscreen" value="true">'
 				+ '<param name="wmode" value="transparent">'
-				+ '<param name="FlashVars" value="id=' + _this.config.id + '">';
+				+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
+				+ '<p>Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.</p>';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
