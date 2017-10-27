@@ -34,6 +34,10 @@ playease('player').setup({
 		label: 'WS-FLV'
 	}, {
 		file: 'ws://127.0.0.1/live/sample',
+		type: 'rtmpmate',
+		label: 'WS-RTMPMATE'
+	}, {
+		file: 'ws://127.0.0.1/live/sample',
 		type: 'wss',
 		label: 'WS-fMP4'
 	}, {
@@ -45,18 +49,31 @@ playease('player').setup({
 		type: 'flash',
 		label: 'RTMP-STREAM'
 	}, {
-		file: 'http://127.0.0.1/live/sample.m3u8',
+		file: 'http://127.0.0.1/live/sample/index.m3u8',
 		type: 'def'
 	}],*/
 	mode: 'vod',
 	controls: true,
-	autoplay: true,
-	poster: 'sample.png',
+	autoplay: false,
+	//poster: 'sample.png',
+	//report: true,
 	loader: {
+		//name: 'xhr-chunked-loader',
 		mode: 'cors'
 	},
+	logo: {
+		file: 'logo.png'
+	},
+	bulletscreen: {
+		enable: true,
+		visible: true
+	},
+	/*fullpage: {
+		visible: true
+	},*/
 	render: {
-		name: 'flv'
+		name: 'def',
+		swf: '../swf/playease.swf'
 	}
 });
 ```
@@ -82,7 +99,7 @@ _defaults = {
 	airplay: 'allow',
 	playsinline: true,
 	poster: '',
-	report: true,
+	report: false,
 	debug: false,
 	loader: {
 		mode: iomodes.CORS
@@ -92,7 +109,10 @@ _defaults = {
 	},
 	bulletscreen: {
 		enable: true,
-		visible: true
+		visible: false
+	},
+	fullpage: {
+		visible: false
 	},
 	render: {
 		name: rendertypes.DEFAULT,

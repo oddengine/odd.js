@@ -25,8 +25,8 @@
 				credentials: credentials.OMIT,
 				cache: caches.DEFAULT,
 				redirect: redirects.FOLLOW,
-				chunkSize: 0,
-				responseType: responseTypes.TEXT
+				chunkSize: 2 * 1024 * 1024,
+				responseType: responseTypes.ARRAYBUFFER
 			},
 			_state,
 			_url,

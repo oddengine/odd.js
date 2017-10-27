@@ -35,7 +35,6 @@
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
 						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
-						+ '<p>Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.</p>'
 					+ '</object>';
 				
 				_video = div.firstChild;
@@ -52,8 +51,7 @@
 				+ '<param name="allowscriptaccess" value="sameDomain">'
 				+ '<param name="allowfullscreen" value="true">'
 				+ '<param name="wmode" value="transparent">'
-				+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
-				+ '<p>Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.</p>';
+				+ '<param name="FlashVars" value="id=' + _this.config.id + '">';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
@@ -82,32 +80,47 @@
 				_url = url;
 			}
 			
-			_video.xplay(_url);
+			if (_video.xplay) {
+				_video.xplay(_url);
+			}
 		};
 		
 		_this.pause = function() {
-			_video.pause();
+			if (_video.pause) {
+				_video.pause();
+			}
 		};
 		
 		_this.reload = function() {
-			_video.reload();
+			if (_video.reload) {
+				_video.reload();
+			}
 		};
 		
 		_this.seek = function(offset) {
-			_video.seek(offset);
+			if (_video.seek) {
+				_video.seek(offset);
+			}
 		};
 		
 		_this.stop = function() {
-			_video.istop();
+			if (_video.xstop) {
+				_video.xstop();
+			}
+
 			_duration = 0;
 		};
 		
 		_this.mute = function(muted) {
-			_video.muted(muted);
+			if (_video.muted) {
+				_video.muted(muted);
+			}
 		};
 		
 		_this.volume = function(vol) {
-			_video.volume(vol);
+			if (_video.volume) {
+				_video.volume(vol);
+			}
 		};
 		
 		_this.hd = function(index) {
@@ -116,6 +129,10 @@
 		
 		
 		_this.getRenderInfo = function() {
+			if (!_video.getRenderInfo) {
+				return {};
+			}
+			
 			var info = _video.getRenderInfo();
 			
 			if (_duration !== info.duration) {

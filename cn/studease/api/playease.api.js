@@ -114,7 +114,7 @@
 	playease.api.displayError = function(message, config) {
 		var displayLayer = document.getElementById(config.id + '-display');
 		if (displayLayer && message !== undefined) {
-			(displayLayer.lastChild || displayLayer).innerText = message;
+			(displayLayer.lastChild || displayLayer).innerHTML = message;
 		}
 	};
 })(playease);
