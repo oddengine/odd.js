@@ -124,12 +124,17 @@
 		};
 		
 		_this.getNearestKeyframe = function(time, fileposition) {
-			if (_this.keyframesIndex == null) {
+			var table = _this.keyframesIndex;
+			if (table == null) {
 				return null;
 			}
 			
-			var table = _this.keyframesIndex;
-			var keyframeIndex = _search(fileposition ? table.filepositions : table.times, fileposition ? fileposition : time);
+			var keyframeIndex;
+			if (fileposition) {
+				keyframeIndex = _search(table.filepositions, fileposition);
+			} else {
+				keyframeIndex = _search(table.times, time);
+			}
 			
 			return {
 				index: keyframeIndex,
@@ -755,13 +760,13 @@
 		_this.setMetaData = function(metadata) {
 			_metadata = metadata;
 			
-			if (typeof _metadata.audiodatarate === 'number') {
+			if (utils.typeOf(_metadata.audiodatarate) === 'number') {
 				_mediainfo.audioDataRate = _metadata.audiodatarate;
 			}
-			if (typeof _metadata.videodatarate === 'number') {
+			if (utils.typeOf(_metadata.videodatarate) === 'number') {
 				_mediainfo.videoDataRate = _metadata.videodatarate;
 			}
-			if (typeof _metadata.framerate === 'number') {
+			if (utils.typeOf(_metadata.framerate) === 'number') {
 				var fps_num = Math.floor(_metadata.framerate * 1000);
 				if (fps_num > 0) {
 					var fps = fps_num / 1000;
@@ -773,7 +778,7 @@
 					_mediainfo.fps = fps;
 				}
 			}
-			if (typeof _metadata.keyframes === 'object') {
+			if (utils.typeOf(_metadata.keyframes) === 'object') {
 				_mediainfo.keyframesIndex = _metadata.keyframes;
 				_mediainfo.hasKeyframesIndex = true;
 			} else {

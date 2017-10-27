@@ -30,9 +30,11 @@
 			}
 			if (_this.config.playsinline) {
 				_video.setAttribute('playsinline', '');
-				_video.setAttribute('x5-playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
 			}
+			_video.setAttribute('x5-video-player-type', 'h5');
+			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -45,7 +47,19 @@
 		}
 		
 		_this.setup = function() {
+			if (utils.isWeixin()) {
+				document.addEventListener('WeixinJSBridgeReady', _onWeixinJSBridgeReady);
+			} else {
+				_onWeixinJSBridgeReady();
+			}
+		};
+		
+		function _onWeixinJSBridgeReady(e) {
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+		}
+		
+		_this.attach = function(url) {
+			_video.src = url;
 		};
 		
 		_this.play = function(url) {
@@ -62,8 +76,6 @@
 				_waiting = true;
 				
 				_video.src = _url;
-				_video.load();
-				
 				_src = _video.src;
 			}
 			
@@ -107,10 +119,11 @@
 			_waiting = true;
 			
 			_video.removeAttribute('src');
+			_video.pause();
 			_video.load();
 			_video.controls = false;
 			
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.IDLE });
 		};
 		
 		_this.mute = function(muted) {

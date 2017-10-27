@@ -191,14 +191,24 @@
 		return utils.isIOS() || utils.isAndroid();
 	};
 	
+	utils.isFirefox = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+	};
+	
 	utils.isChrome = function(version) {
 		version = version || '';
 		return _userAgentMatch(new RegExp('\\s(?:Chrome|CriOS)\\/' + version, 'i')) && !utils.isEdge();
 	};
 	
-	utils.isFirefox = function(version) {
+	utils.isSogou = function(version) {
 		version = version || '';
-		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+		return _userAgentMatch(new RegExp('MetaSr\\s' + version, 'i'));
+	};
+	
+	utils.isWeixin = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('MicroMessenger\\/' + version, 'i'));
 	};
 	
 	function _userAgentMatch(regex) {
@@ -261,7 +271,7 @@
 	utils.getOrigin = function(file) {
 		var origin = '';
 		
-		var arr = file.match(/^[a-z]+\:\/\/([a-z0-9.:])\//i);
+		var arr = file.match(/^[a-z]+\:\/\/([a-z0-9\-.:])\//i);
 		if (arr && arr.length > 1) {
 			origin = arr[1];
 		}
@@ -283,7 +293,7 @@
 	utils.getExtension = function(file) {
 		var extension = '';
 		
-		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.([a-z0-9]+))*)\??([a-z0-9\-_%&=]*)$/i);
+		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.([a-z0-9]+))*)\??([a-z0-9\.\-_%&=]*)$/i);
 		if (arr && arr.length > 3) {
 			extension = arr[3];
 		}

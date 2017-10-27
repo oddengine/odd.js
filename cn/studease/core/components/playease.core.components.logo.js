@@ -35,9 +35,16 @@
 			_container = utils.createElement('div', LOGO_CLASS);
 			_logo = utils.createElement('a');
 			
-			css.style(_container, {
+			var style = {
 				visibility: _this.config.visible ? 'visible' : 'hidden'
-			});
+			};
+			var arr = _this.config.position.match(/([a-z]+)-([a-z]+)/i);
+			if (arr && arr.length > 2) {
+				style.margin = _this.config.margin;
+				style[arr[1]] = '0';
+				style[arr[2]] = '0';
+			}
+			css.style(_container, style);
 			
 			_img = new Image();
 			_img.onload = _onload;
@@ -50,20 +57,13 @@
 		function _onload(e) {
 			_loaded = true;
 			
-			var style = {
+			css.style(_container, {
 				width: _img.width + 'px',
-				height: _img.height + 'px',
+				height: _img.height + 'px'
+			});
+			css.style(_logo, {
 				'background-image': 'url(' + _this.config.file + ')'
-			};
-			
-			var arr = _this.config.position.match(/([a-z]+)-([a-z]+)/i);
-			if (arr && arr.length > 2) {
-				style.margin = _this.config.margin;
-				style[arr[1]] = '0';
-				style[arr[2]] = '0';
-			}
-			
-			css.style(_logo, style);
+			});
 			
 			_logo.href = _this.config.link;
 			_logo.target = _this.config.target;
@@ -85,20 +85,7 @@
 		};
 		
 		_this.resize = function(width, height) {
-			if (!_loaded) {
-				return;
-			}
 			
-			width = _img.width * _container.clientWidth / 640;
-			width = Math.max(width, _img.width * 0.7);
-			width = Math.min(width, _img.width * 1.2);
-			
-			height = width * _img.height / _img.width;
-			
-			css.style(_logo, {
-				width: width + 'px',
-				height: height + 'px'
-			});
 		};
 		
 		_init();

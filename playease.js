@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.86';
+playease.version = '1.0.87';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -199,14 +199,24 @@ playease.version = '1.0.86';
 		return utils.isIOS() || utils.isAndroid();
 	};
 	
+	utils.isFirefox = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+	};
+	
 	utils.isChrome = function(version) {
 		version = version || '';
 		return _userAgentMatch(new RegExp('\\s(?:Chrome|CriOS)\\/' + version, 'i')) && !utils.isEdge();
 	};
 	
-	utils.isFirefox = function(version) {
+	utils.isSogou = function(version) {
 		version = version || '';
-		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+		return _userAgentMatch(new RegExp('MetaSr\\s' + version, 'i'));
+	};
+	
+	utils.isWeixin = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('MicroMessenger\\/' + version, 'i'));
 	};
 	
 	function _userAgentMatch(regex) {
@@ -269,7 +279,7 @@ playease.version = '1.0.86';
 	utils.getOrigin = function(file) {
 		var origin = '';
 		
-		var arr = file.match(/^[a-z]+\:\/\/([a-z0-9.:])\//i);
+		var arr = file.match(/^[a-z]+\:\/\/([a-z0-9\-.:])\//i);
 		if (arr && arr.length > 1) {
 			origin = arr[1];
 		}
@@ -291,7 +301,7 @@ playease.version = '1.0.86';
 	utils.getExtension = function(file) {
 		var extension = '';
 		
-		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.([a-z0-9]+))*)\??([a-z0-9\-_%&=]*)$/i);
+		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.([a-z0-9]+))*)\??([a-z0-9\.\-_%&=]*)$/i);
 		if (arr && arr.length > 3) {
 			extension = arr[3];
 		}
@@ -528,6 +538,93 @@ playease.version = '1.0.86';
 })(playease);
 
 (function(playease) {
+	var utils = playease.utils;
+	
+	utils.buffer = function() {
+		var _this = this,
+			_array,
+			_length,
+			_bytes;
+		
+		function _init() {
+			_array = [];
+			_length = 0;
+		}
+		
+		_this.Bytes = function() {
+			_bytes = new Uint8Array(_length);
+			
+			for (var i = 0, pos = 0; i < _array.length; i++) {
+				var typedArray = _array[i];
+				_bytes.set(typedArray, pos);
+				
+				pos += typedArray.byteLength;
+			}
+			
+			return _bytes.buffer;
+		};
+		
+		_this.Write = function(array) {
+			var typedArray = new Uint8Array(array);
+			_array.push(typedArray);
+			_length += typedArray.byteLength;
+		};
+		
+		_this.WriteByte = function(c) {
+			var ab = new ArrayBuffer(1);
+			var dv = new DataView(ab);
+			dv.setUint8(0, c);
+			
+			var typedArray = new Uint8Array(ab);
+			_array.push(typedArray);
+			_length += typedArray.byteLength;
+		};
+		
+		_this.WriteUint16 = function(n, littleEndian) {
+			var ab = new ArrayBuffer(2);
+			var dv = new DataView(ab);
+			dv.setUint16(0, n, littleEndian);
+			
+			var typedArray = new Uint8Array(ab);
+			_array.push(typedArray);
+			_length += typedArray.byteLength;
+		};
+		
+		_this.WriteUint32 = function(n, littleEndian) {
+			var ab = new ArrayBuffer(4);
+			var dv = new DataView(ab);
+			dv.setUint32(0, n, littleEndian);
+			
+			var typedArray = new Uint8Array(ab);
+			_array.push(typedArray);
+			_length += typedArray.byteLength;
+		};
+		
+		_this.WriteFloat64 = function(n, littleEndian) {
+			var ab = new ArrayBuffer(8);
+			var dv = new DataView(ab);
+			dv.setFloat64(0, n, littleEndian);
+			
+			var typedArray = new Uint8Array(ab);
+			_array.push(typedArray);
+			_length += typedArray.byteLength;
+		};
+		
+		_this.Len = function() {
+			return _length;
+		};
+		
+		_this.Reset = function() {
+			_array = [];
+			_length = 0;
+			_bytes = undefined;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
 	var utils = playease.utils,
 		sheet;
 	
@@ -637,6 +734,7 @@ playease.version = '1.0.86';
 		PLAYEASE_VIEW_BULLET: 'playeaseViewBullet',
 		PLAYEASE_VIEW_FULLPAGE: 'playeaseViewFullpage',
 		PLAYEASE_VIEW_FULLSCREEN: 'playeaseViewFullscreen',
+		PLAYEASE_VIEW_CLICK: 'playeaseViewClick',
 		
 		PLAYEASE_SLIDER_CHANGE: 'playeaseSliderChange',
 		
@@ -659,8 +757,101 @@ playease.version = '1.0.86';
 		
 		PLAYEASE_END_OF_STREAM: 'playeaseEndOfStream',
 		
+		// rtmp message
+		AudioEvent: {
+			DATA: 'playeaseAudioData'
+		},
+		VideoEvent: {
+			DATA: 'playeaseVideoData'
+		},
+		DataEvent: {
+			SET_DATA_FRAME: '@setDataFrame',
+			CLEAR_DATA_FRAME: '@clearDataFrame'
+		},
+		
+		// CommandEvent
+		CommandEvent: {
+			CONNECT:       'connect',
+			CLOSE:         'close',
+			CREATE_STREAM: 'createStream',
+			RESULT:        '_result',
+			ERROR:         '_error',
+		
+			PLAY:          'play',
+			PLAY2:         'play2',
+			DELETE_STREAM: 'deleteStream',
+			CLOSE_STREAM:  'closeStream',
+			RECEIVE_AUDIO: 'receiveAudio',
+			RECEIVE_VIDEO: 'receiveVideo',
+			PUBLISH:       'publish',
+			SEEK:          'seek',
+			PAUSE:         'pause',
+			ON_STATUS:     'onStatus',
+		
+			CHECK_BANDWIDTH: 'checkBandwidth',
+			GET_STATS:       'getStats'
+		},
+		
+		// UserControlEvent
+		UserControlEvent: {
+			STREAM_BEGIN:       'StreamBegin',
+			STREAM_EOF:         'StreamEOF',
+			STREAM_DRY:         'StreamDry',
+			SET_BUFFER_LENGTH:  'SetBufferLength',
+			STREAM_IS_RECORDED: 'StreamIsRecorded',
+			PING_REQUEST:       'PingRequest',
+			PING_RESPONSE:      'PingResponse'
+		},
+		
 		// Net Status Events
 		PLAYEASE_NET_STATUS: 'playeaseNetStatus',
+		NetStatusEvent: {
+			NET_STATUS: 'netStatus',
+			Level: {
+				ERROR:   'error',
+				STATUS:  'status',
+				WARNING: 'warning'
+			},
+			Code: {
+				NETCONNECTION_CALL_FAILED:         'NetConnection.Call.Failed',
+				NETCONNECTION_CONNECT_APPSHUTDOWN: 'NetConnection.Connect.AppShutdown',
+				NETCONNECTION_CONNECT_CLOSED:      'NetConnection.Connect.Closed',
+				NETCONNECTION_CONNECT_FAILED:      'NetConnection.Connect.Failed',
+				NETCONNECTION_CONNECT_IDLETIMEOUT: 'NetConnection.Connect.IdleTimeout',
+				NETCONNECTION_CONNECT_INVALIDAPP:  'NetConnection.Connect.InvalidApp',
+				NETCONNECTION_CONNECT_REJECTED:    'NetConnection.Connect.Rejected',
+				NETCONNECTION_CONNECT_SUCCESS:     'NetConnection.Connect.Success',
+				
+				NETSTREAM_BUFFER_EMPTY:              'NetStream.Buffer.Empty',
+				NETSTREAM_BUFFER_FLUSH:              'NetStream.Buffer.Flush',
+				NETSTREAM_BUFFER_FULL:               'NetStream.Buffer.Full',
+				NETSTREAM_FAILED:                    'NetStream.Failed',
+				NETSTREAM_PAUSE_NOTIFY:              'NetStream.Pause.Notify',
+				NETSTREAM_PLAY_FAILED:               'NetStream.Play.Failed',
+				NETSTREAM_PLAY_FILESTRUCTUREINVALID: 'NetStream.Play.FileStructureInvalid',
+				NETSTREAM_PLAY_PUBLISHNOTIFY:        'NetStream.Play.PublishNotify',
+				NETSTREAM_PLAY_RESET:                'NetStream.Play.Reset',
+				NETSTREAM_PLAY_START:                'NetStream.Play.Start',
+				NETSTREAM_PLAY_STOP:                 'NetStream.Play.Stop',
+				NETSTREAM_PLAY_STREAMNOTFOUND:       'NetStream.Play.StreamNotFound',
+				NETSTREAM_PLAY_UNPUBLISHNOTIFY:      'NetStream.Play.UnpublishNotify',
+				NETSTREAM_PUBLISH_BADNAME:           'NetStream.Publish.BadName',
+				NETSTREAM_PUBLISH_IDLE:              'NetStream.Publish.Idle',
+				NETSTREAM_PUBLISH_START:             'NetStream.Publish.Start',
+				NETSTREAM_RECORD_ALREADYEXISTS:      'NetStream.Record.AlreadyExists',
+				NETSTREAM_RECORD_FAILED:             'NetStream.Record.Failed',
+				NETSTREAM_RECORD_NOACCESS:           'NetStream.Record.NoAccess',
+				NETSTREAM_RECORD_START:              'NetStream.Record.Start',
+				NETSTREAM_RECORD_STOP:               'NetStream.Record.Stop',
+				NETSTREAM_SEEK_FAILED:               'NetStream.Seek.Failed',
+				NETSTREAM_SEEK_INVALIDTIME:          'NetStream.Seek.InvalidTime',
+				NETSTREAM_SEEK_NOTIFY:               'NetStream.Seek.Notify',
+				NETSTREAM_STEP_NOTIFY:               'NetStream.Step.Notify',
+				NETSTREAM_UNPAUSE_NOTIFY:            'NetStream.Unpause.Notify',
+				NETSTREAM_UNPUBLISH_SUCCESS:         'NetStream.Unpublish.Success',
+				NETSTREAM_VIDEO_DIMENSIONCHANGE:     'NetStream.Video.DimensionChange'
+			}
+		},
 		
 		// Timer Events
 		PLAYEASE_TIMER: 'playeaseTimer',
@@ -716,6 +907,10 @@ playease.version = '1.0.86';
 				utils.log('error', err);
 			}
 			return false;
+		};
+		
+		this.hasEventListener = function(type) {
+			return _listeners.hasOwnProperty(type);
 		};
 		
 		this.addGlobalListener = function(listener, count) {
@@ -1734,7 +1929,7 @@ playease.version = '1.0.86';
 	playease.api.displayError = function(message, config) {
 		var displayLayer = document.getElementById(config.id + '-display');
 		if (displayLayer && message !== undefined) {
-			(displayLayer.lastChild || displayLayer).innerText = message;
+			(displayLayer.lastChild || displayLayer).innerHTML = message;
 		}
 	};
 })(playease);
@@ -2271,8 +2466,8 @@ playease.version = '1.0.86';
 				credentials: credentials.OMIT,
 				cache: caches.DEFAULT,
 				redirect: redirects.FOLLOW,
-				chunkSize: 0,
-				responseType: responseTypes.TEXT
+				chunkSize: 2 * 1024 * 1024,
+				responseType: responseTypes.ARRAYBUFFER
 			},
 			_state,
 			_url,
@@ -2550,240 +2745,6 @@ playease.version = '1.0.86';
 
 (function(playease) {
 	playease.muxer = {};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		muxer = playease.muxer;
-	
-	var AMF = muxer.AMF = {};
-	var types = AMF.types = {
-		DOUBLE:        0x00,
-		BOOLEAN:       0x01,
-		STRING:        0x02,
-		OBJECT:        0x03,
-		MOVIE_CLIP:    0x04, // Not available in Remoting
-		NULL:          0x05,
-		UNDEFINED:     0x06,
-		REFERENCE:     0x07,
-		MIXED_ARRAY:   0x08,
-		END_OF_OBJECT: 0x09,
-		ARRAY:         0x0A,
-		DATE:          0x0B,
-		LONG_STRING:   0x0C,
-		UNSUPPORTED:   0x0D,
-		RECORD_SET:    0x0E, // Remoting, server-to-client only
-		XML:           0x0F,
-		TYPED_OBJECT:  0x10, // Class instance
-		AMF3_DATA:     0x11  // Sent by Flash player 9+
-	};
-	
-	AMF.parse = function(arrayBuffer, dataOffset, dataSize) {
-		var data = {};
-		
-		try {
-			var key = AMF.parseValue(arrayBuffer, dataOffset, dataSize);
-			var value = AMF.parseValue(arrayBuffer, dataOffset + key.size, dataSize - key.size);
-			
-			data.key = key.data;
-			data.value = value.data;
-		} catch(e) {
-			utils.log('AMF.parse() failed. Error: ' + e);
-		}
-		
-		return data;
-	};
-	
-	AMF.parseObject = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 3) {
-			throw 'Data not enough while parsing AMF object.';
-		}
-		
-		var obj = {};
-		var pos = 0;
-		
-		var key, value = { ended: false };
-		
-		while (!value.ended && pos < dataSize) {
-			key = AMF.parseString(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += key.size;
-			
-			value = AMF.parseValue(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += value.size;
-			
-			if (key.data && value.data) {
-				obj[key.data] = value.data;
-			}
-		}
-		
-		return {
-			data: obj,
-			size: pos,
-			ended: value.ended
-		};
-	};
-	
-	AMF.parseString = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 2) {
-			throw 'Data not enough while parsing AMF string.';
-		}
-		
-		var v = new DataView(arrayBuffer, dataOffset, dataSize);
-		
-		var pos = 0;
-		var length = v.getUint16(pos);
-		
-		pos += 2;
-		
-		var str = void 0;
-		if (length > 0) {
-			str = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
-		} else {
-			str = '';
-		}
-		
-		pos += length;
-		
-		return {
-			data: str,
-			size: pos
-		};
-	};
-	
-	AMF.parseLongString = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 4) {
-			throw 'Data not enough while parsing AMF long string.';
-		}
-		
-		var v = new DataView(arrayBuffer, dataOffset, dataSize);
-		
-		var pos = 0;
-		var length = v.getUint32(pos);
-		
-		pos += 4;
-		
-		var str = void 0;
-		if (length > 0) {
-			str = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
-		} else {
-			str = '';
-		}
-		
-		pos += length;
-		
-		return {
-			data: str,
-			size: pos
-		};
-	};
-	
-	AMF.parseDate = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 10) {
-			throw 'Data not enough while parsing AMF date.';
-		}
-		
-		var v = new DataView(arrayBuffer, dataOffset, dataSize);
-		
-		var pos = 0;
-		var timestamp = v.getFloat64(pos);
-		
-		pos += 8;
-		
-		var timeoffset = v.getInt16(pos);
-		timestamp += timeoffset * 60 * 1000;
-		
-		pos += 2;
-		
-		return {
-			data: new Date(timestamp),
-			size: pos
-		};
-	};
-	
-	AMF.parseValue = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 1) {
-			throw 'Data not enough while parsing AMF value.';
-		}
-		
-		var v = new DataView(arrayBuffer, dataOffset, dataSize);
-		
-		var pos = 0;
-		var type = v.getUint8(pos);
-		
-		pos += 1;
-		
-		var value = void 0;
-		var ended = false;
-		
-		try {
-			switch (type) {
-				case types.DOUBLE:
-					value = v.getFloat64(pos);
-					pos += 8;
-					break;
-				case types.BOOLEAN:
-					var b = v.getUint8(pos);
-					value = b ? true : false;
-					pos += 1;
-					break;
-				case types.STRING:
-					var str = AMF.parseString(arrayBuffer, dataOffset + pos, dataSize - pos);
-					value = str.data;
-					pos += str.size;
-					break;
-				case types.OBJECT:
-					var obj = AMF.parseObject(arrayBuffer, dataOffset + pos, dataSize - pos);
-					value = obj.data;
-					pos += obj.size;
-					break;
-				case types.MIXED_ARRAY:
-					var length = v.getUint32(pos);
-					pos += 4;
-					
-					var arr = AMF.parseObject(arrayBuffer, dataOffset + pos, dataSize - pos);
-					value = arr.data;
-					pos += arr.size;
-					break;
-				case types.END_OF_OBJECT:
-					value = undefined;
-					ended = true;
-					break;
-				case types.ARRAY:
-					var length = v.getUint32(pos);
-					pos += 4;
-					
-					value = [];
-					for (var i = 0; i < length; i++) {
-						var val = AMF.parseValue(arrayBuffer, dataOffset + pos, dataSize - pos);
-						value.push(val.data);
-						pos += val.size;
-					}
-					break;
-				case types.DATE:
-					var date = AMF.parseDate(arrayBuffer, dataOffset + pos, dataSize - pos);
-					value = date.data;
-					pos += date.size;
-					break;
-				case types.LONG_STRING:
-					var longstr = AMF.parseString(arrayBuffer, dataOffset + pos, dataSize - pos);
-					value = longstr.data;
-					pos += longstr.size;
-					break;
-				default:
-					utils.log('Skipping unsupported AMF value type(' + type + ').');
-					pos += dataSize;
-			}
-		} catch(e) {
-			utils.log('AMF.parseValue() failed. Error: ' + e);
-		}
-		
-		return {
-			data: value,
-			size: pos,
-			ended: ended
-		};
-	};
 })(playease);
 
 (function(playease) {
@@ -3305,12 +3266,17 @@ playease.version = '1.0.86';
 		};
 		
 		_this.getNearestKeyframe = function(time, fileposition) {
-			if (_this.keyframesIndex == null) {
+			var table = _this.keyframesIndex;
+			if (table == null) {
 				return null;
 			}
 			
-			var table = _this.keyframesIndex;
-			var keyframeIndex = _search(fileposition ? table.filepositions : table.times, fileposition ? fileposition : time);
+			var keyframeIndex;
+			if (fileposition) {
+				keyframeIndex = _search(table.filepositions, fileposition);
+			} else {
+				keyframeIndex = _search(table.times, time);
+			}
 			
 			return {
 				index: keyframeIndex,
@@ -3936,13 +3902,13 @@ playease.version = '1.0.86';
 		_this.setMetaData = function(metadata) {
 			_metadata = metadata;
 			
-			if (typeof _metadata.audiodatarate === 'number') {
+			if (utils.typeOf(_metadata.audiodatarate) === 'number') {
 				_mediainfo.audioDataRate = _metadata.audiodatarate;
 			}
-			if (typeof _metadata.videodatarate === 'number') {
+			if (utils.typeOf(_metadata.videodatarate) === 'number') {
 				_mediainfo.videoDataRate = _metadata.videodatarate;
 			}
-			if (typeof _metadata.framerate === 'number') {
+			if (utils.typeOf(_metadata.framerate) === 'number') {
 				var fps_num = Math.floor(_metadata.framerate * 1000);
 				if (fps_num > 0) {
 					var fps = fps_num / 1000;
@@ -3954,7 +3920,7 @@ playease.version = '1.0.86';
 					_mediainfo.fps = fps;
 				}
 			}
-			if (typeof _metadata.keyframes === 'object') {
+			if (utils.typeOf(_metadata.keyframes) === 'object') {
 				_mediainfo.keyframesIndex = _metadata.keyframes;
 				_mediainfo.hasKeyframesIndex = true;
 			} else {
@@ -5580,6 +5546,2616 @@ playease.version = '1.0.86';
 })(playease);
 
 (function(playease) {
+	var net = playease.net,
+		rtmp = net.rtmp = {};
+	
+	rtmp.ObjectEncoding = {
+		AMF0: 0,
+		AMF3: 3
+	},
+	rtmp.URLRe = /^(ws[s]?\:\/\/[a-z0-9\.\-]+\:?[0-9]*(\/[a-z0-9\.\-_]+){1,2})\/([a-z0-9\.\-_]+)\??([a-z0-9\-_%&=]*)$/i;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp;
+	
+	var AMF = rtmp.AMF = {};
+	var types = AMF.types = {
+		DOUBLE:        0x00,
+		BOOLEAN:       0x01,
+		STRING:        0x02,
+		OBJECT:        0x03,
+		MOVIE_CLIP:    0x04, // Not available in Remoting
+		NULL:          0x05,
+		UNDEFINED:     0x06,
+		REFERENCE:     0x07,
+		ECMA_ARRAY:    0x08,
+		END_OF_OBJECT: 0x09,
+		STRICT_ARRAY:  0x0A,
+		DATE:          0x0B,
+		LONG_STRING:   0x0C,
+		UNSUPPORTED:   0x0D,
+		RECORD_SET:    0x0E, // Remoting, server-to-client only
+		XML:           0x0F,
+		TYPED_OBJECT:  0x10, // Class instance
+		AMF3_DATA:     0x11  // Sent by Flash player 9+
+	};
+	
+	/*AMF.AMFValue = {
+		Type: 0x00,
+		Key: '',
+		Data: null,
+		Hash: {},
+		Offset: 0,
+		Cost: 0,
+		Ended: false
+	};*/
+	
+	AMF.Decode = function(arrayBuffer, dataOffset, dataSize) {
+		var k, v;
+		
+		try {
+			k = AMF.DecodeValue(arrayBuffer, dataOffset, dataSize);
+			v = AMF.DecodeValue(arrayBuffer, dataOffset + k.Cost, dataSize - k.Cost);
+			
+			v.Key = k.Data;
+		} catch(e) {
+			utils.log('AMF.Decode() failed. Error: ' + e);
+		}
+		
+		return v;
+	};
+	
+	AMF.DecodeString = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 2) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.STRING,
+			Data: ''
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint16(pos);
+		pos += 2;
+		
+		if (length > 0) {
+			v.Data = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
+			pos += length;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeObject = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 3) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.OBJECT,
+			Data: [],
+			Hash: {},
+			Ended: false
+		};
+		
+		var pos = 0;
+		
+		while (!v.Ended && pos < dataSize) {
+			var key = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += key.Cost;
+			
+			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += val.Cost;
+			v.Ended = !!val.Ended;
+			
+			if (val.Type == types.END_OF_OBJECT) {
+				break;
+			}
+			
+			val.Key = key.Data;
+			v.Data.push(val);
+			v.Hash[val.Key] = val.Type == types.OBJECT || val.Type == types.ECMA_ARRAY ? val.Hash : val.Data;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeECMAArray = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 4) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.ECMA_ARRAY,
+			Data: [],
+			Hash: {},
+			Ended: false
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint32(pos);
+		pos += 4;
+		
+		for (var i = 0; i < length; i++) {
+			var key = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += key.Cost;
+			
+			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += val.Cost;
+			if (i == length - 1) {
+				v.Ended = true
+			}
+			
+			val.Key = key.Data;
+			v.Data.push(val);
+			v.Hash[val.Key] = val.Type == types.OBJECT || val.Type == types.ECMA_ARRAY ? val.Hash : val.Data;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeStrictArray = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 4) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.STRICT_ARRAY,
+			Data: [],
+			Ended: false
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint32(pos);
+		pos += 4;
+		
+		for (var i = 0; i < length; i++) {
+			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += val.Cost;
+			if (i == length - 1) {
+				v.Ended = true
+			}
+			
+			v.Data.push(val.Data);
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeDate = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 10) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.DATE,
+			Data: 0,
+			Timestamp: 0,
+			Timeoffset: 0
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		v.Timestamp = view.getFloat64(pos);
+		pos += 8;
+		
+		v.Timeoffset = view.getInt16(pos);
+		pos += 2;
+		
+		v.Data = new Date(v.Timestamp + v.Timeoffset * 60 * 1000);
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeLongString = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 4) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.LONG_STRING,
+			Data: ''
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint32(pos);
+		pos += 4;
+		
+		if (length > 0) {
+			v.Data = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
+			pos += length;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeValue = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 1) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.UNSUPPORTED,
+			Key: '',
+			Data: [],
+			Hash: {},
+			Timestamp: 0,
+			Timeoffset: 0,
+			Ended: false
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		v.Type = view.getUint8(pos);
+		pos += 1;
+		
+		try {
+			switch (v.Type) {
+				case types.DOUBLE:
+					v.Data = view.getFloat64(pos);
+					pos += 8;
+					break;
+					
+				case types.BOOLEAN:
+					var bool = view.getUint8(pos);
+					v.Data = bool ? true : false;
+					pos += 1;
+					break;
+					
+				case types.STRING:
+					var str = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = str.Data;
+					pos += str.Cost;
+					break;
+					
+				case types.OBJECT:
+					var obj = AMF.DecodeObject(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = obj.Data;
+					v.Hash = obj.Hash;
+					pos += obj.Cost;
+					break;
+					
+				case types.NULL:
+					v.Data = null;
+					break;
+					
+				case types.UNDEFINED:
+					v.Data = undefined;
+					break;
+					
+				case types.ECMA_ARRAY:
+					var arr = AMF.DecodeECMAArray(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = arr.Data;
+					v.Hash = arr.Hash;
+					pos += arr.Cost;
+					break;
+					
+				case types.END_OF_OBJECT:
+					v.Ended = true;
+					break;
+					
+				case types.STRICT_ARRAY:
+					var arr = AMF.DecodeStrictArray(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = arr.Data;
+					v.Hash = arr.Hash;
+					pos += arr.Cost;
+					break;
+					
+				case types.DATE:
+					var date = AMF.DecodeDate(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = date.Data;
+					v.Timestamp = date.Timestamp;
+					v.Timeoffset = date.Timeoffset;
+					pos += date.Cost;
+					break;
+					
+				case types.LONG_STRING:
+					var ls = AMF.DecodeLongString(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = ls.Data;
+					pos += ls.Cost;
+					break;
+					
+				default:
+					utils.log('Skipping unsupported AMF value type(' + type + ').');
+					pos = dataSize;
+			}
+		} catch(e) {
+			utils.log('AMF.DecodeValue() failed. Error: ' + e);
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.Encoder = function() {
+		var _this = this,
+			_buffer;
+		
+		function _init() {
+			_buffer = new utils.buffer();
+		}
+		
+		_this.AppendBytes = function(array) {
+			_buffer.Write(array);
+		};
+		
+		_this.AppendUint8 = function(n) {
+			_buffer.WriteByte(n);
+		};
+		
+		_this.AppendUint16 = function(n, littleEndian) {
+			_buffer.WriteUint16(n, littleEndian);
+		};
+		
+		_this.AppendUint32 = function(n, littleEndian) {
+			_buffer.WriteUint32(n, littleEndian);
+		};
+		
+		_this.Encode = function() {
+			return _buffer.Bytes();
+		};
+		
+		_this.EncodeNumber = function(n) {
+			_buffer.WriteByte(types.DOUBLE);
+			_buffer.WriteFloat64(n, false);
+		};
+		
+		_this.EncodeBoolean = function(b) {
+			_buffer.WriteByte(types.BOOLEAN);
+			_buffer.WriteByte(b ? 1 : 0);
+		};
+		
+		_this.EncodeString = function(s) {
+			if (!s) {
+				return;
+			}
+			
+			if (s.length >= 0xFFFF) {
+				_encodeLongString(s);
+				return;
+			}
+			
+			var array = crypt.stringToByteArray(s);
+			
+			_buffer.WriteByte(types.STRING);
+			_buffer.WriteUint16(array.length, false);
+			_buffer.Write(array);
+		};
+		
+		_this.EncodeObject = function(o) {
+			_buffer.WriteByte(types.OBJECT);
+			_encodeProperties(o);
+			
+			if (o.ended) {
+				_buffer.WriteUint16(0);
+				_buffer.WriteByte(types.END_OF_OBJECT);
+			}
+		};
+		
+		function _encodeProperties(o) {
+			for (var i = 0; i < o.Data.length; i++) {
+				var v = o.Data[i];
+				if (v.Key) {
+					var array = crypt.stringToByteArray(v.Key);
+					
+					_buffer.WriteUint16(v.Key.length, false);
+					_buffer.Write(array);
+				}
+				
+				_this.EncodeValue(v);
+			}
+		}
+		
+		_this.EncodeNull = function() {
+			_buffer.WriteByte(types.NULL);
+		};
+		
+		_this.EncodeUndefined = function() {
+			_buffer.WriteByte(types.UNDEFINED);
+		};
+		
+		_this.EncodeECMAArray = function(o) {
+			_buffer.WriteByte(types.ECMA_ARRAY);
+			_buffer.WriteUint32(o.Data.length, false);
+			_encodeProperties(o);
+		};
+		
+		_this.EncodeStrictArray = function(o) {
+			_buffer.WriteByte(types.STRICT_ARRAY);
+			_buffer.WriteUint32(o.Data.length, false);
+			_encodeProperties(o);
+		};
+		
+		_this.EncodeDate = function(timestamp, timeoffset) {
+			_buffer.WriteByte(types.DATE);
+			_buffer.WriteFloat64(timestamp, false);
+			_buffer.WriteUint16(timeoffset, false);
+		};
+		
+		function _encodeLongString(s) {
+			if (!s) {
+				return;
+			}
+			
+			var array = crypt.stringToByteArray(s);
+			
+			_buffer.WriteByte(types.LONG_STRING);
+			_buffer.WriteUint32(array.length, false);
+			_buffer.Write(array);
+		}
+		
+		_this.EncodeValue = function(v) {
+			switch (v.Type) {
+				case types.DOUBLE:
+					_this.EncodeNumber(v.Data);
+					break;
+					
+				case types.BOOLEAN:
+					_this.EncodeBoolean(v.Data);
+					break;
+					
+				case types.STRING:
+					_this.EncodeString(v.Data);
+					break;
+					
+				case types.OBJECT:
+					_this.EncodeObject(v);
+					break;
+					
+				case types.NULL:
+					_this.EncodeNull();
+					break;
+					
+				case types.UNDEFINED:
+					_this.EncodeUndefined();
+					break;
+					
+				case types.ECMA_ARRAY:
+					_this.EncodeECMAArray(v);
+					break;
+					
+				case types.STRICT_ARRAY:
+					_this.EncodeStrictArray(v);
+					break;
+					
+				case types.DATE:
+					this.EncodeDate(v.Timtstamp, v.Timeoffset);
+					break;
+					
+				case types.LONG_STRING:
+					_encodeLongString(v.Data);
+					break;
+					
+				default:
+					utils.log('Skipping unsupported AMF value type: ' + v.Type);
+			}
+		};
+		
+		_this.Len = function() {
+			return _buffer.Len();
+		};
+		
+		_this.Reset = function() {
+			_buffer.Reset();
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		crypt = utils.crypt,
+		events = playease.events,
+		net = playease.net,
+		rtmp = net.rtmp,
+		
+		PACKET_SIZE = 1536,
+		states = {
+			C0:       0x01,
+			C1:       0x02,
+			S0:       0x04,
+			S1:       0x08,
+			S2:       0x10,
+			C2:       0x20,
+			COMPLETE: 0x3F
+		};
+	
+	rtmp.handshaker = function(websocket) {
+		var _this = utils.extend(this, new events.eventdispatcher('rtmp.handshaker')),
+			_websocket,
+			_complex,
+			_state,
+			_c1,
+			_s1;
+		
+		function _init() {
+			_websocket = websocket;
+			_websocket.onmessage = _onMessage;
+			_websocket.onerror = _onError;
+			_websocket.onclose = _onClose;
+			
+			_state = 0x00;
+		}
+		
+		_this.shake = function(complex) {
+			_complex = complex;
+			
+			_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+			return;
+			
+			if (_complex == false) {
+				_simpleHandshake();
+			} else {
+				_complexHandshake();
+			}
+		};
+		
+		function _simpleHandshake() {
+			var ab = new Uint8Array(1 + PACKET_SIZE);
+			var dv = new DataView(ab.buffer);
+			dv.setUint8(0, 0x03);
+			dv.setUint32(1, 0);
+			dv.setUint32(5, 0);
+			
+			for (var i = 9; i <= PACKET_SIZE; i++) {
+				dv.setUint8(i, Math.random() * 256);
+			}
+			
+			_state |= states.C0 | states.C1;
+			_c1 = new Uint8Array(ab.buffer, 1);
+			
+			_websocket.send(ab.buffer);
+		}
+		
+		function _complexHandshake() {
+			
+		}
+		
+		function _onMessage(e) {
+			var pos = 0;
+			
+			if ((_states & states.S0) == 0) {
+				var s0 = new Uint8Array(e.data, pos, 1);
+				if (s0[0] != 0x03) {
+					_this.dispatchEvent(events.ERROR, { message: 'Invalid handshake version: ' + s0[0] });
+					return;
+				}
+				
+				_states |= states.S0;
+				pos += 1;
+			}
+			
+			if ((_states & states.S1) == 0) {
+				_s1 = new Uint8Array(e.data, pos, PACKET_SIZE);
+				
+				_states |= states.S1 | states.C2;
+				pos += PACKET_SIZE;
+				
+				_websocket.send(_s1.buffer);
+			}
+			
+			if ((_states & states.S2) == 0) {
+				var s2 = new Uint8Array(e.data, pos, PACKET_SIZE);
+				
+				_states |= states.S2;
+				pos += PACKET_SIZE;
+				
+				for (var i = 0; i < PACKET_SIZE; i++) {
+					if (_c1[i] != _s2[i]) {
+						_this.dispatchEvent(events.ERROR, { message: 'Packet C1 & S2 not match.' });
+						return;
+					}
+				}
+				
+				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
+			}
+		}
+		
+		function _onError(e) {
+			_this.dispatchEvent(events.ERROR, { message: 'Connection error occurred!' });
+		}
+		
+		function _onClose(e) {
+			_this.dispatchEvent(events.ERROR, { message: 'Connection closed!' });
+		}
+		
+		_this.getState = function() {
+			return _state;
+		};
+		
+		_init();
+	};
+	
+	rtmp.handshaker.states = states;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		
+		CSIDs = {
+			PROTOCOL_CONTROL: 0x02,
+			COMMAND:          0x03,
+			COMMAND_2:        0x04,
+			STREAM:           0x05,
+			VIDEO:            0x06,
+			AUDIO:            0x07,
+			AV:               0x08
+		},
+		States = {
+			START:                0x00,
+			FMT:                  0x01,
+			CSID_0:               0x02,
+			CSID_1:               0x03,
+			TIMESTAMP_0:          0x04,
+			TIMESTAMP_1:          0x05,
+			TIMESTAMP_2:          0x06,
+			MESSAGE_LENGTH_0:     0x07,
+			MESSAGE_LENGTH_1:     0x08,
+			MESSAGE_LENGTH_2:     0x09,
+			MESSAGE_TYPE_ID:      0x0A,
+			MESSAGE_STREAM_ID_0:  0x0B,
+			MESSAGE_STREAM_ID_1:  0x0C,
+			MESSAGE_STREAM_ID_2:  0x0D,
+			MESSAGE_STREAM_ID_3:  0x0E,
+			EXTENDED_TIMESTAMP_0: 0x0F,
+			EXTENDED_TIMESTAMP_1: 0x10,
+			EXTENDED_TIMESTAMP_2: 0x11,
+			EXTENDED_TIMESTAMP_3: 0x12,
+			DATA:                 0x13,
+			COMPLETE:             0x14
+		};
+	
+	header = function() {
+		var _this = this;
+		
+		function _init() {
+			_this.Fmt = 0;             // 2 bits
+			_this.CSID = 0;            // 6 | 14 | 22 bits
+			_this.Timestamp = 0;       // 3 bytes
+			_this.MessageLength = 0;   // 3 bytes
+			_this.MessageTypeID = 0;   // 1 byte
+			_this.MessageStreamID = 0; // 4 bytes
+		}
+		
+		_init();
+	};
+	
+	rtmp.chunk = function() {
+		var _this = utils.extend(this, new header());
+		
+		function _init() {
+			_this.Data = new utils.buffer();
+			
+			_this.CurrentFmt = 0;
+			_this.Polluted = false;
+			_this.Extended = false;
+			_this.Loaded = 0;
+			_this.State = States.START;
+		}
+		
+		_init();
+	};
+	
+	rtmp.chunk.CSIDs = CSIDs;
+	rtmp.chunk.States = States;
+	rtmp.chunk.header = header;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		
+		Types = {
+			SET_CHUNK_SIZE:     0x01,
+			ABORT:              0x02,
+			ACK:                0x03,
+			USER_CONTROL:       0x04,
+			ACK_WINDOW_SIZE:    0x05,
+			BANDWIDTH:          0x06,
+			EDGE:               0x07,
+			AUDIO:              0x08,
+			VIDEO:              0x09,
+			AMF3_DATA:          0x0F,
+			AMF3_SHARED_OBJECT: 0x10,
+			AMF3_COMMAND:       0x11,
+			DATA:               0x12,
+			SHARED_OBJECT:      0x13,
+			COMMAND:            0x14,
+			AGGREGATE:          0x16
+		};
+	
+	header = function() {
+		var _this = this;
+		
+		function _init() {
+			_this.Fmt = 0;       // 2 bits
+			_this.CSID = 0;      // 6 | 14 | 22 bits
+			_this.Type = 0;      // 1 bytes
+			_this.Length = 0;    // 3 bytes
+			_this.Timestamp = 0; // 4 byte
+			_this.StreamID = 0;  // 3 bytes
+		}
+		
+		_init();
+	};
+	
+	rtmp.message = function() {
+		var _this = utils.extend(this, new header());
+		
+		function _init() {
+			_this.Payload = null;
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			if (size < 11) {
+				throw 'data (size=' + size + ') not enough'
+			}
+			
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			_this.Type = b[cost];
+			cost += 1;
+			
+			_this.Length = b[cost]<<16 | b[cost+1]<<8 | b[cost+2];
+			cost += 3;
+			
+			_this.Timestamp = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
+			cost += 4;
+			
+			_this.StreamID = b[cost]<<16 | b[cost+1]<<8 | b[cost+2];
+			cost += 3;
+			
+			if (size-cost < _this.Length) {
+				throw 'data (size=' + (size-cost) + ') not enough';
+			}
+			
+			_this.Payload = new Uint8Array(ab, offset+cost, _this.Length);
+		};
+		
+		_init();
+	};
+	
+	rtmp.message.Types = Types;
+	rtmp.message.header = header;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types;
+	
+	AggregateBody = function() {
+		var _this = this;
+		
+		function _init() {
+			_this.Message = null;
+			_this.Size = 0;
+		}
+		
+		_init();
+	};
+	
+	rtmp.aggregatemessage = function() {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			_this.Type = Types.AGGREGATE;
+			
+			_this.Body = [];
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			var m = new rtmp.message();
+			m.Parse(b, offset, size);
+			
+			_this.Length = m.Length;
+			_this.Timestamp = m.Timestamp;
+			_this.StreamID = m.StreamID;
+			
+			var body;
+			for (var i = 0; i < m.Length; i += body.Size) {
+				body = new AggregateBody();
+				body.Parse(m.Payload, i, m.Length);
+				
+				_this.Body.push(body);
+			}
+		};
+		
+		_init();
+	};
+	
+	rtmp.aggregatemessage.Body = AggregateBody;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types;
+	
+	rtmp.audiomessage = function() {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			_this.Type = Types.AUDIO;
+			
+			_this.Format = 0;     // 1111 0000
+			_this.SampleRate = 0; // 0000 1100
+			_this.SampleSize = 0; // 0000 0010
+			_this.Channels = 0;   // 0000 0001
+			_this.DataType = 0;
+			_this.Payload = null;
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			_this.Length = size;
+			
+			var tmp = b[cost];
+			_this.Format = (tmp >> 4) & 0x0F;
+			_this.SampleRate = (tmp >> 2) & 0x03;
+			_this.SampleSize = (tmp >> 1) & 0x01;
+			_this.Channels = tmp & 0x01;
+			cost++;
+			
+			_this.DataType = b[cost];
+			_this.Payload = b;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types,
+		
+		LimitTypes = {
+			HARD:    0x00,
+			SOFT:    0x01,
+			DYNAMIC: 0x02
+		};
+	
+	rtmp.bandwidthmessage = function() {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			_this.Type = Types.BANDWIDTH;
+			
+			_this.AckWindowSize = 0; // 4 byte
+			_this.LimitType = 0;     // 1 bytes
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			_this.AckWindowSize = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
+			cost += 4;
+			
+			_this.LimitType = b[offset+cost];
+			cost += 1;
+		};
+		
+		_init();
+	};
+	
+	rtmp.bandwidthmessage.LimitTypes = LimitTypes;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		AMF = playease.muxer.AMF,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types;
+		
+		Commands = {
+			CONNECT:       'connect',
+			CLOSE:         'close',
+			CREATE_STREAM: 'createStream',
+			RESULT:        '_result',
+			ERROR:         '_error',
+			
+			PLAY:          'play',
+			PLAY2:         'play2',
+			DELETE_STREAM: 'deleteStream',
+			CLOSE_STREAM:  'closeStream',
+			RECEIVE_AUDIO: 'receiveAudio',
+			RECEIVE_VIDEO: 'receiveVideo',
+			PUBLISH:       'publish',
+			SEEK:          'seek',
+			PAUSE:         'pause',
+			ON_STATUS:     'onStatus',
+			
+			CHECK_BANDWIDTH: 'checkBandwidth',
+			GET_STATS:       'getStats'
+		};
+	
+	rtmp.commandmessage = function(encoding) {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			if (encoding == rtmp.ObjectEncoding.AMF0) {
+				_this.Type = Types.COMMAND;
+			} else {
+				_this.Type = Types.AMF3_COMMAND;
+			}
+			
+			_this.Name = '';
+			_this.TransactionID = 0;
+			
+			_this.CommandObject = null;
+			_this.Arguments = null;
+			_this.Response = null;
+			_this.StreamID = 0;
+			_this.StreamName = '';
+			_this.Start = 0;
+			_this.Duration = 0;
+			_this.Reset = true;
+			_this.Flag = false;
+			_this.PublishingName = '';
+			_this.PublishingType = '';
+			_this.MilliSeconds = 0;
+			_this.Pause = true;
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var cost = 0;
+			
+			var v = AMF.DecodeValue(ab, offset+cost, size-cost);
+			cost += v.Cost;
+			_this.Name = v.Data;
+			
+			v = AMF.DecodeValue(ab, offset+cost, size-cost);
+			cost += v.Cost;
+			_this.TransactionID = v.Data;
+			
+			switch (_this.Name) {
+			// NetConnection Commands
+			case Commands.CONNECT:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = v;
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				if (v) {
+					cost += v.Cost;
+					_this.Arguments = v;
+				}
+				break;
+				
+			case Commands.CLOSE:
+				utils.log('Parsing command ' + this.Name);
+				break;
+				
+			case Commands.CREATE_STREAM:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = v;
+				break;
+				
+			case Commands.RESULT:
+			case Commands.ERROR:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = v;
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.Response = v;
+				break;
+				
+			// NetStream Commands
+			case Commands.PLAY:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.StreamName = v.Data;
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				if (v == null) {
+					_this.Start = -2;
+				} else {
+					cost += v.Cost;
+					_this.Start = v.Data;
+				}
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				if (v == null) {
+					_this.Duration = -1;
+				} else {
+					cost += v.Cost;
+					_this.Duration = v.Data;
+				}
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				if (v == null) {
+					_this.Reset = true;
+				} else {
+					cost += v.Cost;
+					_this.Reset = v.Data;
+				}
+				break;
+				
+			case Commands.PLAY2:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.Arguments = v;
+				break;
+				
+			case Commands.DELETE_STREAM:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.StreamID = v.Data;
+				break;
+				
+			case Commands.CLOSE_STREAM:
+				utils.log('Parsing command ' + _this.Name);
+				break;
+				
+			case Commands.RECEIVE_AUDIO:
+			case Commands.RECEIVE_VIDEO:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.Flag = v.Data;
+				break;
+				
+			case Commands.PUBLISH:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.PublishingName = v.Data;
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.PublishingType = v.Data;
+				break;
+				
+			case Commands.SEEK:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.MilliSeconds = v.Data;
+				break;
+				
+			case Commands.PAUSE:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.Pause = v.Data;
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.MilliSeconds = v.Data;
+				break;
+				
+			case Commands.ON_STATUS:
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.CommandObject = null; // v.Type == Types.NULL
+				
+				v = AMF.DecodeValue(ab, offset+cost, size-cost);
+				cost += v.Cost;
+				_this.Response = v;
+				break;
+				
+			default:
+			}
+		};
+		
+		_init();
+	};
+	
+	rtmp.commandmessage.Commands = Commands;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types;
+	
+	rtmp.datamessage = function(encoding) {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			if (encoding == rtmp.ObjectEncoding.AMF0) {
+				_this.Type = Types.DATA
+			} else {
+				_this.Type = Types.AMF3_DATA
+			}
+			
+			_this.Handler = '';
+			_this.Key = '';
+			_this.Data = null;
+			_this.Payload = null;
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			v = AMF.DecodeValue(b, cost, size-cost);
+			cost += v.Cost;
+			_this.Handler = v.Data;
+			
+			v = AMF.DecodeValue(b, cost, size-cost);
+			cost += v.Cost;
+			_this.Key = v.Data;
+			
+			v = AMF.DecodeValue(b, cost, size-cost);
+			if (v) {
+				cost += v.Cost;
+				_this.Data = v;
+			}
+			
+			_this.Payload = b;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		message = rtmp.message;
+	
+	rtmp.sharedobjectmessage = function() {
+		var _this = utils.extend(this, new message.header());
+		
+		function _init() {
+			
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types,
+		
+		EventTypes = {
+			STREAM_BEGIN:       0x0000,
+			STREAM_EOF:         0x0001,
+			STREAM_DRY:         0x0002,
+			SET_BUFFER_LENGTH:  0x0003,
+			STREAM_IS_RECORDED: 0x0004,
+			PING_REQUEST:       0x0006,
+			PING_RESPONSE:      0x0007
+		};
+	
+	UserControlEvent = function() {
+		var _this = this;
+		
+		function _init() {
+			_this.Type = 0;
+			_this.StreamID = 0;     // uint32
+			_this.BufferLength = 0; // uint32
+			_this.Timestamp = 0;    // uint32
+		}
+		
+		_init();
+	};
+	
+	rtmp.usercontrolmessage = function() {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			_this.Type = Types.USER_CONTROL;
+			
+			_this.Event = new UserControlEvent();
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			_this.Event.Type = b[cost]<<8 | b[cost+1];
+			cost += 2;
+			
+			var data = new Uint8Array(ab, offset+cost);
+			
+			switch (_this.Event.Type) {
+			case EventTypes.SET_BUFFER_LENGTH:
+				_this.Event.BufferLength = b[cost+4]<<24 | b[cost+5]<<16 | b[cost+6]<<8 | b[cost+7];
+				cost += 4;
+			case EventTypes.STREAM_BEGIN:
+			case EventTypes.STREAM_EOF:
+			case EventTypes.STREAM_DRY:
+			case EventTypes.STREAM_IS_RECORDED:
+				_this.Event.StreamID = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
+				cost += 4;
+				break;
+				
+			case EventTypes.PING_REQUEST:
+			case EventTypes.PING_RESPONSE:
+				_this.Event.Timestamp = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
+				cost += 4;
+				break;
+				
+			default:
+			}
+		};
+		
+		_init();
+	};
+	
+	rtmp.usercontrolmessage.UserControlEvent = UserControlEvent;
+	rtmp.usercontrolmessage.UserControlEvent.Types = EventTypes;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp,
+		Types = rtmp.message.Types,
+		
+		FrameTypes = {
+			KEYFRAME:               0x01,
+			INTER_FRAME:            0x02,
+			DISPOSABLE_INTER_FRAME: 0x03,
+			GENERATED_KEYFRAME:     0x04,
+			INFO_OR_COMMAND_FRAME:  0x05
+		};
+	
+	rtmp.videomessage = function() {
+		var _this = utils.extend(this, new rtmp.message.header());
+		
+		function _init() {
+			_this.Type = Types.VIDEO;
+			
+			_this.FrameType = 0; // 0xF0
+			_this.Codec = 0;     // 0x0F
+			_this.DataType = 0;
+			_this.Payload = null;
+		}
+		
+		_this.Parse = function(ab, offset, size) {
+			var b = new Uint8Array(ab, offset, size);
+			var cost = 0;
+			
+			_this.Length = size;
+			
+			var tmp = b[cost];
+			_this.FrameType = (tmp >> 4) & 0x0F;
+			_this.Codec = tmp & 0x0F;
+			cost++;
+			
+			_this.DataType = b[cost];
+			_this.Payload = b;
+		};
+		
+		_init();
+	};
+	
+	rtmp.videomessage.FrameTypes = FrameTypes;
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		net = playease.net,
+		rtmp = net.rtmp;
+	
+	rtmp.responder = function(result, status) {
+		var _this = this;
+		
+		function _init() {
+			_this.result = result;
+			_this.status = status;
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		crypt = utils.crypt,
+		events = playease.events,
+		CommandEvent = events.CommandEvent,
+		NetStatusEvent = events.NetStatusEvent,
+		Level = NetStatusEvent.Level,
+		Code = NetStatusEvent.Code,
+		AudioEvent = events.AudioEvent,
+		VideoEvent = events.VideoEvent,
+		DataEvent = events.DataEvent,
+		AMF = playease.muxer.AMF,
+		net = playease.net,
+		rtmp = net.rtmp,
+		CSIDs = rtmp.chunk.CSIDs,
+		States = rtmp.chunk.States,
+		Types = rtmp.message.Types,
+		EventTypes = rtmp.usercontrolmessage.UserControlEvent.Types,
+		LimitTypes = rtmp.bandwidthmessage.LimitTypes,
+		Commands = rtmp.commandmessage.Commands;
+	
+	rtmp.netconnection = function() {
+		var _this = utils.extend(this, new events.eventdispatcher('rtmp.netconnection')),
+			_shaker,
+			_connected,
+			_websocket,
+			_url,
+			_protocol,
+			_appName,
+			_instName,
+			_args,
+			_objectEncoding,
+			_farChunkSize,
+			_nearChunkSize,
+			_farAckWindowSize,
+			_nearAckWindowSize,
+			_farBandwidth,
+			_neerBandwidth,
+			_farLimitType,
+			_neerLimitType,
+			_stats,
+			_chunks,
+			_responders,
+			_transactionId;
+		
+		function _init() {
+			_connected = false;
+			_args = [];
+			
+			_objectEncoding = rtmp.ObjectEncoding.AMF0;
+			
+			_farChunkSize = 128;
+			_nearChunkSize = 128;
+			_farAckWindowSize = 2500000;
+			_neerBandwidth = 2500000;
+			_neerLimitType = LimitTypes.DYNAMIC;
+			
+			_stats = {
+				bytesIn: 0,
+				bytesOut: 0
+			};
+			
+			_chunks = [];
+			_responders = {};
+			_transactionId = 0;
+		}
+		
+		_this.connect = function(url) {
+			_url = url;
+			_args = Array.prototype.slice.call(arguments, 1);
+			
+			if (_url === undefined || _url === null) {
+				// TODO: Data Generation Mode
+				return;
+			}
+			
+			try {
+				window.WebSocket = window.WebSocket || window.MozWebSocket;
+				_websocket = new WebSocket(_url);
+				_websocket.binaryType = 'arraybuffer';
+			} catch (err) {
+				utils.log('Failed to initialize websocket: ' + err);
+				return;
+			}
+			
+			_websocket.onopen = _onOpen;
+		};
+		
+		function _onOpen(e) {
+			_shaker = new rtmp.handshaker(_websocket);
+			_shaker.addEventListener(events.PLAYEASE_COMPLETE, _onHandshakeComplete);
+			_shaker.addEventListener(events.ERROR, _onHandshakeError);
+			_shaker.shake(false);
+		}
+		
+		function _onHandshakeComplete(e) {
+			_websocket.onmessage = _onMessage;
+			_websocket.onerror = _onIOError;
+			_websocket.onclose = _onClose;
+			
+			_this.addEventListener(CommandEvent.CLOSE, _onClose);
+			_this.addEventListener(CommandEvent.RESULT, _onResult);
+			_this.addEventListener(CommandEvent.ERROR, _onError);
+			_this.addEventListener(CommandEvent.CHECK_BANDWIDTH, _onCheckBandwidth);
+			_this.addEventListener(CommandEvent.GET_STATS, _onGetStats);
+			
+			_this.call(Commands.CONNECT, new rtmp.responder(_onConnect, null), {
+				Type: AMF.types.OBJECT,
+				Data: [{
+					Type: AMF.types.STRING,
+					Key: 'app',
+					Data: 'live'
+				}, {
+					Type: AMF.types.STRING,
+					Key: 'flashVer',
+					Data: 'WIN 27,0,0,130'
+				}, {
+					Type: AMF.types.STRING,
+					Key: 'swfUrl',
+					Data: 'http://studease.cn/swf/playease.swf'
+				}, {
+					Type: AMF.types.STRING,
+					Key: 'tcUrl',
+					Data: 'rtmp://rtmpmate.com/live'
+				}, {
+					Type: AMF.types.BOOLEAN,
+					Key: 'fpad',
+					Data: false
+				}, {
+					Type: AMF.types.DOUBLE,
+					Key: 'capabilities',
+					Data: 239
+				}, {
+					Type: AMF.types.DOUBLE,
+					Key: 'audioCodecs',
+					Data: 3575
+				}, {
+					Type: AMF.types.DOUBLE,
+					Key: 'videoCodecs',
+					Data: 252
+				}, {
+					Type: AMF.types.DOUBLE,
+					Key: 'videoFunction',
+					Data: 1
+				}, {
+					Type: AMF.types.STRING,
+					Key: 'pageUrl',
+					Data: 'http://studease.cn/playease.html'
+				}, {
+					Type: AMF.types.DOUBLE,
+					Key: 'objectEncoding',
+					Data: _objectEncoding
+				}],
+				Ended: true
+			});
+		}
+		
+		function _onHandshakeError(e) {
+			_this.close();
+		}
+		
+		_this.writeByChunk = function(b, h) {
+			if (h.Length < 2) {
+				throw 'chunk data (len=' + h.Length + ') not enough.';
+			}
+			
+			var c = new rtmp.chunk();
+			c.Fmt = h.Fmt;
+			
+			for (var i = 0; i < h.Length; /* void */) {
+				if (h.CSID <= 63) {
+					c.Data.WriteByte((c.Fmt << 6) | h.CSID);
+				} else if (h.CSID <= 319) {
+					c.Data.WriteByte((c.Fmt << 6) | 0x00);
+					c.Data.WriteByte(h.CSID - 64);
+				} else if (h.CSID <= 65599) {
+					c.Data.WriteByte((c.Fmt << 6) | 0x01);
+					c.Data.WriteUint16(h.CSID, true);
+				} else {
+					throw 'chunk size (' + h.Length + ') out of range.';
+				}
+				
+				if (c.Fmt <= 2) {
+					if (h.Timestamp >= 0xFFFFFF) {
+						c.Data.Write([0xFF, 0xFF, 0xFF]);
+					} else {
+						c.Data.Write([
+							h.Timestamp>>16 & 0xFF,
+							h.Timestamp>>8 & 0xFF,
+							h.Timestamp>>0 & 0xFF
+						]);
+					}
+				}
+				if (c.Fmt <= 1) {
+					c.Data.Write([
+						h.Length>>16 & 0xFF,
+						h.Length>>8 & 0xFF,
+						h.Length>>0 & 0xFF,
+					]);
+					c.Data.WriteByte(h.Type);
+				}
+				if (c.Fmt == 0) {
+					c.Data.WriteUint32(h.StreamID, true);
+				}
+				
+				// Extended Timestamp
+				if (h.Timestamp >= 0xFFFFFF) {
+					c.Data.WriteUint32(h.Timestamp, false);
+				}
+				
+				// Chunk Data
+				var n = Math.min(h.Length - i, _nearChunkSize);
+				c.Data.Write(new Uint8Array(b, i, n));
+				
+				//fmt.Println(c.Data.Bytes())
+				
+				i += n;
+				
+				if (i < h.Length) {
+					switch (h.Type) {
+					default:
+						c.Fmt = 3;
+					}
+				} else if (i == h.Length) {
+					var cs = c.Data.Bytes();
+					_this.write(cs);
+					
+					_stats.bytesOut += c.Data.Len();
+					
+					/*size := len(cs)
+					for x := 0; x < size; x += 16 {
+						utils.log("\n")
+						
+						for y := 0; y < int(math.Min(float64(size-x), 16)); y++ {
+							utils.log("%02x ", cs[x+y])
+							
+							if y == 7 {
+								utils.log(" ")
+							}
+						}
+					}*/
+				} else {
+					throw 'wrote too much';
+				}
+			}
+			
+			return h.Length;
+		}
+		
+		function _onMessage(e) {
+			var b = new Uint8Array(e.data);
+			var size = b.byteLength;
+			_parseChunk(b, size);
+		}
+		
+		function _parseChunk(b, size) {
+			var c = _getUncompleteChunk();
+			
+			for (var i = 0; i < size; i++) {
+				//utils.log('b[' + i + '] = ' + b[i]);
+				
+				switch (c.State) {
+				case States.START:
+					c.CurrentFmt = (b[i] >> 6) & 0xFF;
+					c.CSID = b[i] & 0x3F;
+					
+					if (c.Polluted == false) {
+						c.Fmt = c.CurrentFmt;
+						c.Polluted = true;
+					}
+					
+					_extendsFromPrecedingChunk(c);
+					if (c.CurrentFmt == 3 && c.Extended == false) {
+						c.State = States.DATA;
+					} else {
+						c.State = States.FMT;
+					}
+					break;
+					
+				case States.FMT:
+					switch (c.CSID) {
+					case 0:
+						c.CSID = b[i] + 64;
+						c.State = States.CSID_1;
+						break;
+					case 1:
+						c.CSID = b[i];
+						c.State = States.CSID_0;
+						break;
+					default:
+						if (c.CurrentFmt == 3) {
+							if (c.Extended) {
+								c.Timestamp = b[i] << 24;
+								c.State = States.EXTENDED_TIMESTAMP_0;
+							} else {
+								throw 'Failed to parse chunk: [1].';
+							}
+						} else {
+							c.Timestamp = b[i] << 16;
+							c.State = States.TIMESTAMP_0;
+						}
+					}
+					break;
+					
+				case States.CSID_0:
+					c.CSID |= b[i] << 8;
+					c.CSID += 64;
+					
+					if (c.CurrentFmt == 3 && c.Extended == false) {
+						c.State = States.DATA;
+					} else {
+						c.State = States.CSID_1;
+					}
+					break;
+					
+				case States.CSID_1:
+					if (c.CurrentFmt == 3) {
+						if (c.Extended) {
+							c.Timestamp = b[i] << 24
+							c.State = States.EXTENDED_TIMESTAMP_0
+						} else {
+							throw 'Failed to parse chunk: [2].';
+						}
+					} else {
+						c.Timestamp = b[i] << 16;
+						c.State = States.TIMESTAMP_0;
+					}
+					break;
+					
+				case States.TIMESTAMP_0:
+					c.Timestamp |= b[i] << 8;
+					c.State = States.TIMESTAMP_1;
+					break;
+					
+				case States.TIMESTAMP_1:
+					c.Timestamp |= b[i];
+					
+					if (c.CurrentFmt == 2 && c.Timestamp != 0xFFFFFF) {
+						c.State = States.DATA;
+					} else {
+						c.State = States.TIMESTAMP_2;
+					}
+					break;
+					
+				case States.TIMESTAMP_2:
+					if (c.CurrentFmt == 0 || c.CurrentFmt == 1) {
+						c.MessageLength = b[i] << 16;
+						c.State = States.MESSAGE_LENGTH_0;
+					} else if (c.CurrentFmt == 2) {
+						if (c.Timestamp == 0xFFFFFF) {
+							c.Timestamp = b[i] << 24;
+							c.State = States.EXTENDED_TIMESTAMP_0;
+						} else {
+							throw 'Failed to parse chunk: [3].';
+						}
+					} else {
+						throw 'Failed to parse chunk: [4].';
+					}
+					break;
+					
+				case States.MESSAGE_LENGTH_0:
+					c.MessageLength |= b[i] << 8;
+					c.State = States.MESSAGE_LENGTH_1;
+					break;
+					
+				case States.MESSAGE_LENGTH_1:
+					c.MessageLength |= b[i];
+					c.State = States.MESSAGE_LENGTH_2;
+					break;
+					
+				case States.MESSAGE_LENGTH_2:
+					c.MessageTypeID = b[i];
+					
+					if (c.CurrentFmt == 1 && c.Timestamp != 0xFFFFFF) {
+						c.State = States.DATA;
+					} else {
+						c.State = States.MESSAGE_TYPE_ID;
+					}
+					break;
+					
+				case States.MESSAGE_TYPE_ID:
+					if (c.CurrentFmt == 0) {
+						c.MessageStreamID = b[i];
+						c.State = States.MESSAGE_STREAM_ID_0;
+					} else if (c.CurrentFmt == 1) {
+						if (c.Timestamp == 0xFFFFFF) {
+							c.Timestamp = b[i] << 24;
+							c.State = States.EXTENDED_TIMESTAMP_0;
+						} else {
+							throw 'Failed to parse chunk: [5].';
+						}
+					} else {
+						throw 'Failed to parse chunk: [6].';
+					}
+					break;
+					
+				case States.MESSAGE_STREAM_ID_0:
+					c.MessageStreamID |= b[i] << 8;
+					c.State = States.MESSAGE_STREAM_ID_1;
+					break;
+					
+				case States.MESSAGE_STREAM_ID_1:
+					c.MessageStreamID |= b[i] << 16;
+					c.State = States.MESSAGE_STREAM_ID_2;
+					break;
+					
+				case States.MESSAGE_STREAM_ID_2:
+					c.MessageStreamID |= b[i] << 24;
+					if (c.Timestamp == 0xFFFFFF) {
+						c.State = States.MESSAGE_STREAM_ID_3;
+					} else {
+						c.State = States.DATA;
+					}
+					break;
+					
+				case States.MESSAGE_STREAM_ID_3:
+					if (c.Timestamp == 0xFFFFFF) {
+						c.Timestamp = b[i] << 24;
+						c.State = States.EXTENDED_TIMESTAMP_0;
+					} else {
+						throw 'Failed to parse chunk: [7].';
+					}
+					break;
+					
+				case States.EXTENDED_TIMESTAMP_0:
+					c.Timestamp |= b[i] << 16;
+					c.State = States.EXTENDED_TIMESTAMP_1;
+					break;
+					
+				case States.EXTENDED_TIMESTAMP_1:
+					c.Timestamp |= b[i] << 8;
+					c.State = States.EXTENDED_TIMESTAMP_2;
+					break;
+					
+				case States.EXTENDED_TIMESTAMP_2:
+					c.Timestamp |= b[i];
+					c.State = States.EXTENDED_TIMESTAMP_3;
+					break;
+					
+				case States.EXTENDED_TIMESTAMP_3:
+					c.State = States.DATA;
+				case States.DATA:
+					var n = c.MessageLength - c.Data.Len();
+					if (n > size - i) {
+						n = size - i;
+					}
+					if (n > _farChunkSize - c.Loaded) {
+						n = _farChunkSize - c.Loaded;
+						c.Loaded = 0;
+						c.State = States.START;
+					} else {
+						c.Loaded += n;
+					}
+					
+					c.Data.Write(new Uint8Array(b.buffer, i, n));
+					i += n - 1;
+					
+					if (c.Data.Len() < c.MessageLength) {
+						//c.State = States.DATA;
+					} else if (c.Data.Len() == c.MessageLength) {
+						c.State = States.COMPLETE;
+						
+						_parseMessage(c);
+						
+						if (i < size - 1) {
+							c = _getUncompleteChunk();
+						}
+					} else {
+						throw 'Failed to parse chunk: [8].';
+					}
+					break;
+					
+				default:
+					throw 'Failed to parse chunk: [9].';
+				}
+			}
+		}
+		
+		function _parseMessage(c) {
+			if (c.MessageTypeID != 0x03 && c.MessageTypeID != 0x08 && c.MessageTypeID != 0x09) {
+				//utils.log('onMessage: ' + c.MessageTypeID);
+			}
+			
+			var ab = c.Data.Bytes();
+			var size = c.Data.Len();
+			
+			switch (c.MessageTypeID) {
+			case Types.SET_CHUNK_SIZE:
+				var dv = new DataView(ab);
+				_farChunkSize = dv.getUint32(0, false) & 0x7FFFFFFF;
+				utils.log('Set farChunkSize: ' + _farChunkSize);
+				break;
+				
+			case Types.ABORT:
+				var dv = new DataView(ab);
+				var csid = dv.getUint32(0, false);
+				utils.log('Abort chunk stream: ' + csid);
+				
+				if (_chunks.length) {
+					var c = _chunks[_chunks.length - 1];
+					if (c.State != States.COMPLETE && c.CSID == csid) {
+						_chunks.pop();
+						utils.log('Removed uncomplete chunk ' + csid);
+					}
+				}
+				break;
+				
+			case Types.ACK:
+				var dv = new DataView(ab);
+				var sequenceNumber = dv.getUint32(0, false);
+				//utils.log('Sequence Number: ' + sequenceNumber + ', Bytes out: ' + _stats.bytesOut);
+				
+				if (sequenceNumber != _stats.bytesOut) {
+					
+				}
+				break;
+				
+			case Types.USER_CONTROL:
+				var m = new rtmp.usercontrolmessage();
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				_onUserControl(m);
+				break;
+				
+			case Types.ACK_WINDOW_SIZE:
+				var dv = new DataView(ab);
+				_farAckWindowSize = dv.getUint32(0, false);
+				utils.log('Set farAckWindowSize to ' + _farAckWindowSize);
+				break;
+				
+			case Types.BANDWIDTH:
+				var m = new rtmp.bandwidthmessage();
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				_onBandwidth(m);
+				break;
+				
+			case Types.EDGE:
+				// TODO:
+				
+			case Types.AUDIO:
+				var m = new rtmp.audiomessage();
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				_this.dispatchEvent(AudioEvent.DATA, { Message: m });
+				break;
+				
+			case Types.VIDEO:
+				var m = new rtmp.videoMessage();
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				_this.dispatchEvent(VideoEvent.DATA, { Message: m });
+				break;
+				
+			case Types.AMF3_DATA:
+			case Types.DATA:
+				var m = new rtmp.datamessage(_objectEncoding);
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				_this.dispatchEvent(m.Handler, { Message: m });
+				break;
+				
+			case Types.AMF3_SHARED_OBJECT:
+			case Types.SHARED_OBJECT:
+				// TODO:
+				break;
+				
+			case Types.AMF3_COMMAND:
+				ab = new Uint8Array(b, 1).buffer;
+			case Types.COMMAND:
+				var m = new rtmp.commandmessage(_objectEncoding);
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				if (m.CommandObject) {
+					var v = m.CommandObject.Hash['objectEncoding'];
+					if (v && v.Data != 0) {
+						_objectEncoding = rtmp.ObjectEncoding.AMF3;
+						m.Type = Types.AMF3_COMMAND;
+					}
+				}
+				
+				_onCommand(m);
+				break;
+				
+			case Types.AGGREGATE:
+				var m = new rtmp.aggregatemessage();
+				m.Fmt = c.Fmt;
+				m.CSID = c.CSID;
+				m.Timestamp = c.Timestamp;
+				m.StreamID = c.MessageStreamID;
+				
+				m.Parse(ab, 0, size);
+				
+				_onAggregate(m);
+				break;
+				
+			default:
+			}
+		}
+		
+		function _onUserControl(m) {
+			//utils.log('onUserControl: type=' + m.Event.Type);
+			
+			switch (m.Event.Type) {
+			case EventTypes.STREAM_BEGIN:
+				utils.log('Stream Begin: id=' + m.Event.StreamID);
+				break;
+			
+			case EventTypes.STREAM_EOF:
+				utils.log('Stream EOF: id=' + m.Event.StreamID);
+				break;
+			
+			case EventTypes.STREAM_DRY:
+				utils.log('Stream Dry: id=' + m.Event.StreamID);
+				break;
+			
+			case EventTypes.SET_BUFFER_LENGTH:
+				utils.log('Set BufferLength: id=' + m.Event.StreamID + ', len=' + m.Event.BufferLengt + 'ms.');
+				this.dispatchEvent(UserControlEvent.SET_BUFFER_LENGTH, { Message: m });
+				break;
+			
+			case EventTypes.STREAM_IS_RECORDED:
+				utils.log('Stream is Recorded: id=' + m.Event.StreamID);
+				break;
+			
+			case EventTypes.PING_REQUEST:
+				utils.log('Ping Request: timestamp=' + m.Event.Timestamp);
+				break;
+			
+			case EventTypes.PING_RESPONSE:
+				utils.log('Ping Response: timestamp=' + m.Event.Timestamp);
+				break;
+			
+			default:
+			}
+		}
+		
+		function _onBandwidth(m) {
+			_nearBandwidth = m.AckWindowSize;
+			_nearLimitType = m.LimitType;
+			utils.log('Set nearBandwidth to ' + _nearBandwidth + ', limitType=' + _nearLimitType);
+		}
+		
+		function _onCommand(m) {
+			//utils.log('onCommand: name=' + m.Name);
+			
+			if (_this.hasEventListener(m.Name)) {
+				_this.dispatchEvent(m.Name, { Message: m });
+			} else {
+				// Should not return error, this might be an user call
+				utils.log('No handler found for command \"' + m.Name + '\".');
+			}
+		}
+		
+		function _onConnect(e) {
+			_connected = true;
+		}
+		
+		function _onResult(e) {
+			if (_responders.hasOwnProperty(e.Message.TransactionID)) {
+				var reponder = _responders[e.Message.TransactionID];
+				if (reponder.result) {
+					reponder.result(e);
+				}
+				
+				delete _responders[e.Message.TransactionID];
+			}
+			
+			var info = {};
+			utils.foreach(e.Message.Response.Hash, function(k, v) {
+				info[k] = v.Data;
+			});
+			
+			if (info.hasOwnProperty('code') == false) {
+				return;
+			}
+			
+			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+				info: info
+			});
+		}
+		
+		function _onError(e) {
+			if (_responders.hasOwnProperty(e.Message.TransactionID)) {
+				var reponder = _responders[e.Message.TransactionID];
+				if (reponder.status) {
+					reponder.status(e);
+				}
+				
+				delete _responders[e.Message.TransactionID];
+			}
+			
+			var info = {};
+			utils.foreach(e.Message.Response.Hash, function(k, v) {
+				info[k] = v.Data;
+			});
+			
+			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+				info: info
+			});
+		}
+		
+		function _onCheckBandwidth(e) {
+			
+		}
+		
+		function _onGetStats(e) {
+			
+		}
+		
+		function _onIOError(e) {
+			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+				info: {
+					level: Level.ERROR,
+					code: Code.NETCONNECTION_CONNECT_FAILED
+				}
+			});
+		}
+		
+		function _onClose(e) {
+			_this.close();
+		}
+		
+		_this.write = function(b) {
+			if (_websocket.readyState == WebSocket.OPEN) {
+				_websocket.send(b);
+			}
+		};
+		
+		_this.setChunkSize = function(size) {
+			var encoder = new AMF.Encoder();
+			encoder.AppendInt32(size, false);
+			
+			var h = new rtmp.message.header();
+			h.CSID = CSIDs.PROTOCOL_CONTROL;
+			h.Type = Types.SET_CHUNK_SIZE;
+			h.Length = encoder.Len();
+			
+			_this.writeByChunk(encoder.Encode(), h);
+			
+			_nearChunkSize = size;
+			utils.log('Set nearChunkSize: ' + _nearChunkSize);
+		};
+		
+		_this.abort = function() {
+			
+		};
+		
+		_this.sendAckSequence = function() {
+			var encoder = new AMF.Encoder();
+			encoder.AppendInt32(_stats.bytesIn, false);
+			
+			var h = new rtmp.message.header();
+			h.CSID = CSIDs.PROTOCOL_CONTROL;
+			h.Type = Types.ACK;
+			h.Length = encoder.Len();
+			
+			_this.writeByChunk(encoder.Encode(), h);
+		};
+		
+		_this.sendUserControl = function(event, streamID, bufferLength, timestamp) {
+			var encoder = new AMF.Encoder();
+			encoder.AppendInt16(event, false);
+			if (event <= EventTypes.STREAM_IS_RECORDED) {
+				encoder.AppendInt32(streamID, false);
+			}
+			if (event == EventTypes.SET_BUFFER_LENGTH) {
+				encoder.AppendInt32(bufferLength, false);
+			}
+			if (event == EventTypes.PING_REQUEST || event == EventTypes.PING_RESPONSE) {
+				encoder.AppendInt32(timestamp, false);
+			}
+			
+			var m = new rtmp.usercontrolmessage();
+			m.CSID = CSIDs.PROTOCOL_CONTROL;
+			m.Length = encoder.Len();
+			
+			_this.writeByChunk(encoder.Encode(), m);
+		};
+		
+		_this.setAckWindowSize = function(size) {
+			var encoder = new AMF.Encoder();
+			encoder.AppendInt32(size, false);
+			
+			var h = new rtmp.message.header();
+			h.CSID = CSIDs.PROTOCOL_CONTROL;
+			h.Type = Types.ACK_WINDOW_SIZE;
+			h.Length = encoder.Len();
+			
+			_this.writeByChunk(encoder.Encode(), h);
+			
+			_nearAckWindowSize = size;
+			utils.log('Set nearAckWindowSize: ' + _nearAckWindowSize);
+		};
+		
+		_this.setPeerBandwidth = function(size, limitType) {
+			var encoder = new AMF.Encoder();
+			encoder.AppendInt32(size, false);
+			encoder.AppendInt8(limitType);
+			
+			var m = new rtmp.bandwidthmessage();
+			m.CSID = CSIDs.PROTOCOL_CONTROL;
+			m.Length = encoder.Len();
+			
+			_this.writeByChunk(encoder.Encode(), m);
+			
+			_farBandwidth = size;
+			_farLimitType = limitType;
+			utils.log('Set farBandwidth to ' + _farBandwidth + ', limitType=' + _farLimitType);
+		};
+		
+		_this.createStream = function() {
+			return;
+		};
+		
+		_this.call = function(command, responder) {
+			var args = Array.prototype.slice.call(arguments, 2);
+			
+			var transactionId = 0;
+			switch (command) {
+				case Commands.CONNECT:
+					_transactionId++;
+					transactionId = 1;
+					break;
+				
+				case Commands.PLAY:
+				case Commands.PLAY2:
+				case Commands.RECEIVE_AUDIO:
+				case Commands.RECEIVE_VIDEO:
+				case Commands.PUBLISH:
+				case Commands.SEEK:
+				case Commands.PAUSE:
+					transactionId = 0;
+					break;
+				
+				default:
+					if (responder) {
+						_transactionId++;
+						transactionId = _transactionId;
+					}
+					break;
+			}
+			
+			if (responder) {
+				_responders[transactionId] = responder;
+			}
+			
+			var encoder = new AMF.Encoder();
+			encoder.EncodeString(command);
+			encoder.EncodeNumber(transactionId);
+			for (var i = 0; i < args.length; i++) {
+				encoder.EncodeValue(args[i]);
+			}
+			
+			var h = new rtmp.message.header();
+			h.CSID = CSIDs.COMMAND;
+			h.Type = Types.COMMAND;
+			h.Length = encoder.Len();
+			
+			_this.writeByChunk(encoder.Encode(), h);
+		};
+		
+		_this.close = function() {
+			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
+				_websocket.close();
+			}
+			
+			if (_connected) {
+				_connected = false;
+				
+				_this.dispatchEvent(CommandEvent.CLOSE);
+				_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+					info: {
+						level: Level.ERROR,
+						code: Code.NETCONNECTION_CONNECT_CLOSED
+					}
+				});
+			}
+		};
+		
+		function _getUncompleteChunk() {
+			var c;
+			
+			if (_chunks.length) {
+				c = _chunks[_chunks.length - 1];
+				if (c.State != States.COMPLETE) {
+					return c;
+				}
+			}
+			
+			c = new rtmp.chunk();
+			_chunks.push(c);
+			
+			return c;
+		}
+		
+		function _extendsFromPrecedingChunk(c) {
+			if (c.Fmt == 0) {
+				return;
+			}
+			
+			for (var i = _chunks.length - 1, checking = false; i >= 0; i--) {
+				var b = _chunks[i];
+				if (b.CSID != c.CSID) {
+					continue;
+				}
+				
+				if (checking == false) {
+					checking = true;
+					continue;
+				}
+				
+				if (c.Fmt >= 1 && c.MessageStreamID == 0) {
+					c.MessageStreamID = b.MessageStreamID;
+				}
+				if (c.Fmt >= 2 && c.MessageLength == 0) {
+					c.MessageLength = b.MessageLength;
+					c.MessageTypeID = b.MessageTypeID;
+				}
+				
+				break;
+			}
+		}
+		
+		_this.connected = function() {
+			return _connected;
+		};
+		
+		_this.url = function() {
+			return _url;
+		};
+		
+		_this.protocol = function() {
+			return _protocol;
+		};
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		CommandEvent = events.CommandEvent,
+		NetStatusEvent = events.NetStatusEvent,
+		Level = NetStatusEvent.Level,
+		Code = NetStatusEvent.Code,
+		AudioEvent = events.AudioEvent,
+		VideoEvent = events.VideoEvent,
+		DataEvent = events.DataEvent,
+		AMF = playease.muxer.AMF,
+		net = playease.net,
+		rtmp = net.rtmp,
+		CSIDs = rtmp.chunk.CSIDs,
+		States = rtmp.chunk.States,
+		Types = rtmp.message.Types,
+		EventTypes = rtmp.usercontrolmessage.UserControlEvent.Types,
+		LimitTypes = rtmp.bandwidthmessage.LimitTypes,
+		Commands = rtmp.commandmessage.Commands;
+	
+	rtmp.netstream = function(connection, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('rtmp.netstream')),
+			_defaults = {
+				bufferTime: .1
+			},
+			_connection,
+			_streamId,
+			_start,
+			_duration,
+			_reset,
+			_paused,
+			_time,
+			_bytesLoaded,
+			_bytesTotal,
+			_info;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_streamId = 0;
+			_start = undefined;
+			_duration = undefined;
+			_reset = undefined;
+			_paused = false;
+			_time = 0;
+			_bytesLoaded = 0;
+			_bytesTotal = 0;
+			
+			_info = {
+				dataFrames: {},
+				streamName: ''
+			};
+			
+			_connection = connection;
+			_connection.addEventListener(CommandEvent.CLOSE, _onClose);
+			_connection.addEventListener(CommandEvent.ON_STATUS, _onStatus);
+			_connection.addEventListener(DataEvent.SET_DATA_FRAME, _onSetDataFrame);
+			_connection.addEventListener(DataEvent.CLEAR_DATA_FRAME, _onClearDataFrame);
+			_connection.addEventListener(AudioEvent.DATA, _forward);
+			_connection.addEventListener(VideoEvent.DATA, _forward);
+		}
+		
+		_this.attach = function(c) {
+			_connection = c;
+		};
+		
+		function _onCreateStream(e) {
+			_streamId = e.Message.Response.Data;
+			
+			if (_info.streamName) {
+				_this.play(_info.streamName);
+			}
+		}
+		
+		_this.play = function(name, start, duration, reset) {
+			_info.streamName = name;
+			_start = start;
+			_duration = duration;
+			_reset = reset;
+			
+			if (_streamId == 0) {
+				_connection.call(Commands.CREATE_STREAM, new rtmp.responder(_onCreateStream, null), {
+					Type: AMF.types.NULL
+				});
+				
+				return;
+			}
+			
+			var args = [Commands.PLAY, null, {
+				Type: AMF.types.NULL
+			}, {
+				Type: AMF.types.STRING,
+				Data: _info.streamName
+			}];
+			
+			if (_start !== undefined) {
+				args.push({
+					Type: AMF.types.DOUBLE,
+					Data: _start
+				});
+			}
+			if (_duration !== undefined) {
+				args.push({
+					Type: AMF.types.DOUBLE,
+					Data: _duration
+				});
+			}
+			if (_reset !== undefined) {
+				args.push({
+					Type: AMF.types.BOOLEAN,
+					Data: _reset
+				});
+			}
+			
+			_connection.call.apply(_connection, args);
+		};
+		
+		_this.play2 = function(options) {
+			
+		};
+		
+		_this.receiveAudio = function(flag) {
+			_connection.call(Commands.RECEIVE_AUDIO, null, {
+				Type: AMF.types.NULL
+			}, {
+				Type: AMF.types.BOOLEAN,
+				Data: flag
+			});
+		};
+		
+		_this.receiveVideo = function(flag) {
+			_connection.call(Commands.RECEIVE_VIDEO, null, {
+				Type: AMF.types.NULL
+			}, {
+				Type: AMF.types.BOOLEAN,
+				Data: flag
+			});
+		};
+		
+		_this.resume = function() {
+			if (_paused == false) {
+				return;
+			}
+			
+			_pause(false);
+		};
+		
+		_this.pause = function() {
+			if (_paused) {
+				return;
+			}
+			
+			_pause(true);
+		};
+		
+		function _pause(flag) {
+			_connection.call(Commands.PAUSE, null, {
+				Type: AMF.types.NULL
+			}, {
+				Type: AMF.types.BOOLEAN,
+				Data: flag
+			}, {
+				Type: AMF.types.DOUBLE,
+				Data: _time
+			});
+			
+			_paused = flag;
+		}
+		
+		_this.seek = function(offset) {
+			_connection.call(Commands.SEEK, null, {
+				Type: AMF.types.NULL
+			}, {
+				Type: AMF.types.DOUBLE,
+				Data: offset * 1000
+			});
+		};
+		
+		_this.close = function() {
+			_connection.call(Commands.CLOSE_STREAM, null, {
+				Type: AMF.types.NULL
+			}, {
+				Type: AMF.types.DOUBLE,
+				Data: _streamId
+			});
+		};
+		
+		_this.dispose = function() {
+			if (_streamId) {
+				_this.close();
+			}
+			
+			_streamId = 0;
+			_start = undefined;
+			_duration = undefined;
+			_reset = undefined;
+			_paused = false;
+			_time = 0;
+			_bytesLoaded = 0;
+			_bytesTotal = 0;
+			
+			_info = {
+				dataFrames: {},
+				streamName: ''
+			};
+		};
+		
+		
+		_this.publish = function(name, type) {
+			
+		};
+		
+		_this.send = function(handlerName) {
+			var args = Array.prototype.slice.call(arguments, 1);
+			
+		};
+		
+		
+		function _onStatus(e) {
+			var info = {};
+			utils.foreach(e.Message.Response.Hash, function(k, v) {
+				info[k] = v.Data;
+			});
+			
+			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+				info: info
+			});
+		}
+		
+		function _onSetDataFrame(e) {
+			if (_this.client && _this.client.onMetaData) {
+				_this.client.onMetaData(e.info);
+			}
+		}
+		
+		function _onClearDataFrame(e) {
+			
+		}
+		
+		function _onClose(e) {
+			_this.dispose();
+		}
+		
+		
+		_this.bytesLoaded = function() {
+			return _bytesLoaded;
+		};
+		
+		_this.bytesTotal = function() {
+			return _bytesTotal;
+		};
+		
+		_this.info = function() {
+			return _info;
+		};
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
 	playease.core = {};
 })(playease);
 
@@ -5598,16 +8174,18 @@ playease.version = '1.0.86';
 	var renders = playease.core.renders = {};
 	
 	renders.types = {
-		DEFAULT: 'def',
-		FLV:     'flv',
-		WSS:     'wss',
-		DASH:    'dash',
-		FLASH:   'flash'
+		DEFAULT:  'def',
+		FLV:      'flv',
+		RTMPMATE: 'rtmpmate',
+		WSS:      'wss',
+		DASH:     'dash',
+		FLASH:    'flash'
 	},
 	
 	renders.priority = [
 		renders.types.DEFAULT,
 		renders.types.FLV,
+		renders.types.RTMPMATE,
 		renders.types.WSS,
 		renders.types.DASH,
 		renders.types.FLASH
@@ -5651,9 +8229,11 @@ playease.version = '1.0.86';
 			}
 			if (_this.config.playsinline) {
 				_video.setAttribute('playsinline', '');
-				_video.setAttribute('x5-playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
 			}
+			_video.setAttribute('x5-video-player-type', 'h5');
+			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -5666,7 +8246,19 @@ playease.version = '1.0.86';
 		}
 		
 		_this.setup = function() {
+			if (utils.isWeixin()) {
+				document.addEventListener('WeixinJSBridgeReady', _onWeixinJSBridgeReady);
+			} else {
+				_onWeixinJSBridgeReady();
+			}
+		};
+		
+		function _onWeixinJSBridgeReady(e) {
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+		}
+		
+		_this.attach = function(url) {
+			_video.src = url;
 		};
 		
 		_this.play = function(url) {
@@ -5683,8 +8275,6 @@ playease.version = '1.0.86';
 				_waiting = true;
 				
 				_video.src = _url;
-				_video.load();
-				
 				_src = _video.src;
 			}
 			
@@ -5728,10 +8318,11 @@ playease.version = '1.0.86';
 			_waiting = true;
 			
 			_video.removeAttribute('src');
+			_video.pause();
 			_video.load();
 			_video.controls = false;
 			
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.IDLE });
 		};
 		
 		_this.mute = function(muted) {
@@ -5870,13 +8461,14 @@ playease.version = '1.0.86';
 		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
+		rtmp = playease.net.rtmp,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
 		rendertypes = renders.types,
 		rendermodes = renders.modes,
 		
-		AMF = muxer.AMF,
+		AMF = rtmp.AMF,
 		TAG = muxer.flv.TAG,
 		FORMATS = muxer.flv.FORMATS,
 		CODECS = muxer.flv.CODECS;
@@ -5913,11 +8505,7 @@ playease.version = '1.0.86';
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = {
-				start: 0,
-				end: _this.config.mode == rendermodes.VOD ? _this.config.bufferLength - 1 : ''
-			};
-			
+			_range = { start: 0, end: '' };
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
 			
@@ -5927,9 +8515,11 @@ playease.version = '1.0.86';
 			}
 			if (_this.config.playsinline) {
 				_video.setAttribute('playsinline', '');
-				_video.setAttribute('x5-playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
 			}
+			_video.setAttribute('x5-video-player-type', 'h5');
+			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -5959,6 +8549,11 @@ playease.version = '1.0.86';
 						break;
 					}
 				}
+			}
+			
+			if (_this.config.mode == rendermodes.VOD && name == io.types.XHR_CHUNKED_LOADER) {
+				_range.start = 0;
+				_range.end = _this.config.bufferLength - 1;
 			}
 			
 			if (_loader) {
@@ -6150,9 +8745,6 @@ playease.version = '1.0.86';
 				_sb.video = null;
 			}
 			
-			_range.start = 0;
-			_range.end = _this.config.mode == rendermodes.VOD ? _this.config.bufferLength - 1 : '';
-			
 			_segments.audio.splice(0, _segments.audio.length);
 			_segments.video.splice(0, _segments.video.length);
 			
@@ -6161,6 +8753,7 @@ playease.version = '1.0.86';
 			}
 			
 			_video.removeAttribute('src');
+			_video.pause();
 			_video.load();
 			_video.controls = false;
 			
@@ -6216,6 +8809,7 @@ playease.version = '1.0.86';
 					
 					_demuxer.parseAACAudioPacket(e.data, e.offset, e.size, e.timestamp, e.rate, e.samplesize, e.sampletype);
 					break;
+					
 				case TAG.VIDEO:
 					if (e.codec && e.codec != CODECS.AVC) {
 						utils.log('Unsupported video codec(' + e.codec + ').');
@@ -6224,14 +8818,16 @@ playease.version = '1.0.86';
 					
 					_demuxer.parseAVCVideoPacket(e.data, e.offset, e.size, e.timestamp, e.frametype);
 					break;
-				case TAG.SCRIPT:
-					var data = AMF.parse(e.data, e.offset, e.size);
-					utils.log(data.key + ': ' + JSON.stringify(data.value));
 					
-					if (data.key == 'onMetaData') {
-						_demuxer.setMetaData(data.value);
+				case TAG.SCRIPT:
+					var v = AMF.Decode(e.data, e.offset, e.size);
+					utils.log(v.Key + ': ' + JSON.stringify(v.Hash));
+					
+					if (v.Key == 'onMetaData') {
+						_demuxer.setMetaData(v.Hash);
 					}
 					break;
+					
 				default:
 					utils.log('Skipping unknown tag type ' + e.tag);
 			}
@@ -6429,9 +9025,9 @@ playease.version = '1.0.86';
 					cached = Math.max(cached, _segments.video[_segments.video.length - 1].info.endDts);
 				}
 				
-				if (cached < position + 60 && _range.end < _contentLength - 1) {
+				if (_loader.name == io.types.XHR_CHUNKED_LOADER && cached < position + 60 && _range.end < _contentLength - 1) {
 					_range.start = _range.end + 1;
-					_range.end = _range.start + _this.config.loader.chunkSize - 1;
+					_range.end = _range.start + _loader.config.chunkSize - 1;
 					
 					_loader.load(_url, _range.start, _range.end);
 				}
@@ -6500,7 +9096,7 @@ playease.version = '1.0.86';
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS() || utils.isSogou()) {
 			return false;
 		}
 		
@@ -6510,6 +9106,533 @@ playease.version = '1.0.86';
 		}
 		
 		return true;
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		css = utils.css,
+		//filekeeper = utils.filekeeper,
+		events = playease.events,
+		CommandEvent = events.CommandEvent,
+		NetStatusEvent = events.NetStatusEvent,
+		Level = NetStatusEvent.Level,
+		Code = NetStatusEvent.Code,
+		AudioEvent = events.AudioEvent,
+		VideoEvent = events.VideoEvent,
+		DataEvent = events.DataEvent,
+		AMF = playease.muxer.AMF,
+		net = playease.net,
+		rtmp = net.rtmp,
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		rendertypes = renders.types,
+		rendermodes = renders.modes;
+	
+	renders.rtmpmate = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.rtmpmate')),
+			_defaults = {},
+			_video,
+			_url,
+			_src,
+			_range,
+			_contentLength,
+			_application,
+			_streamName,
+			_args,
+			_connection,
+			_stream,
+			_metadata,
+			_ms,
+			_sb,
+			_segments,
+			//_fileindex,
+			//_filekeeper,
+			_waiting,
+			_endOfStream = false;
+		
+		function _init() {
+			_this.name = rendertypes.RTMPMATE;
+			
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_url = '';
+			_src = '';
+			_contentLength = 0;
+			_waiting = true;
+			
+			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			
+			_metadata = {
+				audioCodec: 'mp4a.40.2',
+				videoCodec: 'avc1.42E01E'
+			};
+			
+			_sb = { audio: null, video: null };
+			_segments = { audio: [], video: [] };
+			
+			_video = utils.createElement('video');
+			if (_this.config.airplay) {
+				_video.setAttribute('x-webkit-airplay', 'allow');
+			}
+			if (_this.config.playsinline) {
+				_video.setAttribute('playsinline', '');
+				_video.setAttribute('webkit-playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
+			}
+			_video.setAttribute('x5-video-player-type', 'h5');
+			_video.setAttribute('x5-video-player-fullscreen', true);
+			_video.preload = 'none';
+			
+			_video.addEventListener('durationchange', _onDurationChange);
+			_video.addEventListener('waiting', _onWaiting);
+			_video.addEventListener('playing', _onPlaying);
+			_video.addEventListener('pause', _onPause);
+			_video.addEventListener('ended', _onEnded);
+			_video.addEventListener('error', _onError);
+			/*
+			_fileindex = 0;
+			_filekeeper = new filekeeper();
+			*/
+			_initNetConnection();
+			_initNetStream();
+			_initMSE();
+		}
+		
+		function _initNetConnection() {
+			_connection = new rtmp.netconnection();
+			_connection.addEventListener(NetStatusEvent.NET_STATUS, _statusHandler);
+			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _onConnectionError);
+			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _onConnectionError);
+			_connection.client = _this;
+		}
+		
+		function _initNetStream() {
+			_stream = new rtmp.netstream(_connection);
+			_stream.addEventListener(NetStatusEvent.NET_STATUS, _statusHandler);
+			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
+			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
+			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _onStreamError);
+			_stream.client = _this;
+		}
+		
+		function _initMSE() {
+			window.MediaSource = window.MediaSource || window.WebKitMediaSource;
+			
+			_ms = new MediaSource();
+			_ms.addEventListener('sourceopen', _onMediaSourceOpen);
+			_ms.addEventListener('sourceended', _onMediaSourceEnded);
+			_ms.addEventListener('sourceclose', _onMediaSourceClose);
+			_ms.addEventListener('error', _onMediaSourceError);
+			
+			_ms.addEventListener('webkitsourceopen', _onMediaSourceOpen);
+			_ms.addEventListener('webkitsourceended', _onMediaSourceEnded);
+			_ms.addEventListener('webkitsourceclose', _onMediaSourceClose);
+			_ms.addEventListener('webkiterror', _onMediaSourceError);
+		}
+		
+		_this.setup = function() {
+			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
+		};
+		
+		function _statusHandler(e) {
+			utils.log(e.info.code);
+			
+			switch (e.info.code) {
+				case Code.NETCONNECTION_CONNECT_SUCCESS:
+					_this.play(_url);
+					break;
+					
+				case Code.NETCONNECTION_CONNECT_CLOSED:
+				case Code.NETSTREAM_FAILED:
+				case Code.NETSTREAM_PLAY_FAILED:
+				case Code.NETSTREAM_PLAY_FILESTRUCTUREINVALID:
+				case Code.NETSTREAM_PLAY_STOP:
+				case Code.NETSTREAM_PLAY_STREAMNOTFOUND:
+				case Code.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
+				case Code.NETSTREAM_SEEK_FAILED:
+					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.info.code });
+					break;
+			}
+		}
+		
+		function _onConnectionError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetConnection error ocurred.' });
+		}
+		
+		function _onStreamError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetStream error ocurred.' });
+		}
+		
+		_this.play = function(url) {
+			if (!_video.src || _video.src !== _src || url && url != _url) {
+				if (url && url != _url) {
+					if (!renders.wss.isSupported(url)) {
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
+						return;
+					}
+					
+					_url = url;
+				}
+				
+				if (!_connection.connected()) {
+					var arr = _url.match(rtmp.URLRe);
+					if (arr && arr.length > 4) {
+						_application = arr[1];
+						_streamName = arr[arr.length - 2];
+						_args = arr[arr.length - 1];
+					} else {
+						utils.log('Failed to match rtmp URL: ' + _url);
+						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Bad URL format!' });
+						return;
+					}
+					
+					utils.log('Connecting to ' + _application + ' ...');
+					_connection.connect(_application);
+					
+					return;
+				}
+				
+				if (_stream) {
+					//_stream.close();
+				}
+				
+				_waiting = true;
+				
+				_segments.audio = [];
+				_segments.video = [];
+				
+				_video.src = URL.createObjectURL(_ms);
+				_video.load();
+				
+				_src = _video.src;
+			}
+			
+			var promise = _video.play();
+			if (promise) {
+				promise['catch'](function(e) { /* void */ });
+			}
+			
+			_video.controls = false;
+		};
+		
+		_this.pause = function() {
+			_waiting = false;
+			
+			_video.pause();
+			_video.controls = false;
+		};
+		
+		_this.reload = function() {
+			_this.stop();
+			_this.play(_url);
+		};
+		
+		_this.seek = function(offset) {
+			if (isNaN(_video.duration)) {
+				_this.play();
+			} else {
+				if (_stream) {
+					_stream.seek(offset * _video.duration / 100);
+				}
+				
+				var promise = _video.play();
+				if (promise) {
+					promise['catch'](function(e) { /* void */ });
+				}
+			}
+			
+			_video.controls = false;
+		};
+		
+		_this.stop = function() {
+			if (_stream) {
+				_stream.dispose();
+			}
+			_connection.close();
+			
+			_src = '';
+			_waiting = true;
+			
+			if (_ms) {
+				if (_sb.audio) {
+					try {
+						_ms.removeSourceBuffer(_sb.audio);
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(audio): ' + err.toString());
+					}
+				}
+				if (_sb.video) {
+					try {
+						_ms.removeSourceBuffer(_sb.video);
+					} catch (err) {
+						utils.log('Failed to removeSourceBuffer(video): ' + err.toString());
+					}
+				}
+				
+				_sb.audio = null;
+				_sb.video = null;
+			}
+			
+			_segments.audio = [];
+			_segments.video = [];
+			
+			_video.removeAttribute('src');
+			_video.pause();
+			_video.load();
+			_video.controls = false;
+			
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
+		};
+		
+		_this.mute = function(muted) {
+			_video.muted = muted;
+		};
+		
+		_this.volume = function(vol) {
+			_video.volume = vol / 100;
+		};
+		
+		_this.hd = function(index) {
+			
+		};
+		
+		
+		_this.onMetaData = function(data) {
+			_metadata = data;
+			
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
+		};
+		
+		function _onMP4InitSegment(e) {
+			/*if (e.tp == 'video') {
+				_fileindex++
+				_filekeeper.append(e.data);
+				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
+			}*/
+			
+			_segments[e.tp].push(e.data);
+		}
+		
+		function _onMP4Segment(e) {
+			/*if (e.tp == 'video') {
+				_fileindex++
+				_filekeeper.append(e.data);
+				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
+				if (_fileindex == 500) {
+					_filekeeper.save('sample.wss.normal.mp4');
+				}
+			}*/
+			
+			e.data.info = e.info;
+			
+			_segments[e.tp].push(e.data);
+			_this.appendSegment(e.tp);
+		}
+		
+		/**
+		 * MSE
+		 */
+		_this.addSourceBuffer = function(type) {
+			var mimetype = type + '/mp4; codecs="' + _metadata[type + 'Codec'] + '"';
+			utils.log('Mime type: ' + mimetype + '.');
+			
+			var issurpported = MediaSource.isTypeSupported(mimetype);
+			if (!issurpported) {
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Mime type is not surpported: ' + mimetype + '.' });
+				return;
+			}
+			
+			if (_ms.readyState == 'closed') {
+				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource is closed while appending init segment.' });
+				return;
+			}
+			
+			var sb;
+			try {
+				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
+			} catch (err) {
+				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
+				return;
+			}
+			
+			sb.type = type;
+			sb.addEventListener('updateend', _onUpdateEnd);
+			sb.addEventListener('error', _onSourceBufferError);
+		};
+		
+		_this.appendSegment = function(type) {
+			if (_segments[type].length == 0) {
+				return;
+			}
+			
+			var sb = _sb[type];
+			if (!sb || sb.updating) {
+				return;
+			}
+			
+			var seg = _segments[type].shift();
+			try {
+				sb.appendBuffer(seg);
+			} catch (err) {
+				utils.log('Failed to appendBuffer: ' + err.toString());
+			}
+		};
+		
+		function _onMediaSourceOpen(e) {
+			utils.log('media source open');
+			utils.log('Playing ' + _streamName + ' ...');
+			
+			// TODO: addSourceBuffer while metadata reached.
+			_this.addSourceBuffer('audio');
+			_this.addSourceBuffer('video');
+			
+			_stream.play(_streamName);
+		}
+		
+		function _onUpdateEnd(e) {
+			//utils.log('update end');
+			
+			var type = e.target.type;
+			
+			if (_endOfStream) {
+				if (!_ms || _ms.readyState !== 'open') {
+					return;
+				}
+				
+				if (!_segments.audio.length && !_segments.video.length) {
+					//_filekeeper.save('sample.wss.mp4');
+					_ms.endOfStream();
+					return;
+				}
+			}
+			
+			_this.appendSegment(type);
+		}
+		
+		function _onSourceBufferError(e) {
+			utils.log('source buffer error');
+		}
+		
+		function _onMediaSourceEnded(e) {
+			utils.log('media source ended');
+		}
+		
+		function _onMediaSourceClose(e) {
+			utils.log('media source close');
+		}
+		
+		function _onMediaSourceError(e) {
+			utils.log('media source error');
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
+		}
+		
+		
+		_this.getRenderInfo = function() {
+			var buffered;
+			var position = _video.currentTime;
+			var duration = _video.duration;
+			
+			var ranges = _video.buffered, start, end;
+			for (var i = 0; i < ranges.length; i++) {
+				start = ranges.start(i);
+				end = ranges.end(i);
+				if (/*start <= position && */position < end) {
+					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
+				}
+				
+				if (i == 0 && position < start) {
+					_video.currentTime = start;
+				}
+			}
+			
+			if (_waiting && end - position >= _this.config.bufferTime) {
+				_waiting = false;
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
+			}
+			
+			return {
+				buffered: buffered,
+				position: position,
+				duration: duration
+			};
+		};
+		
+		
+		function _onDurationChange(e) {
+			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
+		}
+		
+		function _onWaiting(e) {
+			_waiting = true;
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
+		}
+		
+		function _onPlaying(e) {
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
+		}
+		
+		function _onPause(e) {
+			if (!_waiting) {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
+			}
+		}
+		
+		function _onEnded(e) {
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
+		}
+		
+		function _onError(e) {
+			var message = 'Video error ocurred!';
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
+		}
+		
+		
+		_this.element = function() {
+			return _video;
+		};
+		
+		_this.resize = function(width, height) {
+			css.style(_video, {
+				width: width + 'px',
+				height: height + 'px'
+			});
+		};
+		
+		_this.destroy = function() {
+			
+		};
+		
+		_init();
+	};
+	
+	renders.rtmpmate.isSupported = function(file) {
+		var protocol = utils.getProtocol(file);
+		if (protocol != 'ws' && protocol != 'wss') {
+			return false;
+		}
+		
+		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
+			return false;
+		}
+		
+		var map = [
+			undefined, '', // live stream
+			'mp4', 'm4s'
+		];
+		var extension = utils.getExtension(file);
+		for (var i = 0; i < map.length; i++) {
+			if (extension === map[i]) {
+				return true;
+			}
+		}
+		
+		return false;
 	};
 })(playease);
 
@@ -6578,9 +9701,11 @@ playease.version = '1.0.86';
 			}
 			if (_this.config.playsinline) {
 				_video.setAttribute('playsinline', '');
-				_video.setAttribute('x5-playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
 			}
+			_video.setAttribute('x5-video-player-type', 'h5');
+			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -6779,6 +9904,7 @@ playease.version = '1.0.86';
 			_segments.video = [];
 			
 			_video.removeAttribute('src');
+			_video.pause();
 			_video.load();
 			_video.controls = false;
 			
@@ -7142,9 +10268,11 @@ playease.version = '1.0.86';
 			}
 			if (_this.config.playsinline) {
 				_video.setAttribute('playsinline', '');
-				_video.setAttribute('x5-playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
+				_video.setAttribute('x5-playsinline', '');
 			}
+			_video.setAttribute('x5-video-player-type', 'h5');
+			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -7355,6 +10483,7 @@ playease.version = '1.0.86';
 			_stopTimer();
 			
 			_video.removeAttribute('src');
+			_video.pause();
 			_video.load();
 			_video.controls = false;
 			
@@ -7750,7 +10879,6 @@ playease.version = '1.0.86';
 						+ '<param name="allowfullscreen" value="true">'
 						+ '<param name="wmode" value="transparent">'
 						+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
-						+ '<p>Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.</p>'
 					+ '</object>';
 				
 				_video = div.firstChild;
@@ -7767,8 +10895,7 @@ playease.version = '1.0.86';
 				+ '<param name="allowscriptaccess" value="sameDomain">'
 				+ '<param name="allowfullscreen" value="true">'
 				+ '<param name="wmode" value="transparent">'
-				+ '<param name="FlashVars" value="id=' + _this.config.id + '">'
-				+ '<p>Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.</p>';
+				+ '<param name="FlashVars" value="id=' + _this.config.id + '">';
 			
 			if (utils.isMSIE()) {
 				_video.classid = 'clsid:D27CDB6E-AE6D-11cf-96B8-444553540000';
@@ -7797,32 +10924,47 @@ playease.version = '1.0.86';
 				_url = url;
 			}
 			
-			_video.xplay(_url);
+			if (_video.xplay) {
+				_video.xplay(_url);
+			}
 		};
 		
 		_this.pause = function() {
-			_video.pause();
+			if (_video.pause) {
+				_video.pause();
+			}
 		};
 		
 		_this.reload = function() {
-			_video.reload();
+			if (_video.reload) {
+				_video.reload();
+			}
 		};
 		
 		_this.seek = function(offset) {
-			_video.seek(offset);
+			if (_video.seek) {
+				_video.seek(offset);
+			}
 		};
 		
 		_this.stop = function() {
-			_video.istop();
+			if (_video.xstop) {
+				_video.xstop();
+			}
+
 			_duration = 0;
 		};
 		
 		_this.mute = function(muted) {
-			_video.muted(muted);
+			if (_video.muted) {
+				_video.muted(muted);
+			}
 		};
 		
 		_this.volume = function(vol) {
-			_video.volume(vol);
+			if (_video.volume) {
+				_video.volume(vol);
+			}
 		};
 		
 		_this.hd = function(index) {
@@ -7831,6 +10973,10 @@ playease.version = '1.0.86';
 		
 		
 		_this.getRenderInfo = function() {
+			if (!_video.getRenderInfo) {
+				return {};
+			}
+			
 			var info = _video.getRenderInfo();
 			
 			if (_duration !== info.duration) {
@@ -8056,7 +11202,8 @@ playease.version = '1.0.86';
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video'
 				+ ', .' + SKIN_CLASS + ' .' + RENDER_CLASS + ' object', {
 				width: CSS_100PCT,
-				height: CSS_100PCT
+				height: CSS_100PCT,
+				display: CSS_BLOCK
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' video::-webkit-media-controls-start-playback-button', {
 				display: CSS_NONE
@@ -8075,61 +11222,81 @@ playease.version = '1.0.86';
 			});
 			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS
 				+ ', .' + SKIN_CLASS + '.' + states.PLAYING + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS
-				+ ', .' + SKIN_CLASS + '.' + states.PAUSED + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS
-				+ ', .' + SKIN_CLASS + '.' + states.ERROR + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
+				+ ', .' + SKIN_CLASS + '.' + states.PAUSED + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS, {
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + '.' + states.ERROR + ' .' + RENDER_CLASS + ' .' + POSTER_CLASS + ' img', {
 				display: CSS_NONE
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS, {
 				width: CSS_100PCT,
-				height: '10%',
-				'min-height': '32px',
+				height: CSS_100PCT,
 				'text-align': CSS_CENTER,
-				top: '45%',
+				top: '0px',
 				position: CSS_ABSOLUTE,
 				overflow: CSS_HIDDEN,
-				display: CSS_NONE
+				display: CSS_NONE,
+				'z-index': '1'
 			});
-			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS
+			css('.' + SKIN_CLASS + '.' + states.IDLE + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS
+				+ ', .' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS
+				+ ', .' + SKIN_CLASS + '.' + states.PLAYING + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS
 				+ ', .' + SKIN_CLASS + '.' + states.PAUSED + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS
 				+ ', .' + SKIN_CLASS + '.' + states.STOPPED + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS
 				+ ', .' + SKIN_CLASS + '.' + states.ERROR + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS, {
-				display: CSS_INLINE_BLOCK
-			});
-			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' > div', {
-				display: CSS_INLINE_BLOCK
+				display: CSS_BLOCK
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS, {
-				'float': 'left',
 				margin: '0 auto',
-				width: '32px',
-				height: '32px',
+				width: '48px',
+				height: '48px',
+				top: (_height - 40 - 48) / 2 + 'px',
+				left: (_width - 48) / 2 + 'px',
+				position: CSS_ABSOLUTE,
 				'background-repeat': CSS_NO_REPEAT,
-				'background-position': CSS_CENTER
+				'background-position': CSS_CENTER,
+				display: CSS_INLINE_BLOCK
 			});
-			
-			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS + ' .' + DISPLAY_ICON_CLASS, {
-				'background-image': CSS_NONE
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_LABEL_CLASS, {
+				'margin-top': (_height - 40 - 32) / 2 + 'px',
+				'font-size': '14px',
+				'line-height': '32px',
+				color: '#CCCCCC',
+				'text-align': CSS_CENTER,
+				display: CSS_NONE
+			});
+			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_LABEL_CLASS + ' a', {
+				'font-size': '14px',
+				'font-weight': CSS_BOLD,
+				color: '#FFFFFF'
+			});
+			css('.' + SKIN_CLASS + '.' + states.IDLE + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS
+				+ ', .' + SKIN_CLASS + '.' + states.PAUSED + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS, {
+				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAtUExURUxpcejo6Obm5ubm5ubm5u/v7+bm5ufn5+Xl5ebm5ubm5ufn5+bm5ubm5ubm5jSWEg4AAAAOdFJOUwA5vYDwEOBg0KBQIJBws1NytAAAAdRJREFUOMttVD1LglEUvq9hVhZINgSCFA0NQWRtDUJDCEEvDg1N0g+oF4mGJqkh2qS5IYJaWkT/QDg1RlNjVL6pmTy/oXO/77XO4HvOfe495zlfMqYluNvY2MywUUkehyCJl8v+efoGSr6b3n1zToj75gSO7NjzSW5/buZad6tcuzKO6mRdS/2B1L52tk/Gor41S8aF0uue33vyKrVpoOskFkRAW2gN+1Z7HojQIbpeuskIcVl62vLLMCd9PQJV+iRWDDAD/NDnRpJIYM0gdQzpN8SHBCy1PGLGpoAFCdjykX7L61RVBkoKSPF6jQNlDUARSAIHrKIKIABNoI4vCtRxAEWgSITePEARKKInQAfAruTb+QOIzvwL9Aww8IB+RnSiw2p+8PhFB8+LghlApvhM/ivoO8COTvCdTQBNAwxlGdPAGW/giwb6GdOpNgt4wSQQ61ZRYelKJJhzwDS3hq6g1pWAHbpIpLAni50YmhkaA7blh+eessPYUH2h+fJWLwhVavmRiaN5+9Cs46o9T4UqMz5y6JjIySK10dm0kruOZtf4zh4KAsET7AMRhQZkqZBdj+AHnHfX+dyl+GrPj/xlOdXnl6P/Mlmx+58F9lda2ULOWr8ERXrQBrGziQAAAABJRU5ErkJggg==)'
+			});
+			css('.' + SKIN_CLASS + '.' + states.IDLE + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS + ':hover'
+				+ ', .' + SKIN_CLASS + '.' + states.PAUSED + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS + ':hover', {
+				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAtUExURUxpcQCg6QCf6ACg6QCf6wCf7wCg6QCg6ACg6gCf6gCf6QCf6QCf7wCf6QCg6cCd4h0AAAAOdFJOUwB8wPBAEKTgYDDQUCCQyqqJ9wAAAdhJREFUOMt1lD1LA0EQhtdgNNEIEUSRQLCwEUSwEBThSKwlBOwsRDtBCfoDPAKChUWI2FmIjaBNUARLSWEt6ezE5NTTxLy/wdnP201wi9zOPLszs/MRxvRK3o+PZ6qsd8VPPNAKdouuPlWCWl9157zRE7HvHMNaq5F+SJzMrD/fi5vbxlCNpD25f6RtWxvbJGFWn1oj4Vrta47dB6Ald2NAaD0s6QMNsXuK7mrLHeHaQ+g8N+4jKEpLK24azqWtF6BMn9i8AQPAL31KMogY0obU0KVfDx8ShDkNCggYGwVmJIjSR/s7nqeyErCsQILnaxgoagAVQBw4YFsqAQLoAGr4JEdNC6gAshRQ1gEqgCy+BbQAFmW8zT6Auf/AtwEdB7SrohJNVnGdB2ntvCASZsC+EN7I/hbaFljVD3xnI0DdgK5MYwq44gVMa9DOmUo12CBPmASBLhUllo74InIOTHErCEVooQRR0/niCRvSSaxbtJphSX742xOm4rwD0/Ji4Ixe0lNPu+zpOOq3H20yKEf6hGcqTGPUNJ7jWSqjNWnL9jiaWeOTdyQCSL4iuiC8UIPsTOQnfbgOL+xxvrVDnIr0h+6wnGr9Te+/zNkCV7emWf96zk+sR9If3YN+fNM6EiIAAAAASUVORK5CYII=)'
 			});
 			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS, {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACaElEQVRYR8WXQW4aMRSG3wMjjVeBDZKfF0lPUHIC0hM03CCcoM0JmhuUnKDkBElPkPQEJSfobMYjsYGuQGKQq2d50HQy0GnAZCQ2g/H7nu3/9w/CGz+4q/50Ou21Wq240+nMQ3FWAnDhLMvuAeCMC1trx1rrYQiISoAkSSaI+L5U8JqIRoeGqAQwxtiKQj+I6OItAe6I6OooAEmS3CDil0Kx34jYU0rFRwHgIsaYSwC4tNbGjUZjHKI419kpw0N3WzWfAyjJLhZCDLrd7uRoAMYY3tvTvKC1dq617hwFwHf/s1wMET8opZ5CQ7gtqNK9lLIT0oLzxhxAmqZX1tpvm5eIQ6XUOHT3f6kgTVP2ff7EoSS3VQXH6LRYYzabtReLxb2UcrDxAb8NHwHgiYhuQ0Ox22qtbxxAhfU+ENEgNMTmDJR9gL8gomAuyTYvhIjZ7HIZst77xcuHiNqhVsDL3l3vRStmiBO3LIFlmKYp5wqnts0y88lcLpe9kDL0NdpFmW+LZJwHeEvmUsrhoRzRGMPh9gQR3+UQLwDKrggA34mIs8Hej8+aZ8Vw8wKgKg3tcyC9w/aVUne1nJAPiLX2sTDYZUE/0WkURc//syX5sgNAZarelopdHAOACUdxvrJXq9UjIrI0Yynl+TYIf8L7URTd8phXAZSXyhjD/wc+lW/LwvsREV3zKllrf/lx7uzkl9y2bFHL7YwxnwHgaw4ghDhfr9ft4lZxgGk2m/Msy1y4sdY+a61Z1jufWgA+tPAq8IR8T4xK3QJDsbV6FV0IIUZ1cmVtgKo28ujuoR7+1W0tFbxmkn1+8wdECS8NBZyNpgAAAABJRU5ErkJggg==)'
 			});
-			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_LABEL_CLASS, {
-				'font-size': '14px',
-				'font-weight': CSS_BOLD,
-				'line-height': '32px',
-				color: '#FFFFFF',
-				'text-align': CSS_CENTER
+			css('.' + SKIN_CLASS + '.' + states.STOPPED + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS, {
+				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAnUExURUxpcebm5ubm5ufn5+fn5+bm5ubm5ujo6Obm5ubm5uXl5e/v7+bm5v4Cjk0AAAAMdFJOUwDAmSBi7IA9ULDQEGJkMtUAAAFESURBVDjLdVShUgMxEE17Nz0YEHQGDBOBoQgi7gMQeBAIBOIEg8FUVKEQGFwFKAQ1DLYCwQ8EOKCd91FN0lznst2NuMu9d3m72eyLUq1xpISxdyoQ+ksi8M6gd88VUD9QuDhEGFSs0Esc8zLBs4nD3gZO6zhd8AjMznzwyxTPnbaX0PUoJQxskNavKd4DDsJkl6Q0xs9ykmaksgp8jToQSjTGjlS6ksULSamLb57YxhNP3AvJqiE+eGIyFw56agWCy7b34onfdeK8FoghBCkDIbi2zYNmOuM3uBXiMiXJ8ccXcRMXfNlPQtcwB2UQGm9KjzaD5Zuhg3++fUz8kzZcjrokLRpLG5V8wrGpm69raoMgrFshu9E4HjetBSurKfXpzHjV3pI3bX9w03cvm2x3o0LjZ3IFFCZeAKP1K2PfWf129bkALBuQv4Z6ZbEAAAAASUVORK5CYII=)'
+			});
+			css('.' + SKIN_CLASS + '.' + states.STOPPED + ' .' + RENDER_CLASS + ' .' + DISPLAY_CLASS + ' .' + DISPLAY_ICON_CLASS + ':hover', {
+				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAnUExURUxpcQCf6ACf6QCf7wCf6gCg6QCg6QCf6wCf6QCg6QCf6QCf7wCg6Ta1FVAAAAAMdFJOUwDAmSBi7IA9ULDQEGJkMtUAAAFESURBVDjLdVShUgMxEE17Nz0YEHQGDBOBoQgi7gMQeBAIBOIEg8FUVKEQGFwFKAQ1DLYCwQ8EOKCd91FN0lznst2NuMu9d3m72eyLUq1xpISxdyoQ+ksi8M6gd88VUD9QuDhEGFSs0Esc8zLBs4nD3gZO6zhd8AjMznzwyxTPnbaX0PUoJQxskNavKd4DDsJkl6Q0xs9ykmaksgp8jToQSjTGjlS6ksULSamLb57YxhNP3AvJqiE+eGIyFw56agWCy7b34onfdeK8FoghBCkDIbi2zYNmOuM3uBXiMiXJ8ccXcRMXfNlPQtcwB2UQGm9KjzaD5Zuhg3++fUz8kzZcjrokLRpLG5V8wrGpm69raoMgrFshu9E4HjetBSurKfXpzHjV3pI3bX9w03cvm2x3o0LjZ3IFFCZeAKP1K2PfWf129bkALBuQv4Z6ZbEAAAAASUVORK5CYII=)'
 			});
 			
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + LOGO_CLASS, {
-				width: CSS_100PCT,
-				height: CSS_100PCT,
 				top: '0',
 				position: CSS_ABSOLUTE,
-				'z-index': '1'
+				'z-index': '2'
 			});
 			css('.' + SKIN_CLASS + ' .' + RENDER_CLASS + ' .' + LOGO_CLASS + ' > a', {
+				width: CSS_100PCT,
+				height: CSS_100PCT,
 				'background-size': CSS_100PCT + ' ' + CSS_100PCT,
 				'background-repeat': CSS_NO_REPEAT,
 				'background-position': CSS_CENTER,
@@ -8141,7 +11308,7 @@ playease.version = '1.0.86';
 				height: '40px',
 				background: '#171717',
 				position: CSS_RELATIVE,
-				'z-index': '3'
+				'z-index': '4'
 			});
 			css('.' + SKIN_CLASS + '.fs .' + CONTROLS_CLASS, {
 				top: '-40px'
@@ -8354,7 +11521,7 @@ playease.version = '1.0.86';
 				position: CSS_RELATIVE
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.hd .' + TOOLTIP_CLASS, {
-				'z-index': '2'
+				'z-index': '3'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.hd .' + TOOLTIP_CLASS + ' .' + TOOLTIP_ITEM_CLASS, {
 				'min-width': '40px'
@@ -8428,7 +11595,7 @@ playease.version = '1.0.86';
 				'white-space': CSS_NOWRAP,
 				position: CSS_ABSOLUTE,
 				display: CSS_NONE,
-				'z-index': '4'
+				'z-index': '5'
 			});
 			css('.' + SKIN_CLASS + ' .' + CONTEXTMENU_CLASS + ' ul', {
 				'list-style': CSS_NONE
@@ -8733,9 +11900,7 @@ playease.version = '1.0.86';
 	
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
-			_defaults = {
-				bulletscreen: {}
-			},
+			_defaults = {},
 			_layout,
 			_labels,
 			_buttons,
@@ -8899,6 +12064,9 @@ playease.version = '1.0.86';
 				return null;
 			}
 			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
+				return null;
+			}
+			if ((name === 'fullpage' || name === 'fpexit') && !_this.config.fullpage.visible) {
 				return null;
 			}
 			
@@ -9419,15 +12587,18 @@ playease.version = '1.0.86';
 		
 		DISPLAY_CLASS = 'pe-display',
 		DISPLAY_ICON_CLASS = 'pe-display-icon',
-		DISPLAY_LABEL_CLASS = 'pe-display-label';
+		DISPLAY_LABEL_CLASS = 'pe-display-label',
+		
+		CSS_NONE = 'none',
+		CSS_BLOCK = 'block',
+		CSS_INLINE_BLOCK = 'inline-block';
 	
 	components.display = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.display')),
 			_defaults = {
-				id: 'pla-display'
+				id: 'pe-display'
 			},
 			_container,
-			_group,
 			_icon,
 			_label,
 			_timer;
@@ -9436,30 +12607,54 @@ playease.version = '1.0.86';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_container = utils.createElement('div', DISPLAY_CLASS);
-			_group = utils.createElement('div');
 			
-			_icon = utils.createElement('span', DISPLAY_ICON_CLASS);
+			_icon = utils.createElement('span', 'pe-button ' + DISPLAY_ICON_CLASS);
+			try {
+				_icon.addEventListener('click', _onClick);
+			} catch (err) {
+				_icon.attachEvent('onclick', _onClick);
+			}
+			
 			_label = utils.createElement('span', DISPLAY_LABEL_CLASS);
 			_label.id = _this.config.id;
 			
-			_group.appendChild(_icon);
-			_group.appendChild(_label);
-			_container.appendChild(_group);
+			_container.appendChild(_icon);
+			_container.appendChild(_label);
 		}
 		
 		_this.show = function(state, message) {
-			_label.innerText = message;
-			
 			switch (state) {
 				case states.BUFFERING:
 					_startTimer();
 					break;
-				default:
+					
+				case states.PLAYING:
 					_stopTimer();
 					break;
+					
+				default:
+					break;
 			}
+			
+			css.style(_icon, {
+				filter: 'progid:DXImageTransform.Microsoft.BasicImage(rotation=0)',
+				'transform': 'rotate(0deg)',
+				'-o-transform': 'rotate(0deg)',
+				'-ms-transform': 'rotate(0deg)',
+				'-moz-transform': 'rotate(0deg)',
+				'-webkit-transform': 'rotate(0deg)',
+				display: state == states.ERROR ? CSS_NONE : CSS_BLOCK
+			});
+			css.style(_label, {
+				display: message ? CSS_INLINE_BLOCK : CSS_NONE
+			});
+			
+			_label.innerHTML = message;
 		};
 		
+		function _onClick(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_CLICK);
+		}
 		
 		function _startTimer() {
 			if (!_timer) {
@@ -9473,6 +12668,15 @@ playease.version = '1.0.86';
 			if (_timer) {
 				_timer.stop();
 			}
+			
+			css.style(_icon, {
+				filter: 'progid:DXImageTransform.Microsoft.BasicImage(rotation=0)',
+				'transform': 'rotate(0deg)',
+				'-o-transform': 'rotate(0deg)',
+				'-ms-transform': 'rotate(0deg)',
+				'-moz-transform': 'rotate(0deg)',
+				'-webkit-transform': 'rotate(0deg)'
+			});
 		}
 		
 		function _rotateIcon(e) {
@@ -9494,7 +12698,13 @@ playease.version = '1.0.86';
 		};
 		
 		_this.resize = function(width, height) {
-			
+			css.style(_icon, {
+				top: (height - 48) / 2 + 'px',
+				left: (width - 48) / 2 + 'px'
+			});
+			css.style(_label, {
+				'margin-top': (height - 32) / 2 + 'px'
+			});
 		};
 		
 		_init();
@@ -9538,9 +12748,16 @@ playease.version = '1.0.86';
 			_container = utils.createElement('div', LOGO_CLASS);
 			_logo = utils.createElement('a');
 			
-			css.style(_container, {
+			var style = {
 				visibility: _this.config.visible ? 'visible' : 'hidden'
-			});
+			};
+			var arr = _this.config.position.match(/([a-z]+)-([a-z]+)/i);
+			if (arr && arr.length > 2) {
+				style.margin = _this.config.margin;
+				style[arr[1]] = '0';
+				style[arr[2]] = '0';
+			}
+			css.style(_container, style);
 			
 			_img = new Image();
 			_img.onload = _onload;
@@ -9553,20 +12770,13 @@ playease.version = '1.0.86';
 		function _onload(e) {
 			_loaded = true;
 			
-			var style = {
+			css.style(_container, {
 				width: _img.width + 'px',
-				height: _img.height + 'px',
+				height: _img.height + 'px'
+			});
+			css.style(_logo, {
 				'background-image': 'url(' + _this.config.file + ')'
-			};
-			
-			var arr = _this.config.position.match(/([a-z]+)-([a-z]+)/i);
-			if (arr && arr.length > 2) {
-				style.margin = _this.config.margin;
-				style[arr[1]] = '0';
-				style[arr[2]] = '0';
-			}
-			
-			css.style(_logo, style);
+			});
 			
 			_logo.href = _this.config.link;
 			_logo.target = _this.config.target;
@@ -9588,20 +12798,7 @@ playease.version = '1.0.86';
 		};
 		
 		_this.resize = function(width, height) {
-			if (!_loaded) {
-				return;
-			}
 			
-			width = _img.width * _container.clientWidth / 640;
-			width = Math.max(width, _img.width * 0.7);
-			width = Math.min(width, _img.width * 1.2);
-			
-			height = width * _img.height / _img.width;
-			
-			css.style(_logo, {
-				width: width + 'px',
-				height: height + 'px'
-			});
 		};
 		
 		_init();
@@ -10009,6 +13206,7 @@ playease.version = '1.0.86';
 			_video,
 			_timer,
 			_autohidetimer,
+			_checkFlashTimer,
 			_previousClick = 0,
 			_errorOccurred = false;
 		
@@ -10025,6 +13223,7 @@ playease.version = '1.0.86';
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
+			utils.addClass(_wrapper, states.IDLE);
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
 			_initComponents();
@@ -10056,10 +13255,8 @@ playease.version = '1.0.86';
 		}
 		
 		function _modelStateHandler(e) {
-			utils.removeClass(_wrapper, [states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
-			if (e.state != states.STOPPED) {
-				utils.addClass(_wrapper, e.state);
-			}
+			utils.removeClass(_wrapper, [states.IDLE, states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
+			utils.addClass(_wrapper, e.state);
 		}
 		
 		function _initComponents() {
@@ -10067,7 +13264,8 @@ playease.version = '1.0.86';
 			var cbcfg = {
 				report: model.getConfig('report'),
 				playlist: model.getProperty('playlist'),
-				bulletscreen: model.getConfig('bulletscreen')
+				bulletscreen: model.getConfig('bulletscreen'),
+				fullpage: model.getConfig('fullpage')
 			};
 			
 			try {
@@ -10118,7 +13316,7 @@ playease.version = '1.0.86';
 			
 			try {
 				_display = new components.display(dicfg);
-				_display.addGlobalListener(_forward);
+				_display.addEventListener(events.PLAYEASE_VIEW_CLICK, _onDisplayClick);
 				
 				_renderLayer.appendChild(_display.element());
 			} catch (err) {
@@ -10184,15 +13382,15 @@ playease.version = '1.0.86';
 			
 			var playlist = model.getProperty('playlist');
 			for (var j = 0; j < playlist.sources.length; j++) {
-				var name = playlist.sources[j].type;
-				if (_renders.hasOwnProperty(name)) {
-					_this.activeRender(name);
+				var source = playlist.sources[j];
+				if (_renders.hasOwnProperty(source.type)) {
+					_this.activeRender(source.type, source.file);
 					break;
 				}
 			}
 		}
 		
-		_this.activeRender = function(name) {
+		_this.activeRender = function(name, url) {
 			if (_render && _render.name == name || _renders.hasOwnProperty(name) == false) {
 				return;
 			}
@@ -10218,10 +13416,26 @@ playease.version = '1.0.86';
 			_video = _render.element();
 			_renderLayer.appendChild(_video);
 			
-			_this.videoOff(model.getProperty('videooff'), name == rendertypes.DASH);
+			_this.videoOff(model.getProperty('videooff'));
 			_this.setup();
 			
 			utils.log('Actived render "' + _render.name + '".');
+			
+			switch (name) {
+				case rendertypes.DEFAULT:
+					_render.attach(url);
+					break;
+					
+				case rendertypes.FLASH:
+					if (utils.getFlashVersion() == 0) {
+						model.setState(states.ERROR);
+						_this.display(states.ERROR, 'Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
+					}
+					break;
+					
+				default:
+					break;
+			}
 		};
 		
 		function _initSkin() {
@@ -10367,8 +13581,6 @@ playease.version = '1.0.86';
 			
 			model.setProperty('fullpage', !exit);
 			_this.resize();
-			
-			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -10392,7 +13604,10 @@ playease.version = '1.0.86';
 				}
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
-				if (_wrapper.requestFullscreen) {
+				if (utils.isMobile() && _video.webkitEnterFullscreen) {
+					_video.webkitEnterFullscreen();
+					return;
+				} else if (_wrapper.requestFullscreen) {
 					_wrapper.requestFullscreen();
 				} else {
 					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
@@ -10414,8 +13629,6 @@ playease.version = '1.0.86';
 			
 			model.setProperty('fullscreen', !exit);
 			_this.resize();
-			
-			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: exit });
 		};
 		
 		_this.setDuration = function(duration) {
@@ -10434,6 +13647,20 @@ playease.version = '1.0.86';
 			}
 		};
 		
+		
+		function _onDisplayClick(e) {
+			var state = model.getState();
+			switch (state) {
+				case states.IDLE:
+				case states.PAUSED:
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+					break;
+					
+				default:
+					break;
+			}
+		}
 		
 		function _startTimer() {
 			if (!_timer) {
@@ -10517,7 +13744,7 @@ playease.version = '1.0.86';
 			if (e.button == (utils.isMSIE(8) ? 1 : 0) || e.currentTarget != _wrapper) {
 				setTimeout(function() {
 					_contextmenu.hide();
-				}, 100);
+				}, 200);
 			} else if (e.button == 2) {
 				var offsetX = 0;
 				var offsetY = 0;
@@ -10593,6 +13820,7 @@ playease.version = '1.0.86';
 				_controlbar.resize(width, height);
 				_poster.resize(width, height);
 				_bulletscreen.resize(width, height);
+				_display.resize(width, height);
 				_logo.resize(width, height);
 				_contextmenu.resize(width, height);
 				
@@ -10673,6 +13901,8 @@ playease.version = '1.0.86';
 			view.display(e.state, '');
 			
 			switch (e.state) {
+				case states.IDLE:
+					break;
 				case states.BUFFERING:
 					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
 					break;
@@ -10705,7 +13935,7 @@ playease.version = '1.0.86';
 				_ready = true;
 				_forward(e);
 				
-				if (model.getConfig('autoplay') || _urgent) {
+				if (model.getConfig('autoplay') && (!utils.isMobile() || utils.isWeixin()) || _urgent) {
 					_this.play(_urgent);
 				}
 				
@@ -10755,7 +13985,7 @@ playease.version = '1.0.86';
 			if (view.render.name != type) {
 				_ready = false;
 				_urgent = url;
-				view.activeRender(type);
+				view.activeRender(type, url);
 				return;
 			}
 			
@@ -10801,7 +14031,7 @@ playease.version = '1.0.86';
 			
 			if (view.render.name != type) {
 				_ready = false;
-				view.activeRender(type);
+				view.activeRender(type, url);
 				return;
 			}
 			
@@ -11132,7 +14362,7 @@ playease.version = '1.0.86';
 			airplay: 'allow',
 			playsinline: true,
 			poster: '',
-			report: true,
+			report: false,
 			debug: false,
 			loader: {
 				mode: iomodes.CORS
@@ -11142,7 +14372,10 @@ playease.version = '1.0.86';
 			},
 			bulletscreen: {
 				enable: true,
-				visible: true
+				visible: false
+			},
+			fullpage: {
+				visible: false
 			},
 			render: {
 				name: rendertypes.DEFAULT,

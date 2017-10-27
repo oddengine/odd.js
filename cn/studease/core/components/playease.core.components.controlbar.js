@@ -21,9 +21,7 @@
 	
 	components.controlbar = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.controlbar')),
-			_defaults = {
-				bulletscreen: {}
-			},
+			_defaults = {},
 			_layout,
 			_labels,
 			_buttons,
@@ -187,6 +185,9 @@
 				return null;
 			}
 			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
+				return null;
+			}
+			if ((name === 'fullpage' || name === 'fpexit') && !_this.config.fullpage.visible) {
 				return null;
 			}
 			

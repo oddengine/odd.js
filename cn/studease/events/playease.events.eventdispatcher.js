@@ -48,6 +48,10 @@
 			return false;
 		};
 		
+		this.hasEventListener = function(type) {
+			return _listeners.hasOwnProperty(type);
+		};
+		
 		this.addGlobalListener = function(listener, count) {
 			try {
  				if (utils.typeOf(listener) === 'string') {

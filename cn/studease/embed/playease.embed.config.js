@@ -30,7 +30,7 @@
 			airplay: 'allow',
 			playsinline: true,
 			poster: '',
-			report: true,
+			report: false,
 			debug: false,
 			loader: {
 				mode: iomodes.CORS
@@ -40,7 +40,10 @@
 			},
 			bulletscreen: {
 				enable: true,
-				visible: true
+				visible: false
+			},
+			fullpage: {
+				visible: false
 			},
 			render: {
 				name: rendertypes.DEFAULT,

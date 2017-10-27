@@ -2,16 +2,18 @@
 	var renders = playease.core.renders = {};
 	
 	renders.types = {
-		DEFAULT: 'def',
-		FLV:     'flv',
-		WSS:     'wss',
-		DASH:    'dash',
-		FLASH:   'flash'
+		DEFAULT:  'def',
+		FLV:      'flv',
+		RTMPMATE: 'rtmpmate',
+		WSS:      'wss',
+		DASH:     'dash',
+		FLASH:    'flash'
 	},
 	
 	renders.priority = [
 		renders.types.DEFAULT,
 		renders.types.FLV,
+		renders.types.RTMPMATE,
 		renders.types.WSS,
 		renders.types.DASH,
 		renders.types.FLASH

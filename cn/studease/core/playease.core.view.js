@@ -34,6 +34,7 @@
 			_video,
 			_timer,
 			_autohidetimer,
+			_checkFlashTimer,
 			_previousClick = 0,
 			_errorOccurred = false;
 		
@@ -50,6 +51,7 @@
 			_wrapper.appendChild(_controlsLayer);
 			_wrapper.appendChild(_contextmenuLayer);
 			
+			utils.addClass(_wrapper, states.IDLE);
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
 			_initComponents();
@@ -81,10 +83,8 @@
 		}
 		
 		function _modelStateHandler(e) {
-			utils.removeClass(_wrapper, [states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
-			if (e.state != states.STOPPED) {
-				utils.addClass(_wrapper, e.state);
-			}
+			utils.removeClass(_wrapper, [states.IDLE, states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
+			utils.addClass(_wrapper, e.state);
 		}
 		
 		function _initComponents() {
@@ -92,7 +92,8 @@
 			var cbcfg = {
 				report: model.getConfig('report'),
 				playlist: model.getProperty('playlist'),
-				bulletscreen: model.getConfig('bulletscreen')
+				bulletscreen: model.getConfig('bulletscreen'),
+				fullpage: model.getConfig('fullpage')
 			};
 			
 			try {
@@ -143,7 +144,7 @@
 			
 			try {
 				_display = new components.display(dicfg);
-				_display.addGlobalListener(_forward);
+				_display.addEventListener(events.PLAYEASE_VIEW_CLICK, _onDisplayClick);
 				
 				_renderLayer.appendChild(_display.element());
 			} catch (err) {
@@ -209,15 +210,15 @@
 			
 			var playlist = model.getProperty('playlist');
 			for (var j = 0; j < playlist.sources.length; j++) {
-				var name = playlist.sources[j].type;
-				if (_renders.hasOwnProperty(name)) {
-					_this.activeRender(name);
+				var source = playlist.sources[j];
+				if (_renders.hasOwnProperty(source.type)) {
+					_this.activeRender(source.type, source.file);
 					break;
 				}
 			}
 		}
 		
-		_this.activeRender = function(name) {
+		_this.activeRender = function(name, url) {
 			if (_render && _render.name == name || _renders.hasOwnProperty(name) == false) {
 				return;
 			}
@@ -243,10 +244,26 @@
 			_video = _render.element();
 			_renderLayer.appendChild(_video);
 			
-			_this.videoOff(model.getProperty('videooff'), name == rendertypes.DASH);
+			_this.videoOff(model.getProperty('videooff'));
 			_this.setup();
 			
 			utils.log('Actived render "' + _render.name + '".');
+			
+			switch (name) {
+				case rendertypes.DEFAULT:
+					_render.attach(url);
+					break;
+					
+				case rendertypes.FLASH:
+					if (utils.getFlashVersion() == 0) {
+						model.setState(states.ERROR);
+						_this.display(states.ERROR, 'Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
+					}
+					break;
+					
+				default:
+					break;
+			}
 		};
 		
 		function _initSkin() {
@@ -392,8 +409,6 @@
 			
 			model.setProperty('fullpage', !exit);
 			_this.resize();
-			
-			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
 		};
 		
 		_this.fullscreen = function(exit) {
@@ -417,7 +432,10 @@
 				}
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
-				if (_wrapper.requestFullscreen) {
+				if (utils.isMobile() && _video.webkitEnterFullscreen) {
+					_video.webkitEnterFullscreen();
+					return;
+				} else if (_wrapper.requestFullscreen) {
 					_wrapper.requestFullscreen();
 				} else {
 					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
@@ -439,8 +457,6 @@
 			
 			model.setProperty('fullscreen', !exit);
 			_this.resize();
-			
-			_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: exit });
 		};
 		
 		_this.setDuration = function(duration) {
@@ -459,6 +475,20 @@
 			}
 		};
 		
+		
+		function _onDisplayClick(e) {
+			var state = model.getState();
+			switch (state) {
+				case states.IDLE:
+				case states.PAUSED:
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+					break;
+					
+				default:
+					break;
+			}
+		}
 		
 		function _startTimer() {
 			if (!_timer) {
@@ -542,7 +572,7 @@
 			if (e.button == (utils.isMSIE(8) ? 1 : 0) || e.currentTarget != _wrapper) {
 				setTimeout(function() {
 					_contextmenu.hide();
-				}, 100);
+				}, 200);
 			} else if (e.button == 2) {
 				var offsetX = 0;
 				var offsetY = 0;
@@ -618,6 +648,7 @@
 				_controlbar.resize(width, height);
 				_poster.resize(width, height);
 				_bulletscreen.resize(width, height);
+				_display.resize(width, height);
 				_logo.resize(width, height);
 				_contextmenu.resize(width, height);
 				

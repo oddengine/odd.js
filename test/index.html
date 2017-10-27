@@ -4,10 +4,12 @@
 	<title>PlayEase.JS</title>
 	
 	<meta charset="utf-8">
+	<meta http-equiv="Cache-Control" content="no-cache" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-	<meta content="yes" name="apple-mobile-web-app-capable"/>
-	<meta content="yes" name="apple-touch-fullscreen"/>
-	<meta content="telephone=no,email=no" name="format-detection"/>
+	<meta name="format-detection" content="telephone=no,email=no"/>
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-touch-fullscreen" content="yes"/>
+	<meta name="x5-fullscreen" content="true">
 	<meta name="App-Config" content="fullscreen=yes, useHistoryState=yes, transition=yes"/>
 	
 	<style type='text/css' media='screen'>
@@ -40,6 +42,7 @@ input {
 	font-family: sans-serif;
 	font-size: 14px;
 	border: none;
+	-webkit-appearance: none;
 }
 
 .btn {
@@ -100,6 +103,7 @@ input {
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.crypt.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.endian.js'></script>
+	<script type='text/javascript' src='../cn/studease/utils/playease.utils.buffer.js'></script>
 	<script type='text/javascript' src='../cn/studease/utils/playease.utils.css.js'></script>
 	<script type='text/javascript' src='../cn/studease/events/playease.events.js'></script>
 	<script type='text/javascript' src='../cn/studease/events/playease.events.eventdispatcher.js'></script>
@@ -120,7 +124,6 @@ input {
 	<script type='text/javascript' src='../cn/studease/io/playease.io.xhr-chunked-loader.js'></script>
 	<script type='text/javascript' src='../cn/studease/io/playease.io.websocket-loader.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.js'></script>
-	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.AMF.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.SPS.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.flv.js'></script>
 	<script type='text/javascript' src='../cn/studease/muxer/playease.muxer.mp4.js'></script>
@@ -129,11 +132,28 @@ input {
 	<script type='text/javascript' src='../cn/studease/net/playease.net.netstatus.js'></script>
 	<script type='text/javascript' src='../cn/studease/net/playease.net.netconnection.js'></script>
 	<script type='text/javascript' src='../cn/studease/net/playease.net.netstream.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.AMF.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.handshaker.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.chunk.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.message.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.aggregatemessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.audiomessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.bandwidthmessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.commandmessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.datamessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.sharedobjectmessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.usercontrolmessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/message/playease.net.rtmp.videomessage.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.responder.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.netconnection.js'></script>
+	<script type='text/javascript' src='../cn/studease/net/rtmp/playease.net.rtmp.netstream.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/playease.core.states.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.def.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flv.js'></script>
+	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.rtmpmate.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.wss.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.dash.js'></script>
 	<script type='text/javascript' src='../cn/studease/core/renders/playease.core.renders.flash.js'></script>
@@ -163,13 +183,17 @@ input {
 	</div>
 	<div class='input-container' style='width: 100%; max-width: 640px;'>
 		<span>
-			<input id='url-input' value='/vod/sample.mp4'>
+			<input id='url-input' autocapitalize='off' value='http://studease.cn/vod/sample.flv'>
 		</span>
 		<a class='btn red' onclick='playTheURL();'>Play</a>
 	</div>
 	
 	<script type="text/javascript">
 		var pw = document.getElementById('playwrap');
+		if (playease.utils.isMobile()) {
+			pw.style.margin = '0 auto';
+		}
+		
 		var width = pw.clientWidth;
 		var height = width * 9 / 16 + 40;
 		
@@ -177,11 +201,11 @@ input {
 			width: width,
 			height: height,
 			aspectratio: '16:9',
-			file: '/vod/sample.mp4',
-			//file: 'http://127.0.0.1/live/sample.flv',
-			//file: 'ws://127.0.0.1:8080/live/sample',
 			//file: 'rtmp://127.0.0.1/live/sample',
+			//file: 'ws://127.0.0.1/live/sample',
+			//file: 'ws://127.0.0.1/live/sample.flv',
 			//file: 'http://127.0.0.1/live/sample.m3u8',
+			file: 'http://127.0.0.1/vod/sample.flv',
 			/*sources: [{
 				file: 'http://127.0.0.1/live/sample.flv',
 				type: 'flv',
@@ -192,18 +216,22 @@ input {
 				label: 'WS-FLV'
 			}, {
 				file: 'ws://127.0.0.1/live/sample',
+				type: 'rtmpmate',
+				label: 'WS-RTMPMATE'
+			}, {
+				file: 'ws://127.0.0.1/live/sample',
 				type: 'wss',
 				label: 'WS-fMP4'
 			}, {
 				file: 'http://127.0.0.1/live/sample/manifest.mpd',
 				type: 'dash',
-				label: 'HTTP-DASH'
+				label: 'MPEG-DASH'
 			}, {
 				file: 'rtmp://127.0.0.1/live/sample',
 				type: 'flash',
 				label: 'RTMP-STREAM'
 			}, {
-				file: 'http://127.0.0.1/live/sample.m3u8',
+				file: 'http://127.0.0.1/live/sample/index.m3u8',
 				type: 'def'
 			}],*/
 			mode: 'vod',
@@ -211,17 +239,22 @@ input {
 			maxretries: 0,
 			retrydelay: 3000,
 			controls: true,
-			autoplay: false,
-			poster: 'sample.png',
-			//report: false,
+			autoplay: true,
+			//poster: 'sample.png',
+			//report: true,
 			loader: {
+				//name: 'xhr-chunked-loader',
 				mode: 'cors'
 			},
 			logo: {
 				file: 'logo.png'
 			},
-			/*bulletscreen: {
-				visible: false
+			bulletscreen: {
+				enable: true,
+				visible: true
+			},
+			/*fullpage: {
+				visible: true
 			},*/
 			render: {
 				name: 'def',

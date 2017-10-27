@@ -8,15 +8,18 @@
 		
 		DISPLAY_CLASS = 'pe-display',
 		DISPLAY_ICON_CLASS = 'pe-display-icon',
-		DISPLAY_LABEL_CLASS = 'pe-display-label';
+		DISPLAY_LABEL_CLASS = 'pe-display-label',
+		
+		CSS_NONE = 'none',
+		CSS_BLOCK = 'block',
+		CSS_INLINE_BLOCK = 'inline-block';
 	
 	components.display = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.display')),
 			_defaults = {
-				id: 'pla-display'
+				id: 'pe-display'
 			},
 			_container,
-			_group,
 			_icon,
 			_label,
 			_timer;
@@ -25,30 +28,54 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_container = utils.createElement('div', DISPLAY_CLASS);
-			_group = utils.createElement('div');
 			
-			_icon = utils.createElement('span', DISPLAY_ICON_CLASS);
+			_icon = utils.createElement('span', 'pe-button ' + DISPLAY_ICON_CLASS);
+			try {
+				_icon.addEventListener('click', _onClick);
+			} catch (err) {
+				_icon.attachEvent('onclick', _onClick);
+			}
+			
 			_label = utils.createElement('span', DISPLAY_LABEL_CLASS);
 			_label.id = _this.config.id;
 			
-			_group.appendChild(_icon);
-			_group.appendChild(_label);
-			_container.appendChild(_group);
+			_container.appendChild(_icon);
+			_container.appendChild(_label);
 		}
 		
 		_this.show = function(state, message) {
-			_label.innerText = message;
-			
 			switch (state) {
 				case states.BUFFERING:
 					_startTimer();
 					break;
-				default:
+					
+				case states.PLAYING:
 					_stopTimer();
 					break;
+					
+				default:
+					break;
 			}
+			
+			css.style(_icon, {
+				filter: 'progid:DXImageTransform.Microsoft.BasicImage(rotation=0)',
+				'transform': 'rotate(0deg)',
+				'-o-transform': 'rotate(0deg)',
+				'-ms-transform': 'rotate(0deg)',
+				'-moz-transform': 'rotate(0deg)',
+				'-webkit-transform': 'rotate(0deg)',
+				display: state == states.ERROR ? CSS_NONE : CSS_BLOCK
+			});
+			css.style(_label, {
+				display: message ? CSS_INLINE_BLOCK : CSS_NONE
+			});
+			
+			_label.innerHTML = message;
 		};
 		
+		function _onClick(e) {
+			_this.dispatchEvent(events.PLAYEASE_VIEW_CLICK);
+		}
 		
 		function _startTimer() {
 			if (!_timer) {
@@ -62,6 +89,15 @@
 			if (_timer) {
 				_timer.stop();
 			}
+			
+			css.style(_icon, {
+				filter: 'progid:DXImageTransform.Microsoft.BasicImage(rotation=0)',
+				'transform': 'rotate(0deg)',
+				'-o-transform': 'rotate(0deg)',
+				'-ms-transform': 'rotate(0deg)',
+				'-moz-transform': 'rotate(0deg)',
+				'-webkit-transform': 'rotate(0deg)'
+			});
 		}
 		
 		function _rotateIcon(e) {
@@ -83,7 +119,13 @@
 		};
 		
 		_this.resize = function(width, height) {
-			
+			css.style(_icon, {
+				top: (height - 48) / 2 + 'px',
+				left: (width - 48) / 2 + 'px'
+			});
+			css.style(_label, {
+				'margin-top': (height - 32) / 2 + 'px'
+			});
 		};
 		
 		_init();

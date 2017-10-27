@@ -41,6 +41,8 @@
 			view.display(e.state, '');
 			
 			switch (e.state) {
+				case states.IDLE:
+					break;
 				case states.BUFFERING:
 					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
 					break;
@@ -73,7 +75,7 @@
 				_ready = true;
 				_forward(e);
 				
-				if (model.getConfig('autoplay') || _urgent) {
+				if (model.getConfig('autoplay') && (!utils.isMobile() || utils.isWeixin()) || _urgent) {
 					_this.play(_urgent);
 				}
 				
@@ -123,7 +125,7 @@
 			if (view.render.name != type) {
 				_ready = false;
 				_urgent = url;
-				view.activeRender(type);
+				view.activeRender(type, url);
 				return;
 			}
 			
@@ -169,7 +171,7 @@
 			
 			if (view.render.name != type) {
 				_ready = false;
-				view.activeRender(type);
+				view.activeRender(type, url);
 				return;
 			}
 			
