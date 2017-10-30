@@ -49,11 +49,8 @@
 					_startTimer();
 					break;
 					
-				case states.PLAYING:
-					_stopTimer();
-					break;
-					
 				default:
+					_stopTimer();
 					break;
 			}
 			
