@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.87';
+playease.version = '1.0.88';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -12628,11 +12628,8 @@ playease.version = '1.0.87';
 					_startTimer();
 					break;
 					
-				case states.PLAYING:
-					_stopTimer();
-					break;
-					
 				default:
+					_stopTimer();
 					break;
 			}
 			
