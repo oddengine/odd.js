@@ -239,11 +239,12 @@ input {
 			maxretries: 0,
 			retrydelay: 3000,
 			controls: true,
-			autoplay: true,
+			autoplay: false,
 			//poster: 'sample.png',
 			//report: true,
 			loader: {
-				//name: 'xhr-chunked-loader',
+				name: 'xhr-chunked-loader',
+				chunkSize: 2 * 1024 * 1024,
 				mode: 'cors'
 			},
 			logo: {
@@ -257,12 +258,17 @@ input {
 				visible: true
 			},*/
 			render: {
-				name: 'def',
+				name: 'flv',
+				bufferLength: 4 * 1024 * 1024,
 				swf: '../swf/playease.swf'
 			},
 			events: {
 				onFullpage: function(e) {
 					pw.style.margin = e.exit ? '40px auto 0' : '0';
+					if (e.exit && playease.utils.isMobile()) {
+						pw.style.margin = '0 auto';
+					}
+					
 					pw.style.height = e.exit ? '' : '100%';
 					pw.style.position = e.exit ? '' : 'fixed';
 					pw.style.maxWidth = e.exit ? '640px' : '100%';

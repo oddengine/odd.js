@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.88';
+playease.version = '1.0.89';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -138,9 +138,23 @@ playease.version = '1.0.88';
 		element.className = utils.trim(originalClasses.join(' '));
 	};
 	
-	utils.removeClass = function(element, c) {
+	utils.hasClass = function(element, classes) {
+		var originalClasses = element.className || '';
+		var hasClasses = utils.typeOf(classes) === 'array' ? classes : classes.split(' ');
+		
+		for (var i = 0; i < hasClasses.length; i++) {
+			var re = new RegExp('\\b' + hasClasses[i] + '\\b', 'i');
+			if (originalClasses.search(re) == -1) {
+				return false;
+			}
+		}
+		
+		return true;
+	};
+	
+	utils.removeClass = function(element, classes) {
 		var originalClasses = utils.typeOf(element.className) === 'string' ? element.className.split(' ') : [];
-		var removeClasses = utils.typeOf(c) === 'array' ? c : c.split(' ');
+		var removeClasses = utils.typeOf(classes) === 'array' ? classes : classes.split(' ');
 		
 		utils.foreach(removeClasses, function(n, c) {
 			var index = utils.indexOf(originalClasses, c);
@@ -1882,6 +1896,7 @@ playease.version = '1.0.88';
 			_this.report = _entity.report;
 			_this.mute = _entity.mute;
 			_this.volume = _entity.volume;
+			_this.videoOff = _entity.videoOff;
 			_this.hd = _entity.hd;
 			_this.bullet = _entity.bullet;
 			_this.fullpage = _entity.fullpage;
@@ -1959,6 +1974,13 @@ playease.version = '1.0.88';
 		FOLLOW: 'follow',
 		MANUAL: 'manual',
 		ERROR:  'error'
+	},
+	io.responseTypes = {
+		ARRAYBUFFER: 'arraybuffer',
+		BLOB:        'blob',
+		DOCUMENT:    'document',
+		JSON:        'json',
+		TEXT:        'text'
 	},
 	io.readystates = {
 		UNINITIALIZED: 0,
@@ -2447,15 +2469,8 @@ playease.version = '1.0.88';
 		credentials = io.credentials,
 		caches = io.caches,
 		redirects = io.redirects,
-		readystates = io.readystates,
-		
-		responseTypes = {
-			ARRAYBUFFER: 'arraybuffer',
-			BLOB:        'blob',
-			DOCUMENT:    'document',
-			JSON:        'json',
-			TEXT:        'text'
-		};
+		responseTypes = io.responseTypes,
+		readystates = io.readystates;
 	
 	io['xhr-chunked-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
@@ -2466,8 +2481,8 @@ playease.version = '1.0.88';
 				credentials: credentials.OMIT,
 				cache: caches.DEFAULT,
 				redirect: redirects.FOLLOW,
-				chunkSize: 2 * 1024 * 1024,
-				responseType: responseTypes.ARRAYBUFFER
+				chunkSize: 0,
+				responseType: responseTypes.TEXT
 			},
 			_state,
 			_url,
@@ -2538,6 +2553,10 @@ playease.version = '1.0.88';
 			
 			if (_xhr.readyState == readystates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					if (!_this.config.headers.Range) {
+						return;
+					}
+					
 					var len = _xhr.getResponseHeader('Content-Length');
 					if (len) {
 						len = parseInt(len);
@@ -2591,7 +2610,7 @@ playease.version = '1.0.88';
 			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
 			
 			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
-			if (_range.position >= _filesize || _range.position > end) {
+			if (!_this.config.headers.Range || _range.position >= _filesize || _range.position > end) {
 				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 				return;
 			}
@@ -8458,6 +8477,7 @@ playease.version = '1.0.88';
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
+		responseTypes = io.responseTypes,
 		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
@@ -8572,7 +8592,7 @@ playease.version = '1.0.88';
 			}
 			
 			try {
-				_loader = new io[name](_this.config.loader);
+				_loader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
 				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
@@ -10186,6 +10206,7 @@ playease.version = '1.0.88';
 		events = playease.events,
 		matchers = utils.matchers,
 		io = playease.io,
+		responseTypes = io.responseTypes,
 		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
@@ -10310,7 +10331,7 @@ playease.version = '1.0.88';
 			}
 			
 			try {
-				_audioloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_audioloader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
 				_audioloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_audioloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_audioloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
@@ -10325,7 +10346,7 @@ playease.version = '1.0.88';
 			}
 			
 			try {
-				_videoloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_videoloader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
 				_videoloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_videoloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_videoloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
@@ -12112,9 +12133,9 @@ playease.version = '1.0.88';
 		}
 		
 		function _onButtonClick(e) {
-			var name = (e.target || this).name;
+			var target = e.target || this;
 			
-			switch (name) {
+			switch (target.name) {
 				case 'play':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 					break;
@@ -12131,16 +12152,16 @@ playease.version = '1.0.88';
 					_this.dispatchEvent(events.PLAYEASE_VIEW_REPORT);
 					break;
 				case 'volume':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE, { mute: !utils.hasClass(target, 'mute') });
 					break;
 				case 'videooff':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF, { off: utils.hasClass(target, 'on') });
 					break;
 				case 'hd':
 					/* void */
 					break;
 				case 'bullet':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET, { enable: utils.hasClass(target, 'off') });
 					break;
 				case 'fullpage':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: false });
@@ -13062,6 +13083,7 @@ playease.version = '1.0.88';
 			_this.report = _controller.report;
 			_this.mute = _controller.mute;
 			_this.volume = _controller.volume;
+			_this.videoOff = _controller.videoOff;
 			_this.hd = _controller.hd;
 			_this.bullet = _controller.bullet;
 			_this.fullpage = _controller.fullpage;
@@ -13413,11 +13435,6 @@ playease.version = '1.0.88';
 			_video = _render.element();
 			_renderLayer.appendChild(_video);
 			
-			_this.videoOff(model.getProperty('videooff'));
-			_this.setup();
-			
-			utils.log('Actived render "' + _render.name + '".');
-			
 			switch (name) {
 				case rendertypes.DEFAULT:
 					_render.attach(url);
@@ -13433,6 +13450,11 @@ playease.version = '1.0.88';
 				default:
 					break;
 			}
+			
+			_this.videoOff(model.getProperty('videooff'));
+			_this.setup();
+			
+			utils.log('Actived render "' + _render.name + '".');
 		};
 		
 		function _initSkin() {
@@ -13532,7 +13554,7 @@ playease.version = '1.0.88';
 			
 			if (enable) {
 				var state = model.getState();
-				var playing = state != states.STOPPED && state != states.ERROR;
+				var playing = state != states.IDLE && state != states.STOPPED && state != states.ERROR;
 				_render.videoOff(off, playing);
 			}
 		};
@@ -13859,7 +13881,9 @@ playease.version = '1.0.88';
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core,
-		states = core.states;
+		states = core.states,
+		renders = core.renders,
+		rendertypes = renders.types;
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
@@ -13872,9 +13896,8 @@ playease.version = '1.0.88';
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
-			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
-			
 			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
+			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
@@ -14033,6 +14056,7 @@ playease.version = '1.0.88';
 			}
 			
 			view.reload(url);
+			_this.dispatchEvent(events.PLAYEASE_RELOADING);
 		};
 		
 		_this.seek = function(offset) {
@@ -14042,6 +14066,7 @@ playease.version = '1.0.88';
 			}
 			
 			view.seek(offset);
+			_this.dispatchEvent(events.PLAYEASE_SEEKING, { offset: offset });
 		};
 		
 		_this.stop = function() {
@@ -14051,13 +14076,19 @@ playease.version = '1.0.88';
 		
 		_this.report = function() {
 			view.report();
+			_this.dispatchEvent(events.PLAYEASE_REPORT);
 		};
 		
-		_this.mute = function() {
+		_this.mute = function(mute) {
+			mute = !!mute;
 			var muted = model.getProperty('muted');
+			if (muted == mute) {
+				return;
+			}
 			
-			model.setProperty('muted', !muted);
-			view.mute(!muted);
+			model.setProperty('muted', mute);
+			view.mute(mute);
+			_this.dispatchEvent(events.PLAYEASE_MUTE, { mute: mute });
 		};
 		
 		_this.volume = function(vol) {
@@ -14067,12 +14098,19 @@ playease.version = '1.0.88';
 			
 			model.setProperty('volume', vol);
 			view.volume(vol);
+			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 		};
 		
 		_this.videoOff = function(off) {
-			var off = model.getProperty('videooff');
-			model.setProperty('videooff', !off);
-			view.videoOff(!off);
+			off = !!off;
+			var isOff = model.getProperty('videooff');
+			if (isOff == off || !view.render || view.render.name != rendertypes.DASH) {
+				return;
+			}
+			
+			model.setProperty('videooff', off);
+			view.videoOff(off);
+			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, { off: off });
 		};
 		
 		_this.hd = function(index) {
@@ -14091,17 +14129,25 @@ playease.version = '1.0.88';
 			_this.play();
 		};
 		
-		_this.bullet = function() {
+		_this.bullet = function(enable) {
+			enable = !!enable;
 			var bullet = model.getProperty('bullet');
-			model.setProperty('bullet', !bullet);
-			view.bullet(!bullet);
+			if (bullet == enable) {
+				return;
+			}
+			
+			model.setProperty('bullet', enable);
+			view.bullet(enable);
+			_this.dispatchEvent(events.PLAYEASE_BULLET, { enable: enable });
 		};
 		
 		_this.fullpage = function(exit) {
 			view.fullpage(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
 		}
 		_this.fullscreen = function(exit) {
 			view.fullscreen(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
 		};
 		
 		
@@ -14170,22 +14216,18 @@ playease.version = '1.0.88';
 		
 		function _onReport(e) {
 			_this.report();
-			_this.dispatchEvent(events.PLAYEASE_REPORT, e);
 		}
 		
 		function _onMute(e) {
-			_this.mute();
-			_this.dispatchEvent(events.PLAYEASE_MUTE, e);
+			_this.mute(e.mute);
 		}
 		
 		function _onVolume(e) {
 			_this.volume(e.volume);
-			_this.dispatchEvent(events.PLAYEASE_VOLUME, e);
 		}
 		
 		function _onVideoOff(e) {
-			_this.videoOff();
-			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, e);
+			_this.videoOff(e.off);
 		}
 		
 		function _onHD(e) {
@@ -14194,8 +14236,7 @@ playease.version = '1.0.88';
 		}
 		
 		function _onBullet(e) {
-			_this.bullet();
-			_this.dispatchEvent(events.PLAYEASE_BULLET, e);
+			_this.bullet(e.enable);
 		}
 		
 		function _onFullpage(e) {
@@ -14205,7 +14246,6 @@ playease.version = '1.0.88';
 			}
 			
 			_this.fullpage(fp);
-			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, e);
 		}
 		
 		function _onFullscreen(e) {
@@ -14215,7 +14255,6 @@ playease.version = '1.0.88';
 			}
 			
 			_this.fullscreen(fs);
-			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, e);
 		}
 		
 		function _onSetupError(e) {

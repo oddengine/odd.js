@@ -6,15 +6,8 @@
 		credentials = io.credentials,
 		caches = io.caches,
 		redirects = io.redirects,
-		readystates = io.readystates,
-		
-		responseTypes = {
-			ARRAYBUFFER: 'arraybuffer',
-			BLOB:        'blob',
-			DOCUMENT:    'document',
-			JSON:        'json',
-			TEXT:        'text'
-		};
+		responseTypes = io.responseTypes,
+		readystates = io.readystates;
 	
 	io['xhr-chunked-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
@@ -25,8 +18,8 @@
 				credentials: credentials.OMIT,
 				cache: caches.DEFAULT,
 				redirect: redirects.FOLLOW,
-				chunkSize: 2 * 1024 * 1024,
-				responseType: responseTypes.ARRAYBUFFER
+				chunkSize: 0,
+				responseType: responseTypes.TEXT
 			},
 			_state,
 			_url,
@@ -97,6 +90,10 @@
 			
 			if (_xhr.readyState == readystates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
+					if (!_this.config.headers.Range) {
+						return;
+					}
+					
 					var len = _xhr.getResponseHeader('Content-Length');
 					if (len) {
 						len = parseInt(len);
@@ -150,7 +147,7 @@
 			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
 			
 			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
-			if (_range.position >= _filesize || _range.position > end) {
+			if (!_this.config.headers.Range || _range.position >= _filesize || _range.position > end) {
 				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 				return;
 			}

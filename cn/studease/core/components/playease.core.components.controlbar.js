@@ -233,9 +233,9 @@
 		}
 		
 		function _onButtonClick(e) {
-			var name = (e.target || this).name;
+			var target = e.target || this;
 			
-			switch (name) {
+			switch (target.name) {
 				case 'play':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 					break;
@@ -252,16 +252,16 @@
 					_this.dispatchEvent(events.PLAYEASE_VIEW_REPORT);
 					break;
 				case 'volume':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE, { mute: !utils.hasClass(target, 'mute') });
 					break;
 				case 'videooff':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF, { off: utils.hasClass(target, 'on') });
 					break;
 				case 'hd':
 					/* void */
 					break;
 				case 'bullet':
-					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET);
+					_this.dispatchEvent(events.PLAYEASE_VIEW_BULLET, { enable: utils.hasClass(target, 'off') });
 					break;
 				case 'fullpage':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: false });

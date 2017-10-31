@@ -32,6 +32,7 @@
 			_this.report = _controller.report;
 			_this.mute = _controller.mute;
 			_this.volume = _controller.volume;
+			_this.videoOff = _controller.videoOff;
 			_this.hd = _controller.hd;
 			_this.bullet = _controller.bullet;
 			_this.fullpage = _controller.fullpage;

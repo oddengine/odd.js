@@ -2,7 +2,9 @@
 	var utils = playease.utils,
 		events = playease.events,
 		core = playease.core,
-		states = core.states;
+		states = core.states,
+		renders = core.renders,
+		rendertypes = renders.types;
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
@@ -15,9 +17,8 @@
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
 			
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
-			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
-			
 			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
+			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
@@ -176,6 +177,7 @@
 			}
 			
 			view.reload(url);
+			_this.dispatchEvent(events.PLAYEASE_RELOADING);
 		};
 		
 		_this.seek = function(offset) {
@@ -185,6 +187,7 @@
 			}
 			
 			view.seek(offset);
+			_this.dispatchEvent(events.PLAYEASE_SEEKING, { offset: offset });
 		};
 		
 		_this.stop = function() {
@@ -194,13 +197,19 @@
 		
 		_this.report = function() {
 			view.report();
+			_this.dispatchEvent(events.PLAYEASE_REPORT);
 		};
 		
-		_this.mute = function() {
+		_this.mute = function(mute) {
+			mute = !!mute;
 			var muted = model.getProperty('muted');
+			if (muted == mute) {
+				return;
+			}
 			
-			model.setProperty('muted', !muted);
-			view.mute(!muted);
+			model.setProperty('muted', mute);
+			view.mute(mute);
+			_this.dispatchEvent(events.PLAYEASE_MUTE, { mute: mute });
 		};
 		
 		_this.volume = function(vol) {
@@ -210,12 +219,19 @@
 			
 			model.setProperty('volume', vol);
 			view.volume(vol);
+			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
 		};
 		
 		_this.videoOff = function(off) {
-			var off = model.getProperty('videooff');
-			model.setProperty('videooff', !off);
-			view.videoOff(!off);
+			off = !!off;
+			var isOff = model.getProperty('videooff');
+			if (isOff == off || !view.render || view.render.name != rendertypes.DASH) {
+				return;
+			}
+			
+			model.setProperty('videooff', off);
+			view.videoOff(off);
+			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, { off: off });
 		};
 		
 		_this.hd = function(index) {
@@ -234,17 +250,25 @@
 			_this.play();
 		};
 		
-		_this.bullet = function() {
+		_this.bullet = function(enable) {
+			enable = !!enable;
 			var bullet = model.getProperty('bullet');
-			model.setProperty('bullet', !bullet);
-			view.bullet(!bullet);
+			if (bullet == enable) {
+				return;
+			}
+			
+			model.setProperty('bullet', enable);
+			view.bullet(enable);
+			_this.dispatchEvent(events.PLAYEASE_BULLET, { enable: enable });
 		};
 		
 		_this.fullpage = function(exit) {
 			view.fullpage(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
 		}
 		_this.fullscreen = function(exit) {
 			view.fullscreen(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
 		};
 		
 		
@@ -313,22 +337,18 @@
 		
 		function _onReport(e) {
 			_this.report();
-			_this.dispatchEvent(events.PLAYEASE_REPORT, e);
 		}
 		
 		function _onMute(e) {
-			_this.mute();
-			_this.dispatchEvent(events.PLAYEASE_MUTE, e);
+			_this.mute(e.mute);
 		}
 		
 		function _onVolume(e) {
 			_this.volume(e.volume);
-			_this.dispatchEvent(events.PLAYEASE_VOLUME, e);
 		}
 		
 		function _onVideoOff(e) {
-			_this.videoOff();
-			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, e);
+			_this.videoOff(e.off);
 		}
 		
 		function _onHD(e) {
@@ -337,8 +357,7 @@
 		}
 		
 		function _onBullet(e) {
-			_this.bullet();
-			_this.dispatchEvent(events.PLAYEASE_BULLET, e);
+			_this.bullet(e.enable);
 		}
 		
 		function _onFullpage(e) {
@@ -348,7 +367,6 @@
 			}
 			
 			_this.fullpage(fp);
-			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, e);
 		}
 		
 		function _onFullscreen(e) {
@@ -358,7 +376,6 @@
 			}
 			
 			_this.fullscreen(fs);
-			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, e);
 		}
 		
 		function _onSetupError(e) {

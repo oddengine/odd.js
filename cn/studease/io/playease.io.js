@@ -24,6 +24,13 @@
 		MANUAL: 'manual',
 		ERROR:  'error'
 	},
+	io.responseTypes = {
+		ARRAYBUFFER: 'arraybuffer',
+		BLOB:        'blob',
+		DOCUMENT:    'document',
+		JSON:        'json',
+		TEXT:        'text'
+	},
 	io.readystates = {
 		UNINITIALIZED: 0,
 		OPEN:          1,
