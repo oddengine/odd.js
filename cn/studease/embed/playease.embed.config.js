@@ -33,7 +33,7 @@
 			report: false,
 			debug: false,
 			loader: {
-				//name: 'xhr-chunked-loader', // For flv render in vod mode only. For flv live broadcast, don't name it out.
+				//name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
 				//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
 				mode: iomodes.CORS
 			},
