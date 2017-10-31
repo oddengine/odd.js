@@ -105,8 +105,8 @@ _defaults = {
 	report: false,
 	debug: false,
 	loader: {
-		name: 'xhr-chunked-loader', // For flv render in vod mode only. For flv live broadcast, don't name it out.
-		chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
+		//name: 'xhr-chunked-loader', // For flv render in vod mode only. For flv live broadcast, don't name it out.
+		//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: iomodes.CORS
 	},
 	logo: {
@@ -121,7 +121,7 @@ _defaults = {
 	},
 	render: {
 		name: rendertypes.DEFAULT,
-		bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
+		//bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
 		swf: 'swf/playease.swf'
 	},
 	skin: {
