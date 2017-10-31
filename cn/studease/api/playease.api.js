@@ -67,6 +67,7 @@
 			_this.report = _entity.report;
 			_this.mute = _entity.mute;
 			_this.volume = _entity.volume;
+			_this.videoOff = _entity.videoOff;
 			_this.hd = _entity.hd;
 			_this.bullet = _entity.bullet;
 			_this.fullpage = _entity.fullpage;

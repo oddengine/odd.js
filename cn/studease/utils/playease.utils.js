@@ -130,9 +130,23 @@
 		element.className = utils.trim(originalClasses.join(' '));
 	};
 	
-	utils.removeClass = function(element, c) {
+	utils.hasClass = function(element, classes) {
+		var originalClasses = element.className || '';
+		var hasClasses = utils.typeOf(classes) === 'array' ? classes : classes.split(' ');
+		
+		for (var i = 0; i < hasClasses.length; i++) {
+			var re = new RegExp('\\b' + hasClasses[i] + '\\b', 'i');
+			if (originalClasses.search(re) == -1) {
+				return false;
+			}
+		}
+		
+		return true;
+	};
+	
+	utils.removeClass = function(element, classes) {
 		var originalClasses = utils.typeOf(element.className) === 'string' ? element.className.split(' ') : [];
-		var removeClasses = utils.typeOf(c) === 'array' ? c : c.split(' ');
+		var removeClasses = utils.typeOf(classes) === 'array' ? classes : classes.split(' ');
 		
 		utils.foreach(removeClasses, function(n, c) {
 			var index = utils.indexOf(originalClasses, c);

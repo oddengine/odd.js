@@ -23,6 +23,7 @@ The example below will find the element with an id of player and render a video 
 playease('player').setup({
 	width: 640,
 	height: 400,
+	aspectratio: '16:9',
 	file: '/vod/sample.flv',
 	/*sources: [{
 		file: 'http://127.0.0.1/live/sample.flv',
@@ -58,7 +59,8 @@ playease('player').setup({
 	//poster: 'sample.png',
 	//report: true,
 	loader: {
-		//name: 'xhr-chunked-loader',
+		name: 'xhr-chunked-loader',
+		chunkSize: 2 * 1024 * 1024,
 		mode: 'cors'
 	},
 	logo: {
@@ -72,7 +74,8 @@ playease('player').setup({
 		visible: true
 	},*/
 	render: {
-		name: 'def',
+		name: 'flv',
+		bufferLength: 4 * 1024 * 1024,
 		swf: '../swf/playease.swf'
 	}
 });
@@ -173,10 +176,11 @@ _eventMapping = {
 * **seek(offset)**
 * **stop()**
 * **report()**
-* **mute()**
+* **mute(mute)**
 * **volume(vol)**
+* **videoOff(off)**
 * **hd(index)**
-* **bullet()**
+* **bullet(enable)**
 * **fullpage(exit)**
 * **fullscreen(exit)**
 * **shoot(text)**

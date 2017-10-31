@@ -5,6 +5,7 @@
 		events = playease.events,
 		matchers = utils.matchers,
 		io = playease.io,
+		responseTypes = io.responseTypes,
 		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
@@ -129,7 +130,7 @@
 			}
 			
 			try {
-				_audioloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_audioloader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
 				_audioloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_audioloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_audioloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
@@ -144,7 +145,7 @@
 			}
 			
 			try {
-				_videoloader = new io[name](utils.extend({}, _this.config.loader, { responseType: 'arraybuffer' }));
+				_videoloader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
 				_videoloader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_videoloader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_videoloader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);

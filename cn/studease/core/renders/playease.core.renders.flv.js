@@ -4,6 +4,7 @@
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
+		responseTypes = io.responseTypes,
 		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
@@ -118,7 +119,7 @@
 			}
 			
 			try {
-				_loader = new io[name](_this.config.loader);
+				_loader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
 				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);

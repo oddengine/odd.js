@@ -244,11 +244,6 @@
 			_video = _render.element();
 			_renderLayer.appendChild(_video);
 			
-			_this.videoOff(model.getProperty('videooff'));
-			_this.setup();
-			
-			utils.log('Actived render "' + _render.name + '".');
-			
 			switch (name) {
 				case rendertypes.DEFAULT:
 					_render.attach(url);
@@ -264,6 +259,11 @@
 				default:
 					break;
 			}
+			
+			_this.videoOff(model.getProperty('videooff'));
+			_this.setup();
+			
+			utils.log('Actived render "' + _render.name + '".');
 		};
 		
 		function _initSkin() {
@@ -363,7 +363,7 @@
 			
 			if (enable) {
 				var state = model.getState();
-				var playing = state != states.STOPPED && state != states.ERROR;
+				var playing = state != states.IDLE && state != states.STOPPED && state != states.ERROR;
 				_render.videoOff(off, playing);
 			}
 		};
