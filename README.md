@@ -167,7 +167,8 @@ _eventMapping = {
 	onHD: events.PLAYEASE_HD,
 	onBullet: events.PLAYEASE_BULLET,
 	onFullpage: events.PLAYEASE_FULLPAGE,
-	onFullscreen: events.PLAYEASE_FULLSCREEN
+	onFullscreen: events.PLAYEASE_FULLSCREEN,
+	onResize: events.RESIZE
 };
 ```
 

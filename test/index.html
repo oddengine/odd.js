@@ -273,6 +273,22 @@ input {
 					pw.style.position = e.exit ? '' : 'fixed';
 					pw.style.maxWidth = e.exit ? '640px' : '100%';
 					pw.style.zIndex = e.exit ? '' : '99';
+				},
+				onResize: function(e) {
+					if (playease.utils.isAndroid() && playease.utils.isQQBrowser()) {
+						var video = document.getElementById('player').firstChild.lastChild;
+						video.style.width = window.innerWidth + "px";
+						video.style.height = window.innerHeight + "px";
+						video.style['object-position'] = 'center top';
+						
+						var controlbar = document.getElementById('player').childNodes[1];
+						controlbar.style.top = e.height - 40 + "px";
+						controlbar.style.position = "absolute";
+						
+						var next = pw.parentNode.childNodes[3];
+						next.style.top = e.height + "px";
+						next.style.position = "absolute";
+					}
 				}
 			}
 		});

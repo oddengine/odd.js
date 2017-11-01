@@ -225,6 +225,11 @@
 		return _userAgentMatch(new RegExp('MicroMessenger\\/' + version, 'i'));
 	};
 	
+	utils.isQQBrowser = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('QQBrowser\\/' + version, 'i'));
+	};
+	
 	function _userAgentMatch(regex) {
 		var agent = navigator.userAgent.toLowerCase();
 		return (agent.match(regex) !== null);

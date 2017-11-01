@@ -64,9 +64,9 @@
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -636,14 +636,15 @@
 		_init();
 	};
 	
-	renders.flv.isSupported = function(file) {
+	renders.flv.isSupported = function(file, mode) {
 		var protocol = utils.getProtocol(file);
 		if (protocol != 'http' && protocol != 'https'
 				&& protocol != 'ws' && protocol != 'wss') {
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS() || utils.isSogou()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser() 
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d') || mode == rendermodes.LIVE && !fetch) {
 			return false;
 		}
 		
