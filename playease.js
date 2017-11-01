@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.90';
+playease.version = '1.0.91';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -13490,7 +13490,7 @@ playease.version = '1.0.90';
 			}
 			
 			_render.setup();
-			_this.resize(model.getConfig('width'), model.getConfig('height'));
+			_this.resize();
 		};
 		
 		_this.play = function(url) {

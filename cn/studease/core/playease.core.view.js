@@ -288,7 +288,7 @@
 			}
 			
 			_render.setup();
-			_this.resize(model.getConfig('width'), model.getConfig('height'));
+			_this.resize();
 		};
 		
 		_this.play = function(url) {
