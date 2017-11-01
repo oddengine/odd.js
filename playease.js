@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.89';
+playease.version = '1.0.90';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -231,6 +231,11 @@ playease.version = '1.0.89';
 	utils.isWeixin = function(version) {
 		version = version || '';
 		return _userAgentMatch(new RegExp('MicroMessenger\\/' + version, 'i'));
+	};
+	
+	utils.isQQBrowser = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('QQBrowser\\/' + version, 'i'));
 	};
 	
 	function _userAgentMatch(regex) {
@@ -706,6 +711,7 @@ playease.version = '1.0.89';
 	playease.events = {
 		// General Events
 		ERROR: 'error',
+		RESIZE: 'resize',
 		
 		// API Events
 		PLAYEASE_READY: 'playeaseReady',
@@ -1849,7 +1855,8 @@ playease.version = '1.0.89';
 			onHD: events.PLAYEASE_HD,
 			onBullet: events.PLAYEASE_BULLET,
 			onFullpage: events.PLAYEASE_FULLPAGE,
-			onFullscreen: events.PLAYEASE_FULLSCREEN
+			onFullscreen: events.PLAYEASE_FULLSCREEN,
+			onResize: events.RESIZE
 		};
 	
 	playease.api = function(container) {
@@ -8250,9 +8257,9 @@ playease.version = '1.0.89';
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -8537,9 +8544,9 @@ playease.version = '1.0.89';
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -9109,14 +9116,15 @@ playease.version = '1.0.89';
 		_init();
 	};
 	
-	renders.flv.isSupported = function(file) {
+	renders.flv.isSupported = function(file, mode) {
 		var protocol = utils.getProtocol(file);
 		if (protocol != 'http' && protocol != 'https'
 				&& protocol != 'ws' && protocol != 'wss') {
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS() || utils.isSogou()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser() 
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d') || mode == rendermodes.LIVE && !fetch) {
 			return false;
 		}
 		
@@ -9200,9 +9208,9 @@ playease.version = '1.0.89';
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -9637,7 +9645,8 @@ playease.version = '1.0.89';
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser()
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d')) {
 			return false;
 		}
 		
@@ -9723,9 +9732,9 @@ playease.version = '1.0.89';
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -10177,7 +10186,8 @@ playease.version = '1.0.89';
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser()
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d')) {
 			return false;
 		}
 		
@@ -10291,9 +10301,9 @@ playease.version = '1.0.89';
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);
@@ -10850,7 +10860,8 @@ playease.version = '1.0.89';
 			return false;
 		}
 		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isIOS()) {
+		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser() 
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d')) {
 			return false;
 		}
 		
@@ -13479,12 +13490,16 @@ playease.version = '1.0.89';
 			}
 			
 			_render.setup();
-			_this.resize();
+			_this.resize(model.getConfig('width'), model.getConfig('height'));
 		};
 		
 		_this.play = function(url) {
 			if (_render) {
-				_render.play(url);
+				try {
+					_render.play(url);
+				} catch (err) {
+					utils.log('Failed to play: ' + err);
+				}
 			}
 			
 			_startTimer();
@@ -13815,13 +13830,13 @@ playease.version = '1.0.89';
 				var fp = model.getProperty('fullpage');
 				var fs = model.getProperty('fullscreen');
 				
-				width = _renderLayer.clientWidth;
-				height = model.getConfig('height');
-				
+				if (width === undefined || height === undefined) {
+					width = _renderLayer.clientWidth;
+					height = model.getConfig('height');
+				}
 				if (fs || fp) {
 					height = _wrapper.clientHeight;
 				}
-				
 				if (!fs) {
 					height -= 40;
 				}
@@ -13846,6 +13861,8 @@ playease.version = '1.0.89';
 				if (_render) {
 					_render.resize(width, height);
 				}
+				
+				_this.dispatchEvent(events.RESIZE, { width: width, height: height + (fs ? 0 : 40) });
 			});
 		};
 		
@@ -13898,6 +13915,7 @@ playease.version = '1.0.89';
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
+			view.addEventListener(events.RESIZE, _forward);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
@@ -13994,7 +14012,7 @@ playease.version = '1.0.89';
 			}
 			
 			var render = core.renders[type];
-			if (render == undefined || render.isSupported(url) == false) {
+			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
 				type = playlist.getSupported(url);
 				if (!type) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
@@ -14041,7 +14059,7 @@ playease.version = '1.0.89';
 			}
 			
 			var render = core.renders[type];
-			if (render == undefined || render.isSupported(url) == false) {
+			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
 				type = playlist.getSupported(url);
 				if (!type) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });

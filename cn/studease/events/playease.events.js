@@ -2,6 +2,7 @@
 	playease.events = {
 		// General Events
 		ERROR: 'error',
+		RESIZE: 'resize',
 		
 		// API Events
 		PLAYEASE_READY: 'playeaseReady',

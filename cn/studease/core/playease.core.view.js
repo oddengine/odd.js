@@ -288,12 +288,16 @@
 			}
 			
 			_render.setup();
-			_this.resize();
+			_this.resize(model.getConfig('width'), model.getConfig('height'));
 		};
 		
 		_this.play = function(url) {
 			if (_render) {
-				_render.play(url);
+				try {
+					_render.play(url);
+				} catch (err) {
+					utils.log('Failed to play: ' + err);
+				}
 			}
 			
 			_startTimer();
@@ -624,13 +628,13 @@
 				var fp = model.getProperty('fullpage');
 				var fs = model.getProperty('fullscreen');
 				
-				width = _renderLayer.clientWidth;
-				height = model.getConfig('height');
-				
+				if (width === undefined || height === undefined) {
+					width = _renderLayer.clientWidth;
+					height = model.getConfig('height');
+				}
 				if (fs || fp) {
 					height = _wrapper.clientHeight;
 				}
-				
 				if (!fs) {
 					height -= 40;
 				}
@@ -655,6 +659,8 @@
 				if (_render) {
 					_render.resize(width, height);
 				}
+				
+				_this.dispatchEvent(events.RESIZE, { width: width, height: height + (fs ? 0 : 40) });
 			});
 		};
 		

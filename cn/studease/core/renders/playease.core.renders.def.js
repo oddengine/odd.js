@@ -32,9 +32,9 @@
 				_video.setAttribute('playsinline', '');
 				_video.setAttribute('webkit-playsinline', '');
 				_video.setAttribute('x5-playsinline', '');
+				_video.setAttribute('x5-video-player-type', 'h5');
+				_video.setAttribute('x5-video-player-fullscreen', true);
 			}
-			_video.setAttribute('x5-video-player-type', 'h5');
-			_video.setAttribute('x5-video-player-fullscreen', true);
 			_video.preload = 'none';
 			
 			_video.addEventListener('durationchange', _onDurationChange);

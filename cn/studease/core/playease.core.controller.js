@@ -19,6 +19,7 @@
 			view.addEventListener(events.PLAYEASE_READY, _onReady);
 			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
 			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
+			view.addEventListener(events.RESIZE, _forward);
 			
 			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
 			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
@@ -115,7 +116,7 @@
 			}
 			
 			var render = core.renders[type];
-			if (render == undefined || render.isSupported(url) == false) {
+			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
 				type = playlist.getSupported(url);
 				if (!type) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
@@ -162,7 +163,7 @@
 			}
 			
 			var render = core.renders[type];
-			if (render == undefined || render.isSupported(url) == false) {
+			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
 				type = playlist.getSupported(url);
 				if (!type) {
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
