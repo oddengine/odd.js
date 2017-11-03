@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.91';
+playease.version = '1.0.92';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -13851,18 +13851,18 @@ playease.version = '1.0.91';
 					}
 				}
 				
+				if (_render) {
+					_render.resize(width, height);
+				}
+				
+				_this.dispatchEvent(events.RESIZE, { width: width, height: height + (fs ? 0 : 40) });
+				
 				_controlbar.resize(width, height);
 				_poster.resize(width, height);
 				_bulletscreen.resize(width, height);
 				_display.resize(width, height);
 				_logo.resize(width, height);
 				_contextmenu.resize(width, height);
-				
-				if (_render) {
-					_render.resize(width, height);
-				}
-				
-				_this.dispatchEvent(events.RESIZE, { width: width, height: height + (fs ? 0 : 40) });
 			});
 		};
 		
