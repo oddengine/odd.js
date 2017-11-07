@@ -25,6 +25,7 @@ The example below will find the element with an id of player and render a video 
 	...
 </div>
 ...
+
 var pw = document.getElementById('playwrap');
 var events = playease.events;
 
