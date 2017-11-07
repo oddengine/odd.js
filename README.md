@@ -18,9 +18,20 @@ It also supports RTMP streaming for MSIE8-10 with flash embed in.
 The example below will find the element with an id of player and render a video into it.
 
 ```js
-<div id='player'></div>
+<div id='playwrap' style='margin: 0 auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
+	<div id='player'></div>
+</div>
+<div id='others' style='width: 100%;'>
+	...
+</div>
 ...
-playease('player').setup({
+var pw = document.getElementById('playwrap');
+var events = playease.events;
+
+var player = playease('player');
+player.addEventListener(events.PLAYEASE_FULLPAGE, onFullpage);
+player.addEventListener(events.RESIZE, onResize);
+player.setup({
 	width: 640,
 	height: 400,
 	aspectratio: '16:9',
@@ -79,6 +90,36 @@ playease('player').setup({
 		swf: '../swf/playease.swf'
 	}
 });
+
+function onFullpage(e) {
+	pw.style.margin = e.exit ? '0 auto' : '0';
+	pw.style.height = e.exit ? '' : '100%';
+	pw.style.position = e.exit ? '' : 'fixed';
+	pw.style.maxWidth = e.exit ? '640px' : '100%';
+	pw.style.zIndex = e.exit ? '' : '99';
+}
+
+function onResize(e) {
+	// x5-playsinline
+	if (playease.utils.isAndroid() && playease.utils.isQQBrowser()) {
+		var video = document.getElementById('player').firstChild.lastChild;
+		video.style.width = window.innerWidth + 'px';
+		video.style.height = window.innerHeight + 'px';
+		video.style['object-position'] = 'center top';
+		
+		var controlbar = document.getElementById('player').childNodes[1];
+		controlbar.style.top = e.height - 40 + 'px';
+		controlbar.style.position = 'absolute';
+		
+		var next = document.getElementById('others');
+		next.style.top = e.height + 'px';
+		next.style.bottom = '0px';
+		next.style.position = 'absolute';
+		next.style.zIndex = 999;
+	}
+	
+	// Something else
+}
 ```
 
 ### More Configuration
@@ -145,6 +186,19 @@ playease('player').setup({
 		...
 	}
 });
+
+// or
+
+var events = playease.events;
+var player = playease('player');
+player.addEventListener(events.PLAYEASE_READY, onReady);
+player.setup({
+	...
+});
+
+function onReady(e) {
+	console.log('onReady');
+}
 ```
 
 For more events, please check cn/studease/api/playease.api.js, or the source of test/index.html.
