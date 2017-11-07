@@ -197,7 +197,11 @@ input {
 		var width = pw.clientWidth;
 		var height = width * 9 / 16 + 40;
 		
-		var player = playease('player').setup({
+		var events = playease.events;
+		var player = playease('player');
+		player.addEventListener(events.PLAYEASE_FULLPAGE, onFullpage);
+		player.addEventListener(events.RESIZE, onResize);
+		player.setup({
 			width: width,
 			height: height,
 			aspectratio: '16:9',
@@ -261,37 +265,39 @@ input {
 				name: 'flv',
 				bufferLength: 4 * 1024 * 1024,
 				swf: '../swf/playease.swf'
-			},
-			events: {
-				onFullpage: function(e) {
-					pw.style.margin = e.exit ? '40px auto 0' : '0';
-					if (e.exit && playease.utils.isMobile()) {
-						pw.style.margin = '0 auto';
-					}
-					
-					pw.style.height = e.exit ? '' : '100%';
-					pw.style.position = e.exit ? '' : 'fixed';
-					pw.style.maxWidth = e.exit ? '640px' : '100%';
-					pw.style.zIndex = e.exit ? '' : '99';
-				},
-				onResize: function(e) {
-					if (playease.utils.isAndroid() && playease.utils.isQQBrowser()) {
-						var video = document.getElementById('player').firstChild.lastChild;
-						video.style.width = window.innerWidth + "px";
-						video.style.height = window.innerHeight + "px";
-						video.style['object-position'] = 'center top';
-						
-						var controlbar = document.getElementById('player').childNodes[1];
-						controlbar.style.top = e.height - 40 + "px";
-						controlbar.style.position = "absolute";
-						
-						var next = pw.parentNode.childNodes[3];
-						next.style.top = e.height + "px";
-						next.style.position = "absolute";
-					}
-				}
 			}
 		});
+		
+		function onFullpage(e) {
+			pw.style.margin = e.exit ? '40px auto 0' : '0';
+			if (e.exit && playease.utils.isMobile()) {
+				pw.style.margin = '0 auto';
+			}
+			
+			pw.style.height = e.exit ? '' : '100%';
+			pw.style.position = e.exit ? '' : 'fixed';
+			pw.style.maxWidth = e.exit ? '640px' : '100%';
+			pw.style.zIndex = e.exit ? '' : '99';
+		}
+		
+		function onResize(e) {
+			if (playease.utils.isAndroid() && playease.utils.isQQBrowser()) {
+				var video = document.getElementById('player').firstChild.lastChild;
+				video.style.width = window.innerWidth + "px";
+				video.style.height = window.innerHeight + "px";
+				video.style['object-position'] = 'center top';
+				
+				var controlbar = document.getElementById('player').childNodes[1];
+				controlbar.style.top = e.height - 40 + "px";
+				controlbar.style.position = "absolute";
+				
+				var next = pw.parentNode.childNodes[3];
+				next.style.top = e.height + "px";
+				next.style.bottom = '0px';
+				next.style.position = "absolute";
+				next.style.zIndex = 999;
+			}
+		}
 		
 		if (playease.utils.isMobile()) {
 			window.addEventListener('resize', function(e) {

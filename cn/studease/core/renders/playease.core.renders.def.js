@@ -13,6 +13,7 @@
 			_video,
 			_url,
 			_src,
+			_isWXReady,
 			_waiting;
 		
 		function _init() {
@@ -22,6 +23,7 @@
 			
 			_url = '';
 			_src = '';
+			_weixinReady = false;
 			_waiting = true;
 			
 			_video = utils.createElement('video');
@@ -44,10 +46,14 @@
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
+			
+			document.addEventListener('WeixinJSBridgeReady', function() {
+				_weixinReady = true;
+			});
 		}
 		
 		_this.setup = function() {
-			if (utils.isWeixin()) {
+			if (!_weixinReady && utils.isWeixin()) {
 				document.addEventListener('WeixinJSBridgeReady', _onWeixinJSBridgeReady);
 			} else {
 				_onWeixinJSBridgeReady();
