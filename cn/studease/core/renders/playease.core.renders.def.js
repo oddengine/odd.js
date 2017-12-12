@@ -247,7 +247,7 @@
 			'oga',
 			'webm'
 		];
-		var map = utils.isMobile() ? mobilemap : html5map;
+		var map = utils.isMobile() || utils.isMac() ? mobilemap : html5map;
 		var extension = utils.getExtension(file);
 		for (var i = 0; i < map.length; i++) {
 			if (extension === map[i]) {
