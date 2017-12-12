@@ -168,7 +168,7 @@
 	/* Browser */
 	utils.isMSIE = function(version) {
 		version = version || '';
-		return _userAgentMatch(new RegExp('msie\\s*' + version, 'i'));
+		return _userAgentMatch(new RegExp('MSIE\\s*' + version, 'i'));
 	};
 	
 	utils.isIETrident = function() {
@@ -177,13 +177,18 @@
 	
 	utils.isEdge = function(version) {
 		version = version || '';
-		return _userAgentMatch(new RegExp('\\sedge\\/' + version, 'i'));
+		return _userAgentMatch(new RegExp('\\sEdge\\/' + version, 'i'));
+	};
+	
+	utils.isMac = function(version) {
+		version = version || '';
+		return _userAgentMatch(new RegExp('\\sMac OS X ' + version, 'i'));
 	};
 	
 	utils.isSafari = function(version) {
 		version = version || '';
-		return _userAgentMatch(new RegExp('\\ssafari\\/' + version, 'i'))
-				&& !_userAgentMatch(/chrome/i) && !_userAgentMatch(/chromium/i) && !_userAgentMatch(/android/i);
+		return _userAgentMatch(new RegExp('\\sSafari\\/' + version, 'i'))
+				&& !_userAgentMatch(/Chrome/i) && !_userAgentMatch(/Chromium/i) && !_userAgentMatch(/Android/i);
 	};
 	
 	utils.isIOS = function(version) {
@@ -193,7 +198,7 @@
 	
 	utils.isAndroid = function(version, excludeChrome) {
 		//Android Browser appears to include a user-agent string for Chrome/18
-		if (excludeChrome && _userAgentMatch(/chrome\/[123456789]/i) && !_userAgentMatch(/chrome\/18/)) {
+		if (excludeChrome && _userAgentMatch(/Chrome\/[123456789]/i) && !_userAgentMatch(/Chrome\/18/)) {
 			return false;
 		}
 		
@@ -207,7 +212,7 @@
 	
 	utils.isFirefox = function(version) {
 		version = version || '';
-		return _userAgentMatch(new RegExp('firefox\\/' + version, 'i'));
+		return _userAgentMatch(new RegExp('Firefox\\/' + version, 'i'));
 	};
 	
 	utils.isChrome = function(version) {
