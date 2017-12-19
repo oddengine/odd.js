@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.94';
+playease.version = '1.0.95';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -12424,46 +12424,54 @@ playease.version = '1.0.94';
 				height: 360,
 				enable: true,
 				fontsize: 14,
+				lineHeight: 20,
 				interval: 30,
-				duration: 12000,
+				duration: 10000,
 				alpha: alphas.LOW,
 				position: positions.FULLSCREEN,
 				visible: true
 			},
-			_rows,
-			_timer,
 			_canvas,
-			_context;
-		
-		_this.bullet = function(text) {
-			var _self = this;
-			
-			function _init() {
-				_self.text = text;
-				
-				_self.doublechars = _getDoubleChars();
-				_self.width = (_self.text.length + _self.doublechars * 0.96) / 2 * _this.config.fontsize;
-				_self.weight = (_canvas.width + _self.width) / (_this.config.duration / _this.config.interval);
-				_self.tick = 0;
-			}
-			
-			function _getDoubleChars() {
-				var chars = _self.text.match(/([^x00-xff])/gi);
-				return chars ? chars.length : 0;
-			}
-			
-			_init();
-		};
+			_context,
+			_rows,
+			_maxRow,
+			_random,
+			_marginTop,
+			_beats,
+			_timer;
 		
 		function _init() {
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_rows = [];
+			_marginTop = _this.config.lineHeight - _this.config.fontsize;
 			
 			_canvas = utils.createElement('canvas');
 			
 			_this.resize(_this.config.width, _this.config.height);
 		}
+		
+		_this.bullet = function(text) {
+			var _self = this,
+				_doublechars;
+			
+			function _init() {
+				var metrics = _context.measureText(text);
+				_doublechars = _getDoubleChars(text);
+				
+				_self.text = text;
+				_self.width = metrics.width + 10;
+				_self.weight = text.length + _doublechars;
+				_self.ticks = 0;
+			}
+			
+			function _getDoubleChars(text) {
+				var arr = text.match(/([^x00-xff])/gi);
+				return arr ? arr.length : 0;
+			}
+			
+			_init();
+		};
 		
 		_this.shoot = function(text) {
 			if (!_context || _this.config.enable == false) {
@@ -12471,40 +12479,39 @@ playease.version = '1.0.94';
 			}
 			
 			var bullet = new _this.bullet(text);
-			var index = _getIndex(bullet.weight);
+			var index = _getIndex(bullet);
+			
 			var row = _rows[index];
 			if (!row) {
 				row = [];
 				row.weight = 0;
-				row.bitmap = 0x0000;
 				
 				_rows[index] = row;
 			}
 			
-			var blockwidth = _canvas.width / 10;
-			var bits = Math.ceil(bullet.width / blockwidth);
-			var pos = 6 - bits;
-			
-			row.push(bullet);
 			row.weight += bullet.weight;
-			row.bitmap |= ((1 << bits) - 1) << pos;
+			row.pushable = 0;
+			row.push(bullet);
 			
 			_startTimer();
 		};
 		
-		function _getIndex(weight) {
-			var index = 0;
+		function _getIndex(bullet) {
+			var index = _rows.length;
 			var best = 0;
 			var minweight = 0;
 			
-			for (var i = 0; i < _rows.length; i++) {
+			for (var i = Math.floor(Math.random() * _random); i < _rows.length; i++) {
 				var row = _rows[i];
-				if (!row || row.length == 0) {
+				if (utils.typeOf(row) != 'array' || row.length == 0 || row.pushable >= bullet.weight) {
 					index = i;
 					break;
 				}
 				
-				if ((row.bitmap & 0x007F) == 0) {
+				var last = row[row.length - 1];
+				var ticks = _beats - last.ticks;
+				var offsetX = _canvas.width - (_canvas.width + bullet.width) * ticks / _beats;
+				if (row.pushable && offsetX >= 0) {
 					index = i;
 					break;
 				}
@@ -12513,11 +12520,9 @@ playease.version = '1.0.94';
 					best = i;
 					minweight = row.weight;
 				}
-				
-				index = i + 1;
 			}
 			
-			if (index >= Math.floor(_canvas.height / _this.config.fontsize)) {
+			if (index >= _maxRow) {
 				index = best;
 			}
 			
@@ -12527,50 +12532,47 @@ playease.version = '1.0.94';
 		function _update(e) {
 			_context.clearRect(0, 0, _canvas.width, _canvas.height);
 			
-			var blockwidth = _canvas.width / 10;
 			var hasContent = false;
 			
 			for (var i = 0; i < _rows.length; i++) {
 				var row = _rows[i];
-				if (!row || row.length == 0) {
+				if (utils.typeOf(row) != 'array' || row.length == 0) {
 					continue;
 				}
 				
-				row.bitmap = 0x0000;
+				var offsetY = _marginTop + i * _this.config.lineHeight;
 				
-				var offsetY = i * _this.config.fontsize;
 				for (var j = 0; j < row.length; j++) {
 					var bullet = row[j];
-					var offsetX = _canvas.width - bullet.weight * bullet.tick++;
-					if (offsetX <= -1 * bullet.width) {
+					
+					if (bullet.ticks++ >= _beats) {
 						row.splice(j--, 1);
 						row.weight -= bullet.weight;
-						
-						bullet = undefined;
-						
 						continue;
 					}
 					
-					var bits = Math.ceil(bullet.width / blockwidth);
-					var pos = Math.floor(offsetX / blockwidth);
-					row.bitmap |= ((1 << bits) - 1) << (10 - pos);
+					var offsetX = _canvas.width - (_canvas.width + bullet.width) * bullet.ticks / _beats;
+					_context.fillText(bullet.text, offsetX, offsetY);
+					
+					if (j == row.length - 1 && offsetX + bullet.width <= _canvas.width) {
+						row.pushable = bullet.weight;
+					}
 					
 					hasContent = true;
-					
-					_context.fillText(bullet.text, offsetX, offsetY);
 				}
 			}
 			
-			if (!hasContent) {
+			if (hasContent == false) {
 				_stopTimer();
 			}
 		}
 		
 		function _startTimer() {
 			if (!_timer) {
-				_timer = new utils.timer(30);
+				_timer = new utils.timer(_this.config.interval);
 				_timer.addEventListener(events.PLAYEASE_TIMER, _update);
 			}
+			
 			_timer.start();
 		}
 		
@@ -12597,6 +12599,17 @@ playease.version = '1.0.94';
 		};
 		
 		_this.resize = function(width, height) {
+			var rows = _canvas.height / (_this.config.fontsize * 1.4);
+			_maxRow = Math.floor(rows);
+			_random = rows / 2;
+			
+			var n = 1;
+			if (width > _this.config.width) {
+				n = width / _this.config.width;
+				n *= Math.pow(.8, n - 1);
+			}
+			_beats = _this.config.duration * n / _this.config.interval;
+			
 			_canvas.width = width;
 			_canvas.height = height;
 			
