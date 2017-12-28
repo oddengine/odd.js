@@ -1,10 +1,14 @@
-# playease.js
+﻿# playease.js
 
-> [[domain] http://studease.cn](http://studease.cn)
+> [[domain] http://studease.cn](http://studease.cn/playease.html)
 
 > [[source] https://github.com/studease/playease](https://github.com/studease/playease)
 
-> [[zh_doc] http://blog.csdn.net/icysky1989/article/details/75094205](http://blog.csdn.net/icysky1989/article/details/75094205)
+> [[中文] http://blog.csdn.net/icysky1989/article/details/75094205](http://blog.csdn.net/icysky1989/article/details/75094205)
+
+> 公众号：STUDEASE
+
+> QQ群：528109813
 
 This is a HTML5 video player for FLV/fMP4 live streaming, FLV/fMP4 VoD, MPEG-DASH, and original HTML5 media resources, eg. Ogg, Mpeg4, WebM, HLS.
 It also supports RTMP streaming for MSIE8-10 with flash embed in.
@@ -246,7 +250,7 @@ _eventMapping = {
 * **resize(width, height)**
 
 
-## Software License
--------------------
+## License
+----------
 
-MIT.
+MIT
