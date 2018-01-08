@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.95';
+playease.version = '1.0.96';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -12501,7 +12501,7 @@ playease.version = '1.0.95';
 			var best = 0;
 			var minweight = 0;
 			
-			for (var i = Math.floor(Math.random() * _random); i < _rows.length; i++) {
+			for (var i = Math.floor(Math.random() * _random); i < _maxRow; i++) {
 				var row = _rows[i];
 				if (utils.typeOf(row) != 'array' || row.length == 0 || row.pushable >= bullet.weight) {
 					index = i;

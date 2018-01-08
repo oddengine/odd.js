@@ -100,7 +100,7 @@
 			var best = 0;
 			var minweight = 0;
 			
-			for (var i = Math.floor(Math.random() * _random); i < _rows.length; i++) {
+			for (var i = Math.floor(Math.random() * _random); i < _maxRow; i++) {
 				var row = _rows[i];
 				if (utils.typeOf(row) != 'array' || row.length == 0 || row.pushable >= bullet.weight) {
 					index = i;
