@@ -252,7 +252,7 @@
 				case rendertypes.FLASH:
 					if (utils.getFlashVersion() == 0) {
 						model.setState(states.ERROR);
-						_this.display(states.ERROR, 'Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
+						_this.display(states.ERROR, 'Flash player is needed. Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
 					}
 					break;
 					
@@ -581,7 +581,7 @@
 				var offsetX = 0;
 				var offsetY = 0;
 				
-				for (var node = e.srcElement; node && node != _wrapper; node = node.offsetParent) {
+				for (var node = e.srcElement || e.target; node && node != _wrapper; node = node.offsetParent) {
 					offsetX += node.offsetLeft;
 					offsetY += node.offsetTop;
 				}
@@ -599,9 +599,11 @@
 			var date = new Date();
 			var time = date.getTime();
 			if (time <= _previousClick + 700) {
+				_previousClick = 0; // Avoid triple click
+				
 				var fs = model.getProperty('fullscreen');
 				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: fs });
-				return; // Avoid triple click
+				return;
 			}
 			
 			_previousClick = time;

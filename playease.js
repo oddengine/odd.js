@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.96';
+playease.version = '1.0.97';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -13087,7 +13087,10 @@ playease.version = '1.0.96';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		core = playease.core;
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		rendertypes = renders.types;
 	
 	core.entity = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.entity')),
@@ -13137,6 +13140,12 @@ playease.version = '1.0.96';
 		};
 		
 		function _forward(e) {
+			if (e.type == events.ERROR && e.message == 'Player is not ready yet!') {
+				if (_view.render.name == rendertypes.FLASH && utils.getFlashVersion() && utils.isFirefox('5[2-9]')) {
+					_view.display(states.ERROR, 'Flash player is needed. Click <a href="https://support.mozilla.org/en-US/kb/why-do-i-have-click-activate-plugins" target="_blank">here</a> to activate.');
+				}
+			}
+			
 			_this.dispatchEvent(e.type, e);
 		}
 		
@@ -13478,7 +13487,7 @@ playease.version = '1.0.96';
 				case rendertypes.FLASH:
 					if (utils.getFlashVersion() == 0) {
 						model.setState(states.ERROR);
-						_this.display(states.ERROR, 'Flash player is not installed! Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
+						_this.display(states.ERROR, 'Flash player is needed. Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
 					}
 					break;
 					
@@ -13807,7 +13816,7 @@ playease.version = '1.0.96';
 				var offsetX = 0;
 				var offsetY = 0;
 				
-				for (var node = e.srcElement; node && node != _wrapper; node = node.offsetParent) {
+				for (var node = e.srcElement || e.target; node && node != _wrapper; node = node.offsetParent) {
 					offsetX += node.offsetLeft;
 					offsetY += node.offsetTop;
 				}
@@ -13825,9 +13834,11 @@ playease.version = '1.0.96';
 			var date = new Date();
 			var time = date.getTime();
 			if (time <= _previousClick + 700) {
+				_previousClick = 0; // Avoid triple click
+				
 				var fs = model.getProperty('fullscreen');
 				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: fs });
-				return; // Avoid triple click
+				return;
 			}
 			
 			_previousClick = time;
