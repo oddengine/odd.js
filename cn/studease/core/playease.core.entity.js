@@ -1,7 +1,10 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		core = playease.core;
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		rendertypes = renders.types;
 	
 	core.entity = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.entity')),
@@ -51,6 +54,12 @@
 		};
 		
 		function _forward(e) {
+			if (e.type == events.ERROR && e.message == 'Player is not ready yet!') {
+				if (_view.render.name == rendertypes.FLASH && utils.getFlashVersion() && utils.isFirefox('5[2-9]')) {
+					_view.display(states.ERROR, 'Flash player is needed. Click <a href="https://support.mozilla.org/en-US/kb/why-do-i-have-click-activate-plugins" target="_blank">here</a> to activate.');
+				}
+			}
+			
 			_this.dispatchEvent(e.type, e);
 		}
 		
