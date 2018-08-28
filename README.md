@@ -21,7 +21,13 @@ It also supports RTMP streaming for MSIE8-10 with flash embed in.
 
 The example below shows how to play a flv vod. It will find the element with an id of player and render a video into it.
 
-Note: To play flv live streams, comment line 54, 55, 70 out.
+Note: To play flv live streams, comment lines below out.
+
+```js
+loader.name
+loader.chunkSize
+render.bufferLength
+```
 
 ```js
 <div id='playwrap' style='margin: 0 auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
