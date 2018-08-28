@@ -19,7 +19,8 @@ It also supports RTMP streaming for MSIE8-10 with flash embed in.
 
 ### Basic Configuraion
 
-The example below will find the element with an id of player and render a video into it.
+The example below shows how to play a flv vod. It will find the element with an id of player and render a video into it.
+Note: To play flv live streams, comment line 54, 55, 70 out.
 
 ```js
 <div id='playwrap' style='margin: 0 auto; width: 100%; max-width: 640px; top: 0; left: 0;'>
@@ -75,8 +76,8 @@ player.setup({
 	//poster: 'sample.png',
 	//report: true,
 	loader: {
-		name: 'xhr-chunked-loader',
-		chunkSize: 2 * 1024 * 1024,
+		name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
+		chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: 'cors'
 	},
 	logo: {
@@ -91,7 +92,7 @@ player.setup({
 	},*/
 	render: {
 		name: 'flv',
-		bufferLength: 4 * 1024 * 1024,
+		bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
 		swf: '../swf/playease.swf'
 	}
 });
@@ -129,8 +130,7 @@ function onResize(e) {
 
 ### More Configuration
 
-Please have a look at cn/studease/embed/playease.embed.config.js.
-Component config is at the front of their sources.
+Please have a look at [cn/studease/embed/playease.embed.config.js](https://github.com/studease/playease/blob/master/cn/studease/embed/playease.embed.config.js#L18).
 
 ```js
 _defaults = {
@@ -177,6 +177,76 @@ _defaults = {
 		
 	}
 };
+```
+
+### Components
+
+* **Logo**
+```js
+positions = {
+	TOP_LEFT:     'top-left',
+	TOP_RIGHT:    'top-right',
+	BOTTOM_LEFT:  'bottom-left',
+	BOTTOM_RIGHT: 'bottom-right'
+};
+
+playease('player').setup({
+	...
+	logo: {
+		file: 'logo.png',
+		link: 'http://studease.cn/playease',
+		target: '_blank',
+		margin: '3% 5%',
+		visible: true,
+		position: positions.TOP_RIGHT
+	}
+});
+```
+
+* **Context Menu**
+```js
+playease('player').setup({
+	...
+	contextmenu: {
+		items: [{
+			icon: '',
+			text: 'Home',
+			link: 'studease.cn',
+			target: '_blank'
+		}]
+	}
+});
+```
+
+* **Bullet Screen**
+```js
+alphas = {
+	NONE: 1,
+	LOW:  0.75,
+	MID:  0.5,
+	HIGH: 0.25
+},
+positions = {
+	FULLSCREEN: 0,
+	TOP:        1,
+	BOTTOM:     2
+};
+
+playease('player').setup({
+	...
+	bulletscreen: {
+		width: 640,
+		height: 360,
+		enable: true,
+		fontsize: 14,
+		lineHeight: 20,
+		interval: 30,
+		duration: 10000,
+		alpha: alphas.LOW,
+		position: positions.FULLSCREEN,
+		visible: true
+	}
+});
 ```
 
 ### Add Callback
