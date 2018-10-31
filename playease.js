@@ -8566,10 +8566,10 @@ playease.version = '1.0.98';
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
-			/*
-			_fileindex = 0;
-			_filekeeper = new filekeeper();
-			*/
+			
+			//_fileindex = 0;
+			//_filekeeper = new filekeeper();
+			
 			_initMuxer();
 			_initMSE();
 		}
@@ -8910,9 +8910,8 @@ playease.version = '1.0.98';
 		 */
 		function _onMP4InitSegment(e) {
 			/*if (e.tp == 'video') {
-				_fileindex++
+				_fileindex++;
 				_filekeeper.append(e.data);
-				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			}*/
 			
 			_segments[e.tp].push(e.data);
@@ -8920,11 +8919,11 @@ playease.version = '1.0.98';
 		
 		function _onMP4Segment(e) {
 			/*if (e.tp == 'video') {
-				_fileindex++
+				_fileindex++;
 				_filekeeper.append(e.data);
 				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-				if (_fileindex == 300) {
-					_filekeeper.save('sample.flv.mp4');
+				if (_fileindex == 100) {
+					_filekeeper.save('stream.flv.mp4');
 				}
 			}*/
 			
@@ -13663,6 +13662,7 @@ playease.version = '1.0.98';
 			if (exit) {
 				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
 				if (document.exitFullscreen) {
+					_video.setAttribute('x5-video-orientation', 'portraint');
 					document.exitFullscreen();
 				} else {
 					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
@@ -13681,8 +13681,12 @@ playease.version = '1.0.98';
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
 				if (utils.isMobile() && _video.webkitEnterFullscreen) {
+					_video.setAttribute('x5-video-orientation', 'landscape');
 					_video.webkitEnterFullscreen();
-					return;
+					
+					if (utils.isIOS()) {
+						return;
+					}
 				} else if (_wrapper.requestFullscreen) {
 					_wrapper.requestFullscreen();
 				} else {
@@ -14021,9 +14025,9 @@ playease.version = '1.0.98';
 					_this.play(_urgent);
 				}
 				
-				window.onbeforeunload = function(ev) {
+				window.addEventListener('beforeunload', function(ev) {
 					
-				};
+				});
 			}
 		}
 		
