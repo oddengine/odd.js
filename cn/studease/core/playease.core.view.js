@@ -419,6 +419,7 @@
 			if (exit) {
 				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
 				if (document.exitFullscreen) {
+					_video.setAttribute('x5-video-orientation', 'portraint');
 					document.exitFullscreen();
 				} else {
 					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
@@ -437,8 +438,12 @@
 			} else {
 				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
 				if (utils.isMobile() && _video.webkitEnterFullscreen) {
+					_video.setAttribute('x5-video-orientation', 'landscape');
 					_video.webkitEnterFullscreen();
-					return;
+					
+					if (utils.isIOS()) {
+						return;
+					}
 				} else if (_wrapper.requestFullscreen) {
 					_wrapper.requestFullscreen();
 				} else {
