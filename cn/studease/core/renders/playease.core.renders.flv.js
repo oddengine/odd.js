@@ -75,10 +75,10 @@
 			_video.addEventListener('pause', _onPause);
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
-			/*
-			_fileindex = 0;
-			_filekeeper = new filekeeper();
-			*/
+			
+			//_fileindex = 0;
+			//_filekeeper = new filekeeper();
+			
 			_initMuxer();
 			_initMSE();
 		}
@@ -419,9 +419,8 @@
 		 */
 		function _onMP4InitSegment(e) {
 			/*if (e.tp == 'video') {
-				_fileindex++
+				_fileindex++;
 				_filekeeper.append(e.data);
-				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
 			}*/
 			
 			_segments[e.tp].push(e.data);
@@ -429,11 +428,11 @@
 		
 		function _onMP4Segment(e) {
 			/*if (e.tp == 'video') {
-				_fileindex++
+				_fileindex++;
 				_filekeeper.append(e.data);
 				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-				if (_fileindex == 300) {
-					_filekeeper.save('sample.flv.mp4');
+				if (_fileindex == 100) {
+					_filekeeper.save('stream.flv.mp4');
 				}
 			}*/
 			

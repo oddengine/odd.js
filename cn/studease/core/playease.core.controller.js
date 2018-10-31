@@ -81,9 +81,9 @@
 					_this.play(_urgent);
 				}
 				
-				window.onbeforeunload = function(ev) {
+				window.addEventListener('beforeunload', function(ev) {
 					
-				};
+				});
 			}
 		}
 		

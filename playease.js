@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.97';
+playease.version = '1.0.98';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -1376,7 +1376,7 @@ playease.version = '1.0.97';
 			
 			var newSegmentTimeline = newAdaptationSet.SegmentTemplate.SegmentTimeline;
 			if (utils.typeOf(newSegmentTimeline.S) != 'array') {
-				newSegmentTimeline.S = [newSegmentTimeline.S];
+				newSegmentTimeline.S = newSegmentTimeline.S ? [newSegmentTimeline.S] : [];
 			}
 			
 			for (var i = 0; i < newSegmentTimeline.S.length; i++) {
@@ -1479,15 +1479,15 @@ playease.version = '1.0.97';
 				var s, segmentTimeline = segmentTemplate.SegmentTimeline;
 				if (isInitSegment) {
 					if (start > 0 || start == 0 && _mpd.hasOwnProperty('@suggestedPresentationDelay') == false) {
-						start = segmentTimeline.S[0]['@t'];
+						if (segmentTimeline.S.length) {
+							start = segmentTimeline.S[0]['@t'];
+						}
 					} else {
 						var delay = Math.abs(delay) || _mpd['@suggestedPresentationDelay'];
 						s = _getSegmentByDelay(segmentTimeline, delay * timescale);
 						if (s) {
 							start = s['@t'];
 							duration = s['@d'];
-						} else {
-							start = segmentTimeline.S[0]['@t'];
 						}
 					}
 				} else {
@@ -1610,7 +1610,7 @@ playease.version = '1.0.97';
 				var s = segmentTimeline.S.shift();
 				
 				if (isNaN(t)) {
-					t = s['@t'];
+					t = s['@t'] || 0;
 				}
 				
 				if (t + s['@d'] * (s['@r'] || 0) >= start) {
@@ -10603,6 +10603,15 @@ playease.version = '1.0.97';
 			
 			if (_audioloader.request.fragmentType == fragmentTypes.INIT_SEGMENT
 					&& _videoloader.request.fragmentType == fragmentTypes.INIT_SEGMENT) {
+				var period = _mpd.Period[0];
+				for (var i = 0; i < period.AdaptationSet.length; i++) {
+					var adp = period.AdaptationSet[i];
+					var type = adp['@mimeType'].split('/')[0];
+					var request = type == 'audio' ? _audioloader.request : _videoloader.request;
+					request.mimeType = adp['@mimeType'];
+					request.codecs = adp.Representation['@codecs'];
+				}
+				
 				_this.addSourceBuffer('audio');
 				_this.addSourceBuffer('video');
 			}

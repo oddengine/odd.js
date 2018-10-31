@@ -105,7 +105,7 @@
 			
 			var newSegmentTimeline = newAdaptationSet.SegmentTemplate.SegmentTimeline;
 			if (utils.typeOf(newSegmentTimeline.S) != 'array') {
-				newSegmentTimeline.S = [newSegmentTimeline.S];
+				newSegmentTimeline.S = newSegmentTimeline.S ? [newSegmentTimeline.S] : [];
 			}
 			
 			for (var i = 0; i < newSegmentTimeline.S.length; i++) {
@@ -208,15 +208,15 @@
 				var s, segmentTimeline = segmentTemplate.SegmentTimeline;
 				if (isInitSegment) {
 					if (start > 0 || start == 0 && _mpd.hasOwnProperty('@suggestedPresentationDelay') == false) {
-						start = segmentTimeline.S[0]['@t'];
+						if (segmentTimeline.S.length) {
+							start = segmentTimeline.S[0]['@t'];
+						}
 					} else {
 						var delay = Math.abs(delay) || _mpd['@suggestedPresentationDelay'];
 						s = _getSegmentByDelay(segmentTimeline, delay * timescale);
 						if (s) {
 							start = s['@t'];
 							duration = s['@d'];
-						} else {
-							start = segmentTimeline.S[0]['@t'];
 						}
 					}
 				} else {
@@ -339,7 +339,7 @@
 				var s = segmentTimeline.S.shift();
 				
 				if (isNaN(t)) {
-					t = s['@t'];
+					t = s['@t'] || 0;
 				}
 				
 				if (t + s['@d'] * (s['@r'] || 0) >= start) {
