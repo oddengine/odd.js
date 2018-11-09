@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.0.98';
+playease.version = '1.0.99';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -2508,7 +2508,7 @@ playease.version = '1.0.98';
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_state = readystates.UNINITIALIZED;
-			_range = { start: 0, end: '', position: 0 };
+			_range = { start: 0, position: 0, last: 0, end: '' };
 			_filesize = Number.MAX_VALUE;
 		}
 		
@@ -2528,24 +2528,6 @@ playease.version = '1.0.98';
 			_xhr.onload = _onXHRLoad;
 			_xhr.onerror = _onXHRError;
 			
-			if (start || end) {
-				_range.start = _range.position = start;
-				_range.end = Math.min(end, _filesize);
-				
-				if (_range.position >= _range.end) {
-					return;
-				}
-			}
-			if (_range.start || _range.end || _this.config.chunkSize) {
-				utils.extend(_this.config.headers, {
-					Range: 'bytes=' + _range.position + '-' + Math.min(_range.end, _range.position + _this.config.chunkSize - 1)
-				});
-			}
-			
-			utils.foreach(_this.config.headers, function(key, value) {
-				_xhr.setRequestHeader(key, value);
-			});
-			
 			switch (_this.config.credentials) {
 				case credentials.INCLUDE:
 					_xhr.withCredentials = true;
@@ -2557,6 +2539,26 @@ playease.version = '1.0.98';
 					_xhr.withCredentials = false;
 			}
 			
+			if (start || end) {
+				_range.start = _range.position = start;
+				_range.end = Math.min(end, _filesize);
+				
+				if (_range.position - 1 >= _range.end) {
+					return;
+				}
+			}
+			
+			if (_range.start || _range.end || _this.config.chunkSize) {
+				_range.last = Math.min(_range.end, _range.position + _this.config.chunkSize - 1);
+				utils.extend(_this.config.headers, {
+					Range: 'bytes=' + _range.position + '-' + _range.last
+				});
+			}
+			
+			utils.foreach(_this.config.headers, function(key, value) {
+				_xhr.setRequestHeader(key, value);
+			});
+			
 			_xhr.send();
 		};
 		
@@ -2564,31 +2566,7 @@ playease.version = '1.0.98';
 			_state = _xhr.readyState;
 			
 			if (_xhr.readyState == readystates.SENT) {
-				if (_xhr.status >= 200 && _xhr.status <= 299) {
-					if (!_this.config.headers.Range) {
-						return;
-					}
-					
-					var len = _xhr.getResponseHeader('Content-Length');
-					if (len) {
-						len = parseInt(len);
-					}
-					
-					if (_xhr.status == 206) {
-						var range = _xhr.getResponseHeader('Content-Range');
-						if (range) {
-							var arr = range.match(/bytes (\d*)\-(\d*)\/(\d+)/i);
-							if (arr && arr.length > 3) {
-								len = parseInt(arr[3]);
-							}
-						}
-					}
-					
-					if (len && len != _filesize) {
-						_filesize = len;
-						_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: len || 0 });
-					}
-				} else {
+				if (_xhr.status != 416 && (_xhr.status < 200 || _xhr.status >= 300)) {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
 			}
@@ -2618,21 +2596,33 @@ playease.version = '1.0.98';
 					break;
 			}
 			
-			_range.position += len;
-			_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
+			if (_xhr.status >= 200 && _xhr.status < 300) {
+				_range.position += len;
+				_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: data });
+			}
 			
-			var end = _range.end ? Math.min(_range.end, _filesize - 1) : _filesize - 1;
-			if (!_this.config.headers.Range || _range.position >= _filesize || _range.position > end) {
+			if (!_this.config.headers.Range || _xhr.status == 416 || _range.position - 1 < _range.last) {
+				_filesize = _range.position;
+				_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: _filesize });
+			}
+			
+			if (!_this.config.headers.Range || _xhr.status == 416 || _range.position - 1 < _range.last || _range.position - 1 >= _range.end) {
 				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 				return;
 			}
 			
+			// Load next chunk
+			_xhr.open(_this.config.method, _url, true);
+			
+			_range.last = Math.min(_range.end, _range.position + _this.config.chunkSize - 1);
 			utils.extend(_this.config.headers, {
-				Range: 'bytes=' + _range.position + '-' + Math.min(_range.end, _range.position + _this.config.chunkSize - 1)
+				Range: 'bytes=' + _range.position + '-' + _range.last
 			});
 			
-			_xhr.open(_this.config.method, _url, true);
-			_xhr.setRequestHeader('Range', _this.config.headers.Range);
+			utils.foreach(_this.config.headers, function(key, value) {
+				_xhr.setRequestHeader(key, value);
+			});
+			
 			_xhr.send();
 		}
 		
@@ -8540,7 +8530,7 @@ playease.version = '1.0.98';
 			
 			_url = '';
 			_src = '';
-			_contentLength = 0;
+			_contentLength = Number.MAX_VALUE;
 			_waiting = true;
 			
 			_range = { start: 0, end: '' };
