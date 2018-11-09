@@ -8233,7 +8233,7 @@ playease.version = '1.0.99';
 			_video,
 			_url,
 			_src,
-			_isWXReady,
+			//_weixinReady,
 			_waiting;
 		
 		function _init() {
@@ -8267,13 +8267,13 @@ playease.version = '1.0.99';
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			
-			document.addEventListener('WeixinJSBridgeReady', function() {
+			/*document.addEventListener('WeixinJSBridgeReady', function() {
 				_weixinReady = true;
-			});
+			});*/
 		}
 		
 		_this.setup = function() {
-			if (!_weixinReady && utils.isWeixin()) {
+			/*if (!_weixinReady && utils.isWeixin()) {
 				document.addEventListener('WeixinJSBridgeReady', _onWeixinJSBridgeReady);
 			} else {
 				_onWeixinJSBridgeReady();
@@ -8281,6 +8281,7 @@ playease.version = '1.0.99';
 		};
 		
 		function _onWeixinJSBridgeReady(e) {
+			_weixinReady = true;*/
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		}
 		
