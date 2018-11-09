@@ -49,7 +49,7 @@
 			
 			_url = '';
 			_src = '';
-			_contentLength = 0;
+			_contentLength = Number.MAX_VALUE;
 			_waiting = true;
 			
 			_range = { start: 0, end: '' };

@@ -13,7 +13,7 @@
 			_video,
 			_url,
 			_src,
-			_isWXReady,
+			//_weixinReady,
 			_waiting;
 		
 		function _init() {
@@ -47,13 +47,13 @@
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			
-			document.addEventListener('WeixinJSBridgeReady', function() {
+			/*document.addEventListener('WeixinJSBridgeReady', function() {
 				_weixinReady = true;
-			});
+			});*/
 		}
 		
 		_this.setup = function() {
-			if (!_weixinReady && utils.isWeixin()) {
+			/*if (!_weixinReady && utils.isWeixin()) {
 				document.addEventListener('WeixinJSBridgeReady', _onWeixinJSBridgeReady);
 			} else {
 				_onWeixinJSBridgeReady();
@@ -61,6 +61,7 @@
 		};
 		
 		function _onWeixinJSBridgeReady(e) {
+			_weixinReady = true;*/
 			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
 		}
 		
