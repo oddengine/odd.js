@@ -317,9 +317,9 @@
 	utils.getExtension = function(file) {
 		var extension = '';
 		
-		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\-_%]*(\.([a-z0-9]+))*)\??([a-z0-9\.\-_%&=]*)$/i);
+		var arr = file.match(/\/?([a-z0-9\(\)\[\]\{\}\s\.\-_%]+\.([a-z0-9]+)*)(\?[a-z0-9\.\-_%&=]*)?$/i);
 		if (arr && arr.length > 3) {
-			extension = arr[3];
+			extension = arr[2];
 		}
 		
 		return extension;
