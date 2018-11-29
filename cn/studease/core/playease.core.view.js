@@ -491,6 +491,7 @@
 				case states.IDLE:
 				case states.PAUSED:
 				case states.STOPPED:
+				case states.ERROR:
 					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
 					break;
 					
