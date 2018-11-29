@@ -61,7 +61,7 @@
 				'-ms-transform': 'rotate(0deg)',
 				'-moz-transform': 'rotate(0deg)',
 				'-webkit-transform': 'rotate(0deg)',
-				display: state == states.ERROR ? CSS_NONE : CSS_BLOCK
+				display: state == states.PLAYING ? CSS_NONE : CSS_BLOCK
 			});
 			css.style(_label, {
 				display: message ? CSS_INLINE_BLOCK : CSS_NONE
