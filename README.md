@@ -91,9 +91,9 @@ player.setup({
 		enable: true,
 		visible: true
 	},
-	/*fullpage: {
-		visible: true
-	},*/
+	fullpage: {
+		visible: false
+	},
 	render: {
 		name: 'flv',
 		bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only

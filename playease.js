@@ -12846,7 +12846,6 @@ playease.version = '1.1.01';
 			utils.log('Logo image not available.');
 		}
 		
-		
 		_this.element = function() {
 			return _container;
 		};
