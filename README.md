@@ -87,9 +87,6 @@ player.setup({
 		chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: 'cors'
 	},
-	logo: {
-		file: 'logo.png'
-	},
 	bulletscreen: {
 		enable: true,
 		visible: true
@@ -162,9 +159,6 @@ _defaults = {
 		//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: iomodes.CORS
 	},
-	logo: {
-		visible: true
-	},
 	bulletscreen: {
 		enable: true,
 		visible: false
@@ -187,28 +181,6 @@ _defaults = {
 ```
 
 ### Components
-
-* **Logo**
-```js
-positions = {
-	TOP_LEFT:     'top-left',
-	TOP_RIGHT:    'top-right',
-	BOTTOM_LEFT:  'bottom-left',
-	BOTTOM_RIGHT: 'bottom-right'
-};
-
-playease('player').setup({
-	...
-	logo: {
-		file: 'logo.png',
-		link: 'http://studease.cn/playease',
-		target: '_blank',
-		margin: '3% 5%',
-		visible: true,
-		position: positions.TOP_RIGHT
-	}
-});
-```
 
 * **Context Menu**
 ```js
