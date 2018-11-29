@@ -17,7 +17,7 @@
 	components.logo = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('components.logo')),
 			_defaults = {
-				file: '',
+				file: 'http://studease.cn/images/content/playease-logo.png',
 				link: 'http://studease.cn/playease',
 				target: '_blank',
 				margin: '3% 5%',
