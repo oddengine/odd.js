@@ -79,7 +79,6 @@
 			utils.log('Logo image not available.');
 		}
 		
-		
 		_this.element = function() {
 			return _container;
 		};
