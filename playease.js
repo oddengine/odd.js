@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.1.01';
+playease.version = '1.1.03';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -12697,7 +12697,7 @@ playease.version = '1.1.01';
 				'-ms-transform': 'rotate(0deg)',
 				'-moz-transform': 'rotate(0deg)',
 				'-webkit-transform': 'rotate(0deg)',
-				display: state == states.PLAYING ? CSS_NONE : CSS_BLOCK
+				display: message || state == states.PLAYING ? CSS_NONE : CSS_BLOCK
 			});
 			css.style(_label, {
 				display: message ? CSS_INLINE_BLOCK : CSS_NONE
@@ -12963,6 +12963,7 @@ playease.version = '1.1.01';
 	var utils = playease.utils,
 		core = playease.core,
 		renders = core.renders,
+		rendertypes = renders.types,
 		priority = renders.priority;
 	
 	utils.playlist = function(sources, prior) {
@@ -13010,7 +13011,7 @@ playease.version = '1.1.01';
 				}
 			}
 			
-			return null;
+			return rendertypes.DEFAULT;
 		};
 		
 		_this.addItem = function(file, prior, label) {
@@ -14032,6 +14033,8 @@ playease.version = '1.1.01';
 		
 		_this.play = function(url) {
 			playease.api.displayError('', model.config);
+			model.setState(states.BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 			
 			if (!_ready) {
 				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
@@ -14241,8 +14244,11 @@ playease.version = '1.1.01';
 		
 		
 		function _renderStateHandler(e) {
-			model.setState(e.state);
-			_forward(e);
+			var state = model.getState();
+			if (state != states.ERROR) {
+				model.setState(e.state);
+				_forward(e);
+			}
 		}
 		
 		function _onPlay(e) {
