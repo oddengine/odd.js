@@ -95,6 +95,8 @@
 		
 		_this.play = function(url) {
 			playease.api.displayError('', model.config);
+			model.setState(states.BUFFERING);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 			
 			if (!_ready) {
 				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
@@ -304,8 +306,11 @@
 		
 		
 		function _renderStateHandler(e) {
-			model.setState(e.state);
-			_forward(e);
+			var state = model.getState();
+			if (state != states.ERROR) {
+				model.setState(e.state);
+				_forward(e);
+			}
 		}
 		
 		function _onPlay(e) {
