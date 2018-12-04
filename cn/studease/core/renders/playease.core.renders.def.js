@@ -66,7 +66,9 @@
 		}
 		
 		_this.attach = function(url) {
-			_video.src = url;
+			if (url) {
+				_video.src = url;
+			}
 		};
 		
 		_this.play = function(url) {

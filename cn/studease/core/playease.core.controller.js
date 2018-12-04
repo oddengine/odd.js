@@ -68,13 +68,15 @@
 		
 		function _onReady(e) {
 			if (!_ready) {
+				_ready = true;
 				utils.log('Player ready!');
 				
 				var playlist = model.getProperty('playlist');
 				var item = playlist.getItemAt(playlist.index);
-				view.hd(playlist.index, item.label);
+				if (item) {
+					view.hd(playlist.index, item.label);
+				}
 				
-				_ready = true;
 				_forward(e);
 				
 				if (model.getConfig('autoplay') && (!utils.isMobile() || utils.isWeixin()) || _urgent) {
@@ -96,10 +98,9 @@
 		_this.play = function(url) {
 			playease.api.displayError('', model.config);
 			model.setState(states.BUFFERING);
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
 			
 			if (!_ready) {
-				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				_Error(events.ERROR, 'Player is not ready yet!');
 				return;
 			}
 			
@@ -109,7 +110,7 @@
 			if (url == undefined) {
 				var item = playlist.getItemAt(playlist.index);
 				if (!item) {
-					_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item at ' + playlist.index + '!' });
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported resource found!');
 					return;
 				}
 				
@@ -121,14 +122,15 @@
 			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
 				type = playlist.getSupported(url);
 				if (!type) {
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported render found!');
 					return;
 				}
 			}
 			
+			_urgent = url;
+			
 			if (view.render.name != type) {
 				_ready = false;
-				_urgent = url;
 				view.activeRender(type, url);
 				return;
 			}
@@ -142,9 +144,10 @@
 		
 		_this.reload = function() {
 			playease.api.displayError('', model.config);
+			model.setState(states.BUFFERING);
 			
 			if (!_ready) {
-				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				_Error(events.ERROR, 'Player is not ready yet!');
 				return;
 			}
 			
@@ -156,7 +159,7 @@
 			if (url == undefined) {
 				var item = playlist.getItemAt(playlist.index);
 				if (!item) {
-					_this.dispatchEvent(events.ERROR, { message: 'Failed to get playlist item at ' + playlist.index + '!' });
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported resource found!');
 					return;
 				}
 				
@@ -168,7 +171,7 @@
 			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
 				type = playlist.getSupported(url);
 				if (!type) {
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported render found!' });
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported render found!');
 					return;
 				}
 			}
@@ -185,7 +188,7 @@
 		
 		_this.seek = function(offset) {
 			if (!_ready) {
-				_this.dispatchEvent(events.ERROR, { message: 'Player is not ready yet!' });
+				_Error(events.ERROR, 'Player is not ready yet!');
 				return;
 			}
 			
@@ -405,6 +408,12 @@
 			
 			_this.stop();
 			_forward(e);
+		}
+		
+		function _Error(type, message) {
+			model.setState(states.ERROR);
+			view.display(states.ERROR, message);
+			_this.dispatchEvent(type, { message: message });
 		}
 		
 		function _forward(e) {

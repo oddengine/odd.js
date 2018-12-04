@@ -569,7 +569,7 @@
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			if (_mpd['@type'] == 'static' 
+			if (_mpd && _mpd['@type'] == 'static' 
 					&& _audioloader && _audioloader.state() == readystates.DONE
 					&& _videoloader && _videoloader.state() == readystates.DONE) {
 				var dts = end * 1000;
