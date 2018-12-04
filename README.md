@@ -302,4 +302,4 @@ _eventMapping = {
 ## License
 ----------
 
-Apache License 2.0
+BSD 3-Clause License
