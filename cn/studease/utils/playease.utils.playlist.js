@@ -2,7 +2,6 @@
 	var utils = playease.utils,
 		core = playease.core,
 		renders = core.renders,
-		rendertypes = renders.types,
 		priority = renders.priority;
 	
 	utils.playlist = function(sources, prior) {
@@ -50,7 +49,7 @@
 				}
 			}
 			
-			return rendertypes.DEFAULT;
+			return null;
 		};
 		
 		_this.addItem = function(file, prior, label) {

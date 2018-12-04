@@ -216,6 +216,10 @@
 					break;
 				}
 			}
+			
+			if (!_this.render) {
+				_this.activeRender(utils.isMSIE(8) ? rendertypes.FLASH : rendertypes.DEFAULT, '');
+			}
 		}
 		
 		_this.activeRender = function(name, url) {
