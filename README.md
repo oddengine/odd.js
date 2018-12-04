@@ -302,4 +302,4 @@ _eventMapping = {
 ## License
 ----------
 
-BSD 3-Clause License
+BSD 3-Clause License ([NOTICE](https://github.com/studease/playease/blob/master/NOTICE))
