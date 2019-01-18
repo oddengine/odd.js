@@ -96,9 +96,9 @@
 			
 			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
 			pos += val.Cost;
-			v.Ended = !!val.Ended;
 			
 			if (val.Type == types.END_OF_OBJECT) {
+				v.Ended = true;
 				break;
 			}
 			
@@ -117,34 +117,13 @@
 			return null;
 		}
 		
-		var v = {
-			Type: types.ECMA_ARRAY,
-			Data: [],
-			Hash: {},
-			Ended: false
-		};
-		
 		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		var pos = 0;
 		
-		var length = view.getUint32(pos);
-		pos += 4;
+		// Don't trust array length field
+		var pos = 4;
 		
-		for (var i = 0; i < length; i++) {
-			var key = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += key.Cost;
-			
-			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += val.Cost;
-			if (i == length - 1) {
-				v.Ended = true
-			}
-			
-			val.Key = key.Data;
-			v.Data.push(val);
-			v.Hash[val.Key] = val.Type == types.OBJECT || val.Type == types.ECMA_ARRAY ? val.Hash : val.Data;
-		}
-		
+		var v = AMF.DecodeObject(arrayBuffer, dataOffset + pos, dataSize - pos);
+		v.Type = types.ECMA_ARRAY;
 		v.Cost = pos;
 		
 		return v;
@@ -170,6 +149,7 @@
 		for (var i = 0; i < length; i++) {
 			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
 			pos += val.Cost;
+			
 			if (i == length - 1) {
 				v.Ended = true
 			}

@@ -349,7 +349,7 @@
 			
 			switch (e.tag) {
 				case TAG.AUDIO:
-					if (e.format && e.format != FORMATS.AAC) {
+					if (e.format != FORMATS.AAC) {
 						utils.log('Unsupported audio format(' + e.format + ').');
 						break;
 					}
@@ -358,7 +358,7 @@
 					break;
 					
 				case TAG.VIDEO:
-					if (e.codec && e.codec != CODECS.AVC) {
+					if (e.codec != CODECS.AVC) {
 						utils.log('Unsupported video codec(' + e.codec + ').');
 						break;
 					}
