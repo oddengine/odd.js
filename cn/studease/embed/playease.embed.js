@@ -60,7 +60,6 @@
 				case events.PLAYEASE_VIEW_RELOAD:
 				case events.PLAYEASE_VIEW_SEEK:
 					_this.clearScreen();
-					break;
 					
 				default:
 					_forward(e);

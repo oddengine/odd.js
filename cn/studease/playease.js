@@ -4,4 +4,4 @@
 	}
 };
 
-playease.version = '1.1.05';
+playease.version = '1.1.06';
