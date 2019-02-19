@@ -435,27 +435,27 @@
 				position: CSS_ABSOLUTE
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff', {
 				'margin-right': '8px',
 				width: '25px',
 				height: '40px',
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAABDklEQVRIS7XUsU3EMBgFYD+XqZLScsMG3AjHBmwAbHAbAJNwTMKNwAip7DJUUbqHfoRPSWT7cokvXSTn8++n+EHd6MGNXHWGnXNHkrTWvpTYbAIrpZ5IHkvgkyhk6lL4HD6QfAVQjyd3zj0CuI9E9GmMaWPRnWHv/Z7k13hRwLuuq/u+P81xku/W2jf5xnv/rJRqjTEnec/CsiCHB1hQkh8AHhbDOVxgrXUr6N+U18IpnOQ3gF2IbxV8KZbVE4epcpmvnvgSvhlOxVIEjuFa68NVv1uulMaZD8NQh5sYu9L10nYDcJfqls19nCquzbCc7r/Ld1VV7Zum+Zl0xdLjp9ZJUQW0KDzfsEgUsVP8AjbPIyaydhRcAAAAAElFTkSuQmCC)'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff:hover', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff:hover', {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAABBklEQVRIS7WUwRGCMBBF/3LgjAeHqx1oCdqBHUg6oAO1kmAlWoIlcBQ96NkDcVZEIRAUE/bGTHi7eZP9hIGKBuLiA5ZZAoJCFAoXzXTwCkDiAl5XUUztBK6BTzGI1gCC2uQyW8LDtKEo93cQo7RNXUXFZQ7K99qhQou8BsD9ANLgCluIcPP8R54jgFKI8YE/v4H5jBleghlKSkJ5iz5gM5zBPCVDuf4Am+BHALO3vj/B3VosJi4H63De37H+otrhFiqqDZpwR+Cmc3hx3+fWlUuVyRGUm9hcaRCv8681MWWLfR4bgsse/MyJLCkWxZ9DjG71rPj18qZzHFQvqFuw1tCNipZbPACegZ0XwtDqewAAAABJRU5ErkJggg==)'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.on', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.on', {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAAsElEQVRIS+2UwQkCQQxF89OAXsMWoSVoJ5ZgCVqJWomWoB3MaVLGlyy4oCzsLMyAh53bQOYxvOQH0uigEVcW8GD2S0XO+QhgNcP7zczSWP0AdvcdyfsMqJA8d113ijfufhCRZGaPuFcBB5TkBcC+GlhVU0D7X1YEPwFsP/qqgX/78f9gki8Am+oqYtxaNa+f4ybjNhmQ8BSRJrkuTZ+qXicjXQorrVv28fg+LvVXUvcGIO6bF1fJcVMAAAAASUVORK5CYII=)'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.on:hover', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.on:hover', {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAAsUlEQVRIS2NkoBFgpJG5DKMGw0MWNSjmvyhgYGLkJzrc/7EtZEgUfIBNPcLg+a8dGBj/7SfaUJDC/wyNDIniDWA9818lMDAwPmBIFD0A4lLHYJChjP/nM/xncqSewSBXggwF+4BaBjMwXGBgYDCABx8VDUaNksFv8H+GiwyMDPrUDwpQcqNJ5MHSMU2SG8EMAs49LwoYGBgFiM99bAsIZ2niTSNK5Wh5jKM8Jir0iFMEAFAJZBetwVsWAAAAAElFTkSuQmCC)'
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff'
-				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.on', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.on', {
 				display: CSS_NONE
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.enable', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.enable', {
 				display: CSS_BLOCK
 			});
 			

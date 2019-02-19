@@ -83,7 +83,7 @@ player.setup({
 		chunkSize: 4 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: 'cors'
 	},
-	bulletscreen: {
+	bulletCurtain: {
 		enable: true,
 		visible: true
 	},
@@ -155,7 +155,7 @@ _defaults = {
 		//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: iomodes.CORS
 	},
-	bulletscreen: {
+	bulletCurtain: {
 		enable: true,
 		visible: false
 	},
@@ -193,7 +193,7 @@ playease('player').setup({
 });
 ```
 
-* **Bullet Screen**
+* **Bullet Curtain**
 ```js
 alphas = {
 	NONE: 1,
@@ -209,7 +209,7 @@ positions = {
 
 playease('player').setup({
 	...
-	bulletscreen: {
+	bulletCurtain: {
 		width: 640,
 		height: 360,
 		enable: true,
