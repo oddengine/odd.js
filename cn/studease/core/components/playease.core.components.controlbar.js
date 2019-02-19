@@ -54,9 +54,9 @@
 					_layoutElement('report', types.BUTTON),
 					_layoutElement('volume', types.BUTTON),
 					_layoutElement('volume', types.SLIDER),
-					_layoutElement('videooff', types.BUTTON),
+					_layoutElement('videoOff', types.BUTTON),
 					_layoutElement('hd', types.BUTTON),
-					_layoutElement('bullet', types.BUTTON, _this.config.bulletscreen.enable ? '' : 'off'),
+					_layoutElement('bullet', types.BUTTON, _this.config.bulletCurtain.enable ? '' : 'off'),
 					_layoutElement('fullpage', types.BUTTON),
 					_layoutElement('fpexit', types.BUTTON),
 					_layoutElement('fullscreen', types.BUTTON),
@@ -184,7 +184,7 @@
 			if (name === 'hd' && (utils.typeOf(_this.config.playlist.sources) !== 'array' || _this.config.playlist.sources.length < 2)) {
 				return null;
 			}
-			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
+			if (name === 'bullet' && !_this.config.bulletCurtain.visible) {
 				return null;
 			}
 			if ((name === 'fullpage' || name === 'fpexit') && !_this.config.fullpage.visible) {
@@ -254,7 +254,7 @@
 				case 'volume':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE, { mute: !utils.hasClass(target, 'mute') });
 					break;
-				case 'videooff':
+				case 'videoOff':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF, { off: utils.hasClass(target, 'on') });
 					break;
 				case 'hd':
@@ -358,15 +358,15 @@
 		
 		_this.setVideoOff = function(off, enable) {
 			if (enable) {
-				utils.addClass(_buttons.videooff, 'enable');
+				utils.addClass(_buttons.videoOff, 'enable');
 			} else {
-				utils.removeClass(_buttons.videooff, 'enable');
+				utils.removeClass(_buttons.videoOff, 'enable');
 			}
 			
 			if (off) {
-				utils.removeClass(_buttons.videooff, 'on');
+				utils.removeClass(_buttons.videoOff, 'on');
 			} else {
-				utils.addClass(_buttons.videooff, 'on');
+				utils.addClass(_buttons.videoOff, 'on');
 			}
 		};
 		

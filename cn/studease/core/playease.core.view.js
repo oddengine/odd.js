@@ -92,7 +92,7 @@
 			var cbcfg = {
 				report: model.getConfig('report'),
 				playlist: model.getProperty('playlist'),
-				bulletscreen: model.getConfig('bulletscreen'),
+				bulletCurtain: model.getConfig('bulletCurtain'),
 				fullpage: model.getConfig('fullpage')
 			};
 			
@@ -121,7 +121,7 @@
 				utils.log('Failed to init "poster" component!');
 			}
 			
-			// bulletscreen
+			// bulletCurtain
 			var bscfg = utils.extend({}, model.getConfig('bulletCurtain'), {
 				width: model.getConfig('width'),
 				height: model.getConfig('height') - 40
@@ -134,7 +134,7 @@
 				_canvas = _bulletCurtain.element();
 				_renderLayer.appendChild(_canvas);
 			} catch (err) {
-				utils.log('Failed to init "bulletscreen" component!');
+				utils.log('Failed to init "bulletCurtain" component!');
 			}
 			
 			// display

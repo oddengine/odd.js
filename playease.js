@@ -8850,27 +8850,27 @@ playease.version = '1.2.00';
 				position: CSS_ABSOLUTE
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff', {
 				'margin-right': '8px',
 				width: '25px',
 				height: '40px',
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAABDklEQVRIS7XUsU3EMBgFYD+XqZLScsMG3AjHBmwAbHAbAJNwTMKNwAip7DJUUbqHfoRPSWT7cokvXSTn8++n+EHd6MGNXHWGnXNHkrTWvpTYbAIrpZ5IHkvgkyhk6lL4HD6QfAVQjyd3zj0CuI9E9GmMaWPRnWHv/Z7k13hRwLuuq/u+P81xku/W2jf5xnv/rJRqjTEnec/CsiCHB1hQkh8AHhbDOVxgrXUr6N+U18IpnOQ3gF2IbxV8KZbVE4epcpmvnvgSvhlOxVIEjuFa68NVv1uulMaZD8NQh5sYu9L10nYDcJfqls19nCquzbCc7r/Ld1VV7Zum+Zl0xdLjp9ZJUQW0KDzfsEgUsVP8AjbPIyaydhRcAAAAAElFTkSuQmCC)'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff:hover', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff:hover', {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAABBklEQVRIS7WUwRGCMBBF/3LgjAeHqx1oCdqBHUg6oAO1kmAlWoIlcBQ96NkDcVZEIRAUE/bGTHi7eZP9hIGKBuLiA5ZZAoJCFAoXzXTwCkDiAl5XUUztBK6BTzGI1gCC2uQyW8LDtKEo93cQo7RNXUXFZQ7K99qhQou8BsD9ANLgCluIcPP8R54jgFKI8YE/v4H5jBleghlKSkJ5iz5gM5zBPCVDuf4Am+BHALO3vj/B3VosJi4H63De37H+otrhFiqqDZpwR+Cmc3hx3+fWlUuVyRGUm9hcaRCv8681MWWLfR4bgsse/MyJLCkWxZ9DjG71rPj18qZzHFQvqFuw1tCNipZbPACegZ0XwtDqewAAAABJRU5ErkJggg==)'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.on', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.on', {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAAsElEQVRIS+2UwQkCQQxF89OAXsMWoSVoJ5ZgCVqJWomWoB3MaVLGlyy4oCzsLMyAh53bQOYxvOQH0uigEVcW8GD2S0XO+QhgNcP7zczSWP0AdvcdyfsMqJA8d113ijfufhCRZGaPuFcBB5TkBcC+GlhVU0D7X1YEPwFsP/qqgX/78f9gki8Am+oqYtxaNa+f4ybjNhmQ8BSRJrkuTZ+qXicjXQorrVv28fg+LvVXUvcGIO6bF1fJcVMAAAAASUVORK5CYII=)'
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.on:hover', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.on:hover', {
 				'background-image': 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAAsUlEQVRIS2NkoBFgpJG5DKMGw0MWNSjmvyhgYGLkJzrc/7EtZEgUfIBNPcLg+a8dGBj/7SfaUJDC/wyNDIniDWA9818lMDAwPmBIFD0A4lLHYJChjP/nM/xncqSewSBXggwF+4BaBjMwXGBgYDCABx8VDUaNksFv8H+GiwyMDPrUDwpQcqNJ5MHSMU2SG8EMAs49LwoYGBgFiM99bAsIZ2niTSNK5Wh5jKM8Jir0iFMEAFAJZBetwVsWAAAAAElFTkSuQmCC)'
 			});
 			
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff'
-				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.on', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff'
+				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.on', {
 				display: CSS_NONE
 			});
-			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videooff.enable', {
+			css('.' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.videoOff.enable', {
 				display: CSS_BLOCK
 			});
 			
@@ -9300,9 +9300,9 @@ playease.version = '1.2.00';
 					_layoutElement('report', types.BUTTON),
 					_layoutElement('volume', types.BUTTON),
 					_layoutElement('volume', types.SLIDER),
-					_layoutElement('videooff', types.BUTTON),
+					_layoutElement('videoOff', types.BUTTON),
 					_layoutElement('hd', types.BUTTON),
-					_layoutElement('bullet', types.BUTTON, _this.config.bulletscreen.enable ? '' : 'off'),
+					_layoutElement('bullet', types.BUTTON, _this.config.bulletCurtain.enable ? '' : 'off'),
 					_layoutElement('fullpage', types.BUTTON),
 					_layoutElement('fpexit', types.BUTTON),
 					_layoutElement('fullscreen', types.BUTTON),
@@ -9430,7 +9430,7 @@ playease.version = '1.2.00';
 			if (name === 'hd' && (utils.typeOf(_this.config.playlist.sources) !== 'array' || _this.config.playlist.sources.length < 2)) {
 				return null;
 			}
-			if (name === 'bullet' && !_this.config.bulletscreen.visible) {
+			if (name === 'bullet' && !_this.config.bulletCurtain.visible) {
 				return null;
 			}
 			if ((name === 'fullpage' || name === 'fpexit') && !_this.config.fullpage.visible) {
@@ -9500,7 +9500,7 @@ playease.version = '1.2.00';
 				case 'volume':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_MUTE, { mute: !utils.hasClass(target, 'mute') });
 					break;
-				case 'videooff':
+				case 'videoOff':
 					_this.dispatchEvent(events.PLAYEASE_VIEW_VIDEOOFF, { off: utils.hasClass(target, 'on') });
 					break;
 				case 'hd':
@@ -9604,15 +9604,15 @@ playease.version = '1.2.00';
 		
 		_this.setVideoOff = function(off, enable) {
 			if (enable) {
-				utils.addClass(_buttons.videooff, 'enable');
+				utils.addClass(_buttons.videoOff, 'enable');
 			} else {
-				utils.removeClass(_buttons.videooff, 'enable');
+				utils.removeClass(_buttons.videoOff, 'enable');
 			}
 			
 			if (off) {
-				utils.removeClass(_buttons.videooff, 'on');
+				utils.removeClass(_buttons.videoOff, 'on');
 			} else {
-				utils.addClass(_buttons.videooff, 'on');
+				utils.addClass(_buttons.videoOff, 'on');
 			}
 		};
 		
@@ -10279,5 +10279,1579 @@ playease.version = '1.2.00';
 		};
 		
 		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		core = playease.core,
+		renders = core.renders,
+		priority = renders.priority;
+	
+	utils.playlist = function(sources, prior) {
+		var _this = this;
+		
+		function _init() {
+			_this.index = 0;
+			_this.sources = sources;
+			_this.prior = prior;
+		}
+		
+		_this.format = function() {
+			var array = _this.sources.splice(0, _this.sources.length);
+			
+			for (var i = 0; i < array.length; i++) {
+				var item = array[i];
+				if (!item || !item.file) {
+					continue;
+				}
+				
+				var name = _this.getSupported(item.file, item.type || _this.prior);
+				if (name) {
+					_this.sources.push({
+						file: item.file,
+						type: name,
+						label: item.label || _this.sources.length
+					});
+				}
+			}
+		};
+		
+		_this.getSupported = function(file, prior) {
+			if (prior) {
+				var render = renders[prior];
+				if (render && render.isSupported(file)) {
+					return prior;
+				}
+			}
+			
+			for (var i = 0; i < priority.length; i++) {
+				var name = priority[i];
+				var render = renders[name];
+				if (render && render.isSupported(file)) {
+					return name;
+				}
+			}
+			
+			return null;
+		};
+		
+		_this.addItem = function(file, prior, label) {
+			if (!file) {
+				return null;
+			}
+			
+			for (var i = 0; i < _this.sources.length; i++) {
+				var item = _this.sources[i];
+				if (item.file === file) {
+					return item;
+				}
+			}
+			
+			var name = _this.getSupported(file, prior || _this.prior);
+			if (name) {
+				var item = {
+					file: file,
+					type: name,
+					label: label || _this.sources.length
+				};
+				
+				_this.sources.push(item);
+				
+				return item;
+			}
+			
+			return null;
+		};
+		
+		_this.getItemAt = function(index) {
+			if (index < 0 || index >= _this.sources.length) {
+				return null;
+			}
+			
+			return _this.sources[index];
+		};
+		
+		_this.activeItemAt = function(index) {
+			if (index < 0 || index >= _this.sources.length) {
+				return false;
+			}
+			
+			_this.index = index;
+			
+			return true;
+		};
+		
+		_this.activeNextItem = function() {
+			if (!_this.sources || !_this.sources.length) {
+				return false;
+			}
+			
+			_this.index++;
+			if (_this.index == _this.sources.length) {
+				_this.index = 0;
+			}
+			
+			return true;
+		};
+		
+		_this.getNextItem = function() {
+			if (_this.activeNextItem()) {
+				return _this.sources[_this.index];
+			}
+			
+			return null;
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		renderTypes = renders.types;
+	
+	core.entity = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('core.entity')),
+			_model,
+			_view,
+			_controller;
+		
+		function _init() {
+			_this.id = config.id;
+			
+			_this.model = _model = new core.model(config);
+			_this.view = _view = new core.view(_model);
+			_this.controller = _controller = new core.controller(_model, _view);
+			
+			_controller.addGlobalListener(_forward);
+			
+			_initializeAPI();
+		}
+		
+		function _initializeAPI() {
+			_this.onSWFState = _view.onSWFState;
+			
+			_this.play = _controller.play;
+			_this.pause = _controller.pause;
+			_this.reload = _controller.reload;
+			_this.seek = _controller.seek;
+			_this.stop = _controller.stop;
+			_this.report = _controller.report;
+			_this.mute = _controller.mute;
+			_this.volume = _controller.volume;
+			_this.videoOff = _controller.videoOff;
+			_this.hd = _controller.hd;
+			_this.bullet = _controller.bullet;
+			_this.fullpage = _controller.fullpage;
+			_this.fullscreen = _controller.fullscreen;
+			
+			_this.getState = _model.getState;
+			
+			_this.shoot = _view.shoot;
+			_this.resize = _view.resize;
+		}
+		
+		_this.setup = function() {
+			setTimeout(function() {
+				_controller.setup();
+			});
+		};
+		
+		function _forward(e) {
+			if (e.type == events.ERROR && e.message == 'Player is not ready yet!') {
+				if (_view.render.name == renderTypes.FLASH && utils.getFlashVersion() && utils.isFirefox('5[2-9]')) {
+					_view.display(states.ERROR, 'Flash player is needed. Click <a href="https://support.mozilla.org/en-US/kb/why-do-i-have-click-activate-plugins" target="_blank">here</a> to activate.');
+				}
+			}
+			
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_this.destroy = function() {
+			if (_controller) {
+				_controller.stop();
+			}
+			if (_view) {
+				_view.destroy();
+			}
+			if (_model) {
+				_model.destroy();
+			}
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		states = core.states;
+	
+	core.model = function(config) {
+		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
+		 	_defaults = {},
+		 	_state = states.IDLE,
+		 	_playlist,
+		 	_properties;
+		
+		function _init() {
+			_this.config = utils.extend({}, _defaults, config);
+			
+			_playlist = new utils.playlist(_this.config.sources, _this.config.render.name);
+			_playlist.format();
+			_playlist.addItem(_this.config.file);
+			
+			_properties = {
+				ratio: _this.config.width / (_this.config.height - 40),
+				playlist: _playlist,
+				duration: 0,
+				muted: false,
+				volume: 80,
+				videoOff: false,
+				bullet: _this.config.bulletCurtain.enable,
+				fullpage: false,
+				fullscreen: false
+			};
+		}
+		
+		_this.setState = function(state) {
+			if (state === _state) {
+				return;
+			}
+			_state = state;
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: state });
+		};
+		
+		_this.getState = function() {
+			return _state;
+		};
+		
+		_this.setProperty = function(key, value) {
+			if (_properties.hasOwnProperty(key) == true) {
+				_properties[key] = value;
+				_this.dispatchEvent(events.PLAYEASE_PROPERTY, { key: key, value: value });
+			}
+		};
+		
+		_this.getProperty = function(key) {
+			return _properties[key];
+		};
+		
+		_this.getConfig = function(name) {
+			return _this.config[name];
+		};
+		
+		_this.destroy = function() {
+			
+		};
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		renderTypes = renders.types,
+		priority = renders.priority,
+		components = core.components,
+		skins = core.skins,
+		
+		WRAP_CLASS = 'pe-wrapper',
+		SKIN_CLASS = 'pe-skin',
+		RENDER_CLASS = 'pe-render',
+		CONTROLS_CLASS = 'pe-controls',
+		CONTEXTMENU_CLASS = 'pe-contextmenu';
+	
+	core.view = function(model) {
+		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
+			_wrapper,
+			_renderLayer,
+			_controlsLayer,
+			_contextmenuLayer,
+			_controlbar,
+			_poster,
+			_bulletCurtain,
+			_display,
+			_logo,
+			_contextmenu,
+			_renders,
+			_render,
+			_skin,
+			_canvas,
+			_video,
+			_timer,
+			_autoHideTimer,
+			_checkFlashTimer,
+			_previousClick = 0,
+			_errorOccurred = false;
+		
+		function _init() {
+			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + '-' + model.getConfig('skin').name + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
+			_wrapper.id = model.getConfig('id');
+			//_wrapper.tabIndex = 0;
+			
+			_renderLayer = utils.createElement('div', RENDER_CLASS);
+			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
+			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
+			
+			_wrapper.appendChild(_renderLayer);
+			_wrapper.appendChild(_controlsLayer);
+			_wrapper.appendChild(_contextmenuLayer);
+			
+			utils.addClass(_wrapper, states.IDLE);
+			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
+			
+			_initComponents();
+			_initRenders();
+			_initSkin();
+			
+			_wrapper.oncontextmenu = function(e) {
+				e = e || window.event;
+				e.preventDefault ? e.preventDefault() : e.returnValue = false;
+				return false;
+			};
+			
+			try {
+				window.addEventListener('resize', _onResize);
+				_wrapper.addEventListener('keydown', _onKeyDown);
+				_wrapper.addEventListener('mousedown', _onMouseDown);
+				document.addEventListener('mousedown', _onMouseDown);
+				_renderLayer.addEventListener('click', _onRenderClick);
+			} catch (err) {
+				window.attachEvent('onresize', _onResize);
+				_wrapper.attachEvent('onkeydown', _onKeyDown);
+				_wrapper.attachEvent('onmousedown', _onMouseDown);
+				document.attachEvent('onmousedown', _onMouseDown);
+				_renderLayer.attachEvent('onclick', _onRenderClick);
+			}
+			
+			var replace = document.getElementById(model.getConfig('id'));
+			replace.parentNode.replaceChild(_wrapper, replace);
+		}
+		
+		function _modelStateHandler(e) {
+			utils.removeClass(_wrapper, [states.IDLE, states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
+			utils.addClass(_wrapper, e.state);
+		}
+		
+		function _initComponents() {
+			// controlbar
+			var cbcfg = {
+				report: model.getConfig('report'),
+				playlist: model.getProperty('playlist'),
+				bulletCurtain: model.getConfig('bulletCurtain'),
+				fullpage: model.getConfig('fullpage')
+			};
+			
+			try {
+				_controlbar = new components.controlbar(_controlsLayer, cbcfg);
+				_controlbar.addGlobalListener(_forward);
+				
+				_controlbar.setVolume(model.getProperty('volume'));
+			} catch (err) {
+				utils.log('Failed to init "controlbar" component!');
+			}
+			
+			// poster
+			var ptcfg = {
+				url: model.getConfig('poster'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			};
+			
+			try {
+				_poster = new components.poster(ptcfg);
+				_poster.addGlobalListener(_forward);
+				
+				_renderLayer.appendChild(_poster.element());
+			} catch (err) {
+				utils.log('Failed to init "poster" component!');
+			}
+			
+			// bulletCurtain
+			var bscfg = utils.extend({}, model.getConfig('bulletCurtain'), {
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			});
+			
+			try {
+				_bulletCurtain = new components.bulletCurtain(bscfg);
+				_bulletCurtain.addGlobalListener(_forward);
+				
+				_canvas = _bulletCurtain.element();
+				_renderLayer.appendChild(_canvas);
+			} catch (err) {
+				utils.log('Failed to init "bulletCurtain" component!');
+			}
+			
+			// display
+			var dicfg = utils.extend({}, model.getConfig('display'), {
+				id: model.getConfig('id') + '-display'
+			});
+			
+			try {
+				_display = new components.display(dicfg);
+				_display.addEventListener(events.PLAYEASE_VIEW_CLICK, _onDisplayClick);
+				
+				_renderLayer.appendChild(_display.element());
+			} catch (err) {
+				utils.log('Failed to init "display" component!');
+			}
+			
+			// logo
+			var lgcfg = utils.extend({}, model.getConfig('logo'), {
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40
+			});
+			
+			try {
+				_logo = new components.logo(lgcfg);
+				
+				_renderLayer.appendChild(_logo.element());
+			} catch (err) {
+				utils.log('Failed to init "logo" component!');
+			}
+			
+			// contextmenu
+			var ctxcfg = utils.extend({}, model.getConfig('contextmenu'));
+			
+			try {
+				_contextmenu = new components.contextmenu(_contextmenuLayer, ctxcfg);
+				_contextmenu.addGlobalListener(_forward);
+			} catch (err) {
+				utils.log('Failed to init "contextmenu" component!');
+			}
+		}
+		
+		function _initRenders() {
+			var cfg = utils.extend({}, model.getConfig('render'), {
+				id: model.getConfig('id'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height') - 40,
+				aspectratio: model.getConfig('aspectratio'),
+				playlist: model.getProperty('playlist'),
+				mode: model.getConfig('mode'),
+				bufferTime: model.getConfig('bufferTime'),
+				muted: model.getProperty('muted'),
+				volume: model.getProperty('volume'),
+				autoplay: model.getConfig('autoplay'),
+				airplay: model.getConfig('airplay'),
+				playsinline: model.getConfig('playsinline'),
+				poster: model.getConfig('poster'),
+				loader: model.getConfig('loader')
+			});
+			
+			_renders = {};
+			
+			for (var i = 0; i < priority.length; i++) {
+				var name = priority[i];
+				try {
+					var render = new renders[name](_renderLayer, cfg);
+					_renders[name] = render;
+					
+					utils.log('Render "' + name + '" initialized.');
+				} catch (err) {
+					utils.log('Failed to init render "' + name + '"!');
+				}
+			}
+			
+			var playlist = model.getProperty('playlist');
+			for (var j = 0; j < playlist.sources.length; j++) {
+				var source = playlist.sources[j];
+				if (_renders.hasOwnProperty(source.type)) {
+					_this.activeRender(source.type, source.file);
+					break;
+				}
+			}
+			
+			if (!_this.render) {
+				_this.activeRender(utils.isMSIE(8) ? renderTypes.FLASH : renderTypes.DEFAULT, '');
+			}
+		}
+		
+		_this.activeRender = function(name, url) {
+			if (_render && _render.name == name || _renders.hasOwnProperty(name) == false) {
+				return;
+			}
+			
+			if (_render) {
+				_render.stop();
+				_stopTimer();
+				
+				_render.removeEventListener(events.PLAYEASE_READY, _forward);
+				_render.removeEventListener(events.PLAYEASE_STATE, _forward);
+				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
+				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+				
+				_renderLayer.removeChild(_render.element());
+			}
+			
+			_render = _this.render = _renders[name];
+			_render.addEventListener(events.PLAYEASE_READY, _forward);
+			_render.addEventListener(events.PLAYEASE_STATE, _forward);
+			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
+			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+			
+			_video = _render.element();
+			_renderLayer.appendChild(_video);
+			
+			switch (name) {
+				case renderTypes.DEFAULT:
+					_render.attach(url);
+					break;
+					
+				case renderTypes.FLASH:
+					if (utils.getFlashVersion() == 0) {
+						model.setState(states.ERROR);
+						_this.display(states.ERROR, 'Flash player is needed. Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
+					}
+					break;
+					
+				default:
+					break;
+			}
+			
+			_this.videoOff(model.getProperty('videoOff'));
+			_this.setup();
+			
+			utils.log('Actived render "' + _render.name + '".');
+		};
+		
+		function _initSkin() {
+			var cfg = utils.extend({}, model.getConfig('skin'), {
+				id: model.getConfig('id'),
+				width: model.getConfig('width'),
+				height: model.getConfig('height')
+			});
+			
+			try {
+				_skin = new skins[cfg.name](cfg);
+			} catch (err) {
+				utils.log('Failed to init skin ' + cfg.name + '!');
+			}
+		}
+		
+		_this.setup = function() {
+			// Ignore components & skin failure.
+			if (!_render) {
+				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.getConfig('render').name });
+				return;
+			}
+			
+			_render.setup();
+			_this.resize();
+		};
+		
+		_this.play = function(url) {
+			if (_render) {
+				try {
+					_render.play(url);
+				} catch (err) {
+					utils.log('Failed to play: ' + err);
+				}
+			}
+			
+			_startTimer();
+		};
+		
+		_this.pause = function() {
+			if (_render) {
+				_render.pause();
+			}
+		};
+		
+		_this.reload = function(url) {
+			_this.stop();
+			setTimeout(function() {
+				_this.play(url);
+			}, 100);
+		};
+		
+		_this.seek = function(offset) {
+			_controlbar.setPosition(offset);
+			
+			if (_render) {
+				_render.seek(offset);
+			}
+			
+			_startTimer();
+		};
+		
+		_this.stop = function() {
+			if (_render) {
+				_render.stop();
+			}
+			
+			_stopTimer();
+			
+			_controlbar.setBuffered(0);
+			_controlbar.setPosition(0);
+			_controlbar.setElapsed(0);
+			_controlbar.setDuration(0);
+		};
+		
+		_this.report = function() {
+			
+		};
+		
+		_this.mute = function(muted) {
+			_controlbar.setMuted(muted, model.getProperty('volume'));
+			
+			if (_render) {
+				_render.mute(muted);
+				_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: muted });
+			}
+		};
+		
+		_this.volume = function(vol) {
+			_controlbar.setVolume(vol);
+			
+			if (_render) {
+				_render.volume(vol);
+				_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
+			}
+		};
+		
+		_this.videoOff = function(off) {
+			var enable = _render && _render.name == renderTypes.DASH;
+			_controlbar.setVideoOff(off, enable);
+			
+			if (enable) {
+				var state = model.getState();
+				var playing = state != states.IDLE && state != states.STOPPED && state != states.ERROR;
+				_render.videoOff(off, playing);
+			}
+		};
+		
+		_this.hd = function(index, label) {
+			_controlbar.activeHDItem(index, label);
+		};
+		
+		_this.bullet = function(bullet) {
+			_controlbar.setBullet(bullet);
+			_bulletCurtain.setProperty('enable', bullet);
+		};
+		
+		_this.fullpage = function(exit) {
+			if (document.fullscreen || document.webkitIsFullScreen || document.mozFullScreen || document.msFullscreenElement) {
+				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+				if (!document.exitFullscreen) {
+					return;
+				}
+				
+				document.exitFullscreen();
+			}
+			
+			utils.removeClass(_wrapper, 'fs');
+			model.setProperty('fullscreen', false);
+			
+			if (exit) {
+				utils.removeClass(_wrapper, 'fp');
+			} else {
+				utils.addClass(_wrapper, 'fp');
+			}
+			
+			if (_autoHideTimer) {
+				_autoHideTimer.stop();
+			}
+			_controlsLayer.style.display = 'block';
+			
+			try {
+				_wrapper.removeEventListener('mousemove', _onMouseMove);
+			} catch (err) {
+				_wrapper.detachEvent('onmousemove', _onMouseMove);
+			}
+			
+			model.setProperty('fullpage', !exit);
+			_this.resize();
+		};
+		
+		_this.fullscreen = function(exit) {
+			if (exit) {
+				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+				if (document.exitFullscreen) {
+					_video.setAttribute('x5-video-orientation', 'portraint');
+					document.exitFullscreen();
+				} else {
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
+				}
+				
+				utils.removeClass(_wrapper, 'fs');
+				
+				if (_autoHideTimer) {
+					_autoHideTimer.stop();
+				}
+				try {
+					_wrapper.removeEventListener('mousemove', _onMouseMove);
+				} catch (err) {
+					_wrapper.detachEvent('onmousemove', _onMouseMove);
+				}
+			} else {
+				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
+				if (utils.isMobile() && _video.webkitEnterFullscreen) {
+					_video.setAttribute('x5-video-orientation', 'landscape');
+					_video.webkitEnterFullscreen();
+					
+					if (utils.isIOS()) {
+						return;
+					}
+				} else if (_wrapper.requestFullscreen) {
+					_wrapper.requestFullscreen();
+				} else {
+					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
+				}
+				
+				utils.addClass(_wrapper, 'fs');
+				
+				if (_autoHideTimer) {
+					_autoHideTimer.start();
+				}
+				try {
+					_wrapper.addEventListener('mousemove', _onMouseMove);
+				} catch (err) {
+					_wrapper.attachEvent('onmousemove', _onMouseMove);
+				}
+			}
+			
+			_controlsLayer.style.display = 'block';
+			
+			model.setProperty('fullscreen', !exit);
+			_this.resize();
+		};
+		
+		_this.setDuration = function(duration) {
+			if (!duration || isNaN(duration) || duration == Infinity) {
+				utils.removeClass(_wrapper, 'vod');
+			} else {
+				utils.addClass(_wrapper, 'vod');
+			}
+			
+			_controlbar.setDuration(duration);
+		};
+		
+		_this.shoot = function(text) {
+			if (_bulletCurtain) {
+				_bulletCurtain.shoot(text);
+			}
+		};
+		
+		
+		function _onDisplayClick(e) {
+			var state = model.getState();
+			switch (state) {
+				case states.IDLE:
+				case states.PAUSED:
+				case states.STOPPED:
+				case states.ERROR:
+					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
+					break;
+					
+				default:
+					break;
+			}
+		}
+		
+		function _startTimer() {
+			if (!_timer) {
+				_timer = new utils.timer(500);
+				_timer.addEventListener(events.PLAYEASE_TIMER, _updateTime);
+			}
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		function _updateTime(e) {
+			if (!_render || !_render.getRenderInfo) {
+				return;
+			}
+			
+			var data = _render.getRenderInfo();
+			var position = Math.floor((data.duration ? data.position / data.duration : 0) * 10000) / 100;
+			
+			_controlbar.setBuffered(data.buffered);
+			_controlbar.setPosition(position);
+			_controlbar.setElapsed(data.position);
+			_controlbar.setDuration(data.duration);
+		}
+		
+		function _onMouseMove(e) {
+			_controlsLayer.style.display = 'block';
+			
+			if (!_autoHideTimer) {
+				_autoHideTimer = new utils.timer(3000, 1);
+				_autoHideTimer.addEventListener(events.PLAYEASE_TIMER, _autoHideControlBar);
+			}
+			_autoHideTimer.start();
+		}
+		
+		function _autoHideControlBar(e) {
+			_controlsLayer.style.display = 'none';
+		}
+		
+		function _onKeyDown(e) {
+			if (e.ctrlKey || e.metaKey) {
+				return true;
+			}
+			
+			switch (e.keyCode) {
+				case 13: // enter
+					
+					break;
+				case 32: // space
+					
+					break;
+				default:
+					break;
+			}
+			
+			if (/13|32/.test(e.keyCode)) {
+				// Prevent keypresses from scrolling the screen
+				e.preventDefault ? e.preventDefault() : e.returnValue = false;
+				return false;
+			}
+		}
+		
+		function _onMouseDown(e) {
+			if (!_contextmenu) {
+				return;
+			}
+			
+			if (e.currentTarget == undefined) {
+				for (var node = e.srcElement; node; node = node.offsetParent) {
+					if (node == _wrapper) {
+						e.currentTarget = _wrapper;
+						break;
+					}
+				}
+			}
+			
+			if (e.button == (utils.isMSIE(8) ? 1 : 0) || e.currentTarget != _wrapper) {
+				setTimeout(function() {
+					_contextmenu.hide();
+				}, 200);
+			} else if (e.button == 2) {
+				var offsetX = 0;
+				var offsetY = 0;
+				
+				for (var node = e.srcElement || e.target; node && node != _wrapper; node = node.offsetParent) {
+					offsetX += node.offsetLeft;
+					offsetY += node.offsetTop;
+				}
+				
+				_contextmenu.show(e.offsetX + offsetX, e.offsetY + offsetY);
+				
+				e.preventDefault ? e.preventDefault() : e.returnValue = false;
+				e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
+				
+				return false;
+			}
+		}
+		
+		function _onRenderClick(e) {
+			var date = new Date();
+			var time = date.getTime();
+			if (time <= _previousClick + 700) {
+				_previousClick = 0; // Avoid triple click
+				
+				var fs = model.getProperty('fullscreen');
+				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: fs });
+				return;
+			}
+			
+			_previousClick = time;
+		}
+		
+		
+		_this.onSWFState = function(e) {
+			utils.log('onSWFState: ' + e.state);
+			_this.dispatchEvent(events.PLAYEASE_STATE, { state: e.state });
+		};
+		
+		_this.display = function(state, message) {
+			if (_display) {
+				_display.show(state, message);
+			}
+		};
+		
+		function _onResize(e) {
+			_this.resize();
+		}
+		
+		_this.resize = function(width, height) {
+			setTimeout(function() {
+				var fp = model.getProperty('fullpage');
+				var fs = model.getProperty('fullscreen');
+				
+				if (width === undefined || height === undefined) {
+					width = _renderLayer.clientWidth;
+					height = model.getConfig('height');
+				}
+				if (fs || fp) {
+					height = _wrapper.clientHeight;
+				}
+				if (!fs) {
+					height -= 40;
+				}
+				
+				var ratio = model.getConfig('aspectratio');
+				if (ratio && !fp && !fs) {
+					var arr = ratio.match(/(\d+)\:(\d+)/);
+					if (arr && arr.length > 2) {
+						var w = parseInt(arr[1]);
+						var h = parseInt(arr[2]);
+						height = width * h / w;
+					}
+				}
+				
+				if (_render) {
+					_render.resize(width, height);
+				}
+				
+				_this.dispatchEvent(events.RESIZE, { width: width, height: height + (fs ? 0 : 40) });
+				
+				_controlbar.resize(width, height);
+				_poster.resize(width, height);
+				_bulletCurtain.resize(width, height);
+				_display.resize(width, height);
+				_logo.resize(width, height);
+				_contextmenu.resize(width, height);
+			});
+		};
+		
+		_this.destroy = function() {
+			if (_wrapper) {
+				try {
+					window.removeEventListener('resize', _onResize);
+					_wrapper.removeEventListener('keydown', _onKeyDown);
+				} catch (err) {
+					window.detachEvent('onresize', _onResize);
+					_wrapper.detachEvent('onkeydown', _onKeyDown);
+				}
+			}
+			if (_render) {
+				_render.destroy();
+			}
+		};
+		
+		function _onRenderError(e) {
+			_stopTimer();
+			_forward(e);
+		}
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		core = playease.core,
+		states = core.states,
+		renders = core.renders,
+		renderTypes = renders.types;
+	
+	core.controller = function(model, view) {
+		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
+			_ready = false,
+			_urgent,
+			_timer,
+			_retryCount = 0;
+		
+		function _init() {
+			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
+			
+			view.addEventListener(events.PLAYEASE_READY, _onReady);
+			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
+			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
+			view.addEventListener(events.RESIZE, _forward);
+			
+			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
+			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
+			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
+			view.addEventListener(events.PLAYEASE_VIEW_SEEK, _onSeek);
+			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
+			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
+			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
+			view.addEventListener(events.PLAYEASE_VIEW_VOLUME, _onVolume);
+			view.addEventListener(events.PLAYEASE_VIEW_VIDEOOFF, _onVideoOff);
+			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
+			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
+			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
+			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
+			
+			view.addEventListener(events.PLAYEASE_DURATION, _onDuration);
+			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
+		}
+		
+		function _modelStateHandler(e) {
+			view.display(e.state, '');
+			
+			switch (e.state) {
+				case states.IDLE:
+					break;
+				case states.BUFFERING:
+					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
+					break;
+				case states.PLAYING:
+					_this.dispatchEvent(events.PLAYEASE_PLAYING);
+					break;
+				case states.PAUSED:
+					_this.dispatchEvent(events.PLAYEASE_PAUSED);
+					break;
+				case states.STOPPED:
+					_this.dispatchEvent(events.PLAYEASE_STOPPED);
+					break;
+				case states.ERROR:
+					_retry();
+					break;
+				default:
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
+					break;
+			}
+		}
+		
+		function _onReady(e) {
+			if (!_ready) {
+				_ready = true;
+				utils.log('Player ready!');
+				
+				var playlist = model.getProperty('playlist');
+				var item = playlist.getItemAt(playlist.index);
+				if (item) {
+					view.hd(playlist.index, item.label);
+				}
+				
+				_forward(e);
+				
+				if (model.getConfig('autoplay') && (!utils.isMobile() || utils.isWeixin()) || _urgent) {
+					_this.play(_urgent);
+				}
+				
+				window.addEventListener('beforeunload', function(ev) {
+					
+				});
+			}
+		}
+		
+		_this.setup = function(e) {
+			if (!_ready) {
+				view.setup();
+			}
+		};
+		
+		_this.play = function(url) {
+			playease.api.displayError('', model.config);
+			model.setState(states.BUFFERING);
+			
+			if (!_ready) {
+				_Error(events.ERROR, 'Player is not ready yet!');
+				return;
+			}
+			
+			var playlist = model.getProperty('playlist');
+			
+			var type = view.render.name;
+			if (url == undefined) {
+				var item = playlist.getItemAt(playlist.index);
+				if (!item) {
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported resource found!');
+					return;
+				}
+				
+				url = item.file;
+				type = item.type;
+			}
+			
+			var render = core.renders[type];
+			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
+				type = playlist.getSupported(url);
+				if (!type) {
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported render found!');
+					return;
+				}
+			}
+			
+			_urgent = url;
+			
+			if (view.render.name != type) {
+				_ready = false;
+				view.activeRender(type, url);
+				return;
+			}
+			
+			view.play(url);
+		};
+		
+		_this.pause = function() {
+			view.pause();
+		};
+		
+		_this.reload = function() {
+			playease.api.displayError('', model.config);
+			model.setState(states.BUFFERING);
+			
+			if (!_ready) {
+				_Error(events.ERROR, 'Player is not ready yet!');
+				return;
+			}
+			
+			var playlist = model.getProperty('playlist');
+			
+			var url = _urgent;
+			var type = view.render.name;
+			
+			if (url == undefined) {
+				var item = playlist.getItemAt(playlist.index);
+				if (!item) {
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported resource found!');
+					return;
+				}
+				
+				url = item.file;
+				type = item.type;
+			}
+			
+			var render = core.renders[type];
+			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
+				type = playlist.getSupported(url);
+				if (!type) {
+					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported render found!');
+					return;
+				}
+			}
+			
+			if (view.render.name != type) {
+				_ready = false;
+				view.activeRender(type, url);
+				return;
+			}
+			
+			view.reload(url);
+			_this.dispatchEvent(events.PLAYEASE_RELOADING);
+		};
+		
+		_this.seek = function(offset) {
+			if (!_ready) {
+				_Error(events.ERROR, 'Player is not ready yet!');
+				return;
+			}
+			
+			view.seek(offset);
+			_this.dispatchEvent(events.PLAYEASE_SEEKING, { offset: offset });
+		};
+		
+		_this.stop = function() {
+			_urgent = undefined;
+			view.stop();
+		};
+		
+		_this.report = function() {
+			view.report();
+			_this.dispatchEvent(events.PLAYEASE_REPORT);
+		};
+		
+		_this.mute = function(mute) {
+			mute = !!mute;
+			var muted = model.getProperty('muted');
+			if (muted == mute) {
+				return;
+			}
+			
+			model.setProperty('muted', mute);
+			view.mute(mute);
+			_this.dispatchEvent(events.PLAYEASE_MUTE, { mute: mute });
+		};
+		
+		_this.volume = function(vol) {
+			if (vol == 0) {
+				model.setProperty('muted', true);
+			}
+			
+			model.setProperty('volume', vol);
+			view.volume(vol);
+			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
+		};
+		
+		_this.videoOff = function(off) {
+			off = !!off;
+			var isOff = model.getProperty('videoOff');
+			if (isOff == off || !view.render || view.render.name != renderTypes.DASH) {
+				return;
+			}
+			
+			model.setProperty('videoOff', off);
+			view.videoOff(off);
+			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, { off: off });
+		};
+		
+		_this.hd = function(index) {
+			var playlist = model.getProperty('playlist');
+			if (utils.typeOf(playlist.sources) !== 'array' || index >= playlist.sources.length) {
+				return;
+			}
+			
+			if (playlist.activeItemAt(index) == false) {
+				return;
+			}
+			
+			var item = playlist.getItemAt(playlist.index);
+			view.hd(playlist.index, item.label);
+			
+			_this.play();
+		};
+		
+		_this.bullet = function(enable) {
+			enable = !!enable;
+			var bullet = model.getProperty('bullet');
+			if (bullet == enable) {
+				return;
+			}
+			
+			model.setProperty('bullet', enable);
+			view.bullet(enable);
+			_this.dispatchEvent(events.PLAYEASE_BULLET, { enable: enable });
+		};
+		
+		_this.fullpage = function(exit) {
+			view.fullpage(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
+		}
+		_this.fullscreen = function(exit) {
+			view.fullscreen(exit);
+			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
+		};
+		
+		
+		function _retry() {
+			if (model.config.maxretries < 0 || _retryCount < model.config.maxretries) {
+				var delay = Math.ceil(model.config.retrydelay + Math.random() * 5000);
+				
+				utils.log('Retry delay ' + delay / 1000 + 's ...');
+				
+				_retryCount++;
+				_startTimer(delay);
+			}
+		}
+		
+		function _startTimer(delay) {
+			if (!_timer) {
+				_timer = new utils.timer(delay, 1);
+				_timer.addEventListener(events.PLAYEASE_TIMER, function(e) {
+					_this.play();
+				});
+			}
+			_timer.delay = delay;
+			_timer.reset();
+			_timer.start();
+		}
+		
+		function _stopTimer() {
+			if (_timer) {
+				_timer.stop();
+			}
+		}
+		
+		
+		function _renderStateHandler(e) {
+			var state = model.getState();
+			if (state != states.ERROR) {
+				model.setState(e.state);
+				_forward(e);
+			}
+		}
+		
+		function _onPlay(e) {
+			_this.play(_urgent);
+			_forward(e);
+		}
+		
+		function _onPause(e) {
+			_this.pause();
+			_forward(e);
+		}
+		
+		function _onReload(e) {
+			_this.reload();
+			_forward(e);
+		}
+		
+		function _onSeek(e) {
+			var state = model.getState();
+			if (state != states.IDLE && state != states.ERROR) {
+				_this.seek(e.offset);
+				_forward(e);
+			}
+		}
+		
+		function _onStop(e) {
+			_this.stop();
+			_forward(e);
+		}
+		
+		function _onReport(e) {
+			_this.report();
+		}
+		
+		function _onMute(e) {
+			_this.mute(e.mute);
+		}
+		
+		function _onVolume(e) {
+			_this.volume(e.volume);
+		}
+		
+		function _onVideoOff(e) {
+			_this.videoOff(e.off);
+		}
+		
+		function _onHD(e) {
+			_this.hd(e.index);
+			_this.dispatchEvent(events.PLAYEASE_HD, e);
+		}
+		
+		function _onBullet(e) {
+			_this.bullet(e.enable);
+		}
+		
+		function _onFullpage(e) {
+			var fp = model.getProperty('fullpage');
+			if (e.exit == !fp) {
+				return;
+			}
+			
+			_this.fullpage(fp);
+		}
+		
+		function _onFullscreen(e) {
+			var fs = model.getProperty('fullscreen');
+			if (e.exit == !fs) {
+				return;
+			}
+			
+			_this.fullscreen(fs);
+		}
+		
+		function _onSetupError(e) {
+			model.setState(states.ERROR);
+			view.display(states.ERROR, e.message);
+			
+			_this.stop();
+			_forward(e);
+		}
+		
+		function _onDuration(e) {
+			model.setProperty('duration', e.duration);
+			view.setDuration(e.duration);
+			
+			_forward(e);
+		}
+		
+		function _onRenderError(e) {
+			model.setState(states.ERROR);
+			view.display(states.ERROR, e.message);
+			
+			_this.stop();
+			_forward(e);
+		}
+		
+		function _Error(type, message) {
+			model.setState(states.ERROR);
+			view.display(states.ERROR, message);
+			_this.dispatchEvent(type, { message: message });
+		}
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events;
+	
+	var embed = playease.embed = function(api) {
+		var _this = utils.extend(this, new events.eventdispatcher('embed')),
+			_config = {},
+			_errorOccurred = false,
+			_embedder = null;
+		
+		function _init() {
+			utils.foreach(api.config.events, function(e, cb) {
+				var fn = api[e];
+				if (utils.typeOf(fn) === 'function') {
+					fn.call(api, cb);
+				}
+			});
+		}
+		
+		_this.embed = function() {
+			try {
+				_config = new embed.config(api.config);
+				_embedder = new embed.embedder(api, _config);
+			} catch (e) {
+				utils.log('Failed to init embedder!');
+				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Failed to init embedder!', render: _config.render.name });
+				return;
+			}
+			_embedder.addGlobalListener(_onEvent);
+			_embedder.embed();
+		};
+		
+		_this.errorScreen = function(message) {
+			if (_errorOccurred) {
+				return;
+			}
+			
+			_errorOccurred = true;
+			playease.api.displayError(message, _config);
+		};
+		
+		_this.clearScreen = function() {
+			_errorOccurred = false;
+			playease.api.displayError('', _config);
+		};
+		
+		function _onEvent(e) {
+			switch (e.type) {
+				case events.ERROR:
+				case events.PLAYEASE_SETUP_ERROR:
+				case events.PLAYEASE_RENDER_ERROR:
+				case events.PLAYEASE_ERROR:
+					utils.log('[ERROR] ' + e.message);
+					_this.errorScreen(e.message);
+					_this.dispatchEvent(events.ERROR, e);
+					break;
+					
+				case events.PLAYEASE_VIEW_PLAY:
+				case events.PLAYEASE_VIEW_RELOAD:
+				case events.PLAYEASE_VIEW_SEEK:
+					_this.clearScreen();
+					
+				default:
+					_forward(e);
+					break;
+			}
+		}
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
+		
+		_init();
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		embed = playease.embed,
+		io = playease.io,
+		core = playease.core,
+		renderModes = core.renders.modes,
+		renderTypes = core.renders.types,
+		skinTypes = core.skins.types;
+	
+	embed.config = function(config) {
+		var _defaults = {
+			width: 640,
+			height: 400,
+			aspectratio: '16:9',
+			file: '',
+			sources: [],
+			mode: renderModes.VOD,
+			bufferTime: .1,
+			maxRetries: 0,
+			retryDelay: 3000,
+			controls: true,
+			autoplay: true,
+			airplay: 'allow',
+			playsinline: true,
+			poster: '',
+			report: false,
+			debug: false,
+			loader: {
+				//name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
+				//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
+				mode: io.modes.CORS
+			},
+			logo: {
+				visible: true
+			},
+			bulletCurtain: {
+				enable: true,
+				visible: false
+			},
+			fullpage: {
+				visible: false
+			},
+			render: {
+				name: renderTypes.DEFAULT,
+				//bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
+				swf: 'swf/playease.swf'
+			},
+			skin: {
+				name: skinTypes.DEFAULT
+			},
+			events: {
+				
+			}
+		},
+		
+		_config = utils.extend({}, _defaults, config);
+		
+		return _config;
+	};
+	
+	embed.config.addConfig = function(oldConfig, newConfig) {
+		return utils.extend(oldConfig, newConfig);
+	};
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils,
+		events = playease.events,
+		embed = playease.embed,
+		core = playease.core;
+	
+	embed.embedder = function(api, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('embed.embedder'));
+		
+		_this.embed = function() {
+			var entity = new core.entity(config);
+			entity.addGlobalListener(_onEvent);
+			entity.setup();
+			api.setEntity(entity);
+		};
+		
+		function _onEvent(e) {
+			_forward(e);
+		}
+		
+		function _forward(e) {
+			_this.dispatchEvent(e.type, e);
+		}
 	};
 })(playease);

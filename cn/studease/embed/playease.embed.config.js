@@ -34,7 +34,7 @@
 			logo: {
 				visible: true
 			},
-			bulletscreen: {
+			bulletCurtain: {
 				enable: true,
 				visible: false
 			},

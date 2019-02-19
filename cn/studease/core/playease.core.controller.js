@@ -230,12 +230,12 @@
 		
 		_this.videoOff = function(off) {
 			off = !!off;
-			var isOff = model.getProperty('videooff');
+			var isOff = model.getProperty('videoOff');
 			if (isOff == off || !view.render || view.render.name != renderTypes.DASH) {
 				return;
 			}
 			
-			model.setProperty('videooff', off);
+			model.setProperty('videoOff', off);
 			view.videoOff(off);
 			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, { off: off });
 		};
