@@ -163,12 +163,12 @@ _defaults = {
 		visible: false
 	},
 	render: {
-		name: rendertypes.DEFAULT,
+		name: renderTypes.DEFAULT,
 		//bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
 		swf: 'swf/playease.swf'
 	},
 	skin: {
-		name: skintypes.DEFAULT
+		name: skinTypes.DEFAULT
 	},
 	events: {
 		
