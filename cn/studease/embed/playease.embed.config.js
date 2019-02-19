@@ -3,16 +3,10 @@
 		events = playease.events,
 		embed = playease.embed,
 		io = playease.io,
-		iomodes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
 		core = playease.core,
-		alphas = core.components.bulletscreen.alphas,
-		positions = core.components.bulletscreen.positions,
-		rendermodes = core.renders.modes,
-		rendertypes = core.renders.types,
-		skintypes = core.skins.types;
+		renderModes = core.renders.modes,
+		renderTypes = core.renders.types,
+		skinTypes = core.skins.types;
 	
 	embed.config = function(config) {
 		var _defaults = {
@@ -21,10 +15,10 @@
 			aspectratio: '16:9',
 			file: '',
 			sources: [],
-			mode: rendermodes.VOD,
+			mode: renderModes.VOD,
 			bufferTime: .1,
-			maxretries: 0,
-			retrydelay: 3000,
+			maxRetries: 0,
+			retryDelay: 3000,
 			controls: true,
 			autoplay: true,
 			airplay: 'allow',
@@ -35,7 +29,7 @@
 			loader: {
 				//name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
 				//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
-				mode: iomodes.CORS
+				mode: io.modes.CORS
 			},
 			logo: {
 				visible: true
@@ -48,12 +42,12 @@
 				visible: false
 			},
 			render: {
-				name: rendertypes.DEFAULT,
+				name: renderTypes.DEFAULT,
 				//bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
 				swf: 'swf/playease.swf'
 			},
 			skin: {
-				name: skintypes.DEFAULT
+				name: skinTypes.DEFAULT
 			},
 			events: {
 				

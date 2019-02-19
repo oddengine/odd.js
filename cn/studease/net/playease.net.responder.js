@@ -3,7 +3,7 @@
 		events = playease.events,
 		net = playease.net;
 	
-	net.responder = function(result, status) {
+	net.Responder = function(result, status) {
 		var _this = this,
 			_result,
 			_status;

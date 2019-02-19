@@ -5,7 +5,7 @@
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types;
+		renderTypes = renders.types;
 	
 	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
@@ -17,7 +17,7 @@
 			_duration;
 		
 		function _init() {
-			_this.name = rendertypes.FLASH;
+			_this.name = renderTypes.FLASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			

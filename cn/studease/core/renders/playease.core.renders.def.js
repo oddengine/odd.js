@@ -5,7 +5,7 @@
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types;
+		renderTypes = renders.types;
 	
 	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -17,7 +17,7 @@
 			_waiting;
 		
 		function _init() {
-			_this.name = rendertypes.DEFAULT;
+			_this.name = renderTypes.DEFAULT;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			

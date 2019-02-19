@@ -1,7 +1,6 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
-		events = playease.events,
-		renderModes = playease.core.renders.modes;
+		events = playease.events;
 	
 	var embed = playease.embed = function(api) {
 		var _this = utils.extend(this, new events.eventdispatcher('embed')),

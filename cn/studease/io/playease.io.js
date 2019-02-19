@@ -31,7 +31,7 @@
 		JSON:        'json',
 		TEXT:        'text'
 	},
-	io.readystates = {
+	io.readyStates = {
 		UNINITIALIZED: 0,
 		OPEN:          1,
 		SENT:          2,

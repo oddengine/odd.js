@@ -1,22 +1,17 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['fetch-stream-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.fetch-stream-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -27,7 +22,7 @@
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			_abort = undefined;
 		}
 		
@@ -39,7 +34,7 @@
 				return;
 			}
 			
-			_state = readystates.OPEN;
+			_state = io.readyStates.OPEN;
 			
 			if (start || end) {
 				utils.extend(_this.config.headers, {
@@ -63,7 +58,7 @@
 				
 				fetch(_url, options)
 				['then'](function(res) {
-					if (_state == readystates.UNINITIALIZED) {
+					if (_state == io.readyStates.UNINITIALIZED) {
 						return Promise.reject(new Error('Promise rejected.'));
 					}
 					
@@ -101,16 +96,16 @@
 			return reader.read()
 				['then'](function(res) {
 					if (res.done) {
-						_state = readystates.DONE;
+						_state = io.readyStates.DONE;
 						_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 						return Promise.resolve('Loader completed.');
 					}
 					
-					if (_state == readystates.UNINITIALIZED) {
+					if (_state == io.readyStates.UNINITIALIZED) {
 						return reader.cancel();
 					}
 					
-					_state = readystates.LOADING;
+					_state = io.readyStates.LOADING;
 					_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: res.value.buffer });
 					
 					return _pump(reader);
@@ -121,7 +116,7 @@
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_abort) {
 				_abort.apply(null);

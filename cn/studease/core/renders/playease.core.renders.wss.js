@@ -4,17 +4,17 @@
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
-		readystates = io.readystates,
+		readyStates = io.readyStates,
 		net = playease.net,
 		responder = net.responder,
 		status = net.netstatus,
-		netconnection = net.netconnection,
-		netstream = net.netstream,
+		NetConnection = net.NetConnection,
+		NetStream = net.NetStream,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes;
+		renderTypes = renders.types,
+		renderModes = renders.modes;
 	
 	renders.wss = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.wss')),
@@ -25,7 +25,7 @@
 			_range,
 			_contentLength,
 			_application,
-			_streamname,
+			_streamName,
 			_connection,
 			_stream,
 			_metadata,
@@ -38,7 +38,7 @@
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.WSS;
+			_this.name = renderTypes.WSS;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -47,7 +47,7 @@
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			_range = { start: 0, end: _this.config.mode == renderModes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_metadata = {
 				audioCodec: 'mp4a.40.2',
@@ -86,7 +86,7 @@
 		}
 		
 		function _initNetConnection() {
-			_connection = new netconnection();
+			_connection = new NetConnection();
 			_connection.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
 			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _onConnectionError);
 			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _onConnectionError);
@@ -94,7 +94,7 @@
 		}
 		
 		function _initNetStream() {
-			_stream = new netstream(_connection);
+			_stream = new NetStream(_connection);
 			_stream.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
 			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
 			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
@@ -168,7 +168,7 @@
 					var arr = _url.match(re);
 					if (arr && arr.length > 4) {
 						_application = arr[1];
-						_streamname = arr[4];
+						_streamName = arr[4];
 					} else {
 						utils.log('Failed to match wss URL: ' + _url);
 						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Bad URL format!' });
@@ -370,13 +370,13 @@
 		
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
-			utils.log('Playing ' + _streamname + ' ...');
+			utils.log('Playing ' + _streamName + ' ...');
 			
 			// TODO: addSourceBuffer while metadata reached.
 			_this.addSourceBuffer('audio');
 			_this.addSourceBuffer('video');
 			
-			_stream.play(_streamname);
+			_stream.play(_streamName);
 		}
 		
 		function _onUpdateEnd(e) {
@@ -440,7 +440,7 @@
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _stream.state() == readystates.DONE) {
+			if (_this.config.mode == renderModes.VOD && _stream.state() == readyStates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {

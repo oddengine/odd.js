@@ -1,21 +1,18 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		css = utils.css,
+		AMF = utils.AMF,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
-		responseTypes = io.responseTypes,
-		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
-		rtmp = playease.net.rtmp,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes,
+		renderTypes = renders.types,
+		renderModes = renders.modes,
 		
-		AMF = rtmp.AMF,
 		TAG = muxer.flv.TAG,
 		FORMATS = muxer.flv.FORMATS,
 		CODECS = muxer.flv.CODECS;
@@ -33,7 +30,7 @@
 			_loader,
 			_demuxer,
 			_remuxer,
-			_mediainfo,
+			_mediaInfo,
 			_ms,
 			_sb,
 			_segments,
@@ -43,7 +40,7 @@
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.FLV;
+			_this.name = renderTypes.FLV;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -98,7 +95,7 @@
 				}
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && name == io.types.XHR_CHUNKED_LOADER) {
+			if (_this.config.mode == renderModes.VOD && name == io.types.XHR_CHUNKED_LOADER) {
 				_range.start = 0;
 				_range.end = _this.config.bufferLength - 1;
 			}
@@ -119,7 +116,7 @@
 			}
 			
 			try {
-				_loader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
+				_loader = new io[name](utils.extend({}, _this.config.loader, { responseType: io.responseTypes.ARRAYBUFFER }));
 				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
@@ -231,7 +228,7 @@
 			
 			_video.controls = false;
 			
-			if (_this.config.mode == rendermodes.VOD && _mediainfo && _mediainfo.isSeekable()) {
+			if (_this.config.mode == renderModes.VOD && _mediaInfo && _mediaInfo.isSeekable()) {
 				_waiting = true;
 				_segments.audio.splice(0, _segments.audio.length);
 				_segments.video.splice(0, _segments.video.length);
@@ -246,7 +243,7 @@
 					start = ranges.start(i);
 					end = ranges.end(i);
 					if (start <= position && position < end) {
-						var endKeyframe = _mediainfo.getNearestKeyframe(end);
+						var endKeyframe = _mediaInfo.getNearestKeyframe(end);
 						_range.end = endKeyframe.fileposition - 1;
 						return;
 					}
@@ -256,11 +253,11 @@
 					}
 				}
 				
-				var startKeyframe = _mediainfo.getNearestKeyframe(position);
+				var startKeyframe = _mediaInfo.getNearestKeyframe(position);
 				_range.start = startKeyframe.fileposition;
 				_range.end = _range.start + _this.config.bufferLength - 1;
 				if (position < start) {
-					var endKeyframe = _mediainfo.getNearestKeyframe(start);
+					var endKeyframe = _mediaInfo.getNearestKeyframe(start);
 					_range.end = Math.min(_range.end, endKeyframe.fileposition - 1);
 				}
 				
@@ -381,7 +378,7 @@
 		}
 		
 		function _onMediaInfo(e) {
-			_mediainfo = e.info;
+			_mediaInfo = e.info;
 			
 			_this.addSourceBuffer('audio');
 			_this.addSourceBuffer('video');
@@ -451,7 +448,7 @@
 		 * MSE
 		 */
 		_this.addSourceBuffer = function(type) {
-			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
+			var mimetype = type + '/mp4; codecs="' + _mediaInfo[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
 			var issurpported = MediaSource.isTypeSupported(mimetype);
@@ -565,7 +562,7 @@
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
+			if (_this.config.mode == renderModes.VOD && _loader && _loader.state() == io.readyStates.DONE) {
 				var cached = end || 0;
 				if (_segments.video.length) {
 					cached = Math.max(cached, _segments.video[_segments.video.length - 1].info.endDts);
@@ -643,7 +640,7 @@
 		}
 		
 		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser() 
-				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d') || mode == rendermodes.LIVE && !fetch) {
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d') || mode == renderModes.LIVE && !fetch) {
 			return false;
 		}
 		

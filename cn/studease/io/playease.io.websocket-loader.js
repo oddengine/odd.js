@@ -1,22 +1,17 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['websocket-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.websocket-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -27,7 +22,7 @@
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -58,7 +53,7 @@
 		};
 		
 		function _onOpen(e) {
-			_state = readystates.SENT;
+			_state = io.readyStates.SENT;
 		}
 		
 		function _onMessage(e) {
@@ -67,19 +62,19 @@
 		}
 		
 		function _onError(e) {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			// No event dispatching
 			//_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
 		}
 		
 		function _onClose(e) {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.code + (e.reason ? ' - ' + e.reason : '') });
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
 				_websocket.close();

@@ -3,9 +3,9 @@
 		events = playease.events,
 		core = playease.core,
 		states = core.states,
-		rendermodes = core.renders.modes,
+		renderModes = core.renders.modes,
 		skins = core.skins,
-		skintypes = skins.types,
+		skinTypes = skins.types,
 		css = utils.css,
 		
 		WRAP_CLASS = 'pe-wrapper',
@@ -62,7 +62,7 @@
 			_height = config.height;
 		
 		function _init() {
-			_this.name = skintypes.DEFAULT;
+			_this.name = skinTypes.DEFAULT;
 			
 			SKIN_CLASS += '-' + _this.name;
 			
@@ -358,8 +358,8 @@
 			
 			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.play'
 				+ ', .' + SKIN_CLASS + '.' + states.PLAYING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.play'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.reload'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.alt'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.reload'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.alt'
 				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.elapsed'
 				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + DEVIDER_CLASS
 				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.duration', {
@@ -367,11 +367,11 @@
 			});
 			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.pause'
 				+ ', .' + SKIN_CLASS + '.' + states.PLAYING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.pause'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + SLIDER_CLASS + '.time'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.stop'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.elapsed'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + DEVIDER_CLASS
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.duration', {
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + SLIDER_CLASS + '.time'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.stop'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.elapsed'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + DEVIDER_CLASS
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.duration', {
 				display: CSS_BLOCK
 			});
 			

@@ -1,9 +1,7 @@
 ﻿(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp;
+	var utils = playease.utils;
 	
-	var AMF = rtmp.AMF = {};
+	var AMF = utils.AMF = {};
 	var types = AMF.types = {
 		DOUBLE:        0x00,
 		BOOLEAN:       0x01,

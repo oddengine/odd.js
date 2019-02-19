@@ -1,22 +1,17 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['xhr-ms-stream-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-ms-stream-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -28,7 +23,7 @@
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -62,10 +57,10 @@
 			});
 			
 			switch (_this.config.credentials) {
-				case credentials.INCLUDE:
+				case io.credentials.INCLUDE:
 					_xhr.withCredentials = true;
 					break;
-				case credentials.SAME_ORIGIN:
+				case io.credentials.SAME_ORIGIN:
 					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
 					break;
 				default:
@@ -78,7 +73,7 @@
 		function _onXHRReadyStateChange(e) {
 			_state = _xhr.readyState;
 			
-			if (_xhr.readyState == readystates.SENT) {
+			if (_xhr.readyState == io.readyStates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
 					var len = _xhr.getResponseHeader('Content-Length');
 					if (len) {
@@ -99,7 +94,7 @@
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
-			} else if (_xhr.readyState == readystates.LOADING) {
+			} else if (_xhr.readyState == io.readyStates.LOADING) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
 					var mss = _xhr.response;
 					_reader.readAsArrayBuffer(mss);
@@ -136,7 +131,7 @@
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_xhr) {
 				_xhr.abort();

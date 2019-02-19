@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.1.06';
+playease.version = '1.2.00';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -710,6 +710,497 @@ playease.version = '1.1.06';
 		}
 		return name.join('');
 	}
+})(playease);
+
+(function(playease) {
+	var utils = playease.utils;
+	
+	var AMF = utils.AMF = {};
+	var types = AMF.types = {
+		DOUBLE:        0x00,
+		BOOLEAN:       0x01,
+		STRING:        0x02,
+		OBJECT:        0x03,
+		MOVIE_CLIP:    0x04, // Not available in Remoting
+		NULL:          0x05,
+		UNDEFINED:     0x06,
+		REFERENCE:     0x07,
+		ECMA_ARRAY:    0x08,
+		END_OF_OBJECT: 0x09,
+		STRICT_ARRAY:  0x0A,
+		DATE:          0x0B,
+		LONG_STRING:   0x0C,
+		UNSUPPORTED:   0x0D,
+		RECORD_SET:    0x0E, // Remoting, server-to-client only
+		XML:           0x0F,
+		TYPED_OBJECT:  0x10, // Class instance
+		AMF3_DATA:     0x11  // Sent by Flash player 9+
+	};
+	
+	/*AMF.AMFValue = {
+		Type: 0x00,
+		Key: '',
+		Data: null,
+		Hash: {},
+		Offset: 0,
+		Cost: 0,
+		Ended: false
+	};*/
+	
+	AMF.Decode = function(arrayBuffer, dataOffset, dataSize) {
+		var k, v;
+		
+		try {
+			k = AMF.DecodeValue(arrayBuffer, dataOffset, dataSize);
+			v = AMF.DecodeValue(arrayBuffer, dataOffset + k.Cost, dataSize - k.Cost);
+			
+			v.Key = k.Data;
+		} catch(e) {
+			utils.log('AMF.Decode() failed. Error: ' + e);
+		}
+		
+		return v;
+	};
+	
+	AMF.DecodeString = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 2) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.STRING,
+			Data: ''
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint16(pos);
+		pos += 2;
+		
+		if (length > 0) {
+			v.Data = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
+			pos += length;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeObject = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 3) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.OBJECT,
+			Data: [],
+			Hash: {},
+			Ended: false
+		};
+		
+		var pos = 0;
+		
+		while (!v.Ended && pos < dataSize) {
+			var key = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += key.Cost;
+			
+			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += val.Cost;
+			
+			if (val.Type == types.END_OF_OBJECT) {
+				v.Ended = true;
+				break;
+			}
+			
+			val.Key = key.Data;
+			v.Data.push(val);
+			v.Hash[val.Key] = val.Type == types.OBJECT || val.Type == types.ECMA_ARRAY ? val.Hash : val.Data;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeECMAArray = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 4) {
+			return null;
+		}
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		
+		// Don't trust array length field
+		var pos = 4;
+		
+		var v = AMF.DecodeObject(arrayBuffer, dataOffset + pos, dataSize - pos);
+		v.Type = types.ECMA_ARRAY;
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeStrictArray = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 4) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.STRICT_ARRAY,
+			Data: [],
+			Ended: false
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint32(pos);
+		pos += 4;
+		
+		for (var i = 0; i < length; i++) {
+			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
+			pos += val.Cost;
+			
+			if (i == length - 1) {
+				v.Ended = true
+			}
+			
+			v.Data.push(val.Data);
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeDate = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 10) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.DATE,
+			Data: 0,
+			Timestamp: 0,
+			Timeoffset: 0
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		v.Timestamp = view.getFloat64(pos);
+		pos += 8;
+		
+		v.Timeoffset = view.getInt16(pos);
+		pos += 2;
+		
+		v.Data = new Date(v.Timestamp + v.Timeoffset * 60 * 1000);
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeLongString = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 4) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.LONG_STRING,
+			Data: ''
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		var length = view.getUint32(pos);
+		pos += 4;
+		
+		if (length > 0) {
+			v.Data = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
+			pos += length;
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.DecodeValue = function(arrayBuffer, dataOffset, dataSize) {
+		if (dataSize < 1) {
+			return null;
+		}
+		
+		var v = {
+			Type: types.UNSUPPORTED,
+			Key: '',
+			Data: [],
+			Hash: {},
+			Timestamp: 0,
+			Timeoffset: 0,
+			Ended: false
+		};
+		
+		var view = new DataView(arrayBuffer, dataOffset, dataSize);
+		var pos = 0;
+		
+		v.Type = view.getUint8(pos);
+		pos += 1;
+		
+		try {
+			switch (v.Type) {
+				case types.DOUBLE:
+					v.Data = view.getFloat64(pos);
+					pos += 8;
+					break;
+					
+				case types.BOOLEAN:
+					var bool = view.getUint8(pos);
+					v.Data = bool ? true : false;
+					pos += 1;
+					break;
+					
+				case types.STRING:
+					var str = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = str.Data;
+					pos += str.Cost;
+					break;
+					
+				case types.OBJECT:
+					var obj = AMF.DecodeObject(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = obj.Data;
+					v.Hash = obj.Hash;
+					pos += obj.Cost;
+					break;
+					
+				case types.NULL:
+					v.Data = null;
+					break;
+					
+				case types.UNDEFINED:
+					v.Data = undefined;
+					break;
+					
+				case types.ECMA_ARRAY:
+					var arr = AMF.DecodeECMAArray(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = arr.Data;
+					v.Hash = arr.Hash;
+					pos += arr.Cost;
+					break;
+					
+				case types.END_OF_OBJECT:
+					v.Ended = true;
+					break;
+					
+				case types.STRICT_ARRAY:
+					var arr = AMF.DecodeStrictArray(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = arr.Data;
+					v.Hash = arr.Hash;
+					pos += arr.Cost;
+					break;
+					
+				case types.DATE:
+					var date = AMF.DecodeDate(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = date.Data;
+					v.Timestamp = date.Timestamp;
+					v.Timeoffset = date.Timeoffset;
+					pos += date.Cost;
+					break;
+					
+				case types.LONG_STRING:
+					var ls = AMF.DecodeLongString(arrayBuffer, dataOffset + pos, dataSize - pos);
+					v.Data = ls.Data;
+					pos += ls.Cost;
+					break;
+					
+				default:
+					utils.log('Skipping unsupported AMF value type(' + type + ').');
+					pos = dataSize;
+			}
+		} catch(e) {
+			utils.log('AMF.DecodeValue() failed. Error: ' + e);
+		}
+		
+		v.Cost = pos;
+		
+		return v;
+	};
+	
+	AMF.Encoder = function() {
+		var _this = this,
+			_buffer;
+		
+		function _init() {
+			_buffer = new utils.buffer();
+		}
+		
+		_this.AppendBytes = function(array) {
+			_buffer.Write(array);
+		};
+		
+		_this.AppendUint8 = function(n) {
+			_buffer.WriteByte(n);
+		};
+		
+		_this.AppendUint16 = function(n, littleEndian) {
+			_buffer.WriteUint16(n, littleEndian);
+		};
+		
+		_this.AppendUint32 = function(n, littleEndian) {
+			_buffer.WriteUint32(n, littleEndian);
+		};
+		
+		_this.Encode = function() {
+			return _buffer.Bytes();
+		};
+		
+		_this.EncodeNumber = function(n) {
+			_buffer.WriteByte(types.DOUBLE);
+			_buffer.WriteFloat64(n, false);
+		};
+		
+		_this.EncodeBoolean = function(b) {
+			_buffer.WriteByte(types.BOOLEAN);
+			_buffer.WriteByte(b ? 1 : 0);
+		};
+		
+		_this.EncodeString = function(s) {
+			if (!s) {
+				return;
+			}
+			
+			if (s.length >= 0xFFFF) {
+				_encodeLongString(s);
+				return;
+			}
+			
+			var array = crypt.stringToByteArray(s);
+			
+			_buffer.WriteByte(types.STRING);
+			_buffer.WriteUint16(array.length, false);
+			_buffer.Write(array);
+		};
+		
+		_this.EncodeObject = function(o) {
+			_buffer.WriteByte(types.OBJECT);
+			_encodeProperties(o);
+			
+			if (o.ended) {
+				_buffer.WriteUint16(0);
+				_buffer.WriteByte(types.END_OF_OBJECT);
+			}
+		};
+		
+		function _encodeProperties(o) {
+			for (var i = 0; i < o.Data.length; i++) {
+				var v = o.Data[i];
+				if (v.Key) {
+					var array = crypt.stringToByteArray(v.Key);
+					
+					_buffer.WriteUint16(v.Key.length, false);
+					_buffer.Write(array);
+				}
+				
+				_this.EncodeValue(v);
+			}
+		}
+		
+		_this.EncodeNull = function() {
+			_buffer.WriteByte(types.NULL);
+		};
+		
+		_this.EncodeUndefined = function() {
+			_buffer.WriteByte(types.UNDEFINED);
+		};
+		
+		_this.EncodeECMAArray = function(o) {
+			_buffer.WriteByte(types.ECMA_ARRAY);
+			_buffer.WriteUint32(o.Data.length, false);
+			_encodeProperties(o);
+		};
+		
+		_this.EncodeStrictArray = function(o) {
+			_buffer.WriteByte(types.STRICT_ARRAY);
+			_buffer.WriteUint32(o.Data.length, false);
+			_encodeProperties(o);
+		};
+		
+		_this.EncodeDate = function(timestamp, timeoffset) {
+			_buffer.WriteByte(types.DATE);
+			_buffer.WriteFloat64(timestamp, false);
+			_buffer.WriteUint16(timeoffset, false);
+		};
+		
+		function _encodeLongString(s) {
+			if (!s) {
+				return;
+			}
+			
+			var array = crypt.stringToByteArray(s);
+			
+			_buffer.WriteByte(types.LONG_STRING);
+			_buffer.WriteUint32(array.length, false);
+			_buffer.Write(array);
+		}
+		
+		_this.EncodeValue = function(v) {
+			switch (v.Type) {
+				case types.DOUBLE:
+					_this.EncodeNumber(v.Data);
+					break;
+					
+				case types.BOOLEAN:
+					_this.EncodeBoolean(v.Data);
+					break;
+					
+				case types.STRING:
+					_this.EncodeString(v.Data);
+					break;
+					
+				case types.OBJECT:
+					_this.EncodeObject(v);
+					break;
+					
+				case types.NULL:
+					_this.EncodeNull();
+					break;
+					
+				case types.UNDEFINED:
+					_this.EncodeUndefined();
+					break;
+					
+				case types.ECMA_ARRAY:
+					_this.EncodeECMAArray(v);
+					break;
+					
+				case types.STRICT_ARRAY:
+					_this.EncodeStrictArray(v);
+					break;
+					
+				case types.DATE:
+					this.EncodeDate(v.Timtstamp, v.Timeoffset);
+					break;
+					
+				case types.LONG_STRING:
+					_encodeLongString(v.Data);
+					break;
+					
+				default:
+					utils.log('Skipping unsupported AMF value type: ' + v.Type);
+			}
+		};
+		
+		_this.Len = function() {
+			return _buffer.Len();
+		};
+		
+		_this.Reset = function() {
+			_buffer.Reset();
+		};
+		
+		_init();
+	};
 })(playease);
 
 (function(playease) {
@@ -1994,7 +2485,7 @@ playease.version = '1.1.06';
 		JSON:        'json',
 		TEXT:        'text'
 	},
-	io.readystates = {
+	io.readyStates = {
 		UNINITIALIZED: 0,
 		OPEN:          1,
 		SENT:          2,
@@ -2022,22 +2513,17 @@ playease.version = '1.1.06';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['fetch-stream-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.fetch-stream-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -2048,7 +2534,7 @@ playease.version = '1.1.06';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			_abort = undefined;
 		}
 		
@@ -2060,7 +2546,7 @@ playease.version = '1.1.06';
 				return;
 			}
 			
-			_state = readystates.OPEN;
+			_state = io.readyStates.OPEN;
 			
 			if (start || end) {
 				utils.extend(_this.config.headers, {
@@ -2084,7 +2570,7 @@ playease.version = '1.1.06';
 				
 				fetch(_url, options)
 				['then'](function(res) {
-					if (_state == readystates.UNINITIALIZED) {
+					if (_state == io.readyStates.UNINITIALIZED) {
 						return Promise.reject(new Error('Promise rejected.'));
 					}
 					
@@ -2122,16 +2608,16 @@ playease.version = '1.1.06';
 			return reader.read()
 				['then'](function(res) {
 					if (res.done) {
-						_state = readystates.DONE;
+						_state = io.readyStates.DONE;
 						_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 						return Promise.resolve('Loader completed.');
 					}
 					
-					if (_state == readystates.UNINITIALIZED) {
+					if (_state == io.readyStates.UNINITIALIZED) {
 						return reader.cancel();
 					}
 					
-					_state = readystates.LOADING;
+					_state = io.readyStates.LOADING;
 					_this.dispatchEvent(events.PLAYEASE_PROGRESS, { data: res.value.buffer });
 					
 					return _pump(reader);
@@ -2142,7 +2628,7 @@ playease.version = '1.1.06';
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_abort) {
 				_abort.apply(null);
@@ -2173,22 +2659,17 @@ playease.version = '1.1.06';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['xhr-ms-stream-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-ms-stream-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -2200,7 +2681,7 @@ playease.version = '1.1.06';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -2234,10 +2715,10 @@ playease.version = '1.1.06';
 			});
 			
 			switch (_this.config.credentials) {
-				case credentials.INCLUDE:
+				case io.credentials.INCLUDE:
 					_xhr.withCredentials = true;
 					break;
-				case credentials.SAME_ORIGIN:
+				case io.credentials.SAME_ORIGIN:
 					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
 					break;
 				default:
@@ -2250,7 +2731,7 @@ playease.version = '1.1.06';
 		function _onXHRReadyStateChange(e) {
 			_state = _xhr.readyState;
 			
-			if (_xhr.readyState == readystates.SENT) {
+			if (_xhr.readyState == io.readyStates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
 					var len = _xhr.getResponseHeader('Content-Length');
 					if (len) {
@@ -2271,7 +2752,7 @@ playease.version = '1.1.06';
 				} else {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
-			} else if (_xhr.readyState == readystates.LOADING) {
+			} else if (_xhr.readyState == io.readyStates.LOADING) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
 					var mss = _xhr.response;
 					_reader.readAsArrayBuffer(mss);
@@ -2308,7 +2789,7 @@ playease.version = '1.1.06';
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_xhr) {
 				_xhr.abort();
@@ -2339,22 +2820,17 @@ playease.version = '1.1.06';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['xhr-moz-stream-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-moz-stream-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -2365,7 +2841,7 @@ playease.version = '1.1.06';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -2395,10 +2871,10 @@ playease.version = '1.1.06';
 			});
 			
 			switch (_this.config.credentials) {
-				case credentials.INCLUDE:
+				case io.credentials.INCLUDE:
 					_xhr.withCredentials = true;
 					break;
-				case credentials.SAME_ORIGIN:
+				case io.credentials.SAME_ORIGIN:
 					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
 					break;
 				default:
@@ -2411,7 +2887,7 @@ playease.version = '1.1.06';
 		function _onXHRReadyStateChange(e) {
 			_state = _xhr.readyState;
 			
-			if (_xhr.readyState == readystates.SENT) {
+			if (_xhr.readyState == io.readyStates.SENT) {
 				if (_xhr.status >= 200 && _xhr.status <= 299) {
 					var len = _xhr.getResponseHeader('Content-Length');
 					if (len) {
@@ -2449,7 +2925,7 @@ playease.version = '1.1.06';
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_xhr) {
 				_xhr.abort();
@@ -2476,40 +2952,34 @@ playease.version = '1.1.06';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		responseTypes = io.responseTypes,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['xhr-chunked-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW,
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW,
 				chunkSize: 0,
-				responseType: responseTypes.TEXT
+				responseType: io.responseTypes.TEXT
 			},
 			_state,
 			_url,
 			_xhr,
 			_range,
-			_filesize;
+			_fileSize;
 		
 		function _init() {
 			_this.name = io.types.XHR_CHUNKED_LOADER;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			_range = { start: 0, position: 0, last: 0, end: '' };
-			_filesize = Number.MAX_VALUE;
+			_fileSize = Number.MAX_VALUE;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -2529,10 +2999,10 @@ playease.version = '1.1.06';
 			_xhr.onerror = _onXHRError;
 			
 			switch (_this.config.credentials) {
-				case credentials.INCLUDE:
+				case io.credentials.INCLUDE:
 					_xhr.withCredentials = true;
 					break;
-				case credentials.SAME_ORIGIN:
+				case io.credentials.SAME_ORIGIN:
 					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
 					break;
 				default:
@@ -2541,7 +3011,7 @@ playease.version = '1.1.06';
 			
 			if (start || end) {
 				_range.start = _range.position = start;
-				_range.end = Math.min(end, _filesize);
+				_range.end = Math.min(end, _fileSize);
 				
 				if (_range.position - 1 >= _range.end) {
 					return;
@@ -2565,7 +3035,7 @@ playease.version = '1.1.06';
 		function _onXHRReadyStateChange(e) {
 			_state = _xhr.readyState;
 			
-			if (_xhr.readyState == readystates.SENT) {
+			if (_xhr.readyState == io.readyStates.SENT) {
 				if (_xhr.status != 416 && (_xhr.status < 200 || _xhr.status >= 300)) {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
@@ -2580,13 +3050,13 @@ playease.version = '1.1.06';
 			var data, len;
 			
 			switch (_xhr.responseType) {
-				case responseTypes.ARRAYBUFFER:
+				case io.responseTypes.ARRAYBUFFER:
 					var arr = new Uint8Array(_xhr.response);
 					data = arr.buffer;
 					len = data.byteLength;
 					break;
 					
-				case responseTypes.BLOB:
+				case io.responseTypes.BLOB:
 					// TODO: read blob.
 					break;
 					
@@ -2602,8 +3072,8 @@ playease.version = '1.1.06';
 			}
 			
 			if (!_this.config.headers.Range || _xhr.status == 416 || _range.position - 1 < _range.last) {
-				_filesize = _range.position;
-				_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: _filesize });
+				_fileSize = _range.position;
+				_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: _fileSize });
 			}
 			
 			if (!_this.config.headers.Range || _xhr.status == 416 || _range.position - 1 < _range.last || _range.position - 1 >= _range.end) {
@@ -2631,7 +3101,7 @@ playease.version = '1.1.06';
 		}
 		
 		_this.abort = function() {
-			_state = readystates.DONE;
+			_state = io.readyStates.DONE;
 			
 			if (_xhr) {
 				_xhr.abort();
@@ -2658,22 +3128,17 @@ playease.version = '1.1.06';
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['websocket-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.websocket-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW
 			},
 			_state,
 			_url,
@@ -2684,7 +3149,7 @@ playease.version = '1.1.06';
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -2715,7 +3180,7 @@ playease.version = '1.1.06';
 		};
 		
 		function _onOpen(e) {
-			_state = readystates.SENT;
+			_state = io.readyStates.SENT;
 		}
 		
 		function _onMessage(e) {
@@ -2724,19 +3189,19 @@ playease.version = '1.1.06';
 		}
 		
 		function _onError(e) {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			// No event dispatching
 			//_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
 		}
 		
 		function _onClose(e) {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.code + (e.reason ? ' - ' + e.reason : '') });
 		}
 		
 		_this.abort = function() {
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			
 			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
 				_websocket.close();
@@ -3343,11 +3808,11 @@ playease.version = '1.1.06';
 			_hasAudio,
 			_hasVideo,
 			_header,
-			_tagsize,
+			_tagSize,
 			_hv,
 			_sv,
 			_lacking,
-			_cachedchunks,
+			_cachedChunks,
 			
 			_mediainfo,
 			_metadata,
@@ -3369,12 +3834,12 @@ playease.version = '1.1.06';
 			_header.position = 0;
 			_hv = new Uint8Array(_header);
 			
-			_tagsize = new ArrayBuffer(4);
-			_tagsize.position = 0;
-			_sv = new Uint8Array(_tagsize);
+			_tagSize = new ArrayBuffer(4);
+			_tagSize.position = 0;
+			_sv = new Uint8Array(_tagSize);
 			
 			_lacking = 0;
-			_cachedchunks = [];
+			_cachedChunks = [];
 			
 			_mediainfo = new mediainfo();
 			
@@ -3399,7 +3864,7 @@ playease.version = '1.1.06';
 			_state = seeking ? states.HEADER : states.START;
 			
 			_header.position = 0;
-			_cachedchunks = [];
+			_cachedChunks = [];
 			
 			_mediainfo = new mediainfo();
 			
@@ -3486,19 +3951,19 @@ playease.version = '1.1.06';
 						pos += actual;
 						
 						if (_lacking) {
-							_cachedchunks.push(data);
+							_cachedChunks.push(data);
 							break;
 						}
 						
-						if (_cachedchunks.length) {
-							data = _cachedchunks[0];
+						if (_cachedChunks.length) {
+							data = _cachedChunks[0];
 							
 							var buf = new Uint8Array(datasize);
 							buf.position = 0;
 							
 							var subarr;
-							while (_cachedchunks.length) {
-								var chk = _cachedchunks.shift();
+							while (_cachedChunks.length) {
+								var chk = _cachedChunks.shift();
 								subarr = new Uint8Array(chk.data.slice(chk.offset));
 								buf.set(subarr, buf.position);
 								buf.position += chk.data.byteLength - chk.offset;
@@ -3511,13 +3976,13 @@ playease.version = '1.1.06';
 						}
 						
 						_state = states.SIZE;
-						_tagsize.position = 0;
+						_tagSize.position = 0;
 						
 						_this.dispatchEvent(events.PLAYEASE_FLV_TAG, data);
 						break;
 					case states.SIZE:
-						_sv[_tagsize.position++] = dv[pos++];
-						if (_tagsize.position == 4) {
+						_sv[_tagSize.position++] = dv[pos++];
+						if (_tagSize.position == 4) {
 							var datasize = _hv[1] << 16 | _hv[2] << 8 | _hv[3];
 							var prevTagSize = utils.getUint32(_sv);
 							if (prevTagSize != 11 + datasize) {
@@ -5117,7 +5582,7 @@ playease.version = '1.1.06';
 		events = playease.events,
 		net = playease.net;
 	
-	net.responder = function(result, status) {
+	net.Responder = function(result, status) {
 		var _this = this,
 			_result,
 			_status;
@@ -5134,7 +5599,9 @@ playease.version = '1.1.06';
 (function(playease) {
 	var net = playease.net;
 	
-	net.netstatus = {
+	net.NetStatus = {};
+	
+	net.NetStatus.Code = {
 		NETCONNECTION_CALL_FAILED: 'NetConnection.Call.Failed',
 		NETCONNECTION_CONNECT_APPSHUTDOWN: 'NetConnection.Connect.AppShutdown',
 		NETCONNECTION_CONNECT_CLOSED: 'NetConnection.Connect.Closed',
@@ -5180,7 +5647,7 @@ playease.version = '1.1.06';
 		crypt = utils.crypt,
 		events = playease.events,
 		net = playease.net,
-		status = net.netstatus,
+		Code = net.NetStatus.Code,
 		
 		packages = {
 			AUDIO:  0x08,
@@ -5201,8 +5668,8 @@ playease.version = '1.1.06';
 			ON_META_DATA: 0x000009
 		};
 	
-	net.netconnection = function() {
-		var _this = utils.extend(this, new events.eventdispatcher('net.netconnection')),
+	net.NetConnection = function() {
+		var _this = utils.extend(this, new events.eventdispatcher('net.NetConnection')),
 			_websocket,
 			_connected,
 			_url,
@@ -5294,7 +5761,7 @@ playease.version = '1.1.06';
 		
 		function _onOpen(e) {
 			_connected = true;
-			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: status.NETCONNECTION_CONNECT_SUCCESS } });
+			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: Code.NETCONNECTION_CONNECT_SUCCESS } });
 		}
 		
 		function _onMessage(e) {
@@ -5367,7 +5834,7 @@ playease.version = '1.1.06';
 		
 		function _onClose(e) {
 			_connected = false;
-			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: status.NETCONNECTION_CONNECT_CLOSED } });
+			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: Code.NETCONNECTION_CONNECT_CLOSED } });
 		}
 		
 		_this.close = function() {
@@ -5395,24 +5862,21 @@ playease.version = '1.1.06';
 		_init();
 	};
 	
-	net.netconnection.packages = packages;
-	net.netconnection.commands = commands;
+	net.NetConnection.packages = packages;
+	net.NetConnection.commands = commands;
 })(playease);
 
 (function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
 		io = playease.io,
-		readystates = io.readystates,
 		net = playease.net,
-		status = net.netstatus,
-		netconnection = net.netconnection,
-		
-		packages = netconnection.packages,
-		commands = netconnection.commands;
+		NetConnection = net.NetConnection,
+		packages = NetConnection.packages,
+		commands = NetConnection.commands;
 	
-	net.netstream = function(connection, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('net.netstream')),
+	net.NetStream = function(connection, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('net.NetStream')),
 			_defaults = {
 				bufferTime: .1
 			},
@@ -5433,7 +5897,7 @@ playease.version = '1.1.06';
 			_bytesTotal = 0;
 			
 			_info = {
-				state: readystates.UNINITIALIZED
+				state: io.readyStates.UNINITIALIZED
 			};
 		}
 		
@@ -5567,2596 +6031,6 @@ playease.version = '1.1.06';
 })(playease);
 
 (function(playease) {
-	var net = playease.net,
-		rtmp = net.rtmp = {};
-	
-	rtmp.ObjectEncoding = {
-		AMF0: 0,
-		AMF3: 3
-	},
-	rtmp.URLRe = /^(ws[s]?\:\/\/[a-z0-9\.\-]+\:?[0-9]*(\/[a-z0-9\.\-_]+){1,2})\/([a-z0-9\.\-_]+)\??([a-z0-9\-_%&=]*)$/i;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp;
-	
-	var AMF = rtmp.AMF = {};
-	var types = AMF.types = {
-		DOUBLE:        0x00,
-		BOOLEAN:       0x01,
-		STRING:        0x02,
-		OBJECT:        0x03,
-		MOVIE_CLIP:    0x04, // Not available in Remoting
-		NULL:          0x05,
-		UNDEFINED:     0x06,
-		REFERENCE:     0x07,
-		ECMA_ARRAY:    0x08,
-		END_OF_OBJECT: 0x09,
-		STRICT_ARRAY:  0x0A,
-		DATE:          0x0B,
-		LONG_STRING:   0x0C,
-		UNSUPPORTED:   0x0D,
-		RECORD_SET:    0x0E, // Remoting, server-to-client only
-		XML:           0x0F,
-		TYPED_OBJECT:  0x10, // Class instance
-		AMF3_DATA:     0x11  // Sent by Flash player 9+
-	};
-	
-	/*AMF.AMFValue = {
-		Type: 0x00,
-		Key: '',
-		Data: null,
-		Hash: {},
-		Offset: 0,
-		Cost: 0,
-		Ended: false
-	};*/
-	
-	AMF.Decode = function(arrayBuffer, dataOffset, dataSize) {
-		var k, v;
-		
-		try {
-			k = AMF.DecodeValue(arrayBuffer, dataOffset, dataSize);
-			v = AMF.DecodeValue(arrayBuffer, dataOffset + k.Cost, dataSize - k.Cost);
-			
-			v.Key = k.Data;
-		} catch(e) {
-			utils.log('AMF.Decode() failed. Error: ' + e);
-		}
-		
-		return v;
-	};
-	
-	AMF.DecodeString = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 2) {
-			return null;
-		}
-		
-		var v = {
-			Type: types.STRING,
-			Data: ''
-		};
-		
-		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		var pos = 0;
-		
-		var length = view.getUint16(pos);
-		pos += 2;
-		
-		if (length > 0) {
-			v.Data = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
-			pos += length;
-		}
-		
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.DecodeObject = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 3) {
-			return null;
-		}
-		
-		var v = {
-			Type: types.OBJECT,
-			Data: [],
-			Hash: {},
-			Ended: false
-		};
-		
-		var pos = 0;
-		
-		while (!v.Ended && pos < dataSize) {
-			var key = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += key.Cost;
-			
-			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += val.Cost;
-			
-			if (val.Type == types.END_OF_OBJECT) {
-				v.Ended = true;
-				break;
-			}
-			
-			val.Key = key.Data;
-			v.Data.push(val);
-			v.Hash[val.Key] = val.Type == types.OBJECT || val.Type == types.ECMA_ARRAY ? val.Hash : val.Data;
-		}
-		
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.DecodeECMAArray = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 4) {
-			return null;
-		}
-		
-		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		
-		// Don't trust array length field
-		var pos = 4;
-		
-		var v = AMF.DecodeObject(arrayBuffer, dataOffset + pos, dataSize - pos);
-		v.Type = types.ECMA_ARRAY;
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.DecodeStrictArray = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 4) {
-			return null;
-		}
-		
-		var v = {
-			Type: types.STRICT_ARRAY,
-			Data: [],
-			Ended: false
-		};
-		
-		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		var pos = 0;
-		
-		var length = view.getUint32(pos);
-		pos += 4;
-		
-		for (var i = 0; i < length; i++) {
-			var val = AMF.DecodeValue(arrayBuffer, dataOffset + pos, dataSize - pos);
-			pos += val.Cost;
-			
-			if (i == length - 1) {
-				v.Ended = true
-			}
-			
-			v.Data.push(val.Data);
-		}
-		
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.DecodeDate = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 10) {
-			return null;
-		}
-		
-		var v = {
-			Type: types.DATE,
-			Data: 0,
-			Timestamp: 0,
-			Timeoffset: 0
-		};
-		
-		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		var pos = 0;
-		
-		v.Timestamp = view.getFloat64(pos);
-		pos += 8;
-		
-		v.Timeoffset = view.getInt16(pos);
-		pos += 2;
-		
-		v.Data = new Date(v.Timestamp + v.Timeoffset * 60 * 1000);
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.DecodeLongString = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 4) {
-			return null;
-		}
-		
-		var v = {
-			Type: types.LONG_STRING,
-			Data: ''
-		};
-		
-		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		var pos = 0;
-		
-		var length = view.getUint32(pos);
-		pos += 4;
-		
-		if (length > 0) {
-			v.Data = String.fromCharCode.apply(String, new Uint8Array(arrayBuffer, dataOffset + pos, length));
-			pos += length;
-		}
-		
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.DecodeValue = function(arrayBuffer, dataOffset, dataSize) {
-		if (dataSize < 1) {
-			return null;
-		}
-		
-		var v = {
-			Type: types.UNSUPPORTED,
-			Key: '',
-			Data: [],
-			Hash: {},
-			Timestamp: 0,
-			Timeoffset: 0,
-			Ended: false
-		};
-		
-		var view = new DataView(arrayBuffer, dataOffset, dataSize);
-		var pos = 0;
-		
-		v.Type = view.getUint8(pos);
-		pos += 1;
-		
-		try {
-			switch (v.Type) {
-				case types.DOUBLE:
-					v.Data = view.getFloat64(pos);
-					pos += 8;
-					break;
-					
-				case types.BOOLEAN:
-					var bool = view.getUint8(pos);
-					v.Data = bool ? true : false;
-					pos += 1;
-					break;
-					
-				case types.STRING:
-					var str = AMF.DecodeString(arrayBuffer, dataOffset + pos, dataSize - pos);
-					v.Data = str.Data;
-					pos += str.Cost;
-					break;
-					
-				case types.OBJECT:
-					var obj = AMF.DecodeObject(arrayBuffer, dataOffset + pos, dataSize - pos);
-					v.Data = obj.Data;
-					v.Hash = obj.Hash;
-					pos += obj.Cost;
-					break;
-					
-				case types.NULL:
-					v.Data = null;
-					break;
-					
-				case types.UNDEFINED:
-					v.Data = undefined;
-					break;
-					
-				case types.ECMA_ARRAY:
-					var arr = AMF.DecodeECMAArray(arrayBuffer, dataOffset + pos, dataSize - pos);
-					v.Data = arr.Data;
-					v.Hash = arr.Hash;
-					pos += arr.Cost;
-					break;
-					
-				case types.END_OF_OBJECT:
-					v.Ended = true;
-					break;
-					
-				case types.STRICT_ARRAY:
-					var arr = AMF.DecodeStrictArray(arrayBuffer, dataOffset + pos, dataSize - pos);
-					v.Data = arr.Data;
-					v.Hash = arr.Hash;
-					pos += arr.Cost;
-					break;
-					
-				case types.DATE:
-					var date = AMF.DecodeDate(arrayBuffer, dataOffset + pos, dataSize - pos);
-					v.Data = date.Data;
-					v.Timestamp = date.Timestamp;
-					v.Timeoffset = date.Timeoffset;
-					pos += date.Cost;
-					break;
-					
-				case types.LONG_STRING:
-					var ls = AMF.DecodeLongString(arrayBuffer, dataOffset + pos, dataSize - pos);
-					v.Data = ls.Data;
-					pos += ls.Cost;
-					break;
-					
-				default:
-					utils.log('Skipping unsupported AMF value type(' + type + ').');
-					pos = dataSize;
-			}
-		} catch(e) {
-			utils.log('AMF.DecodeValue() failed. Error: ' + e);
-		}
-		
-		v.Cost = pos;
-		
-		return v;
-	};
-	
-	AMF.Encoder = function() {
-		var _this = this,
-			_buffer;
-		
-		function _init() {
-			_buffer = new utils.buffer();
-		}
-		
-		_this.AppendBytes = function(array) {
-			_buffer.Write(array);
-		};
-		
-		_this.AppendUint8 = function(n) {
-			_buffer.WriteByte(n);
-		};
-		
-		_this.AppendUint16 = function(n, littleEndian) {
-			_buffer.WriteUint16(n, littleEndian);
-		};
-		
-		_this.AppendUint32 = function(n, littleEndian) {
-			_buffer.WriteUint32(n, littleEndian);
-		};
-		
-		_this.Encode = function() {
-			return _buffer.Bytes();
-		};
-		
-		_this.EncodeNumber = function(n) {
-			_buffer.WriteByte(types.DOUBLE);
-			_buffer.WriteFloat64(n, false);
-		};
-		
-		_this.EncodeBoolean = function(b) {
-			_buffer.WriteByte(types.BOOLEAN);
-			_buffer.WriteByte(b ? 1 : 0);
-		};
-		
-		_this.EncodeString = function(s) {
-			if (!s) {
-				return;
-			}
-			
-			if (s.length >= 0xFFFF) {
-				_encodeLongString(s);
-				return;
-			}
-			
-			var array = crypt.stringToByteArray(s);
-			
-			_buffer.WriteByte(types.STRING);
-			_buffer.WriteUint16(array.length, false);
-			_buffer.Write(array);
-		};
-		
-		_this.EncodeObject = function(o) {
-			_buffer.WriteByte(types.OBJECT);
-			_encodeProperties(o);
-			
-			if (o.ended) {
-				_buffer.WriteUint16(0);
-				_buffer.WriteByte(types.END_OF_OBJECT);
-			}
-		};
-		
-		function _encodeProperties(o) {
-			for (var i = 0; i < o.Data.length; i++) {
-				var v = o.Data[i];
-				if (v.Key) {
-					var array = crypt.stringToByteArray(v.Key);
-					
-					_buffer.WriteUint16(v.Key.length, false);
-					_buffer.Write(array);
-				}
-				
-				_this.EncodeValue(v);
-			}
-		}
-		
-		_this.EncodeNull = function() {
-			_buffer.WriteByte(types.NULL);
-		};
-		
-		_this.EncodeUndefined = function() {
-			_buffer.WriteByte(types.UNDEFINED);
-		};
-		
-		_this.EncodeECMAArray = function(o) {
-			_buffer.WriteByte(types.ECMA_ARRAY);
-			_buffer.WriteUint32(o.Data.length, false);
-			_encodeProperties(o);
-		};
-		
-		_this.EncodeStrictArray = function(o) {
-			_buffer.WriteByte(types.STRICT_ARRAY);
-			_buffer.WriteUint32(o.Data.length, false);
-			_encodeProperties(o);
-		};
-		
-		_this.EncodeDate = function(timestamp, timeoffset) {
-			_buffer.WriteByte(types.DATE);
-			_buffer.WriteFloat64(timestamp, false);
-			_buffer.WriteUint16(timeoffset, false);
-		};
-		
-		function _encodeLongString(s) {
-			if (!s) {
-				return;
-			}
-			
-			var array = crypt.stringToByteArray(s);
-			
-			_buffer.WriteByte(types.LONG_STRING);
-			_buffer.WriteUint32(array.length, false);
-			_buffer.Write(array);
-		}
-		
-		_this.EncodeValue = function(v) {
-			switch (v.Type) {
-				case types.DOUBLE:
-					_this.EncodeNumber(v.Data);
-					break;
-					
-				case types.BOOLEAN:
-					_this.EncodeBoolean(v.Data);
-					break;
-					
-				case types.STRING:
-					_this.EncodeString(v.Data);
-					break;
-					
-				case types.OBJECT:
-					_this.EncodeObject(v);
-					break;
-					
-				case types.NULL:
-					_this.EncodeNull();
-					break;
-					
-				case types.UNDEFINED:
-					_this.EncodeUndefined();
-					break;
-					
-				case types.ECMA_ARRAY:
-					_this.EncodeECMAArray(v);
-					break;
-					
-				case types.STRICT_ARRAY:
-					_this.EncodeStrictArray(v);
-					break;
-					
-				case types.DATE:
-					this.EncodeDate(v.Timtstamp, v.Timeoffset);
-					break;
-					
-				case types.LONG_STRING:
-					_encodeLongString(v.Data);
-					break;
-					
-				default:
-					utils.log('Skipping unsupported AMF value type: ' + v.Type);
-			}
-		};
-		
-		_this.Len = function() {
-			return _buffer.Len();
-		};
-		
-		_this.Reset = function() {
-			_buffer.Reset();
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		crypt = utils.crypt,
-		events = playease.events,
-		net = playease.net,
-		rtmp = net.rtmp,
-		
-		PACKET_SIZE = 1536,
-		states = {
-			C0:       0x01,
-			C1:       0x02,
-			S0:       0x04,
-			S1:       0x08,
-			S2:       0x10,
-			C2:       0x20,
-			COMPLETE: 0x3F
-		};
-	
-	rtmp.handshaker = function(websocket) {
-		var _this = utils.extend(this, new events.eventdispatcher('rtmp.handshaker')),
-			_websocket,
-			_complex,
-			_state,
-			_c1,
-			_s1;
-		
-		function _init() {
-			_websocket = websocket;
-			_websocket.onmessage = _onMessage;
-			_websocket.onerror = _onError;
-			_websocket.onclose = _onClose;
-			
-			_state = 0x00;
-		}
-		
-		_this.shake = function(complex) {
-			_complex = complex;
-			
-			_this.dispatchEvent(events.PLAYEASE_COMPLETE);
-			return;
-			
-			if (_complex == false) {
-				_simpleHandshake();
-			} else {
-				_complexHandshake();
-			}
-		};
-		
-		function _simpleHandshake() {
-			var ab = new Uint8Array(1 + PACKET_SIZE);
-			var dv = new DataView(ab.buffer);
-			dv.setUint8(0, 0x03);
-			dv.setUint32(1, 0);
-			dv.setUint32(5, 0);
-			
-			for (var i = 9; i <= PACKET_SIZE; i++) {
-				dv.setUint8(i, Math.random() * 256);
-			}
-			
-			_state |= states.C0 | states.C1;
-			_c1 = new Uint8Array(ab.buffer, 1);
-			
-			_websocket.send(ab.buffer);
-		}
-		
-		function _complexHandshake() {
-			
-		}
-		
-		function _onMessage(e) {
-			var pos = 0;
-			
-			if ((_states & states.S0) == 0) {
-				var s0 = new Uint8Array(e.data, pos, 1);
-				if (s0[0] != 0x03) {
-					_this.dispatchEvent(events.ERROR, { message: 'Invalid handshake version: ' + s0[0] });
-					return;
-				}
-				
-				_states |= states.S0;
-				pos += 1;
-			}
-			
-			if ((_states & states.S1) == 0) {
-				_s1 = new Uint8Array(e.data, pos, PACKET_SIZE);
-				
-				_states |= states.S1 | states.C2;
-				pos += PACKET_SIZE;
-				
-				_websocket.send(_s1.buffer);
-			}
-			
-			if ((_states & states.S2) == 0) {
-				var s2 = new Uint8Array(e.data, pos, PACKET_SIZE);
-				
-				_states |= states.S2;
-				pos += PACKET_SIZE;
-				
-				for (var i = 0; i < PACKET_SIZE; i++) {
-					if (_c1[i] != _s2[i]) {
-						_this.dispatchEvent(events.ERROR, { message: 'Packet C1 & S2 not match.' });
-						return;
-					}
-				}
-				
-				_this.dispatchEvent(events.PLAYEASE_COMPLETE);
-			}
-		}
-		
-		function _onError(e) {
-			_this.dispatchEvent(events.ERROR, { message: 'Connection error occurred!' });
-		}
-		
-		function _onClose(e) {
-			_this.dispatchEvent(events.ERROR, { message: 'Connection closed!' });
-		}
-		
-		_this.getState = function() {
-			return _state;
-		};
-		
-		_init();
-	};
-	
-	rtmp.handshaker.states = states;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		
-		CSIDs = {
-			PROTOCOL_CONTROL: 0x02,
-			COMMAND:          0x03,
-			COMMAND_2:        0x04,
-			STREAM:           0x05,
-			VIDEO:            0x06,
-			AUDIO:            0x07,
-			AV:               0x08
-		},
-		States = {
-			START:                0x00,
-			FMT:                  0x01,
-			CSID_0:               0x02,
-			CSID_1:               0x03,
-			TIMESTAMP_0:          0x04,
-			TIMESTAMP_1:          0x05,
-			TIMESTAMP_2:          0x06,
-			MESSAGE_LENGTH_0:     0x07,
-			MESSAGE_LENGTH_1:     0x08,
-			MESSAGE_LENGTH_2:     0x09,
-			MESSAGE_TYPE_ID:      0x0A,
-			MESSAGE_STREAM_ID_0:  0x0B,
-			MESSAGE_STREAM_ID_1:  0x0C,
-			MESSAGE_STREAM_ID_2:  0x0D,
-			MESSAGE_STREAM_ID_3:  0x0E,
-			EXTENDED_TIMESTAMP_0: 0x0F,
-			EXTENDED_TIMESTAMP_1: 0x10,
-			EXTENDED_TIMESTAMP_2: 0x11,
-			EXTENDED_TIMESTAMP_3: 0x12,
-			DATA:                 0x13,
-			COMPLETE:             0x14
-		};
-	
-	header = function() {
-		var _this = this;
-		
-		function _init() {
-			_this.Fmt = 0;             // 2 bits
-			_this.CSID = 0;            // 6 | 14 | 22 bits
-			_this.Timestamp = 0;       // 3 bytes
-			_this.MessageLength = 0;   // 3 bytes
-			_this.MessageTypeID = 0;   // 1 byte
-			_this.MessageStreamID = 0; // 4 bytes
-		}
-		
-		_init();
-	};
-	
-	rtmp.chunk = function() {
-		var _this = utils.extend(this, new header());
-		
-		function _init() {
-			_this.Data = new utils.buffer();
-			
-			_this.CurrentFmt = 0;
-			_this.Polluted = false;
-			_this.Extended = false;
-			_this.Loaded = 0;
-			_this.State = States.START;
-		}
-		
-		_init();
-	};
-	
-	rtmp.chunk.CSIDs = CSIDs;
-	rtmp.chunk.States = States;
-	rtmp.chunk.header = header;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		
-		Types = {
-			SET_CHUNK_SIZE:     0x01,
-			ABORT:              0x02,
-			ACK:                0x03,
-			USER_CONTROL:       0x04,
-			ACK_WINDOW_SIZE:    0x05,
-			BANDWIDTH:          0x06,
-			EDGE:               0x07,
-			AUDIO:              0x08,
-			VIDEO:              0x09,
-			AMF3_DATA:          0x0F,
-			AMF3_SHARED_OBJECT: 0x10,
-			AMF3_COMMAND:       0x11,
-			DATA:               0x12,
-			SHARED_OBJECT:      0x13,
-			COMMAND:            0x14,
-			AGGREGATE:          0x16
-		};
-	
-	header = function() {
-		var _this = this;
-		
-		function _init() {
-			_this.Fmt = 0;       // 2 bits
-			_this.CSID = 0;      // 6 | 14 | 22 bits
-			_this.Type = 0;      // 1 bytes
-			_this.Length = 0;    // 3 bytes
-			_this.Timestamp = 0; // 4 byte
-			_this.StreamID = 0;  // 3 bytes
-		}
-		
-		_init();
-	};
-	
-	rtmp.message = function() {
-		var _this = utils.extend(this, new header());
-		
-		function _init() {
-			_this.Payload = null;
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			if (size < 11) {
-				throw 'data (size=' + size + ') not enough'
-			}
-			
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			_this.Type = b[cost];
-			cost += 1;
-			
-			_this.Length = b[cost]<<16 | b[cost+1]<<8 | b[cost+2];
-			cost += 3;
-			
-			_this.Timestamp = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
-			cost += 4;
-			
-			_this.StreamID = b[cost]<<16 | b[cost+1]<<8 | b[cost+2];
-			cost += 3;
-			
-			if (size-cost < _this.Length) {
-				throw 'data (size=' + (size-cost) + ') not enough';
-			}
-			
-			_this.Payload = new Uint8Array(ab, offset+cost, _this.Length);
-		};
-		
-		_init();
-	};
-	
-	rtmp.message.Types = Types;
-	rtmp.message.header = header;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types;
-	
-	AggregateBody = function() {
-		var _this = this;
-		
-		function _init() {
-			_this.Message = null;
-			_this.Size = 0;
-		}
-		
-		_init();
-	};
-	
-	rtmp.aggregatemessage = function() {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			_this.Type = Types.AGGREGATE;
-			
-			_this.Body = [];
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			var m = new rtmp.message();
-			m.Parse(b, offset, size);
-			
-			_this.Length = m.Length;
-			_this.Timestamp = m.Timestamp;
-			_this.StreamID = m.StreamID;
-			
-			var body;
-			for (var i = 0; i < m.Length; i += body.Size) {
-				body = new AggregateBody();
-				body.Parse(m.Payload, i, m.Length);
-				
-				_this.Body.push(body);
-			}
-		};
-		
-		_init();
-	};
-	
-	rtmp.aggregatemessage.Body = AggregateBody;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types;
-	
-	rtmp.audiomessage = function() {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			_this.Type = Types.AUDIO;
-			
-			_this.Format = 0;     // 1111 0000
-			_this.SampleRate = 0; // 0000 1100
-			_this.SampleSize = 0; // 0000 0010
-			_this.Channels = 0;   // 0000 0001
-			_this.DataType = 0;
-			_this.Payload = null;
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			_this.Length = size;
-			
-			var tmp = b[cost];
-			_this.Format = (tmp >> 4) & 0x0F;
-			_this.SampleRate = (tmp >> 2) & 0x03;
-			_this.SampleSize = (tmp >> 1) & 0x01;
-			_this.Channels = tmp & 0x01;
-			cost++;
-			
-			_this.DataType = b[cost];
-			_this.Payload = b;
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types,
-		
-		LimitTypes = {
-			HARD:    0x00,
-			SOFT:    0x01,
-			DYNAMIC: 0x02
-		};
-	
-	rtmp.bandwidthmessage = function() {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			_this.Type = Types.BANDWIDTH;
-			
-			_this.AckWindowSize = 0; // 4 byte
-			_this.LimitType = 0;     // 1 bytes
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			_this.AckWindowSize = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
-			cost += 4;
-			
-			_this.LimitType = b[offset+cost];
-			cost += 1;
-		};
-		
-		_init();
-	};
-	
-	rtmp.bandwidthmessage.LimitTypes = LimitTypes;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		AMF = playease.muxer.AMF,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types;
-		
-		Commands = {
-			CONNECT:       'connect',
-			CLOSE:         'close',
-			CREATE_STREAM: 'createStream',
-			RESULT:        '_result',
-			ERROR:         '_error',
-			
-			PLAY:          'play',
-			PLAY2:         'play2',
-			DELETE_STREAM: 'deleteStream',
-			CLOSE_STREAM:  'closeStream',
-			RECEIVE_AUDIO: 'receiveAudio',
-			RECEIVE_VIDEO: 'receiveVideo',
-			PUBLISH:       'publish',
-			SEEK:          'seek',
-			PAUSE:         'pause',
-			ON_STATUS:     'onStatus',
-			
-			CHECK_BANDWIDTH: 'checkBandwidth',
-			GET_STATS:       'getStats'
-		};
-	
-	rtmp.commandmessage = function(encoding) {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			if (encoding == rtmp.ObjectEncoding.AMF0) {
-				_this.Type = Types.COMMAND;
-			} else {
-				_this.Type = Types.AMF3_COMMAND;
-			}
-			
-			_this.Name = '';
-			_this.TransactionID = 0;
-			
-			_this.CommandObject = null;
-			_this.Arguments = null;
-			_this.Response = null;
-			_this.StreamID = 0;
-			_this.StreamName = '';
-			_this.Start = 0;
-			_this.Duration = 0;
-			_this.Reset = true;
-			_this.Flag = false;
-			_this.PublishingName = '';
-			_this.PublishingType = '';
-			_this.MilliSeconds = 0;
-			_this.Pause = true;
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var cost = 0;
-			
-			var v = AMF.DecodeValue(ab, offset+cost, size-cost);
-			cost += v.Cost;
-			_this.Name = v.Data;
-			
-			v = AMF.DecodeValue(ab, offset+cost, size-cost);
-			cost += v.Cost;
-			_this.TransactionID = v.Data;
-			
-			switch (_this.Name) {
-			// NetConnection Commands
-			case Commands.CONNECT:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = v;
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				if (v) {
-					cost += v.Cost;
-					_this.Arguments = v;
-				}
-				break;
-				
-			case Commands.CLOSE:
-				utils.log('Parsing command ' + this.Name);
-				break;
-				
-			case Commands.CREATE_STREAM:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = v;
-				break;
-				
-			case Commands.RESULT:
-			case Commands.ERROR:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = v;
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.Response = v;
-				break;
-				
-			// NetStream Commands
-			case Commands.PLAY:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.StreamName = v.Data;
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				if (v == null) {
-					_this.Start = -2;
-				} else {
-					cost += v.Cost;
-					_this.Start = v.Data;
-				}
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				if (v == null) {
-					_this.Duration = -1;
-				} else {
-					cost += v.Cost;
-					_this.Duration = v.Data;
-				}
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				if (v == null) {
-					_this.Reset = true;
-				} else {
-					cost += v.Cost;
-					_this.Reset = v.Data;
-				}
-				break;
-				
-			case Commands.PLAY2:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.Arguments = v;
-				break;
-				
-			case Commands.DELETE_STREAM:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.StreamID = v.Data;
-				break;
-				
-			case Commands.CLOSE_STREAM:
-				utils.log('Parsing command ' + _this.Name);
-				break;
-				
-			case Commands.RECEIVE_AUDIO:
-			case Commands.RECEIVE_VIDEO:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.Flag = v.Data;
-				break;
-				
-			case Commands.PUBLISH:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.PublishingName = v.Data;
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.PublishingType = v.Data;
-				break;
-				
-			case Commands.SEEK:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.MilliSeconds = v.Data;
-				break;
-				
-			case Commands.PAUSE:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.Pause = v.Data;
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.MilliSeconds = v.Data;
-				break;
-				
-			case Commands.ON_STATUS:
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.CommandObject = null; // v.Type == Types.NULL
-				
-				v = AMF.DecodeValue(ab, offset+cost, size-cost);
-				cost += v.Cost;
-				_this.Response = v;
-				break;
-				
-			default:
-			}
-		};
-		
-		_init();
-	};
-	
-	rtmp.commandmessage.Commands = Commands;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types;
-	
-	rtmp.datamessage = function(encoding) {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			if (encoding == rtmp.ObjectEncoding.AMF0) {
-				_this.Type = Types.DATA
-			} else {
-				_this.Type = Types.AMF3_DATA
-			}
-			
-			_this.Handler = '';
-			_this.Key = '';
-			_this.Data = null;
-			_this.Payload = null;
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			v = AMF.DecodeValue(b, cost, size-cost);
-			cost += v.Cost;
-			_this.Handler = v.Data;
-			
-			v = AMF.DecodeValue(b, cost, size-cost);
-			cost += v.Cost;
-			_this.Key = v.Data;
-			
-			v = AMF.DecodeValue(b, cost, size-cost);
-			if (v) {
-				cost += v.Cost;
-				_this.Data = v;
-			}
-			
-			_this.Payload = b;
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		message = rtmp.message;
-	
-	rtmp.sharedobjectmessage = function() {
-		var _this = utils.extend(this, new message.header());
-		
-		function _init() {
-			
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types,
-		
-		EventTypes = {
-			STREAM_BEGIN:       0x0000,
-			STREAM_EOF:         0x0001,
-			STREAM_DRY:         0x0002,
-			SET_BUFFER_LENGTH:  0x0003,
-			STREAM_IS_RECORDED: 0x0004,
-			PING_REQUEST:       0x0006,
-			PING_RESPONSE:      0x0007
-		};
-	
-	UserControlEvent = function() {
-		var _this = this;
-		
-		function _init() {
-			_this.Type = 0;
-			_this.StreamID = 0;     // uint32
-			_this.BufferLength = 0; // uint32
-			_this.Timestamp = 0;    // uint32
-		}
-		
-		_init();
-	};
-	
-	rtmp.usercontrolmessage = function() {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			_this.Type = Types.USER_CONTROL;
-			
-			_this.Event = new UserControlEvent();
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			_this.Event.Type = b[cost]<<8 | b[cost+1];
-			cost += 2;
-			
-			var data = new Uint8Array(ab, offset+cost);
-			
-			switch (_this.Event.Type) {
-			case EventTypes.SET_BUFFER_LENGTH:
-				_this.Event.BufferLength = b[cost+4]<<24 | b[cost+5]<<16 | b[cost+6]<<8 | b[cost+7];
-				cost += 4;
-			case EventTypes.STREAM_BEGIN:
-			case EventTypes.STREAM_EOF:
-			case EventTypes.STREAM_DRY:
-			case EventTypes.STREAM_IS_RECORDED:
-				_this.Event.StreamID = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
-				cost += 4;
-				break;
-				
-			case EventTypes.PING_REQUEST:
-			case EventTypes.PING_RESPONSE:
-				_this.Event.Timestamp = b[cost]<<24 | b[cost+1]<<16 | b[cost+2]<<8 | b[cost+3];
-				cost += 4;
-				break;
-				
-			default:
-			}
-		};
-		
-		_init();
-	};
-	
-	rtmp.usercontrolmessage.UserControlEvent = UserControlEvent;
-	rtmp.usercontrolmessage.UserControlEvent.Types = EventTypes;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp,
-		Types = rtmp.message.Types,
-		
-		FrameTypes = {
-			KEYFRAME:               0x01,
-			INTER_FRAME:            0x02,
-			DISPOSABLE_INTER_FRAME: 0x03,
-			GENERATED_KEYFRAME:     0x04,
-			INFO_OR_COMMAND_FRAME:  0x05
-		};
-	
-	rtmp.videomessage = function() {
-		var _this = utils.extend(this, new rtmp.message.header());
-		
-		function _init() {
-			_this.Type = Types.VIDEO;
-			
-			_this.FrameType = 0; // 0xF0
-			_this.Codec = 0;     // 0x0F
-			_this.DataType = 0;
-			_this.Payload = null;
-		}
-		
-		_this.Parse = function(ab, offset, size) {
-			var b = new Uint8Array(ab, offset, size);
-			var cost = 0;
-			
-			_this.Length = size;
-			
-			var tmp = b[cost];
-			_this.FrameType = (tmp >> 4) & 0x0F;
-			_this.Codec = tmp & 0x0F;
-			cost++;
-			
-			_this.DataType = b[cost];
-			_this.Payload = b;
-		};
-		
-		_init();
-	};
-	
-	rtmp.videomessage.FrameTypes = FrameTypes;
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		net = playease.net,
-		rtmp = net.rtmp;
-	
-	rtmp.responder = function(result, status) {
-		var _this = this;
-		
-		function _init() {
-			_this.result = result;
-			_this.status = status;
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		crypt = utils.crypt,
-		events = playease.events,
-		CommandEvent = events.CommandEvent,
-		NetStatusEvent = events.NetStatusEvent,
-		Level = NetStatusEvent.Level,
-		Code = NetStatusEvent.Code,
-		AudioEvent = events.AudioEvent,
-		VideoEvent = events.VideoEvent,
-		DataEvent = events.DataEvent,
-		AMF = playease.muxer.AMF,
-		net = playease.net,
-		rtmp = net.rtmp,
-		CSIDs = rtmp.chunk.CSIDs,
-		States = rtmp.chunk.States,
-		Types = rtmp.message.Types,
-		EventTypes = rtmp.usercontrolmessage.UserControlEvent.Types,
-		LimitTypes = rtmp.bandwidthmessage.LimitTypes,
-		Commands = rtmp.commandmessage.Commands;
-	
-	rtmp.netconnection = function() {
-		var _this = utils.extend(this, new events.eventdispatcher('rtmp.netconnection')),
-			_shaker,
-			_connected,
-			_websocket,
-			_url,
-			_protocol,
-			_appName,
-			_instName,
-			_args,
-			_objectEncoding,
-			_farChunkSize,
-			_nearChunkSize,
-			_farAckWindowSize,
-			_nearAckWindowSize,
-			_farBandwidth,
-			_neerBandwidth,
-			_farLimitType,
-			_neerLimitType,
-			_stats,
-			_chunks,
-			_responders,
-			_transactionId;
-		
-		function _init() {
-			_connected = false;
-			_args = [];
-			
-			_objectEncoding = rtmp.ObjectEncoding.AMF0;
-			
-			_farChunkSize = 128;
-			_nearChunkSize = 128;
-			_farAckWindowSize = 2500000;
-			_neerBandwidth = 2500000;
-			_neerLimitType = LimitTypes.DYNAMIC;
-			
-			_stats = {
-				bytesIn: 0,
-				bytesOut: 0
-			};
-			
-			_chunks = [];
-			_responders = {};
-			_transactionId = 0;
-		}
-		
-		_this.connect = function(url) {
-			_url = url;
-			_args = Array.prototype.slice.call(arguments, 1);
-			
-			if (_url === undefined || _url === null) {
-				// TODO: Data Generation Mode
-				return;
-			}
-			
-			try {
-				window.WebSocket = window.WebSocket || window.MozWebSocket;
-				_websocket = new WebSocket(_url);
-				_websocket.binaryType = 'arraybuffer';
-			} catch (err) {
-				utils.log('Failed to initialize websocket: ' + err);
-				return;
-			}
-			
-			_websocket.onopen = _onOpen;
-		};
-		
-		function _onOpen(e) {
-			_shaker = new rtmp.handshaker(_websocket);
-			_shaker.addEventListener(events.PLAYEASE_COMPLETE, _onHandshakeComplete);
-			_shaker.addEventListener(events.ERROR, _onHandshakeError);
-			_shaker.shake(false);
-		}
-		
-		function _onHandshakeComplete(e) {
-			_websocket.onmessage = _onMessage;
-			_websocket.onerror = _onIOError;
-			_websocket.onclose = _onClose;
-			
-			_this.addEventListener(CommandEvent.CLOSE, _onClose);
-			_this.addEventListener(CommandEvent.RESULT, _onResult);
-			_this.addEventListener(CommandEvent.ERROR, _onError);
-			_this.addEventListener(CommandEvent.CHECK_BANDWIDTH, _onCheckBandwidth);
-			_this.addEventListener(CommandEvent.GET_STATS, _onGetStats);
-			
-			_this.call(Commands.CONNECT, new rtmp.responder(_onConnect, null), {
-				Type: AMF.types.OBJECT,
-				Data: [{
-					Type: AMF.types.STRING,
-					Key: 'app',
-					Data: 'live'
-				}, {
-					Type: AMF.types.STRING,
-					Key: 'flashVer',
-					Data: 'WIN 27,0,0,130'
-				}, {
-					Type: AMF.types.STRING,
-					Key: 'swfUrl',
-					Data: 'http://studease.cn/swf/playease.swf'
-				}, {
-					Type: AMF.types.STRING,
-					Key: 'tcUrl',
-					Data: 'rtmp://rtmpmate.com/live'
-				}, {
-					Type: AMF.types.BOOLEAN,
-					Key: 'fpad',
-					Data: false
-				}, {
-					Type: AMF.types.DOUBLE,
-					Key: 'capabilities',
-					Data: 239
-				}, {
-					Type: AMF.types.DOUBLE,
-					Key: 'audioCodecs',
-					Data: 3575
-				}, {
-					Type: AMF.types.DOUBLE,
-					Key: 'videoCodecs',
-					Data: 252
-				}, {
-					Type: AMF.types.DOUBLE,
-					Key: 'videoFunction',
-					Data: 1
-				}, {
-					Type: AMF.types.STRING,
-					Key: 'pageUrl',
-					Data: 'http://studease.cn/playease.html'
-				}, {
-					Type: AMF.types.DOUBLE,
-					Key: 'objectEncoding',
-					Data: _objectEncoding
-				}],
-				Ended: true
-			});
-		}
-		
-		function _onHandshakeError(e) {
-			_this.close();
-		}
-		
-		_this.writeByChunk = function(b, h) {
-			if (h.Length < 2) {
-				throw 'chunk data (len=' + h.Length + ') not enough.';
-			}
-			
-			var c = new rtmp.chunk();
-			c.Fmt = h.Fmt;
-			
-			for (var i = 0; i < h.Length; /* void */) {
-				if (h.CSID <= 63) {
-					c.Data.WriteByte((c.Fmt << 6) | h.CSID);
-				} else if (h.CSID <= 319) {
-					c.Data.WriteByte((c.Fmt << 6) | 0x00);
-					c.Data.WriteByte(h.CSID - 64);
-				} else if (h.CSID <= 65599) {
-					c.Data.WriteByte((c.Fmt << 6) | 0x01);
-					c.Data.WriteUint16(h.CSID, true);
-				} else {
-					throw 'chunk size (' + h.Length + ') out of range.';
-				}
-				
-				if (c.Fmt <= 2) {
-					if (h.Timestamp >= 0xFFFFFF) {
-						c.Data.Write([0xFF, 0xFF, 0xFF]);
-					} else {
-						c.Data.Write([
-							h.Timestamp>>16 & 0xFF,
-							h.Timestamp>>8 & 0xFF,
-							h.Timestamp>>0 & 0xFF
-						]);
-					}
-				}
-				if (c.Fmt <= 1) {
-					c.Data.Write([
-						h.Length>>16 & 0xFF,
-						h.Length>>8 & 0xFF,
-						h.Length>>0 & 0xFF,
-					]);
-					c.Data.WriteByte(h.Type);
-				}
-				if (c.Fmt == 0) {
-					c.Data.WriteUint32(h.StreamID, true);
-				}
-				
-				// Extended Timestamp
-				if (h.Timestamp >= 0xFFFFFF) {
-					c.Data.WriteUint32(h.Timestamp, false);
-				}
-				
-				// Chunk Data
-				var n = Math.min(h.Length - i, _nearChunkSize);
-				c.Data.Write(new Uint8Array(b, i, n));
-				
-				//fmt.Println(c.Data.Bytes())
-				
-				i += n;
-				
-				if (i < h.Length) {
-					switch (h.Type) {
-					default:
-						c.Fmt = 3;
-					}
-				} else if (i == h.Length) {
-					var cs = c.Data.Bytes();
-					_this.write(cs);
-					
-					_stats.bytesOut += c.Data.Len();
-					
-					/*size := len(cs)
-					for x := 0; x < size; x += 16 {
-						utils.log("\n")
-						
-						for y := 0; y < int(math.Min(float64(size-x), 16)); y++ {
-							utils.log("%02x ", cs[x+y])
-							
-							if y == 7 {
-								utils.log(" ")
-							}
-						}
-					}*/
-				} else {
-					throw 'wrote too much';
-				}
-			}
-			
-			return h.Length;
-		}
-		
-		function _onMessage(e) {
-			var b = new Uint8Array(e.data);
-			var size = b.byteLength;
-			_parseChunk(b, size);
-		}
-		
-		function _parseChunk(b, size) {
-			var c = _getUncompleteChunk();
-			
-			for (var i = 0; i < size; i++) {
-				//utils.log('b[' + i + '] = ' + b[i]);
-				
-				switch (c.State) {
-				case States.START:
-					c.CurrentFmt = (b[i] >> 6) & 0xFF;
-					c.CSID = b[i] & 0x3F;
-					
-					if (c.Polluted == false) {
-						c.Fmt = c.CurrentFmt;
-						c.Polluted = true;
-					}
-					
-					_extendsFromPrecedingChunk(c);
-					if (c.CurrentFmt == 3 && c.Extended == false) {
-						c.State = States.DATA;
-					} else {
-						c.State = States.FMT;
-					}
-					break;
-					
-				case States.FMT:
-					switch (c.CSID) {
-					case 0:
-						c.CSID = b[i] + 64;
-						c.State = States.CSID_1;
-						break;
-					case 1:
-						c.CSID = b[i];
-						c.State = States.CSID_0;
-						break;
-					default:
-						if (c.CurrentFmt == 3) {
-							if (c.Extended) {
-								c.Timestamp = b[i] << 24;
-								c.State = States.EXTENDED_TIMESTAMP_0;
-							} else {
-								throw 'Failed to parse chunk: [1].';
-							}
-						} else {
-							c.Timestamp = b[i] << 16;
-							c.State = States.TIMESTAMP_0;
-						}
-					}
-					break;
-					
-				case States.CSID_0:
-					c.CSID |= b[i] << 8;
-					c.CSID += 64;
-					
-					if (c.CurrentFmt == 3 && c.Extended == false) {
-						c.State = States.DATA;
-					} else {
-						c.State = States.CSID_1;
-					}
-					break;
-					
-				case States.CSID_1:
-					if (c.CurrentFmt == 3) {
-						if (c.Extended) {
-							c.Timestamp = b[i] << 24
-							c.State = States.EXTENDED_TIMESTAMP_0
-						} else {
-							throw 'Failed to parse chunk: [2].';
-						}
-					} else {
-						c.Timestamp = b[i] << 16;
-						c.State = States.TIMESTAMP_0;
-					}
-					break;
-					
-				case States.TIMESTAMP_0:
-					c.Timestamp |= b[i] << 8;
-					c.State = States.TIMESTAMP_1;
-					break;
-					
-				case States.TIMESTAMP_1:
-					c.Timestamp |= b[i];
-					
-					if (c.CurrentFmt == 2 && c.Timestamp != 0xFFFFFF) {
-						c.State = States.DATA;
-					} else {
-						c.State = States.TIMESTAMP_2;
-					}
-					break;
-					
-				case States.TIMESTAMP_2:
-					if (c.CurrentFmt == 0 || c.CurrentFmt == 1) {
-						c.MessageLength = b[i] << 16;
-						c.State = States.MESSAGE_LENGTH_0;
-					} else if (c.CurrentFmt == 2) {
-						if (c.Timestamp == 0xFFFFFF) {
-							c.Timestamp = b[i] << 24;
-							c.State = States.EXTENDED_TIMESTAMP_0;
-						} else {
-							throw 'Failed to parse chunk: [3].';
-						}
-					} else {
-						throw 'Failed to parse chunk: [4].';
-					}
-					break;
-					
-				case States.MESSAGE_LENGTH_0:
-					c.MessageLength |= b[i] << 8;
-					c.State = States.MESSAGE_LENGTH_1;
-					break;
-					
-				case States.MESSAGE_LENGTH_1:
-					c.MessageLength |= b[i];
-					c.State = States.MESSAGE_LENGTH_2;
-					break;
-					
-				case States.MESSAGE_LENGTH_2:
-					c.MessageTypeID = b[i];
-					
-					if (c.CurrentFmt == 1 && c.Timestamp != 0xFFFFFF) {
-						c.State = States.DATA;
-					} else {
-						c.State = States.MESSAGE_TYPE_ID;
-					}
-					break;
-					
-				case States.MESSAGE_TYPE_ID:
-					if (c.CurrentFmt == 0) {
-						c.MessageStreamID = b[i];
-						c.State = States.MESSAGE_STREAM_ID_0;
-					} else if (c.CurrentFmt == 1) {
-						if (c.Timestamp == 0xFFFFFF) {
-							c.Timestamp = b[i] << 24;
-							c.State = States.EXTENDED_TIMESTAMP_0;
-						} else {
-							throw 'Failed to parse chunk: [5].';
-						}
-					} else {
-						throw 'Failed to parse chunk: [6].';
-					}
-					break;
-					
-				case States.MESSAGE_STREAM_ID_0:
-					c.MessageStreamID |= b[i] << 8;
-					c.State = States.MESSAGE_STREAM_ID_1;
-					break;
-					
-				case States.MESSAGE_STREAM_ID_1:
-					c.MessageStreamID |= b[i] << 16;
-					c.State = States.MESSAGE_STREAM_ID_2;
-					break;
-					
-				case States.MESSAGE_STREAM_ID_2:
-					c.MessageStreamID |= b[i] << 24;
-					if (c.Timestamp == 0xFFFFFF) {
-						c.State = States.MESSAGE_STREAM_ID_3;
-					} else {
-						c.State = States.DATA;
-					}
-					break;
-					
-				case States.MESSAGE_STREAM_ID_3:
-					if (c.Timestamp == 0xFFFFFF) {
-						c.Timestamp = b[i] << 24;
-						c.State = States.EXTENDED_TIMESTAMP_0;
-					} else {
-						throw 'Failed to parse chunk: [7].';
-					}
-					break;
-					
-				case States.EXTENDED_TIMESTAMP_0:
-					c.Timestamp |= b[i] << 16;
-					c.State = States.EXTENDED_TIMESTAMP_1;
-					break;
-					
-				case States.EXTENDED_TIMESTAMP_1:
-					c.Timestamp |= b[i] << 8;
-					c.State = States.EXTENDED_TIMESTAMP_2;
-					break;
-					
-				case States.EXTENDED_TIMESTAMP_2:
-					c.Timestamp |= b[i];
-					c.State = States.EXTENDED_TIMESTAMP_3;
-					break;
-					
-				case States.EXTENDED_TIMESTAMP_3:
-					c.State = States.DATA;
-				case States.DATA:
-					var n = c.MessageLength - c.Data.Len();
-					if (n > size - i) {
-						n = size - i;
-					}
-					if (n > _farChunkSize - c.Loaded) {
-						n = _farChunkSize - c.Loaded;
-						c.Loaded = 0;
-						c.State = States.START;
-					} else {
-						c.Loaded += n;
-					}
-					
-					c.Data.Write(new Uint8Array(b.buffer, i, n));
-					i += n - 1;
-					
-					if (c.Data.Len() < c.MessageLength) {
-						//c.State = States.DATA;
-					} else if (c.Data.Len() == c.MessageLength) {
-						c.State = States.COMPLETE;
-						
-						_parseMessage(c);
-						
-						if (i < size - 1) {
-							c = _getUncompleteChunk();
-						}
-					} else {
-						throw 'Failed to parse chunk: [8].';
-					}
-					break;
-					
-				default:
-					throw 'Failed to parse chunk: [9].';
-				}
-			}
-		}
-		
-		function _parseMessage(c) {
-			if (c.MessageTypeID != 0x03 && c.MessageTypeID != 0x08 && c.MessageTypeID != 0x09) {
-				//utils.log('onMessage: ' + c.MessageTypeID);
-			}
-			
-			var ab = c.Data.Bytes();
-			var size = c.Data.Len();
-			
-			switch (c.MessageTypeID) {
-			case Types.SET_CHUNK_SIZE:
-				var dv = new DataView(ab);
-				_farChunkSize = dv.getUint32(0, false) & 0x7FFFFFFF;
-				utils.log('Set farChunkSize: ' + _farChunkSize);
-				break;
-				
-			case Types.ABORT:
-				var dv = new DataView(ab);
-				var csid = dv.getUint32(0, false);
-				utils.log('Abort chunk stream: ' + csid);
-				
-				if (_chunks.length) {
-					var c = _chunks[_chunks.length - 1];
-					if (c.State != States.COMPLETE && c.CSID == csid) {
-						_chunks.pop();
-						utils.log('Removed uncomplete chunk ' + csid);
-					}
-				}
-				break;
-				
-			case Types.ACK:
-				var dv = new DataView(ab);
-				var sequenceNumber = dv.getUint32(0, false);
-				//utils.log('Sequence Number: ' + sequenceNumber + ', Bytes out: ' + _stats.bytesOut);
-				
-				if (sequenceNumber != _stats.bytesOut) {
-					
-				}
-				break;
-				
-			case Types.USER_CONTROL:
-				var m = new rtmp.usercontrolmessage();
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				_onUserControl(m);
-				break;
-				
-			case Types.ACK_WINDOW_SIZE:
-				var dv = new DataView(ab);
-				_farAckWindowSize = dv.getUint32(0, false);
-				utils.log('Set farAckWindowSize to ' + _farAckWindowSize);
-				break;
-				
-			case Types.BANDWIDTH:
-				var m = new rtmp.bandwidthmessage();
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				_onBandwidth(m);
-				break;
-				
-			case Types.EDGE:
-				// TODO:
-				
-			case Types.AUDIO:
-				var m = new rtmp.audiomessage();
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				_this.dispatchEvent(AudioEvent.DATA, { Message: m });
-				break;
-				
-			case Types.VIDEO:
-				var m = new rtmp.videoMessage();
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				_this.dispatchEvent(VideoEvent.DATA, { Message: m });
-				break;
-				
-			case Types.AMF3_DATA:
-			case Types.DATA:
-				var m = new rtmp.datamessage(_objectEncoding);
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				_this.dispatchEvent(m.Handler, { Message: m });
-				break;
-				
-			case Types.AMF3_SHARED_OBJECT:
-			case Types.SHARED_OBJECT:
-				// TODO:
-				break;
-				
-			case Types.AMF3_COMMAND:
-				ab = new Uint8Array(b, 1).buffer;
-			case Types.COMMAND:
-				var m = new rtmp.commandmessage(_objectEncoding);
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				if (m.CommandObject) {
-					var v = m.CommandObject.Hash['objectEncoding'];
-					if (v && v.Data != 0) {
-						_objectEncoding = rtmp.ObjectEncoding.AMF3;
-						m.Type = Types.AMF3_COMMAND;
-					}
-				}
-				
-				_onCommand(m);
-				break;
-				
-			case Types.AGGREGATE:
-				var m = new rtmp.aggregatemessage();
-				m.Fmt = c.Fmt;
-				m.CSID = c.CSID;
-				m.Timestamp = c.Timestamp;
-				m.StreamID = c.MessageStreamID;
-				
-				m.Parse(ab, 0, size);
-				
-				_onAggregate(m);
-				break;
-				
-			default:
-			}
-		}
-		
-		function _onUserControl(m) {
-			//utils.log('onUserControl: type=' + m.Event.Type);
-			
-			switch (m.Event.Type) {
-			case EventTypes.STREAM_BEGIN:
-				utils.log('Stream Begin: id=' + m.Event.StreamID);
-				break;
-			
-			case EventTypes.STREAM_EOF:
-				utils.log('Stream EOF: id=' + m.Event.StreamID);
-				break;
-			
-			case EventTypes.STREAM_DRY:
-				utils.log('Stream Dry: id=' + m.Event.StreamID);
-				break;
-			
-			case EventTypes.SET_BUFFER_LENGTH:
-				utils.log('Set BufferLength: id=' + m.Event.StreamID + ', len=' + m.Event.BufferLengt + 'ms.');
-				this.dispatchEvent(UserControlEvent.SET_BUFFER_LENGTH, { Message: m });
-				break;
-			
-			case EventTypes.STREAM_IS_RECORDED:
-				utils.log('Stream is Recorded: id=' + m.Event.StreamID);
-				break;
-			
-			case EventTypes.PING_REQUEST:
-				utils.log('Ping Request: timestamp=' + m.Event.Timestamp);
-				break;
-			
-			case EventTypes.PING_RESPONSE:
-				utils.log('Ping Response: timestamp=' + m.Event.Timestamp);
-				break;
-			
-			default:
-			}
-		}
-		
-		function _onBandwidth(m) {
-			_nearBandwidth = m.AckWindowSize;
-			_nearLimitType = m.LimitType;
-			utils.log('Set nearBandwidth to ' + _nearBandwidth + ', limitType=' + _nearLimitType);
-		}
-		
-		function _onCommand(m) {
-			//utils.log('onCommand: name=' + m.Name);
-			
-			if (_this.hasEventListener(m.Name)) {
-				_this.dispatchEvent(m.Name, { Message: m });
-			} else {
-				// Should not return error, this might be an user call
-				utils.log('No handler found for command \"' + m.Name + '\".');
-			}
-		}
-		
-		function _onConnect(e) {
-			_connected = true;
-		}
-		
-		function _onResult(e) {
-			if (_responders.hasOwnProperty(e.Message.TransactionID)) {
-				var reponder = _responders[e.Message.TransactionID];
-				if (reponder.result) {
-					reponder.result(e);
-				}
-				
-				delete _responders[e.Message.TransactionID];
-			}
-			
-			var info = {};
-			utils.foreach(e.Message.Response.Hash, function(k, v) {
-				info[k] = v.Data;
-			});
-			
-			if (info.hasOwnProperty('code') == false) {
-				return;
-			}
-			
-			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-				info: info
-			});
-		}
-		
-		function _onError(e) {
-			if (_responders.hasOwnProperty(e.Message.TransactionID)) {
-				var reponder = _responders[e.Message.TransactionID];
-				if (reponder.status) {
-					reponder.status(e);
-				}
-				
-				delete _responders[e.Message.TransactionID];
-			}
-			
-			var info = {};
-			utils.foreach(e.Message.Response.Hash, function(k, v) {
-				info[k] = v.Data;
-			});
-			
-			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-				info: info
-			});
-		}
-		
-		function _onCheckBandwidth(e) {
-			
-		}
-		
-		function _onGetStats(e) {
-			
-		}
-		
-		function _onIOError(e) {
-			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-				info: {
-					level: Level.ERROR,
-					code: Code.NETCONNECTION_CONNECT_FAILED
-				}
-			});
-		}
-		
-		function _onClose(e) {
-			_this.close();
-		}
-		
-		_this.write = function(b) {
-			if (_websocket.readyState == WebSocket.OPEN) {
-				_websocket.send(b);
-			}
-		};
-		
-		_this.setChunkSize = function(size) {
-			var encoder = new AMF.Encoder();
-			encoder.AppendInt32(size, false);
-			
-			var h = new rtmp.message.header();
-			h.CSID = CSIDs.PROTOCOL_CONTROL;
-			h.Type = Types.SET_CHUNK_SIZE;
-			h.Length = encoder.Len();
-			
-			_this.writeByChunk(encoder.Encode(), h);
-			
-			_nearChunkSize = size;
-			utils.log('Set nearChunkSize: ' + _nearChunkSize);
-		};
-		
-		_this.abort = function() {
-			
-		};
-		
-		_this.sendAckSequence = function() {
-			var encoder = new AMF.Encoder();
-			encoder.AppendInt32(_stats.bytesIn, false);
-			
-			var h = new rtmp.message.header();
-			h.CSID = CSIDs.PROTOCOL_CONTROL;
-			h.Type = Types.ACK;
-			h.Length = encoder.Len();
-			
-			_this.writeByChunk(encoder.Encode(), h);
-		};
-		
-		_this.sendUserControl = function(event, streamID, bufferLength, timestamp) {
-			var encoder = new AMF.Encoder();
-			encoder.AppendInt16(event, false);
-			if (event <= EventTypes.STREAM_IS_RECORDED) {
-				encoder.AppendInt32(streamID, false);
-			}
-			if (event == EventTypes.SET_BUFFER_LENGTH) {
-				encoder.AppendInt32(bufferLength, false);
-			}
-			if (event == EventTypes.PING_REQUEST || event == EventTypes.PING_RESPONSE) {
-				encoder.AppendInt32(timestamp, false);
-			}
-			
-			var m = new rtmp.usercontrolmessage();
-			m.CSID = CSIDs.PROTOCOL_CONTROL;
-			m.Length = encoder.Len();
-			
-			_this.writeByChunk(encoder.Encode(), m);
-		};
-		
-		_this.setAckWindowSize = function(size) {
-			var encoder = new AMF.Encoder();
-			encoder.AppendInt32(size, false);
-			
-			var h = new rtmp.message.header();
-			h.CSID = CSIDs.PROTOCOL_CONTROL;
-			h.Type = Types.ACK_WINDOW_SIZE;
-			h.Length = encoder.Len();
-			
-			_this.writeByChunk(encoder.Encode(), h);
-			
-			_nearAckWindowSize = size;
-			utils.log('Set nearAckWindowSize: ' + _nearAckWindowSize);
-		};
-		
-		_this.setPeerBandwidth = function(size, limitType) {
-			var encoder = new AMF.Encoder();
-			encoder.AppendInt32(size, false);
-			encoder.AppendInt8(limitType);
-			
-			var m = new rtmp.bandwidthmessage();
-			m.CSID = CSIDs.PROTOCOL_CONTROL;
-			m.Length = encoder.Len();
-			
-			_this.writeByChunk(encoder.Encode(), m);
-			
-			_farBandwidth = size;
-			_farLimitType = limitType;
-			utils.log('Set farBandwidth to ' + _farBandwidth + ', limitType=' + _farLimitType);
-		};
-		
-		_this.createStream = function() {
-			return;
-		};
-		
-		_this.call = function(command, responder) {
-			var args = Array.prototype.slice.call(arguments, 2);
-			
-			var transactionId = 0;
-			switch (command) {
-				case Commands.CONNECT:
-					_transactionId++;
-					transactionId = 1;
-					break;
-				
-				case Commands.PLAY:
-				case Commands.PLAY2:
-				case Commands.RECEIVE_AUDIO:
-				case Commands.RECEIVE_VIDEO:
-				case Commands.PUBLISH:
-				case Commands.SEEK:
-				case Commands.PAUSE:
-					transactionId = 0;
-					break;
-				
-				default:
-					if (responder) {
-						_transactionId++;
-						transactionId = _transactionId;
-					}
-					break;
-			}
-			
-			if (responder) {
-				_responders[transactionId] = responder;
-			}
-			
-			var encoder = new AMF.Encoder();
-			encoder.EncodeString(command);
-			encoder.EncodeNumber(transactionId);
-			for (var i = 0; i < args.length; i++) {
-				encoder.EncodeValue(args[i]);
-			}
-			
-			var h = new rtmp.message.header();
-			h.CSID = CSIDs.COMMAND;
-			h.Type = Types.COMMAND;
-			h.Length = encoder.Len();
-			
-			_this.writeByChunk(encoder.Encode(), h);
-		};
-		
-		_this.close = function() {
-			if (_websocket && (_websocket.readyState == WebSocket.CONNECTING || _websocket.readyState == WebSocket.OPEN)) {
-				_websocket.close();
-			}
-			
-			if (_connected) {
-				_connected = false;
-				
-				_this.dispatchEvent(CommandEvent.CLOSE);
-				_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-					info: {
-						level: Level.ERROR,
-						code: Code.NETCONNECTION_CONNECT_CLOSED
-					}
-				});
-			}
-		};
-		
-		function _getUncompleteChunk() {
-			var c;
-			
-			if (_chunks.length) {
-				c = _chunks[_chunks.length - 1];
-				if (c.State != States.COMPLETE) {
-					return c;
-				}
-			}
-			
-			c = new rtmp.chunk();
-			_chunks.push(c);
-			
-			return c;
-		}
-		
-		function _extendsFromPrecedingChunk(c) {
-			if (c.Fmt == 0) {
-				return;
-			}
-			
-			for (var i = _chunks.length - 1, checking = false; i >= 0; i--) {
-				var b = _chunks[i];
-				if (b.CSID != c.CSID) {
-					continue;
-				}
-				
-				if (checking == false) {
-					checking = true;
-					continue;
-				}
-				
-				if (c.Fmt >= 1 && c.MessageStreamID == 0) {
-					c.MessageStreamID = b.MessageStreamID;
-				}
-				if (c.Fmt >= 2 && c.MessageLength == 0) {
-					c.MessageLength = b.MessageLength;
-					c.MessageTypeID = b.MessageTypeID;
-				}
-				
-				break;
-			}
-		}
-		
-		_this.connected = function() {
-			return _connected;
-		};
-		
-		_this.url = function() {
-			return _url;
-		};
-		
-		_this.protocol = function() {
-			return _protocol;
-		};
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		CommandEvent = events.CommandEvent,
-		NetStatusEvent = events.NetStatusEvent,
-		Level = NetStatusEvent.Level,
-		Code = NetStatusEvent.Code,
-		AudioEvent = events.AudioEvent,
-		VideoEvent = events.VideoEvent,
-		DataEvent = events.DataEvent,
-		AMF = playease.muxer.AMF,
-		net = playease.net,
-		rtmp = net.rtmp,
-		CSIDs = rtmp.chunk.CSIDs,
-		States = rtmp.chunk.States,
-		Types = rtmp.message.Types,
-		EventTypes = rtmp.usercontrolmessage.UserControlEvent.Types,
-		LimitTypes = rtmp.bandwidthmessage.LimitTypes,
-		Commands = rtmp.commandmessage.Commands;
-	
-	rtmp.netstream = function(connection, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('rtmp.netstream')),
-			_defaults = {
-				bufferTime: .1
-			},
-			_connection,
-			_streamId,
-			_start,
-			_duration,
-			_reset,
-			_paused,
-			_time,
-			_bytesLoaded,
-			_bytesTotal,
-			_info;
-		
-		function _init() {
-			_this.config = utils.extend({}, _defaults, config);
-			
-			_streamId = 0;
-			_start = undefined;
-			_duration = undefined;
-			_reset = undefined;
-			_paused = false;
-			_time = 0;
-			_bytesLoaded = 0;
-			_bytesTotal = 0;
-			
-			_info = {
-				dataFrames: {},
-				streamName: ''
-			};
-			
-			_connection = connection;
-			_connection.addEventListener(CommandEvent.CLOSE, _onClose);
-			_connection.addEventListener(CommandEvent.ON_STATUS, _onStatus);
-			_connection.addEventListener(DataEvent.SET_DATA_FRAME, _onSetDataFrame);
-			_connection.addEventListener(DataEvent.CLEAR_DATA_FRAME, _onClearDataFrame);
-			_connection.addEventListener(AudioEvent.DATA, _forward);
-			_connection.addEventListener(VideoEvent.DATA, _forward);
-		}
-		
-		_this.attach = function(c) {
-			_connection = c;
-		};
-		
-		function _onCreateStream(e) {
-			_streamId = e.Message.Response.Data;
-			
-			if (_info.streamName) {
-				_this.play(_info.streamName);
-			}
-		}
-		
-		_this.play = function(name, start, duration, reset) {
-			_info.streamName = name;
-			_start = start;
-			_duration = duration;
-			_reset = reset;
-			
-			if (_streamId == 0) {
-				_connection.call(Commands.CREATE_STREAM, new rtmp.responder(_onCreateStream, null), {
-					Type: AMF.types.NULL
-				});
-				
-				return;
-			}
-			
-			var args = [Commands.PLAY, null, {
-				Type: AMF.types.NULL
-			}, {
-				Type: AMF.types.STRING,
-				Data: _info.streamName
-			}];
-			
-			if (_start !== undefined) {
-				args.push({
-					Type: AMF.types.DOUBLE,
-					Data: _start
-				});
-			}
-			if (_duration !== undefined) {
-				args.push({
-					Type: AMF.types.DOUBLE,
-					Data: _duration
-				});
-			}
-			if (_reset !== undefined) {
-				args.push({
-					Type: AMF.types.BOOLEAN,
-					Data: _reset
-				});
-			}
-			
-			_connection.call.apply(_connection, args);
-		};
-		
-		_this.play2 = function(options) {
-			
-		};
-		
-		_this.receiveAudio = function(flag) {
-			_connection.call(Commands.RECEIVE_AUDIO, null, {
-				Type: AMF.types.NULL
-			}, {
-				Type: AMF.types.BOOLEAN,
-				Data: flag
-			});
-		};
-		
-		_this.receiveVideo = function(flag) {
-			_connection.call(Commands.RECEIVE_VIDEO, null, {
-				Type: AMF.types.NULL
-			}, {
-				Type: AMF.types.BOOLEAN,
-				Data: flag
-			});
-		};
-		
-		_this.resume = function() {
-			if (_paused == false) {
-				return;
-			}
-			
-			_pause(false);
-		};
-		
-		_this.pause = function() {
-			if (_paused) {
-				return;
-			}
-			
-			_pause(true);
-		};
-		
-		function _pause(flag) {
-			_connection.call(Commands.PAUSE, null, {
-				Type: AMF.types.NULL
-			}, {
-				Type: AMF.types.BOOLEAN,
-				Data: flag
-			}, {
-				Type: AMF.types.DOUBLE,
-				Data: _time
-			});
-			
-			_paused = flag;
-		}
-		
-		_this.seek = function(offset) {
-			_connection.call(Commands.SEEK, null, {
-				Type: AMF.types.NULL
-			}, {
-				Type: AMF.types.DOUBLE,
-				Data: offset * 1000
-			});
-		};
-		
-		_this.close = function() {
-			_connection.call(Commands.CLOSE_STREAM, null, {
-				Type: AMF.types.NULL
-			}, {
-				Type: AMF.types.DOUBLE,
-				Data: _streamId
-			});
-		};
-		
-		_this.dispose = function() {
-			if (_streamId) {
-				_this.close();
-			}
-			
-			_streamId = 0;
-			_start = undefined;
-			_duration = undefined;
-			_reset = undefined;
-			_paused = false;
-			_time = 0;
-			_bytesLoaded = 0;
-			_bytesTotal = 0;
-			
-			_info = {
-				dataFrames: {},
-				streamName: ''
-			};
-		};
-		
-		
-		_this.publish = function(name, type) {
-			
-		};
-		
-		_this.send = function(handlerName) {
-			var args = Array.prototype.slice.call(arguments, 1);
-			
-		};
-		
-		
-		function _onStatus(e) {
-			var info = {};
-			utils.foreach(e.Message.Response.Hash, function(k, v) {
-				info[k] = v.Data;
-			});
-			
-			_this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-				info: info
-			});
-		}
-		
-		function _onSetDataFrame(e) {
-			if (_this.client && _this.client.onMetaData) {
-				_this.client.onMetaData(e.info);
-			}
-		}
-		
-		function _onClearDataFrame(e) {
-			
-		}
-		
-		function _onClose(e) {
-			_this.dispose();
-		}
-		
-		
-		_this.bytesLoaded = function() {
-			return _bytesLoaded;
-		};
-		
-		_this.bytesTotal = function() {
-			return _bytesTotal;
-		};
-		
-		_this.info = function() {
-			return _info;
-		};
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
 	playease.core = {};
 })(playease);
 
@@ -8177,7 +6051,6 @@ playease.version = '1.1.06';
 	renders.types = {
 		DEFAULT:  'def',
 		FLV:      'flv',
-		RTMPMATE: 'rtmpmate',
 		WSS:      'wss',
 		DASH:     'dash',
 		FLASH:    'flash'
@@ -8186,7 +6059,6 @@ playease.version = '1.1.06';
 	renders.priority = [
 		renders.types.DEFAULT,
 		renders.types.FLV,
-		renders.types.RTMPMATE,
 		renders.types.WSS,
 		renders.types.DASH,
 		renders.types.FLASH
@@ -8205,7 +6077,7 @@ playease.version = '1.1.06';
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types;
+		renderTypes = renders.types;
 	
 	renders.def = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.def')),
@@ -8217,7 +6089,7 @@ playease.version = '1.1.06';
 			_waiting;
 		
 		function _init() {
-			_this.name = rendertypes.DEFAULT;
+			_this.name = renderTypes.DEFAULT;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -8465,21 +6337,18 @@ playease.version = '1.1.06';
 (function(playease) {
 	var utils = playease.utils,
 		css = utils.css,
+		AMF = utils.AMF,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
-		responseTypes = io.responseTypes,
-		readystates = io.readystates,
 		priority = io.priority,
 		muxer = playease.muxer,
-		rtmp = playease.net.rtmp,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes,
+		renderTypes = renders.types,
+		renderModes = renders.modes,
 		
-		AMF = rtmp.AMF,
 		TAG = muxer.flv.TAG,
 		FORMATS = muxer.flv.FORMATS,
 		CODECS = muxer.flv.CODECS;
@@ -8497,7 +6366,7 @@ playease.version = '1.1.06';
 			_loader,
 			_demuxer,
 			_remuxer,
-			_mediainfo,
+			_mediaInfo,
 			_ms,
 			_sb,
 			_segments,
@@ -8507,7 +6376,7 @@ playease.version = '1.1.06';
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.FLV;
+			_this.name = renderTypes.FLV;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -8562,7 +6431,7 @@ playease.version = '1.1.06';
 				}
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && name == io.types.XHR_CHUNKED_LOADER) {
+			if (_this.config.mode == renderModes.VOD && name == io.types.XHR_CHUNKED_LOADER) {
 				_range.start = 0;
 				_range.end = _this.config.bufferLength - 1;
 			}
@@ -8583,7 +6452,7 @@ playease.version = '1.1.06';
 			}
 			
 			try {
-				_loader = new io[name](utils.extend({}, _this.config.loader, { responseType: responseTypes.ARRAYBUFFER }));
+				_loader = new io[name](utils.extend({}, _this.config.loader, { responseType: io.responseTypes.ARRAYBUFFER }));
 				_loader.addEventListener(events.PLAYEASE_CONTENT_LENGTH, _onContenLength);
 				_loader.addEventListener(events.PLAYEASE_PROGRESS, _onLoaderProgress);
 				_loader.addEventListener(events.PLAYEASE_COMPLETE, _onLoaderComplete);
@@ -8695,7 +6564,7 @@ playease.version = '1.1.06';
 			
 			_video.controls = false;
 			
-			if (_this.config.mode == rendermodes.VOD && _mediainfo && _mediainfo.isSeekable()) {
+			if (_this.config.mode == renderModes.VOD && _mediaInfo && _mediaInfo.isSeekable()) {
 				_waiting = true;
 				_segments.audio.splice(0, _segments.audio.length);
 				_segments.video.splice(0, _segments.video.length);
@@ -8710,7 +6579,7 @@ playease.version = '1.1.06';
 					start = ranges.start(i);
 					end = ranges.end(i);
 					if (start <= position && position < end) {
-						var endKeyframe = _mediainfo.getNearestKeyframe(end);
+						var endKeyframe = _mediaInfo.getNearestKeyframe(end);
 						_range.end = endKeyframe.fileposition - 1;
 						return;
 					}
@@ -8720,11 +6589,11 @@ playease.version = '1.1.06';
 					}
 				}
 				
-				var startKeyframe = _mediainfo.getNearestKeyframe(position);
+				var startKeyframe = _mediaInfo.getNearestKeyframe(position);
 				_range.start = startKeyframe.fileposition;
 				_range.end = _range.start + _this.config.bufferLength - 1;
 				if (position < start) {
-					var endKeyframe = _mediainfo.getNearestKeyframe(start);
+					var endKeyframe = _mediaInfo.getNearestKeyframe(start);
 					_range.end = Math.min(_range.end, endKeyframe.fileposition - 1);
 				}
 				
@@ -8845,7 +6714,7 @@ playease.version = '1.1.06';
 		}
 		
 		function _onMediaInfo(e) {
-			_mediainfo = e.info;
+			_mediaInfo = e.info;
 			
 			_this.addSourceBuffer('audio');
 			_this.addSourceBuffer('video');
@@ -8915,7 +6784,7 @@ playease.version = '1.1.06';
 		 * MSE
 		 */
 		_this.addSourceBuffer = function(type) {
-			var mimetype = type + '/mp4; codecs="' + _mediainfo[type + 'Codec'] + '"';
+			var mimetype = type + '/mp4; codecs="' + _mediaInfo[type + 'Codec'] + '"';
 			utils.log('Mime type: ' + mimetype + '.');
 			
 			var issurpported = MediaSource.isTypeSupported(mimetype);
@@ -9029,7 +6898,7 @@ playease.version = '1.1.06';
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			if (_this.config.mode == rendermodes.VOD && _loader && _loader.state() == readystates.DONE) {
+			if (_this.config.mode == renderModes.VOD && _loader && _loader.state() == io.readyStates.DONE) {
 				var cached = end || 0;
 				if (_segments.video.length) {
 					cached = Math.max(cached, _segments.video[_segments.video.length - 1].info.endDts);
@@ -9107,7 +6976,7 @@ playease.version = '1.1.06';
 		}
 		
 		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser() 
-				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d') || mode == rendermodes.LIVE && !fetch) {
+				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d') || mode == renderModes.LIVE && !fetch) {
 			return false;
 		}
 		
@@ -9125,24 +6994,21 @@ playease.version = '1.1.06';
 		css = utils.css,
 		//filekeeper = utils.filekeeper,
 		events = playease.events,
-		CommandEvent = events.CommandEvent,
-		NetStatusEvent = events.NetStatusEvent,
-		Level = NetStatusEvent.Level,
-		Code = NetStatusEvent.Code,
-		AudioEvent = events.AudioEvent,
-		VideoEvent = events.VideoEvent,
-		DataEvent = events.DataEvent,
-		AMF = playease.muxer.AMF,
+		io = playease.io,
+		readyStates = io.readyStates,
 		net = playease.net,
-		rtmp = net.rtmp,
+		responder = net.responder,
+		status = net.netstatus,
+		NetConnection = net.NetConnection,
+		NetStream = net.NetStream,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes;
+		renderTypes = renders.types,
+		renderModes = renders.modes;
 	
-	renders.rtmpmate = function(layer, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('renders.rtmpmate')),
+	renders.wss = function(layer, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('renders.wss')),
 			_defaults = {},
 			_video,
 			_url,
@@ -9151,7 +7017,6 @@ playease.version = '1.1.06';
 			_contentLength,
 			_application,
 			_streamName,
-			_args,
 			_connection,
 			_stream,
 			_metadata,
@@ -9164,7 +7029,7 @@ playease.version = '1.1.06';
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.RTMPMATE;
+			_this.name = renderTypes.WSS;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -9173,7 +7038,7 @@ playease.version = '1.1.06';
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			_range = { start: 0, end: _this.config.mode == renderModes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_metadata = {
 				audioCodec: 'mp4a.40.2',
@@ -9212,16 +7077,16 @@ playease.version = '1.1.06';
 		}
 		
 		function _initNetConnection() {
-			_connection = new rtmp.netconnection();
-			_connection.addEventListener(NetStatusEvent.NET_STATUS, _statusHandler);
+			_connection = new NetConnection();
+			_connection.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
 			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _onConnectionError);
 			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _onConnectionError);
 			_connection.client = _this;
 		}
 		
 		function _initNetStream() {
-			_stream = new rtmp.netstream(_connection);
-			_stream.addEventListener(NetStatusEvent.NET_STATUS, _statusHandler);
+			_stream = new NetStream(_connection);
+			_stream.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
 			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
 			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
 			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _onStreamError);
@@ -9251,18 +7116,18 @@ playease.version = '1.1.06';
 			utils.log(e.info.code);
 			
 			switch (e.info.code) {
-				case Code.NETCONNECTION_CONNECT_SUCCESS:
+				case status.NETCONNECTION_CONNECT_SUCCESS:
 					_this.play(_url);
 					break;
 					
-				case Code.NETCONNECTION_CONNECT_CLOSED:
-				case Code.NETSTREAM_FAILED:
-				case Code.NETSTREAM_PLAY_FAILED:
-				case Code.NETSTREAM_PLAY_FILESTRUCTUREINVALID:
-				case Code.NETSTREAM_PLAY_STOP:
-				case Code.NETSTREAM_PLAY_STREAMNOTFOUND:
-				case Code.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
-				case Code.NETSTREAM_SEEK_FAILED:
+				case status.NETCONNECTION_CONNECT_CLOSED:
+				case status.NETSTREAM_FAILED:
+				case status.NETSTREAM_PLAY_FAILED:
+				case status.NETSTREAM_PLAY_FILESTRUCTUREINVALID:
+				case status.NETSTREAM_PLAY_STOP:
+				case status.NETSTREAM_PLAY_STREAMNOTFOUND:
+				case status.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
+				case status.NETSTREAM_SEEK_FAILED:
 					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.info.code });
 					break;
 			}
@@ -9290,13 +7155,13 @@ playease.version = '1.1.06';
 				}
 				
 				if (!_connection.connected()) {
-					var arr = _url.match(rtmp.URLRe);
+					var re = new RegExp('^(ws[s]?\:\/\/[a-z0-9\.\-]+(\:[0-9]+)?(\/[a-z0-9\.\-_]+)+)\/([a-z0-9\.\-_]+)$', 'i');
+					var arr = _url.match(re);
 					if (arr && arr.length > 4) {
 						_application = arr[1];
-						_streamName = arr[arr.length - 2];
-						_args = arr[arr.length - 1];
+						_streamName = arr[4];
 					} else {
-						utils.log('Failed to match rtmp URL: ' + _url);
+						utils.log('Failed to match wss URL: ' + _url);
 						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Bad URL format!' });
 						return;
 					}
@@ -9308,7 +7173,7 @@ playease.version = '1.1.06';
 				}
 				
 				if (_stream) {
-					//_stream.close();
+					_stream.close();
 				}
 				
 				_waiting = true;
@@ -9566,531 +7431,7 @@ playease.version = '1.1.06';
 				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
-			return {
-				buffered: buffered,
-				position: position,
-				duration: duration
-			};
-		};
-		
-		
-		function _onDurationChange(e) {
-			_this.dispatchEvent(events.PLAYEASE_DURATION, { duration: e.target.duration });
-		}
-		
-		function _onWaiting(e) {
-			_waiting = true;
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
-		}
-		
-		function _onPlaying(e) {
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
-		}
-		
-		function _onPause(e) {
-			if (!_waiting) {
-				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PAUSED });
-			}
-		}
-		
-		function _onEnded(e) {
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
-		}
-		
-		function _onError(e) {
-			var message = 'Video error ocurred!';
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: message });
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.ERROR, message: message });
-		}
-		
-		
-		_this.element = function() {
-			return _video;
-		};
-		
-		_this.resize = function(width, height) {
-			css.style(_video, {
-				width: width + 'px',
-				height: height + 'px'
-			});
-		};
-		
-		_this.destroy = function() {
-			
-		};
-		
-		_init();
-	};
-	
-	renders.rtmpmate.isSupported = function(file) {
-		var protocol = utils.getProtocol(file);
-		if (protocol != 'ws' && protocol != 'wss') {
-			return false;
-		}
-		
-		if (utils.isMSIE('(8|9|10)') || utils.isIETrident() || utils.isSogou() || utils.isIOS() || utils.isQQBrowser()
-				|| utils.isAndroid('[0-4]\\.\\d') || utils.isAndroid('[5-8]\\.\\d') && utils.isChrome('([1-4]?\\d|5[0-5])\\.\\d')) {
-			return false;
-		}
-		
-		var map = [
-			undefined, '', // live stream
-			'mp4', 'm4s'
-		];
-		var extension = utils.getExtension(file);
-		for (var i = 0; i < map.length; i++) {
-			if (extension === map[i]) {
-				return true;
-			}
-		}
-		
-		return false;
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		css = utils.css,
-		//filekeeper = utils.filekeeper,
-		events = playease.events,
-		io = playease.io,
-		readystates = io.readystates,
-		net = playease.net,
-		responder = net.responder,
-		status = net.netstatus,
-		netconnection = net.netconnection,
-		netstream = net.netstream,
-		core = playease.core,
-		states = core.states,
-		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes;
-	
-	renders.wss = function(layer, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('renders.wss')),
-			_defaults = {},
-			_video,
-			_url,
-			_src,
-			_range,
-			_contentLength,
-			_application,
-			_streamname,
-			_connection,
-			_stream,
-			_metadata,
-			_ms,
-			_sb,
-			_segments,
-			//_fileindex,
-			//_filekeeper,
-			_waiting,
-			_endOfStream = false;
-		
-		function _init() {
-			_this.name = rendertypes.WSS;
-			
-			_this.config = utils.extend({}, _defaults, config);
-			
-			_url = '';
-			_src = '';
-			_contentLength = 0;
-			_waiting = true;
-			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
-			
-			_metadata = {
-				audioCodec: 'mp4a.40.2',
-				videoCodec: 'avc1.42E01E'
-			};
-			
-			_sb = { audio: null, video: null };
-			_segments = { audio: [], video: [] };
-			
-			_video = utils.createElement('video');
-			if (_this.config.airplay) {
-				_video.setAttribute('x-webkit-airplay', 'allow');
-			}
-			if (_this.config.playsinline) {
-				_video.setAttribute('playsinline', '');
-				_video.setAttribute('webkit-playsinline', '');
-				_video.setAttribute('x5-playsinline', '');
-				_video.setAttribute('x5-video-player-type', 'h5');
-				_video.setAttribute('x5-video-player-fullscreen', true);
-			}
-			_video.preload = 'none';
-			
-			_video.addEventListener('durationchange', _onDurationChange);
-			_video.addEventListener('waiting', _onWaiting);
-			_video.addEventListener('playing', _onPlaying);
-			_video.addEventListener('pause', _onPause);
-			_video.addEventListener('ended', _onEnded);
-			_video.addEventListener('error', _onError);
-			/*
-			_fileindex = 0;
-			_filekeeper = new filekeeper();
-			*/
-			_initNetConnection();
-			_initNetStream();
-			_initMSE();
-		}
-		
-		function _initNetConnection() {
-			_connection = new netconnection();
-			_connection.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
-			_connection.addEventListener(events.PLAYEASE_SECURITY_ERROR, _onConnectionError);
-			_connection.addEventListener(events.PLAYEASE_IO_ERROR, _onConnectionError);
-			_connection.client = _this;
-		}
-		
-		function _initNetStream() {
-			_stream = new netstream(_connection);
-			_stream.addEventListener(events.PLAYEASE_NET_STATUS, _statusHandler);
-			_stream.addEventListener(events.PLAYEASE_MP4_INIT_SEGMENT, _onMP4InitSegment);
-			_stream.addEventListener(events.PLAYEASE_MP4_SEGMENT, _onMP4Segment);
-			_stream.addEventListener(events.PLAYEASE_IO_ERROR, _onStreamError);
-			_stream.client = _this;
-		}
-		
-		function _initMSE() {
-			window.MediaSource = window.MediaSource || window.WebKitMediaSource;
-			
-			_ms = new MediaSource();
-			_ms.addEventListener('sourceopen', _onMediaSourceOpen);
-			_ms.addEventListener('sourceended', _onMediaSourceEnded);
-			_ms.addEventListener('sourceclose', _onMediaSourceClose);
-			_ms.addEventListener('error', _onMediaSourceError);
-			
-			_ms.addEventListener('webkitsourceopen', _onMediaSourceOpen);
-			_ms.addEventListener('webkitsourceended', _onMediaSourceEnded);
-			_ms.addEventListener('webkitsourceclose', _onMediaSourceClose);
-			_ms.addEventListener('webkiterror', _onMediaSourceError);
-		}
-		
-		_this.setup = function() {
-			_this.dispatchEvent(events.PLAYEASE_READY, { id: _this.config.id });
-		};
-		
-		function _statusHandler(e) {
-			utils.log(e.info.code);
-			
-			switch (e.info.code) {
-				case status.NETCONNECTION_CONNECT_SUCCESS:
-					_this.play(_url);
-					break;
-					
-				case status.NETCONNECTION_CONNECT_CLOSED:
-				case status.NETSTREAM_FAILED:
-				case status.NETSTREAM_PLAY_FAILED:
-				case status.NETSTREAM_PLAY_FILESTRUCTUREINVALID:
-				case status.NETSTREAM_PLAY_STOP:
-				case status.NETSTREAM_PLAY_STREAMNOTFOUND:
-				case status.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
-				case status.NETSTREAM_SEEK_FAILED:
-					_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.info.code });
-					break;
-			}
-		}
-		
-		function _onConnectionError(e) {
-			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetConnection error ocurred.' });
-		}
-		
-		function _onStreamError(e) {
-			utils.log(e.message);
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'NetStream error ocurred.' });
-		}
-		
-		_this.play = function(url) {
-			if (!_video.src || _video.src !== _src || url && url != _url) {
-				if (url && url != _url) {
-					if (!renders.wss.isSupported(url)) {
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Resource not supported by render "' + _this.name + '".' });
-						return;
-					}
-					
-					_url = url;
-				}
-				
-				if (!_connection.connected()) {
-					var re = new RegExp('^(ws[s]?\:\/\/[a-z0-9\.\-]+(\:[0-9]+)?(\/[a-z0-9\.\-_]+)+)\/([a-z0-9\.\-_]+)$', 'i');
-					var arr = _url.match(re);
-					if (arr && arr.length > 4) {
-						_application = arr[1];
-						_streamname = arr[4];
-					} else {
-						utils.log('Failed to match wss URL: ' + _url);
-						_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Bad URL format!' });
-						return;
-					}
-					
-					utils.log('Connecting to ' + _application + ' ...');
-					_connection.connect(_application);
-					
-					return;
-				}
-				
-				if (_stream) {
-					_stream.close();
-				}
-				
-				_waiting = true;
-				
-				_segments.audio = [];
-				_segments.video = [];
-				
-				_video.src = URL.createObjectURL(_ms);
-				_video.load();
-				
-				_src = _video.src;
-			}
-			
-			var promise = _video.play();
-			if (promise) {
-				promise['catch'](function(e) { /* void */ });
-			}
-			
-			_video.controls = false;
-		};
-		
-		_this.pause = function() {
-			_waiting = false;
-			
-			_video.pause();
-			_video.controls = false;
-		};
-		
-		_this.reload = function() {
-			_this.stop();
-			_this.play(_url);
-		};
-		
-		_this.seek = function(offset) {
-			if (isNaN(_video.duration)) {
-				_this.play();
-			} else {
-				if (_stream) {
-					_stream.seek(offset * _video.duration / 100);
-				}
-				
-				var promise = _video.play();
-				if (promise) {
-					promise['catch'](function(e) { /* void */ });
-				}
-			}
-			
-			_video.controls = false;
-		};
-		
-		_this.stop = function() {
-			if (_stream) {
-				_stream.dispose();
-			}
-			_connection.close();
-			
-			_src = '';
-			_waiting = true;
-			
-			if (_ms) {
-				if (_sb.audio) {
-					try {
-						_ms.removeSourceBuffer(_sb.audio);
-					} catch (err) {
-						utils.log('Failed to removeSourceBuffer(audio): ' + err.toString());
-					}
-				}
-				if (_sb.video) {
-					try {
-						_ms.removeSourceBuffer(_sb.video);
-					} catch (err) {
-						utils.log('Failed to removeSourceBuffer(video): ' + err.toString());
-					}
-				}
-				
-				_sb.audio = null;
-				_sb.video = null;
-			}
-			
-			_segments.audio = [];
-			_segments.video = [];
-			
-			_video.removeAttribute('src');
-			_video.pause();
-			_video.load();
-			_video.controls = false;
-			
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.STOPPED });
-		};
-		
-		_this.mute = function(muted) {
-			_video.muted = muted;
-		};
-		
-		_this.volume = function(vol) {
-			_video.volume = vol / 100;
-		};
-		
-		_this.hd = function(index) {
-			
-		};
-		
-		
-		_this.onMetaData = function(data) {
-			_metadata = data;
-			
-			_this.addSourceBuffer('audio');
-			_this.addSourceBuffer('video');
-		};
-		
-		function _onMP4InitSegment(e) {
-			/*if (e.tp == 'video') {
-				_fileindex++
-				_filekeeper.append(e.data);
-				//_filekeeper.save('sample.' + e.tp + '.init.mp4');
-			}*/
-			
-			_segments[e.tp].push(e.data);
-		}
-		
-		function _onMP4Segment(e) {
-			/*if (e.tp == 'video') {
-				_fileindex++
-				_filekeeper.append(e.data);
-				//_filekeeper.save('sample.' + e.tp + '.' + (_fileindex++) + '.m4s');
-				if (_fileindex == 500) {
-					_filekeeper.save('sample.wss.normal.mp4');
-				}
-			}*/
-			
-			e.data.info = e.info;
-			
-			_segments[e.tp].push(e.data);
-			_this.appendSegment(e.tp);
-		}
-		
-		/**
-		 * MSE
-		 */
-		_this.addSourceBuffer = function(type) {
-			var mimetype = type + '/mp4; codecs="' + _metadata[type + 'Codec'] + '"';
-			utils.log('Mime type: ' + mimetype + '.');
-			
-			var issurpported = MediaSource.isTypeSupported(mimetype);
-			if (!issurpported) {
-				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Mime type is not surpported: ' + mimetype + '.' });
-				return;
-			}
-			
-			if (_ms.readyState == 'closed') {
-				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource is closed while appending init segment.' });
-				return;
-			}
-			
-			var sb;
-			try {
-				sb = _sb[type] = _ms.addSourceBuffer(mimetype);
-			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
-				return;
-			}
-			
-			sb.type = type;
-			sb.addEventListener('updateend', _onUpdateEnd);
-			sb.addEventListener('error', _onSourceBufferError);
-		};
-		
-		_this.appendSegment = function(type) {
-			if (_segments[type].length == 0) {
-				return;
-			}
-			
-			var sb = _sb[type];
-			if (!sb || sb.updating) {
-				return;
-			}
-			
-			var seg = _segments[type].shift();
-			try {
-				sb.appendBuffer(seg);
-			} catch (err) {
-				utils.log('Failed to appendBuffer: ' + err.toString());
-			}
-		};
-		
-		function _onMediaSourceOpen(e) {
-			utils.log('media source open');
-			utils.log('Playing ' + _streamname + ' ...');
-			
-			// TODO: addSourceBuffer while metadata reached.
-			_this.addSourceBuffer('audio');
-			_this.addSourceBuffer('video');
-			
-			_stream.play(_streamname);
-		}
-		
-		function _onUpdateEnd(e) {
-			//utils.log('update end');
-			
-			var type = e.target.type;
-			
-			if (_endOfStream) {
-				if (!_ms || _ms.readyState !== 'open') {
-					return;
-				}
-				
-				if (!_segments.audio.length && !_segments.video.length) {
-					//_filekeeper.save('sample.wss.mp4');
-					_ms.endOfStream();
-					return;
-				}
-			}
-			
-			_this.appendSegment(type);
-		}
-		
-		function _onSourceBufferError(e) {
-			utils.log('source buffer error');
-		}
-		
-		function _onMediaSourceEnded(e) {
-			utils.log('media source ended');
-		}
-		
-		function _onMediaSourceClose(e) {
-			utils.log('media source close');
-		}
-		
-		function _onMediaSourceError(e) {
-			utils.log('media source error');
-			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'MediaSource error ocurred.' });
-		}
-		
-		
-		_this.getRenderInfo = function() {
-			var buffered;
-			var position = _video.currentTime;
-			var duration = _video.duration;
-			
-			var ranges = _video.buffered, start, end;
-			for (var i = 0; i < ranges.length; i++) {
-				start = ranges.start(i);
-				end = ranges.end(i);
-				if (/*start <= position && */position < end) {
-					buffered = duration ? Math.floor(end / _video.duration * 10000) / 100 : 0;
-				}
-				
-				if (i == 0 && position < start) {
-					_video.currentTime = start;
-				}
-			}
-			
-			if (_waiting && end - position >= _this.config.bufferTime) {
-				_waiting = false;
-				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
-			}
-			
-			if (_this.config.mode == rendermodes.VOD && _stream.state() == readystates.DONE) {
+			if (_this.config.mode == renderModes.VOD && _stream.state() == readyStates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {
@@ -10200,14 +7541,14 @@ playease.version = '1.1.06';
 		matchers = utils.matchers,
 		io = playease.io,
 		responseTypes = io.responseTypes,
-		readystates = io.readystates,
+		readyStates = io.readyStates,
 		priority = io.priority,
 		muxer = playease.muxer,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes,
+		renderTypes = renders.types,
+		renderModes = renders.modes,
 		
 		fragmentTypes = {
 			INIT_SEGMENT: 0,
@@ -10262,7 +7603,7 @@ playease.version = '1.1.06';
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.DASH;
+			_this.name = renderTypes.DASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -10271,7 +7612,7 @@ playease.version = '1.1.06';
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			_range = { start: 0, end: _this.config.mode == renderTypes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -10600,7 +7941,7 @@ playease.version = '1.1.06';
 		
 		function _loadSegment(request) {
 			var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
-			if (segmentLoader.state() != readystates.UNINITIALIZED && segmentLoader.state() != readystates.DONE) {
+			if (segmentLoader.state() != readyStates.UNINITIALIZED && segmentLoader.state() != readyStates.DONE) {
 				return;
 			}
 			
@@ -10764,8 +8105,8 @@ playease.version = '1.1.06';
 			}
 			
 			if (_mpd && _mpd['@type'] == 'static' 
-					&& _audioloader && _audioloader.state() == readystates.DONE
-					&& _videoloader && _videoloader.state() == readystates.DONE) {
+					&& _audioloader && _audioloader.state() == readyStates.DONE
+					&& _videoloader && _videoloader.state() == readyStates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {
@@ -10873,7 +8214,7 @@ playease.version = '1.1.06';
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types;
+		renderTypes = renders.types;
 	
 	renders.flash = function(layer, config) {
 		var _this = utils.extend(this, new events.eventdispatcher('renders.flash')),
@@ -10885,7 +8226,7 @@ playease.version = '1.1.06';
 			_duration;
 		
 		function _init() {
-			_this.name = rendertypes.FLASH;
+			_this.name = renderTypes.FLASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -11077,9 +8418,9 @@ playease.version = '1.1.06';
 		events = playease.events,
 		core = playease.core,
 		states = core.states,
-		rendermodes = core.renders.modes,
+		renderModes = core.renders.modes,
 		skins = core.skins,
-		skintypes = skins.types,
+		skinTypes = skins.types,
 		css = utils.css,
 		
 		WRAP_CLASS = 'pe-wrapper',
@@ -11136,7 +8477,7 @@ playease.version = '1.1.06';
 			_height = config.height;
 		
 		function _init() {
-			_this.name = skintypes.DEFAULT;
+			_this.name = skinTypes.DEFAULT;
 			
 			SKIN_CLASS += '-' + _this.name;
 			
@@ -11432,8 +8773,8 @@ playease.version = '1.1.06';
 			
 			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.play'
 				+ ', .' + SKIN_CLASS + '.' + states.PLAYING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.play'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.reload'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.alt'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.reload'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.alt'
 				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.elapsed'
 				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + DEVIDER_CLASS
 				+ ', .' + SKIN_CLASS + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.duration', {
@@ -11441,11 +8782,11 @@ playease.version = '1.1.06';
 			});
 			css('.' + SKIN_CLASS + '.' + states.BUFFERING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.pause'
 				+ ', .' + SKIN_CLASS + '.' + states.PLAYING + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.pause'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + SLIDER_CLASS + '.time'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.stop'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.elapsed'
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + DEVIDER_CLASS
-				+ ', .' + SKIN_CLASS + '.' + rendermodes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.duration', {
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + SLIDER_CLASS + '.time'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + BUTTON_CLASS + '.stop'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.elapsed'
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + DEVIDER_CLASS
+				+ ', .' + SKIN_CLASS + '.' + renderModes.VOD + ' .' + CONTROLS_CLASS + ' .' + LABEL_CLASS + '.duration', {
 				display: CSS_BLOCK
 			});
 			
@@ -12400,8 +9741,8 @@ playease.version = '1.1.06';
 			BOTTOM:     2
 		};
 	
-	components.bulletscreen = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.bulletscreen')),
+	components.bulletCurtain = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.bulletCurtain')),
 			_defaults = {
 				width: 640,
 				height: 360,
@@ -12612,8 +9953,8 @@ playease.version = '1.1.06';
 		_init();
 	};
 	
-	components.bulletscreen.alphas = alphas;
-	components.bulletscreen.positions = positions;
+	components.bulletCurtain.alphas = alphas;
+	components.bulletCurtain.positions = positions;
 })(playease);
 
 (function(playease) {
@@ -12938,1586 +10279,5 @@ playease.version = '1.1.06';
 		};
 		
 		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		core = playease.core,
-		renders = core.renders,
-		priority = renders.priority;
-	
-	utils.playlist = function(sources, prior) {
-		var _this = this;
-		
-		function _init() {
-			_this.index = 0;
-			_this.sources = sources;
-			_this.prior = prior;
-		}
-		
-		_this.format = function() {
-			var array = _this.sources.splice(0, _this.sources.length);
-			
-			for (var i = 0; i < array.length; i++) {
-				var item = array[i];
-				if (!item || !item.file) {
-					continue;
-				}
-				
-				var name = _this.getSupported(item.file, item.type || _this.prior);
-				if (name) {
-					_this.sources.push({
-						file: item.file,
-						type: name,
-						label: item.label || _this.sources.length
-					});
-				}
-			}
-		};
-		
-		_this.getSupported = function(file, prior) {
-			if (prior) {
-				var render = renders[prior];
-				if (render && render.isSupported(file)) {
-					return prior;
-				}
-			}
-			
-			for (var i = 0; i < priority.length; i++) {
-				var name = priority[i];
-				var render = renders[name];
-				if (render && render.isSupported(file)) {
-					return name;
-				}
-			}
-			
-			return null;
-		};
-		
-		_this.addItem = function(file, prior, label) {
-			if (!file) {
-				return null;
-			}
-			
-			for (var i = 0; i < _this.sources.length; i++) {
-				var item = _this.sources[i];
-				if (item.file === file) {
-					return item;
-				}
-			}
-			
-			var name = _this.getSupported(file, prior || _this.prior);
-			if (name) {
-				var item = {
-					file: file,
-					type: name,
-					label: label || _this.sources.length
-				};
-				
-				_this.sources.push(item);
-				
-				return item;
-			}
-			
-			return null;
-		};
-		
-		_this.getItemAt = function(index) {
-			if (index < 0 || index >= _this.sources.length) {
-				return null;
-			}
-			
-			return _this.sources[index];
-		};
-		
-		_this.activeItemAt = function(index) {
-			if (index < 0 || index >= _this.sources.length) {
-				return false;
-			}
-			
-			_this.index = index;
-			
-			return true;
-		};
-		
-		_this.activeNextItem = function() {
-			if (!_this.sources || !_this.sources.length) {
-				return false;
-			}
-			
-			_this.index++;
-			if (_this.index == _this.sources.length) {
-				_this.index = 0;
-			}
-			
-			return true;
-		};
-		
-		_this.getNextItem = function() {
-			if (_this.activeNextItem()) {
-				return _this.sources[_this.index];
-			}
-			
-			return null;
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		core = playease.core,
-		states = core.states,
-		renders = core.renders,
-		rendertypes = renders.types;
-	
-	core.entity = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('core.entity')),
-			_model,
-			_view,
-			_controller;
-		
-		function _init() {
-			_this.id = config.id;
-			
-			_this.model = _model = new core.model(config);
-			_this.view = _view = new core.view(_model);
-			_this.controller = _controller = new core.controller(_model, _view);
-			
-			_controller.addGlobalListener(_forward);
-			
-			_initializeAPI();
-		}
-		
-		function _initializeAPI() {
-			_this.onSWFState = _view.onSWFState;
-			
-			_this.play = _controller.play;
-			_this.pause = _controller.pause;
-			_this.reload = _controller.reload;
-			_this.seek = _controller.seek;
-			_this.stop = _controller.stop;
-			_this.report = _controller.report;
-			_this.mute = _controller.mute;
-			_this.volume = _controller.volume;
-			_this.videoOff = _controller.videoOff;
-			_this.hd = _controller.hd;
-			_this.bullet = _controller.bullet;
-			_this.fullpage = _controller.fullpage;
-			_this.fullscreen = _controller.fullscreen;
-			
-			_this.getState = _model.getState;
-			
-			_this.shoot = _view.shoot;
-			_this.resize = _view.resize;
-		}
-		
-		_this.setup = function() {
-			setTimeout(function() {
-				_controller.setup();
-			});
-		};
-		
-		function _forward(e) {
-			if (e.type == events.ERROR && e.message == 'Player is not ready yet!') {
-				if (_view.render.name == rendertypes.FLASH && utils.getFlashVersion() && utils.isFirefox('5[2-9]')) {
-					_view.display(states.ERROR, 'Flash player is needed. Click <a href="https://support.mozilla.org/en-US/kb/why-do-i-have-click-activate-plugins" target="_blank">here</a> to activate.');
-				}
-			}
-			
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_this.destroy = function() {
-			if (_controller) {
-				_controller.stop();
-			}
-			if (_view) {
-				_view.destroy();
-			}
-			if (_model) {
-				_model.destroy();
-			}
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		core = playease.core,
-		states = core.states;
-	
-	core.model = function(config) {
-		 var _this = utils.extend(this, new events.eventdispatcher('core.model')),
-		 	_defaults = {},
-		 	_state = states.IDLE,
-		 	_playlist,
-		 	_properties;
-		
-		function _init() {
-			_this.config = utils.extend({}, _defaults, config);
-			
-			_playlist = new utils.playlist(_this.config.sources, _this.config.render.name);
-			_playlist.format();
-			_playlist.addItem(_this.config.file);
-			
-			_properties = {
-				ratio: _this.config.width / (_this.config.height - 40),
-				playlist: _playlist,
-				duration: 0,
-				muted: false,
-				volume: 80,
-				videooff: false,
-				bullet: _this.config.bulletscreen.enable,
-				fullpage: false,
-				fullscreen: false
-			};
-		}
-		
-		_this.setState = function(state) {
-			if (state === _state) {
-				return;
-			}
-			_state = state;
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: state });
-		};
-		
-		_this.getState = function() {
-			return _state;
-		};
-		
-		_this.setProperty = function(key, value) {
-			if (_properties.hasOwnProperty(key) == true) {
-				_properties[key] = value;
-				_this.dispatchEvent(events.PLAYEASE_PROPERTY, { key: key, value: value });
-			}
-		};
-		
-		_this.getProperty = function(key) {
-			return _properties[key];
-		};
-		
-		_this.getConfig = function(name) {
-			return _this.config[name];
-		};
-		
-		_this.destroy = function() {
-			
-		};
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		core = playease.core,
-		states = core.states,
-		renders = core.renders,
-		rendertypes = renders.types,
-		priority = renders.priority,
-		components = core.components,
-		skins = core.skins,
-		
-		WRAP_CLASS = 'pe-wrapper',
-		SKIN_CLASS = 'pe-skin',
-		RENDER_CLASS = 'pe-render',
-		CONTROLS_CLASS = 'pe-controls',
-		CONTEXTMENU_CLASS = 'pe-contextmenu';
-	
-	core.view = function(model) {
-		var _this = utils.extend(this, new events.eventdispatcher('core.view')),
-			_wrapper,
-			_renderLayer,
-			_controlsLayer,
-			_contextmenuLayer,
-			_controlbar,
-			_poster,
-			_bulletscreen,
-			_display,
-			_logo,
-			_contextmenu,
-			_renders,
-			_render,
-			_skin,
-			_canvas,
-			_video,
-			_timer,
-			_autohidetimer,
-			_checkFlashTimer,
-			_previousClick = 0,
-			_errorOccurred = false;
-		
-		function _init() {
-			_wrapper = utils.createElement('div', WRAP_CLASS + ' ' + SKIN_CLASS + '-' + model.getConfig('skin').name + (model.getConfig('mode') === 'vod' ? ' vod' : ''));
-			_wrapper.id = model.getConfig('id');
-			//_wrapper.tabIndex = 0;
-			
-			_renderLayer = utils.createElement('div', RENDER_CLASS);
-			_controlsLayer = utils.createElement('div', CONTROLS_CLASS);
-			_contextmenuLayer = utils.createElement('div', CONTEXTMENU_CLASS);
-			
-			_wrapper.appendChild(_renderLayer);
-			_wrapper.appendChild(_controlsLayer);
-			_wrapper.appendChild(_contextmenuLayer);
-			
-			utils.addClass(_wrapper, states.IDLE);
-			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
-			
-			_initComponents();
-			_initRenders();
-			_initSkin();
-			
-			_wrapper.oncontextmenu = function(e) {
-				e = e || window.event;
-				e.preventDefault ? e.preventDefault() : e.returnValue = false;
-				return false;
-			};
-			
-			try {
-				window.addEventListener('resize', _onResize);
-				_wrapper.addEventListener('keydown', _onKeyDown);
-				_wrapper.addEventListener('mousedown', _onMouseDown);
-				document.addEventListener('mousedown', _onMouseDown);
-				_renderLayer.addEventListener('click', _onRenderClick);
-			} catch (err) {
-				window.attachEvent('onresize', _onResize);
-				_wrapper.attachEvent('onkeydown', _onKeyDown);
-				_wrapper.attachEvent('onmousedown', _onMouseDown);
-				document.attachEvent('onmousedown', _onMouseDown);
-				_renderLayer.attachEvent('onclick', _onRenderClick);
-			}
-			
-			var replace = document.getElementById(model.getConfig('id'));
-			replace.parentNode.replaceChild(_wrapper, replace);
-		}
-		
-		function _modelStateHandler(e) {
-			utils.removeClass(_wrapper, [states.IDLE, states.BUFFERING, states.PLAYING, states.PAUSED, states.STOPPED, states.ERROR]);
-			utils.addClass(_wrapper, e.state);
-		}
-		
-		function _initComponents() {
-			// controlbar
-			var cbcfg = {
-				report: model.getConfig('report'),
-				playlist: model.getProperty('playlist'),
-				bulletscreen: model.getConfig('bulletscreen'),
-				fullpage: model.getConfig('fullpage')
-			};
-			
-			try {
-				_controlbar = new components.controlbar(_controlsLayer, cbcfg);
-				_controlbar.addGlobalListener(_forward);
-				
-				_controlbar.setVolume(model.getProperty('volume'));
-			} catch (err) {
-				utils.log('Failed to init "controlbar" component!');
-			}
-			
-			// poster
-			var ptcfg = {
-				url: model.getConfig('poster'),
-				width: model.getConfig('width'),
-				height: model.getConfig('height') - 40
-			};
-			
-			try {
-				_poster = new components.poster(ptcfg);
-				_poster.addGlobalListener(_forward);
-				
-				_renderLayer.appendChild(_poster.element());
-			} catch (err) {
-				utils.log('Failed to init "poster" component!');
-			}
-			
-			// bulletscreen
-			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
-				width: model.getConfig('width'),
-				height: model.getConfig('height') - 40
-			});
-			
-			try {
-				_bulletscreen = new components.bulletscreen(bscfg);
-				_bulletscreen.addGlobalListener(_forward);
-				
-				_canvas = _bulletscreen.element();
-				_renderLayer.appendChild(_canvas);
-			} catch (err) {
-				utils.log('Failed to init "bulletscreen" component!');
-			}
-			
-			// display
-			var dicfg = utils.extend({}, model.getConfig('display'), {
-				id: model.getConfig('id') + '-display'
-			});
-			
-			try {
-				_display = new components.display(dicfg);
-				_display.addEventListener(events.PLAYEASE_VIEW_CLICK, _onDisplayClick);
-				
-				_renderLayer.appendChild(_display.element());
-			} catch (err) {
-				utils.log('Failed to init "display" component!');
-			}
-			
-			// logo
-			var lgcfg = utils.extend({}, model.getConfig('logo'), {
-				width: model.getConfig('width'),
-				height: model.getConfig('height') - 40
-			});
-			
-			try {
-				_logo = new components.logo(lgcfg);
-				
-				_renderLayer.appendChild(_logo.element());
-			} catch (err) {
-				utils.log('Failed to init "logo" component!');
-			}
-			
-			// contextmenu
-			var ctxcfg = utils.extend({}, model.getConfig('contextmenu'));
-			
-			try {
-				_contextmenu = new components.contextmenu(_contextmenuLayer, ctxcfg);
-				_contextmenu.addGlobalListener(_forward);
-			} catch (err) {
-				utils.log('Failed to init "contextmenu" component!');
-			}
-		}
-		
-		function _initRenders() {
-			var cfg = utils.extend({}, model.getConfig('render'), {
-				id: model.getConfig('id'),
-				width: model.getConfig('width'),
-				height: model.getConfig('height') - 40,
-				aspectratio: model.getConfig('aspectratio'),
-				playlist: model.getProperty('playlist'),
-				mode: model.getConfig('mode'),
-				bufferTime: model.getConfig('bufferTime'),
-				muted: model.getProperty('muted'),
-				volume: model.getProperty('volume'),
-				autoplay: model.getConfig('autoplay'),
-				airplay: model.getConfig('airplay'),
-				playsinline: model.getConfig('playsinline'),
-				poster: model.getConfig('poster'),
-				loader: model.getConfig('loader')
-			});
-			
-			_renders = {};
-			
-			for (var i = 0; i < priority.length; i++) {
-				var name = priority[i];
-				try {
-					var render = new renders[name](_renderLayer, cfg);
-					_renders[name] = render;
-					
-					utils.log('Render "' + name + '" initialized.');
-				} catch (err) {
-					utils.log('Failed to init render "' + name + '"!');
-				}
-			}
-			
-			var playlist = model.getProperty('playlist');
-			for (var j = 0; j < playlist.sources.length; j++) {
-				var source = playlist.sources[j];
-				if (_renders.hasOwnProperty(source.type)) {
-					_this.activeRender(source.type, source.file);
-					break;
-				}
-			}
-			
-			if (!_this.render) {
-				_this.activeRender(utils.isMSIE(8) ? rendertypes.FLASH : rendertypes.DEFAULT, '');
-			}
-		}
-		
-		_this.activeRender = function(name, url) {
-			if (_render && _render.name == name || _renders.hasOwnProperty(name) == false) {
-				return;
-			}
-			
-			if (_render) {
-				_render.stop();
-				_stopTimer();
-				
-				_render.removeEventListener(events.PLAYEASE_READY, _forward);
-				_render.removeEventListener(events.PLAYEASE_STATE, _forward);
-				_render.removeEventListener(events.PLAYEASE_DURATION, _forward);
-				_render.removeEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-				
-				_renderLayer.removeChild(_render.element());
-			}
-			
-			_render = _this.render = _renders[name];
-			_render.addEventListener(events.PLAYEASE_READY, _forward);
-			_render.addEventListener(events.PLAYEASE_STATE, _forward);
-			_render.addEventListener(events.PLAYEASE_DURATION, _forward);
-			_render.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-			
-			_video = _render.element();
-			_renderLayer.appendChild(_video);
-			
-			switch (name) {
-				case rendertypes.DEFAULT:
-					_render.attach(url);
-					break;
-					
-				case rendertypes.FLASH:
-					if (utils.getFlashVersion() == 0) {
-						model.setState(states.ERROR);
-						_this.display(states.ERROR, 'Flash player is needed. Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
-					}
-					break;
-					
-				default:
-					break;
-			}
-			
-			_this.videoOff(model.getProperty('videooff'));
-			_this.setup();
-			
-			utils.log('Actived render "' + _render.name + '".');
-		};
-		
-		function _initSkin() {
-			var cfg = utils.extend({}, model.getConfig('skin'), {
-				id: model.getConfig('id'),
-				width: model.getConfig('width'),
-				height: model.getConfig('height')
-			});
-			
-			try {
-				_skin = new skins[cfg.name](cfg);
-			} catch (err) {
-				utils.log('Failed to init skin ' + cfg.name + '!');
-			}
-		}
-		
-		_this.setup = function() {
-			// Ignore components & skin failure.
-			if (!_render) {
-				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Render not available!', name: model.getConfig('render').name });
-				return;
-			}
-			
-			_render.setup();
-			_this.resize();
-		};
-		
-		_this.play = function(url) {
-			if (_render) {
-				try {
-					_render.play(url);
-				} catch (err) {
-					utils.log('Failed to play: ' + err);
-				}
-			}
-			
-			_startTimer();
-		};
-		
-		_this.pause = function() {
-			if (_render) {
-				_render.pause();
-			}
-		};
-		
-		_this.reload = function(url) {
-			_this.stop();
-			setTimeout(function() {
-				_this.play(url);
-			}, 100);
-		};
-		
-		_this.seek = function(offset) {
-			_controlbar.setPosition(offset);
-			
-			if (_render) {
-				_render.seek(offset);
-			}
-			
-			_startTimer();
-		};
-		
-		_this.stop = function() {
-			if (_render) {
-				_render.stop();
-			}
-			
-			_stopTimer();
-			
-			_controlbar.setBuffered(0);
-			_controlbar.setPosition(0);
-			_controlbar.setElapsed(0);
-			_controlbar.setDuration(0);
-		};
-		
-		_this.report = function() {
-			
-		};
-		
-		_this.mute = function(muted) {
-			_controlbar.setMuted(muted, model.getProperty('volume'));
-			
-			if (_render) {
-				_render.mute(muted);
-				_this.dispatchEvent(events.PLAYEASE_MUTE, { muted: muted });
-			}
-		};
-		
-		_this.volume = function(vol) {
-			_controlbar.setVolume(vol);
-			
-			if (_render) {
-				_render.volume(vol);
-				_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
-			}
-		};
-		
-		_this.videoOff = function(off) {
-			var enable = _render && _render.name == rendertypes.DASH;
-			_controlbar.setVideoOff(off, enable);
-			
-			if (enable) {
-				var state = model.getState();
-				var playing = state != states.IDLE && state != states.STOPPED && state != states.ERROR;
-				_render.videoOff(off, playing);
-			}
-		};
-		
-		_this.hd = function(index, label) {
-			_controlbar.activeHDItem(index, label);
-		};
-		
-		_this.bullet = function(bullet) {
-			_controlbar.setBullet(bullet);
-			_bulletscreen.setProperty('enable', bullet);
-		};
-		
-		_this.fullpage = function(exit) {
-			if (document.fullscreen || document.webkitIsFullScreen || document.mozFullScreen || document.msFullscreenElement) {
-				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
-				if (!document.exitFullscreen) {
-					return;
-				}
-				
-				document.exitFullscreen();
-			}
-			
-			utils.removeClass(_wrapper, 'fs');
-			model.setProperty('fullscreen', false);
-			
-			if (exit) {
-				utils.removeClass(_wrapper, 'fp');
-			} else {
-				utils.addClass(_wrapper, 'fp');
-			}
-			
-			if (_autohidetimer) {
-				_autohidetimer.stop();
-			}
-			_controlsLayer.style.display = 'block';
-			
-			try {
-				_wrapper.removeEventListener('mousemove', _onMouseMove);
-			} catch (err) {
-				_wrapper.detachEvent('onmousemove', _onMouseMove);
-			}
-			
-			model.setProperty('fullpage', !exit);
-			_this.resize();
-		};
-		
-		_this.fullscreen = function(exit) {
-			if (exit) {
-				document.exitFullscreen = document.exitFullscreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
-				if (document.exitFullscreen) {
-					_video.setAttribute('x5-video-orientation', 'portraint');
-					document.exitFullscreen();
-				} else {
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
-				}
-				
-				utils.removeClass(_wrapper, 'fs');
-				
-				if (_autohidetimer) {
-					_autohidetimer.stop();
-				}
-				try {
-					_wrapper.removeEventListener('mousemove', _onMouseMove);
-				} catch (err) {
-					_wrapper.detachEvent('onmousemove', _onMouseMove);
-				}
-			} else {
-				_wrapper.requestFullscreen = _wrapper.requestFullscreen || _wrapper.webkitRequestFullScreen || _wrapper.mozRequestFullScreen || _wrapper.msRequestFullscreen;
-				if (utils.isMobile() && _video.webkitEnterFullscreen) {
-					_video.setAttribute('x5-video-orientation', 'landscape');
-					_video.webkitEnterFullscreen();
-					
-					if (utils.isIOS()) {
-						return;
-					}
-				} else if (_wrapper.requestFullscreen) {
-					_wrapper.requestFullscreen();
-				} else {
-					_this.dispatchEvent(events.PLAYEASE_VIEW_FULLPAGE, { exit: exit });
-				}
-				
-				utils.addClass(_wrapper, 'fs');
-				
-				if (_autohidetimer) {
-					_autohidetimer.start();
-				}
-				try {
-					_wrapper.addEventListener('mousemove', _onMouseMove);
-				} catch (err) {
-					_wrapper.attachEvent('onmousemove', _onMouseMove);
-				}
-			}
-			
-			_controlsLayer.style.display = 'block';
-			
-			model.setProperty('fullscreen', !exit);
-			_this.resize();
-		};
-		
-		_this.setDuration = function(duration) {
-			if (!duration || isNaN(duration) || duration == Infinity) {
-				utils.removeClass(_wrapper, 'vod');
-			} else {
-				utils.addClass(_wrapper, 'vod');
-			}
-			
-			_controlbar.setDuration(duration);
-		};
-		
-		_this.shoot = function(text) {
-			if (_bulletscreen) {
-				_bulletscreen.shoot(text);
-			}
-		};
-		
-		
-		function _onDisplayClick(e) {
-			var state = model.getState();
-			switch (state) {
-				case states.IDLE:
-				case states.PAUSED:
-				case states.STOPPED:
-				case states.ERROR:
-					_this.dispatchEvent(events.PLAYEASE_VIEW_PLAY);
-					break;
-					
-				default:
-					break;
-			}
-		}
-		
-		function _startTimer() {
-			if (!_timer) {
-				_timer = new utils.timer(500);
-				_timer.addEventListener(events.PLAYEASE_TIMER, _updateTime);
-			}
-			_timer.start();
-		}
-		
-		function _stopTimer() {
-			if (_timer) {
-				_timer.stop();
-			}
-		}
-		
-		function _updateTime(e) {
-			if (!_render || !_render.getRenderInfo) {
-				return;
-			}
-			
-			var data = _render.getRenderInfo();
-			var position = Math.floor((data.duration ? data.position / data.duration : 0) * 10000) / 100;
-			
-			_controlbar.setBuffered(data.buffered);
-			_controlbar.setPosition(position);
-			_controlbar.setElapsed(data.position);
-			_controlbar.setDuration(data.duration);
-		}
-		
-		function _onMouseMove(e) {
-			_controlsLayer.style.display = 'block';
-			
-			if (!_autohidetimer) {
-				_autohidetimer = new utils.timer(3000, 1);
-				_autohidetimer.addEventListener(events.PLAYEASE_TIMER, _autoHideControlBar);
-			}
-			_autohidetimer.start();
-		}
-		
-		function _autoHideControlBar(e) {
-			_controlsLayer.style.display = 'none';
-		}
-		
-		function _onKeyDown(e) {
-			if (e.ctrlKey || e.metaKey) {
-				return true;
-			}
-			
-			switch (e.keyCode) {
-				case 13: // enter
-					
-					break;
-				case 32: // space
-					
-					break;
-				default:
-					break;
-			}
-			
-			if (/13|32/.test(e.keyCode)) {
-				// Prevent keypresses from scrolling the screen
-				e.preventDefault ? e.preventDefault() : e.returnValue = false;
-				return false;
-			}
-		}
-		
-		function _onMouseDown(e) {
-			if (!_contextmenu) {
-				return;
-			}
-			
-			if (e.currentTarget == undefined) {
-				for (var node = e.srcElement; node; node = node.offsetParent) {
-					if (node == _wrapper) {
-						e.currentTarget = _wrapper;
-						break;
-					}
-				}
-			}
-			
-			if (e.button == (utils.isMSIE(8) ? 1 : 0) || e.currentTarget != _wrapper) {
-				setTimeout(function() {
-					_contextmenu.hide();
-				}, 200);
-			} else if (e.button == 2) {
-				var offsetX = 0;
-				var offsetY = 0;
-				
-				for (var node = e.srcElement || e.target; node && node != _wrapper; node = node.offsetParent) {
-					offsetX += node.offsetLeft;
-					offsetY += node.offsetTop;
-				}
-				
-				_contextmenu.show(e.offsetX + offsetX, e.offsetY + offsetY);
-				
-				e.preventDefault ? e.preventDefault() : e.returnValue = false;
-				e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
-				
-				return false;
-			}
-		}
-		
-		function _onRenderClick(e) {
-			var date = new Date();
-			var time = date.getTime();
-			if (time <= _previousClick + 700) {
-				_previousClick = 0; // Avoid triple click
-				
-				var fs = model.getProperty('fullscreen');
-				_this.dispatchEvent(events.PLAYEASE_VIEW_FULLSCREEN, { exit: fs });
-				return;
-			}
-			
-			_previousClick = time;
-		}
-		
-		
-		_this.onSWFState = function(e) {
-			utils.log('onSWFState: ' + e.state);
-			_this.dispatchEvent(events.PLAYEASE_STATE, { state: e.state });
-		};
-		
-		_this.display = function(state, message) {
-			if (_display) {
-				_display.show(state, message);
-			}
-		};
-		
-		function _onResize(e) {
-			_this.resize();
-		}
-		
-		_this.resize = function(width, height) {
-			setTimeout(function() {
-				var fp = model.getProperty('fullpage');
-				var fs = model.getProperty('fullscreen');
-				
-				if (width === undefined || height === undefined) {
-					width = _renderLayer.clientWidth;
-					height = model.getConfig('height');
-				}
-				if (fs || fp) {
-					height = _wrapper.clientHeight;
-				}
-				if (!fs) {
-					height -= 40;
-				}
-				
-				var ratio = model.getConfig('aspectratio');
-				if (ratio && !fp && !fs) {
-					var arr = ratio.match(/(\d+)\:(\d+)/);
-					if (arr && arr.length > 2) {
-						var w = parseInt(arr[1]);
-						var h = parseInt(arr[2]);
-						height = width * h / w;
-					}
-				}
-				
-				if (_render) {
-					_render.resize(width, height);
-				}
-				
-				_this.dispatchEvent(events.RESIZE, { width: width, height: height + (fs ? 0 : 40) });
-				
-				_controlbar.resize(width, height);
-				_poster.resize(width, height);
-				_bulletscreen.resize(width, height);
-				_display.resize(width, height);
-				_logo.resize(width, height);
-				_contextmenu.resize(width, height);
-			});
-		};
-		
-		_this.destroy = function() {
-			if (_wrapper) {
-				try {
-					window.removeEventListener('resize', _onResize);
-					_wrapper.removeEventListener('keydown', _onKeyDown);
-				} catch (err) {
-					window.detachEvent('onresize', _onResize);
-					_wrapper.detachEvent('onkeydown', _onKeyDown);
-				}
-			}
-			if (_render) {
-				_render.destroy();
-			}
-		};
-		
-		function _onRenderError(e) {
-			_stopTimer();
-			_forward(e);
-		}
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		core = playease.core,
-		states = core.states,
-		renders = core.renders,
-		rendertypes = renders.types;
-	
-	core.controller = function(model, view) {
-		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
-			_ready = false,
-			_urgent,
-			_timer,
-			_retrycount = 0;
-		
-		function _init() {
-			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
-			
-			view.addEventListener(events.PLAYEASE_READY, _onReady);
-			view.addEventListener(events.PLAYEASE_STATE, _renderStateHandler);
-			view.addEventListener(events.PLAYEASE_SETUP_ERROR, _onSetupError);
-			view.addEventListener(events.RESIZE, _forward);
-			
-			view.addEventListener(events.PLAYEASE_VIEW_PLAY, _onPlay);
-			view.addEventListener(events.PLAYEASE_VIEW_PAUSE, _onPause);
-			view.addEventListener(events.PLAYEASE_VIEW_RELOAD, _onReload);
-			view.addEventListener(events.PLAYEASE_VIEW_SEEK, _onSeek);
-			view.addEventListener(events.PLAYEASE_VIEW_STOP, _onStop);
-			view.addEventListener(events.PLAYEASE_VIEW_REPORT, _onReport);
-			view.addEventListener(events.PLAYEASE_VIEW_MUTE, _onMute);
-			view.addEventListener(events.PLAYEASE_VIEW_VOLUME, _onVolume);
-			view.addEventListener(events.PLAYEASE_VIEW_VIDEOOFF, _onVideoOff);
-			view.addEventListener(events.PLAYEASE_VIEW_HD, _onHD);
-			view.addEventListener(events.PLAYEASE_VIEW_BULLET, _onBullet);
-			view.addEventListener(events.PLAYEASE_VIEW_FULLPAGE, _onFullpage);
-			view.addEventListener(events.PLAYEASE_VIEW_FULLSCREEN, _onFullscreen);
-			
-			view.addEventListener(events.PLAYEASE_DURATION, _onDuration);
-			view.addEventListener(events.PLAYEASE_RENDER_ERROR, _onRenderError);
-		}
-		
-		function _modelStateHandler(e) {
-			view.display(e.state, '');
-			
-			switch (e.state) {
-				case states.IDLE:
-					break;
-				case states.BUFFERING:
-					_this.dispatchEvent(events.PLAYEASE_BUFFERING);
-					break;
-				case states.PLAYING:
-					_this.dispatchEvent(events.PLAYEASE_PLAYING);
-					break;
-				case states.PAUSED:
-					_this.dispatchEvent(events.PLAYEASE_PAUSED);
-					break;
-				case states.STOPPED:
-					_this.dispatchEvent(events.PLAYEASE_STOPPED);
-					break;
-				case states.ERROR:
-					_retry();
-					break;
-				default:
-					_this.dispatchEvent(events.ERROR, { message: 'Unknown model state!', state: e.state });
-					break;
-			}
-		}
-		
-		function _onReady(e) {
-			if (!_ready) {
-				_ready = true;
-				utils.log('Player ready!');
-				
-				var playlist = model.getProperty('playlist');
-				var item = playlist.getItemAt(playlist.index);
-				if (item) {
-					view.hd(playlist.index, item.label);
-				}
-				
-				_forward(e);
-				
-				if (model.getConfig('autoplay') && (!utils.isMobile() || utils.isWeixin()) || _urgent) {
-					_this.play(_urgent);
-				}
-				
-				window.addEventListener('beforeunload', function(ev) {
-					
-				});
-			}
-		}
-		
-		_this.setup = function(e) {
-			if (!_ready) {
-				view.setup();
-			}
-		};
-		
-		_this.play = function(url) {
-			playease.api.displayError('', model.config);
-			model.setState(states.BUFFERING);
-			
-			if (!_ready) {
-				_Error(events.ERROR, 'Player is not ready yet!');
-				return;
-			}
-			
-			var playlist = model.getProperty('playlist');
-			
-			var type = view.render.name;
-			if (url == undefined) {
-				var item = playlist.getItemAt(playlist.index);
-				if (!item) {
-					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported resource found!');
-					return;
-				}
-				
-				url = item.file;
-				type = item.type;
-			}
-			
-			var render = core.renders[type];
-			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
-				type = playlist.getSupported(url);
-				if (!type) {
-					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported render found!');
-					return;
-				}
-			}
-			
-			_urgent = url;
-			
-			if (view.render.name != type) {
-				_ready = false;
-				view.activeRender(type, url);
-				return;
-			}
-			
-			view.play(url);
-		};
-		
-		_this.pause = function() {
-			view.pause();
-		};
-		
-		_this.reload = function() {
-			playease.api.displayError('', model.config);
-			model.setState(states.BUFFERING);
-			
-			if (!_ready) {
-				_Error(events.ERROR, 'Player is not ready yet!');
-				return;
-			}
-			
-			var playlist = model.getProperty('playlist');
-			
-			var url = _urgent;
-			var type = view.render.name;
-			
-			if (url == undefined) {
-				var item = playlist.getItemAt(playlist.index);
-				if (!item) {
-					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported resource found!');
-					return;
-				}
-				
-				url = item.file;
-				type = item.type;
-			}
-			
-			var render = core.renders[type];
-			if (render == undefined || render.isSupported(url, model.getConfig('mode')) == false) {
-				type = playlist.getSupported(url);
-				if (!type) {
-					_Error(events.PLAYEASE_RENDER_ERROR, 'No supported render found!');
-					return;
-				}
-			}
-			
-			if (view.render.name != type) {
-				_ready = false;
-				view.activeRender(type, url);
-				return;
-			}
-			
-			view.reload(url);
-			_this.dispatchEvent(events.PLAYEASE_RELOADING);
-		};
-		
-		_this.seek = function(offset) {
-			if (!_ready) {
-				_Error(events.ERROR, 'Player is not ready yet!');
-				return;
-			}
-			
-			view.seek(offset);
-			_this.dispatchEvent(events.PLAYEASE_SEEKING, { offset: offset });
-		};
-		
-		_this.stop = function() {
-			_urgent = undefined;
-			view.stop();
-		};
-		
-		_this.report = function() {
-			view.report();
-			_this.dispatchEvent(events.PLAYEASE_REPORT);
-		};
-		
-		_this.mute = function(mute) {
-			mute = !!mute;
-			var muted = model.getProperty('muted');
-			if (muted == mute) {
-				return;
-			}
-			
-			model.setProperty('muted', mute);
-			view.mute(mute);
-			_this.dispatchEvent(events.PLAYEASE_MUTE, { mute: mute });
-		};
-		
-		_this.volume = function(vol) {
-			if (vol == 0) {
-				model.setProperty('muted', true);
-			}
-			
-			model.setProperty('volume', vol);
-			view.volume(vol);
-			_this.dispatchEvent(events.PLAYEASE_VOLUME, { volume: vol });
-		};
-		
-		_this.videoOff = function(off) {
-			off = !!off;
-			var isOff = model.getProperty('videooff');
-			if (isOff == off || !view.render || view.render.name != rendertypes.DASH) {
-				return;
-			}
-			
-			model.setProperty('videooff', off);
-			view.videoOff(off);
-			_this.dispatchEvent(events.PLAYEASE_VIDEOOFF, { off: off });
-		};
-		
-		_this.hd = function(index) {
-			var playlist = model.getProperty('playlist');
-			if (utils.typeOf(playlist.sources) !== 'array' || index >= playlist.sources.length) {
-				return;
-			}
-			
-			if (playlist.activeItemAt(index) == false) {
-				return;
-			}
-			
-			var item = playlist.getItemAt(playlist.index);
-			view.hd(playlist.index, item.label);
-			
-			_this.play();
-		};
-		
-		_this.bullet = function(enable) {
-			enable = !!enable;
-			var bullet = model.getProperty('bullet');
-			if (bullet == enable) {
-				return;
-			}
-			
-			model.setProperty('bullet', enable);
-			view.bullet(enable);
-			_this.dispatchEvent(events.PLAYEASE_BULLET, { enable: enable });
-		};
-		
-		_this.fullpage = function(exit) {
-			view.fullpage(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLPAGE, { exit: exit });
-		}
-		_this.fullscreen = function(exit) {
-			view.fullscreen(exit);
-			_this.dispatchEvent(events.PLAYEASE_FULLSCREEN, { exit: exit });
-		};
-		
-		
-		function _retry() {
-			if (model.config.maxretries < 0 || _retrycount < model.config.maxretries) {
-				var delay = Math.ceil(model.config.retrydelay + Math.random() * 5000);
-				
-				utils.log('Retry delay ' + delay / 1000 + 's ...');
-				
-				_retrycount++;
-				_startTimer(delay);
-			}
-		}
-		
-		function _startTimer(delay) {
-			if (!_timer) {
-				_timer = new utils.timer(delay, 1);
-				_timer.addEventListener(events.PLAYEASE_TIMER, function(e) {
-					_this.play();
-				});
-			}
-			_timer.delay = delay;
-			_timer.reset();
-			_timer.start();
-		}
-		
-		function _stopTimer() {
-			if (_timer) {
-				_timer.stop();
-			}
-		}
-		
-		
-		function _renderStateHandler(e) {
-			var state = model.getState();
-			if (state != states.ERROR) {
-				model.setState(e.state);
-				_forward(e);
-			}
-		}
-		
-		function _onPlay(e) {
-			_this.play(_urgent);
-			_forward(e);
-		}
-		
-		function _onPause(e) {
-			_this.pause();
-			_forward(e);
-		}
-		
-		function _onReload(e) {
-			_this.reload();
-			_forward(e);
-		}
-		
-		function _onSeek(e) {
-			var state = model.getState();
-			if (state != states.IDLE && state != states.ERROR) {
-				_this.seek(e.offset);
-				_forward(e);
-			}
-		}
-		
-		function _onStop(e) {
-			_this.stop();
-			_forward(e);
-		}
-		
-		function _onReport(e) {
-			_this.report();
-		}
-		
-		function _onMute(e) {
-			_this.mute(e.mute);
-		}
-		
-		function _onVolume(e) {
-			_this.volume(e.volume);
-		}
-		
-		function _onVideoOff(e) {
-			_this.videoOff(e.off);
-		}
-		
-		function _onHD(e) {
-			_this.hd(e.index);
-			_this.dispatchEvent(events.PLAYEASE_HD, e);
-		}
-		
-		function _onBullet(e) {
-			_this.bullet(e.enable);
-		}
-		
-		function _onFullpage(e) {
-			var fp = model.getProperty('fullpage');
-			if (e.exit == !fp) {
-				return;
-			}
-			
-			_this.fullpage(fp);
-		}
-		
-		function _onFullscreen(e) {
-			var fs = model.getProperty('fullscreen');
-			if (e.exit == !fs) {
-				return;
-			}
-			
-			_this.fullscreen(fs);
-		}
-		
-		function _onSetupError(e) {
-			model.setState(states.ERROR);
-			view.display(states.ERROR, e.message);
-			
-			_this.stop();
-			_forward(e);
-		}
-		
-		function _onDuration(e) {
-			model.setProperty('duration', e.duration);
-			view.setDuration(e.duration);
-			
-			_forward(e);
-		}
-		
-		function _onRenderError(e) {
-			model.setState(states.ERROR);
-			view.display(states.ERROR, e.message);
-			
-			_this.stop();
-			_forward(e);
-		}
-		
-		function _Error(type, message) {
-			model.setState(states.ERROR);
-			view.display(states.ERROR, message);
-			_this.dispatchEvent(type, { message: message });
-		}
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		renderModes = playease.core.renders.modes;
-	
-	var embed = playease.embed = function(api) {
-		var _this = utils.extend(this, new events.eventdispatcher('embed')),
-			_config = {},
-			_errorOccurred = false,
-			_embedder = null;
-		
-		function _init() {
-			utils.foreach(api.config.events, function(e, cb) {
-				var fn = api[e];
-				if (utils.typeOf(fn) === 'function') {
-					fn.call(api, cb);
-				}
-			});
-		}
-		
-		_this.embed = function() {
-			try {
-				_config = new embed.config(api.config);
-				_embedder = new embed.embedder(api, _config);
-			} catch (e) {
-				utils.log('Failed to init embedder!');
-				_this.dispatchEvent(events.PLAYEASE_SETUP_ERROR, { message: 'Failed to init embedder!', render: _config.render.name });
-				return;
-			}
-			_embedder.addGlobalListener(_onEvent);
-			_embedder.embed();
-		};
-		
-		_this.errorScreen = function(message) {
-			if (_errorOccurred) {
-				return;
-			}
-			
-			_errorOccurred = true;
-			playease.api.displayError(message, _config);
-		};
-		
-		_this.clearScreen = function() {
-			_errorOccurred = false;
-			playease.api.displayError('', _config);
-		};
-		
-		function _onEvent(e) {
-			switch (e.type) {
-				case events.ERROR:
-				case events.PLAYEASE_SETUP_ERROR:
-				case events.PLAYEASE_RENDER_ERROR:
-				case events.PLAYEASE_ERROR:
-					utils.log('[ERROR] ' + e.message);
-					_this.errorScreen(e.message);
-					_this.dispatchEvent(events.ERROR, e);
-					break;
-					
-				case events.PLAYEASE_VIEW_PLAY:
-				case events.PLAYEASE_VIEW_RELOAD:
-				case events.PLAYEASE_VIEW_SEEK:
-					_this.clearScreen();
-					
-				default:
-					_forward(e);
-					break;
-			}
-		}
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
-		
-		_init();
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		embed = playease.embed,
-		io = playease.io,
-		iomodes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		core = playease.core,
-		alphas = core.components.bulletscreen.alphas,
-		positions = core.components.bulletscreen.positions,
-		rendermodes = core.renders.modes,
-		rendertypes = core.renders.types,
-		skintypes = core.skins.types;
-	
-	embed.config = function(config) {
-		var _defaults = {
-			width: 640,
-			height: 400,
-			aspectratio: '16:9',
-			file: '',
-			sources: [],
-			mode: rendermodes.VOD,
-			bufferTime: .1,
-			maxretries: 0,
-			retrydelay: 3000,
-			controls: true,
-			autoplay: true,
-			airplay: 'allow',
-			playsinline: true,
-			poster: '',
-			report: false,
-			debug: false,
-			loader: {
-				//name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
-				//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
-				mode: iomodes.CORS
-			},
-			logo: {
-				visible: true
-			},
-			bulletscreen: {
-				enable: true,
-				visible: false
-			},
-			fullpage: {
-				visible: false
-			},
-			render: {
-				name: rendertypes.DEFAULT,
-				//bufferLength: 4 * 1024 * 1024, // For flv render in vod mode only
-				swf: 'swf/playease.swf'
-			},
-			skin: {
-				name: skintypes.DEFAULT
-			},
-			events: {
-				
-			}
-		},
-		
-		_config = utils.extend({}, _defaults, config);
-		
-		return _config;
-	};
-	
-	embed.config.addConfig = function(oldConfig, newConfig) {
-		return utils.extend(oldConfig, newConfig);
-	};
-})(playease);
-
-(function(playease) {
-	var utils = playease.utils,
-		events = playease.events,
-		embed = playease.embed,
-		core = playease.core;
-	
-	embed.embedder = function(api, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('embed.embedder'));
-		
-		_this.embed = function() {
-			var entity = new core.entity(config);
-			entity.addGlobalListener(_onEvent);
-			entity.setup();
-			api.setEntity(entity);
-		};
-		
-		function _onEvent(e) {
-			_forward(e);
-		}
-		
-		function _forward(e) {
-			_this.dispatchEvent(e.type, e);
-		}
 	};
 })(playease);

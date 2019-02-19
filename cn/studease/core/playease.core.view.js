@@ -4,7 +4,7 @@
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
+		renderTypes = renders.types,
 		priority = renders.priority,
 		components = core.components,
 		skins = core.skins,
@@ -23,7 +23,7 @@
 			_contextmenuLayer,
 			_controlbar,
 			_poster,
-			_bulletscreen,
+			_bulletCurtain,
 			_display,
 			_logo,
 			_contextmenu,
@@ -33,7 +33,7 @@
 			_canvas,
 			_video,
 			_timer,
-			_autohidetimer,
+			_autoHideTimer,
 			_checkFlashTimer,
 			_previousClick = 0,
 			_errorOccurred = false;
@@ -122,16 +122,16 @@
 			}
 			
 			// bulletscreen
-			var bscfg = utils.extend({}, model.getConfig('bulletscreen'), {
+			var bscfg = utils.extend({}, model.getConfig('bulletCurtain'), {
 				width: model.getConfig('width'),
 				height: model.getConfig('height') - 40
 			});
 			
 			try {
-				_bulletscreen = new components.bulletscreen(bscfg);
-				_bulletscreen.addGlobalListener(_forward);
+				_bulletCurtain = new components.bulletCurtain(bscfg);
+				_bulletCurtain.addGlobalListener(_forward);
 				
-				_canvas = _bulletscreen.element();
+				_canvas = _bulletCurtain.element();
 				_renderLayer.appendChild(_canvas);
 			} catch (err) {
 				utils.log('Failed to init "bulletscreen" component!');
@@ -218,7 +218,7 @@
 			}
 			
 			if (!_this.render) {
-				_this.activeRender(utils.isMSIE(8) ? rendertypes.FLASH : rendertypes.DEFAULT, '');
+				_this.activeRender(utils.isMSIE(8) ? renderTypes.FLASH : renderTypes.DEFAULT, '');
 			}
 		}
 		
@@ -249,11 +249,11 @@
 			_renderLayer.appendChild(_video);
 			
 			switch (name) {
-				case rendertypes.DEFAULT:
+				case renderTypes.DEFAULT:
 					_render.attach(url);
 					break;
 					
-				case rendertypes.FLASH:
+				case renderTypes.FLASH:
 					if (utils.getFlashVersion() == 0) {
 						model.setState(states.ERROR);
 						_this.display(states.ERROR, 'Flash player is needed. Click <a href="http://get.adobe.com/cn/flashplayer/about/" target="_blank">here</a> to install.');
@@ -264,7 +264,7 @@
 					break;
 			}
 			
-			_this.videoOff(model.getProperty('videooff'));
+			_this.videoOff(model.getProperty('videoOff'));
 			_this.setup();
 			
 			utils.log('Actived render "' + _render.name + '".');
@@ -366,7 +366,7 @@
 		};
 		
 		_this.videoOff = function(off) {
-			var enable = _render && _render.name == rendertypes.DASH;
+			var enable = _render && _render.name == renderTypes.DASH;
 			_controlbar.setVideoOff(off, enable);
 			
 			if (enable) {
@@ -382,7 +382,7 @@
 		
 		_this.bullet = function(bullet) {
 			_controlbar.setBullet(bullet);
-			_bulletscreen.setProperty('enable', bullet);
+			_bulletCurtain.setProperty('enable', bullet);
 		};
 		
 		_this.fullpage = function(exit) {
@@ -404,8 +404,8 @@
 				utils.addClass(_wrapper, 'fp');
 			}
 			
-			if (_autohidetimer) {
-				_autohidetimer.stop();
+			if (_autoHideTimer) {
+				_autoHideTimer.stop();
 			}
 			_controlsLayer.style.display = 'block';
 			
@@ -431,8 +431,8 @@
 				
 				utils.removeClass(_wrapper, 'fs');
 				
-				if (_autohidetimer) {
-					_autohidetimer.stop();
+				if (_autoHideTimer) {
+					_autoHideTimer.stop();
 				}
 				try {
 					_wrapper.removeEventListener('mousemove', _onMouseMove);
@@ -456,8 +456,8 @@
 				
 				utils.addClass(_wrapper, 'fs');
 				
-				if (_autohidetimer) {
-					_autohidetimer.start();
+				if (_autoHideTimer) {
+					_autoHideTimer.start();
 				}
 				try {
 					_wrapper.addEventListener('mousemove', _onMouseMove);
@@ -483,8 +483,8 @@
 		};
 		
 		_this.shoot = function(text) {
-			if (_bulletscreen) {
-				_bulletscreen.shoot(text);
+			if (_bulletCurtain) {
+				_bulletCurtain.shoot(text);
 			}
 		};
 		
@@ -535,11 +535,11 @@
 		function _onMouseMove(e) {
 			_controlsLayer.style.display = 'block';
 			
-			if (!_autohidetimer) {
-				_autohidetimer = new utils.timer(3000, 1);
-				_autohidetimer.addEventListener(events.PLAYEASE_TIMER, _autoHideControlBar);
+			if (!_autoHideTimer) {
+				_autoHideTimer = new utils.timer(3000, 1);
+				_autoHideTimer.addEventListener(events.PLAYEASE_TIMER, _autoHideControlBar);
 			}
-			_autohidetimer.start();
+			_autoHideTimer.start();
 		}
 		
 		function _autoHideControlBar(e) {
@@ -669,7 +669,7 @@
 				
 				_controlbar.resize(width, height);
 				_poster.resize(width, height);
-				_bulletscreen.resize(width, height);
+				_bulletCurtain.resize(width, height);
 				_display.resize(width, height);
 				_logo.resize(width, height);
 				_contextmenu.resize(width, height);

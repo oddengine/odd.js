@@ -1,7 +1,9 @@
 ﻿(function(playease) {
 	var net = playease.net;
 	
-	net.netstatus = {
+	net.NetStatus = {};
+	
+	net.NetStatus.Code = {
 		NETCONNECTION_CALL_FAILED: 'NetConnection.Call.Failed',
 		NETCONNECTION_CONNECT_APPSHUTDOWN: 'NetConnection.Connect.AppShutdown',
 		NETCONNECTION_CONNECT_CLOSED: 'NetConnection.Connect.Closed',
