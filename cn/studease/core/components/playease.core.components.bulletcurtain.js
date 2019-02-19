@@ -16,8 +16,8 @@
 			BOTTOM:     2
 		};
 	
-	components.bulletscreen = function(config) {
-		var _this = utils.extend(this, new events.eventdispatcher('components.bulletscreen')),
+	components.bulletCurtain = function(config) {
+		var _this = utils.extend(this, new events.eventdispatcher('components.bulletCurtain')),
 			_defaults = {
 				width: 640,
 				height: 360,
@@ -228,6 +228,6 @@
 		_init();
 	};
 	
-	components.bulletscreen.alphas = alphas;
-	components.bulletscreen.positions = positions;
+	components.bulletCurtain.alphas = alphas;
+	components.bulletCurtain.positions = positions;
 })(playease);

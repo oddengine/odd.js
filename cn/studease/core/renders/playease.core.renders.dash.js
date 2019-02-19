@@ -6,14 +6,14 @@
 		matchers = utils.matchers,
 		io = playease.io,
 		responseTypes = io.responseTypes,
-		readystates = io.readystates,
+		readyStates = io.readyStates,
 		priority = io.priority,
 		muxer = playease.muxer,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types,
-		rendermodes = renders.modes,
+		renderTypes = renders.types,
+		renderModes = renders.modes,
 		
 		fragmentTypes = {
 			INIT_SEGMENT: 0,
@@ -68,7 +68,7 @@
 			_endOfStream = false;
 		
 		function _init() {
-			_this.name = rendertypes.DASH;
+			_this.name = renderTypes.DASH;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
@@ -77,7 +77,7 @@
 			_contentLength = 0;
 			_waiting = true;
 			
-			_range = { start: 0, end: _this.config.mode == rendermodes.VOD ? 64 * 1024 * 1024 - 1 : '' };
+			_range = { start: 0, end: _this.config.mode == renderTypes.VOD ? 64 * 1024 * 1024 - 1 : '' };
 			
 			_sb = { audio: null, video: null };
 			_segments = { audio: [], video: [] };
@@ -406,7 +406,7 @@
 		
 		function _loadSegment(request) {
 			var segmentLoader = request.type == 'audio' ? _audioloader : _videoloader;
-			if (segmentLoader.state() != readystates.UNINITIALIZED && segmentLoader.state() != readystates.DONE) {
+			if (segmentLoader.state() != readyStates.UNINITIALIZED && segmentLoader.state() != readyStates.DONE) {
 				return;
 			}
 			
@@ -570,8 +570,8 @@
 			}
 			
 			if (_mpd && _mpd['@type'] == 'static' 
-					&& _audioloader && _audioloader.state() == readystates.DONE
-					&& _videoloader && _videoloader.state() == readystates.DONE) {
+					&& _audioloader && _audioloader.state() == readyStates.DONE
+					&& _videoloader && _videoloader.state() == readyStates.DONE) {
 				var dts = end * 1000;
 				
 				if (_segments.video.length) {

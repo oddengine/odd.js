@@ -2,16 +2,13 @@
 	var utils = playease.utils,
 		events = playease.events,
 		io = playease.io,
-		readystates = io.readystates,
 		net = playease.net,
-		status = net.netstatus,
-		netconnection = net.netconnection,
-		
-		packages = netconnection.packages,
-		commands = netconnection.commands;
+		NetConnection = net.NetConnection,
+		packages = NetConnection.packages,
+		commands = NetConnection.commands;
 	
-	net.netstream = function(connection, config) {
-		var _this = utils.extend(this, new events.eventdispatcher('net.netstream')),
+	net.NetStream = function(connection, config) {
+		var _this = utils.extend(this, new events.eventdispatcher('net.NetStream')),
 			_defaults = {
 				bufferTime: .1
 			},
@@ -32,7 +29,7 @@
 			_bytesTotal = 0;
 			
 			_info = {
-				state: readystates.UNINITIALIZED
+				state: io.readyStates.UNINITIALIZED
 			};
 		}
 		

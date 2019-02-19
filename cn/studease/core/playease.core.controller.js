@@ -4,14 +4,14 @@
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
-		rendertypes = renders.types;
+		renderTypes = renders.types;
 	
 	core.controller = function(model, view) {
 		var _this = utils.extend(this, new events.eventdispatcher('core.controller')),
 			_ready = false,
 			_urgent,
 			_timer,
-			_retrycount = 0;
+			_retryCount = 0;
 		
 		function _init() {
 			model.addEventListener(events.PLAYEASE_STATE, _modelStateHandler);
@@ -231,7 +231,7 @@
 		_this.videoOff = function(off) {
 			off = !!off;
 			var isOff = model.getProperty('videooff');
-			if (isOff == off || !view.render || view.render.name != rendertypes.DASH) {
+			if (isOff == off || !view.render || view.render.name != renderTypes.DASH) {
 				return;
 			}
 			
@@ -279,12 +279,12 @@
 		
 		
 		function _retry() {
-			if (model.config.maxretries < 0 || _retrycount < model.config.maxretries) {
+			if (model.config.maxretries < 0 || _retryCount < model.config.maxretries) {
 				var delay = Math.ceil(model.config.retrydelay + Math.random() * 5000);
 				
 				utils.log('Retry delay ' + delay / 1000 + 's ...');
 				
-				_retrycount++;
+				_retryCount++;
 				_startTimer(delay);
 			}
 		}

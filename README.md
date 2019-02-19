@@ -59,10 +59,6 @@ player.setup({
 		label: 'WS-FLV'
 	}, {
 		file: 'ws://127.0.0.1/live/sample',
-		type: 'rtmpmate',
-		label: 'WS-RTMPMATE'
-	}, {
-		file: 'ws://127.0.0.1/live/sample',
 		type: 'wss',
 		label: 'WS-fMP4'
 	}, {
@@ -84,7 +80,7 @@ player.setup({
 	//report: true,
 	loader: {
 		name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
-		chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
+		chunkSize: 4 * 1024 * 1024, // For xhr-chunked-loader only
 		mode: 'cors'
 	},
 	bulletscreen: {
@@ -145,8 +141,8 @@ _defaults = {
 	sources: [],
 	mode: rendermodes.VOD,
 	bufferTime: .1,
-	maxretries: 0,
-	retrydelay: 3000,
+	maxRetries: 0,
+	retryDelay: 3000,
 	controls: true,
 	autoplay: true,
 	airplay: 'allow',

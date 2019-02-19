@@ -180,11 +180,11 @@
 			_hasAudio,
 			_hasVideo,
 			_header,
-			_tagsize,
+			_tagSize,
 			_hv,
 			_sv,
 			_lacking,
-			_cachedchunks,
+			_cachedChunks,
 			
 			_mediainfo,
 			_metadata,
@@ -206,12 +206,12 @@
 			_header.position = 0;
 			_hv = new Uint8Array(_header);
 			
-			_tagsize = new ArrayBuffer(4);
-			_tagsize.position = 0;
-			_sv = new Uint8Array(_tagsize);
+			_tagSize = new ArrayBuffer(4);
+			_tagSize.position = 0;
+			_sv = new Uint8Array(_tagSize);
 			
 			_lacking = 0;
-			_cachedchunks = [];
+			_cachedChunks = [];
 			
 			_mediainfo = new mediainfo();
 			
@@ -236,7 +236,7 @@
 			_state = seeking ? states.HEADER : states.START;
 			
 			_header.position = 0;
-			_cachedchunks = [];
+			_cachedChunks = [];
 			
 			_mediainfo = new mediainfo();
 			
@@ -323,19 +323,19 @@
 						pos += actual;
 						
 						if (_lacking) {
-							_cachedchunks.push(data);
+							_cachedChunks.push(data);
 							break;
 						}
 						
-						if (_cachedchunks.length) {
-							data = _cachedchunks[0];
+						if (_cachedChunks.length) {
+							data = _cachedChunks[0];
 							
 							var buf = new Uint8Array(datasize);
 							buf.position = 0;
 							
 							var subarr;
-							while (_cachedchunks.length) {
-								var chk = _cachedchunks.shift();
+							while (_cachedChunks.length) {
+								var chk = _cachedChunks.shift();
 								subarr = new Uint8Array(chk.data.slice(chk.offset));
 								buf.set(subarr, buf.position);
 								buf.position += chk.data.byteLength - chk.offset;
@@ -348,13 +348,13 @@
 						}
 						
 						_state = states.SIZE;
-						_tagsize.position = 0;
+						_tagSize.position = 0;
 						
 						_this.dispatchEvent(events.PLAYEASE_FLV_TAG, data);
 						break;
 					case states.SIZE:
-						_sv[_tagsize.position++] = dv[pos++];
-						if (_tagsize.position == 4) {
+						_sv[_tagSize.position++] = dv[pos++];
+						if (_tagSize.position == 4) {
 							var datasize = _hv[1] << 16 | _hv[2] << 8 | _hv[3];
 							var prevTagSize = utils.getUint32(_sv);
 							if (prevTagSize != 11 + datasize) {

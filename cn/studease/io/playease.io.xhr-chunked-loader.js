@@ -1,40 +1,34 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		events = playease.events,
-		io = playease.io,
-		modes = io.modes,
-		credentials = io.credentials,
-		caches = io.caches,
-		redirects = io.redirects,
-		responseTypes = io.responseTypes,
-		readystates = io.readystates;
+		io = playease.io;
 	
 	io['xhr-chunked-loader'] = function(config) {
 		var _this = utils.extend(this, new events.eventdispatcher('utils.xhr-chunked-loader')),
 			_defaults = {
 				method: 'GET',
 				headers: {},
-				mode: modes.CORS,
-				credentials: credentials.OMIT,
-				cache: caches.DEFAULT,
-				redirect: redirects.FOLLOW,
+				mode: io.modes.CORS,
+				credentials: io.credentials.OMIT,
+				cache: io.caches.DEFAULT,
+				redirect: io.redirects.FOLLOW,
 				chunkSize: 0,
-				responseType: responseTypes.TEXT
+				responseType: io.responseTypes.TEXT
 			},
 			_state,
 			_url,
 			_xhr,
 			_range,
-			_filesize;
+			_fileSize;
 		
 		function _init() {
 			_this.name = io.types.XHR_CHUNKED_LOADER;
 			
 			_this.config = utils.extend({}, _defaults, config);
 			
-			_state = readystates.UNINITIALIZED;
+			_state = io.readyStates.UNINITIALIZED;
 			_range = { start: 0, position: 0, last: 0, end: '' };
-			_filesize = Number.MAX_VALUE;
+			_fileSize = Number.MAX_VALUE;
 		}
 		
 		_this.load = function(url, start, end) {
@@ -54,10 +48,10 @@
 			_xhr.onerror = _onXHRError;
 			
 			switch (_this.config.credentials) {
-				case credentials.INCLUDE:
+				case io.credentials.INCLUDE:
 					_xhr.withCredentials = true;
 					break;
-				case credentials.SAME_ORIGIN:
+				case io.credentials.SAME_ORIGIN:
 					_xhr.withCredentials = window.location.host == utils.getOrigin(_url);
 					break;
 				default:
@@ -66,7 +60,7 @@
 			
 			if (start || end) {
 				_range.start = _range.position = start;
-				_range.end = Math.min(end, _filesize);
+				_range.end = Math.min(end, _fileSize);
 				
 				if (_range.position - 1 >= _range.end) {
 					return;
@@ -90,7 +84,7 @@
 		function _onXHRReadyStateChange(e) {
 			_state = _xhr.readyState;
 			
-			if (_xhr.readyState == readystates.SENT) {
+			if (_xhr.readyState == io.readyStates.SENT) {
 				if (_xhr.status != 416 && (_xhr.status < 200 || _xhr.status >= 300)) {
 					_this.dispatchEvent(events.ERROR, { message: 'Loader error: Invalid http status(' + _xhr.status + ' ' + _xhr.statusText + ').' });
 				}
@@ -105,13 +99,13 @@
 			var data, len;
 			
 			switch (_xhr.responseType) {
-				case responseTypes.ARRAYBUFFER:
+				case io.responseTypes.ARRAYBUFFER:
 					var arr = new Uint8Array(_xhr.response);
 					data = arr.buffer;
 					len = data.byteLength;
 					break;
 					
-				case responseTypes.BLOB:
+				case io.responseTypes.BLOB:
 					// TODO: read blob.
 					break;
 					
@@ -127,8 +121,8 @@
 			}
 			
 			if (!_this.config.headers.Range || _xhr.status == 416 || _range.position - 1 < _range.last) {
-				_filesize = _range.position;
-				_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: _filesize });
+				_fileSize = _range.position;
+				_this.dispatchEvent(events.PLAYEASE_CONTENT_LENGTH, { length: _fileSize });
 			}
 			
 			if (!_this.config.headers.Range || _xhr.status == 416 || _range.position - 1 < _range.last || _range.position - 1 >= _range.end) {
@@ -156,7 +150,7 @@
 		}
 		
 		_this.abort = function() {
-			_state = readystates.DONE;
+			_state = io.readyStates.DONE;
 			
 			if (_xhr) {
 				_xhr.abort();

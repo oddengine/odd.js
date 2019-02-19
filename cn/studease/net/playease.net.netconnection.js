@@ -3,7 +3,7 @@
 		crypt = utils.crypt,
 		events = playease.events,
 		net = playease.net,
-		status = net.netstatus,
+		Code = net.NetStatus.Code,
 		
 		packages = {
 			AUDIO:  0x08,
@@ -24,8 +24,8 @@
 			ON_META_DATA: 0x000009
 		};
 	
-	net.netconnection = function() {
-		var _this = utils.extend(this, new events.eventdispatcher('net.netconnection')),
+	net.NetConnection = function() {
+		var _this = utils.extend(this, new events.eventdispatcher('net.NetConnection')),
 			_websocket,
 			_connected,
 			_url,
@@ -117,7 +117,7 @@
 		
 		function _onOpen(e) {
 			_connected = true;
-			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: status.NETCONNECTION_CONNECT_SUCCESS } });
+			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: Code.NETCONNECTION_CONNECT_SUCCESS } });
 		}
 		
 		function _onMessage(e) {
@@ -190,7 +190,7 @@
 		
 		function _onClose(e) {
 			_connected = false;
-			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: status.NETCONNECTION_CONNECT_CLOSED } });
+			_this.dispatchEvent(events.PLAYEASE_NET_STATUS, { info: { level: 'status', code: Code.NETCONNECTION_CONNECT_CLOSED } });
 		}
 		
 		_this.close = function() {
@@ -218,6 +218,6 @@
 		_init();
 	};
 	
-	net.netconnection.packages = packages;
-	net.netconnection.commands = commands;
+	net.NetConnection.packages = packages;
+	net.NetConnection.commands = commands;
 })(playease);
