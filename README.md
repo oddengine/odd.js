@@ -139,7 +139,7 @@ _defaults = {
 	aspectratio: '16:9',
 	file: '',
 	sources: [],
-	mode: rendermodes.VOD,
+	mode: renderModes.VOD,
 	bufferTime: .1,
 	maxRetries: 0,
 	retryDelay: 3000,
@@ -153,7 +153,7 @@ _defaults = {
 	loader: {
 		//name: 'xhr-chunked-loader', // For flv render in vod mode only. Otherwise, don't name it out.
 		//chunkSize: 2 * 1024 * 1024, // For xhr-chunked-loader only
-		mode: iomodes.CORS
+		mode: io.modes.CORS
 	},
 	bulletCurtain: {
 		enable: true,
