@@ -7,8 +7,6 @@
 		io = playease.io,
 		responseTypes = io.responseTypes,
 		readyStates = io.readyStates,
-		priority = io.priority,
-		muxer = playease.muxer,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
