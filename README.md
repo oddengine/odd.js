@@ -50,28 +50,25 @@ player.setup({
 	aspectratio: '16:9',
 	file: '/vod/sample.flv',
 	/*sources: [{
-		file: 'http://127.0.0.1/live/sample.flv',
+		file: 'http://127.0.0.1/live/_definst_/sample.flv',
 		type: 'flv',
 		label: 'HTTP-FLV'
 	}, {
-		file: 'ws://127.0.0.1/live/sample.flv',
-		type: 'flv',
-		label: 'WS-FLV'
+		file: 'http://127.0.0.1/live/_definst_/sample.m4v',
+		type: 'fmp4',
+		label: 'HTTP-FMP4'
 	}, {
-		file: 'ws://127.0.0.1/live/sample',
-		type: 'wss',
-		label: 'WS-fMP4'
-	}, {
-		file: 'http://127.0.0.1/live/sample/manifest.mpd',
+		file: 'http://127.0.0.1/live/_definst_/sample/manifest.mpd',
 		type: 'dash',
 		label: 'MPEG-DASH'
 	}, {
-		file: 'rtmp://127.0.0.1/live/sample',
+		file: 'rtmp://127.0.0.1/live/_definst_/sample',
 		type: 'flash',
 		label: 'RTMP-STREAM'
 	}, {
-		file: 'http://127.0.0.1/live/sample/index.m3u8',
-		type: 'def'
+		file: 'http://127.0.0.1/live/_definst_/sample/index.m3u8',
+		type: 'def',
+		label: 'HLS'
 	}],*/
 	mode: 'vod',
 	controls: true,
