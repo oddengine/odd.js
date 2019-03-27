@@ -54,7 +54,7 @@ player.setup({
 		type: 'flv',
 		label: 'HTTP-FLV'
 	}, {
-		file: 'http://127.0.0.1/live/_definst_/sample.m4v',
+		file: 'http://127.0.0.1/live/_definst_/sample',
 		type: 'fmp4',
 		label: 'HTTP-FMP4'
 	}, {
