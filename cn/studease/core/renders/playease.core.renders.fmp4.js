@@ -1,7 +1,7 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		css = utils.css,
-		//filekeeper = utils.filekeeper,
+		filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
 		priority = io.priority,
@@ -25,8 +25,8 @@
 			_ms,
 			_sb,
 			_segments,
-			//_fileindex,
-			//_filekeeper,
+			_fileindex,
+			_filekeeper,
 			_waiting,
 			_endOfStream = false;
 		
@@ -63,8 +63,8 @@
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			
-			//_fileindex = 0;
-			//_filekeeper = new filekeeper();
+			_fileindex = 0;
+			_filekeeper = new filekeeper();
 			
 			_initMSE();
 		}
@@ -243,25 +243,39 @@
 		 */
 		function _onContenLength(e) {
 			utils.log('onContenLength: ' + e.length);
-			
 			_contentLength = e.length;
-			
-			_this.addSourceBuffer('video/mp4; codecs="avc1.640028,mp4a.40.5"');
 		}
 		
 		function _onLoaderProgress(e) {
 			//utils.log('onLoaderProgress: ' + e.data.byteLength);
 			
+			/*if (_fileindex < 20533) {
+				_fileindex++;
+				_filekeeper.append(e.data);
+				
+				if (_fileindex == 20533) {
+					_filekeeper.save('sample.fmp4.mp4');
+				}
+			}*/
+			
 			_segments.push(e.data);
 			_this.appendSegment();
-			
-			if (0) {
-				_endOfStream = true;
-			}
 		}
 		
 		function _onLoaderComplete(e) {
 			utils.log('onLoaderComplete');
+			
+			if (_this.config.mode == renderModes.LIVE) {
+				_endOfStream = true;
+				
+				if (!_ms || _ms.readyState !== 'open') {
+					return;
+				}
+				
+				if (!_segments.length) {
+					_ms.endOfStream();
+				}
+			}
 		}
 		
 		function _onLoaderError(e) {
@@ -291,7 +305,7 @@
 				_sb.addEventListener('updateend', _onUpdateEnd);
 				_sb.addEventListener('error', _onSourceBufferError);
 			} catch (err) {
-				utils.log('Failed to addSourceBuffer for ' + type + ', mimeType: ' + mimetype + '.');
+				utils.log('Failed to addSourceBuffer, mimeType: ' + mimetype + '.');
 			}
 		};
 		
@@ -315,6 +329,7 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
+			_this.addSourceBuffer('video/mp4; codecs="avc1.640028,mp4a.40.5"');
 			_loader.load(_url, _range.start, _range.end);
 		}
 		
@@ -464,7 +479,7 @@
 		var map = [
 			'mp4', 'f4v', 'm4v', 'mov',
 			'm4a', 'f4a',
-			'm4s'
+			'm4s', undefined, ''
 		];
 		
 		var extension = utils.getExtension(file);

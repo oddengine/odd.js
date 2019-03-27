@@ -645,10 +645,7 @@
 		}
 		
 		var extension = utils.getExtension(file);
-		if (extension != 'flv' && extension != undefined) {
-			return false;
-		}
 		
-		return true;
+		return extension == 'flv';
 	};
 })(playease);

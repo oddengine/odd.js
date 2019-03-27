@@ -63,14 +63,12 @@
 		
 		function _onError(e) {
 			_state = io.readyStates.UNINITIALIZED;
-			
-			// No event dispatching
-			//_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
+			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.message });
 		}
 		
 		function _onClose(e) {
 			_state = io.readyStates.UNINITIALIZED;
-			_this.dispatchEvent(events.ERROR, { message: 'Loader error: ' + e.code + (e.reason ? ' - ' + e.reason : '') });
+			_this.dispatchEvent(events.PLAYEASE_COMPLETE);
 		}
 		
 		_this.abort = function() {
