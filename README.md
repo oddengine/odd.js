@@ -10,8 +10,14 @@
 
 > QQ群：528109813
 
-This is a HTML5 video player for FLV/fMP4 live streaming, FLV/fMP4 VoD, MPEG-DASH, and original HTML5 media resources, eg. Ogg, Mpeg4, WebM, HLS.
-It also supports RTMP streaming for MSIE8-10 with flash embed in.
+This is a HTML5 video player for modern live streaming. It supports: 
+
+* **RTMP (For MSIE8-10 with flash embed in)**
+* **HTTP/WebSocket-FLV**
+* **HTTP/WebSocket-fMP4**
+* **MPEG-DASH**
+* **HLS (on mobile)**
+* **Original HTML5 media resources (eg. Ogg, Mpeg4, WebM)**
 
 
 ## Example

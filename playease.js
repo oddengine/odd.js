@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.2.02';
+playease.version = '1.2.03';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -6158,6 +6158,8 @@ playease.version = '1.2.02';
 				
 				_video.src = _url;
 				_src = _video.src;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			var promise = _video.play();
@@ -6526,6 +6528,8 @@ playease.version = '1.2.02';
 				_video.load();
 				
 				_src = _video.src;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			var promise = _video.play();
@@ -7145,6 +7149,8 @@ playease.version = '1.2.02';
 				_video.load();
 				
 				_src = _video.src;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			var promise = _video.play();
@@ -7678,6 +7684,8 @@ playease.version = '1.2.02';
 				_video.load();
 				
 				_src = _video.src;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			var promise = _video.play();
@@ -8250,6 +8258,8 @@ playease.version = '1.2.02';
 				_video.load();
 				
 				_src = _video.src;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			var promise = _video.play();
@@ -8778,6 +8788,8 @@ playease.version = '1.2.02';
 				}
 				
 				_url = url;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_video.xplay) {
