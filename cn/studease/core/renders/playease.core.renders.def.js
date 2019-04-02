@@ -86,6 +86,8 @@
 				
 				_video.src = _url;
 				_src = _video.src;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			var promise = _video.play();

@@ -78,6 +78,8 @@
 				}
 				
 				_url = url;
+			} else {
+				_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
 			}
 			
 			if (_video.xplay) {
