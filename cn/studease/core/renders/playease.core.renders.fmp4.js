@@ -308,6 +308,22 @@
 		 * Demuxer
 		 */
 		function _onMP4Box(e) {
+			var u8 = new Uint8Array(e.box.data);
+			
+			switch (e.box.type) {
+			case 'stsd':
+				u8 = new Uint8Array(e.box.data, 8);
+				break;
+				
+			case 'avc1':
+				u8 = new Uint8Array(e.box.data, 78);
+				break;
+				
+			case 'mp4a':
+				u8 = new Uint8Array(e.box.data, 28);
+				break;
+			}
+			
 			switch (e.box.type) {
 			case 'moov':
 			case 'trak':
@@ -317,7 +333,7 @@
 			case 'stsd':
 			case 'avc1':
 			case 'mp4a':
-				_demuxer.parse(e.box.data);
+				_demuxer.parse(u8);
 				
 				if (e.box.type == 'moov') {
 					var codecs = _videoCodec + (_videoCodec && _audioCodec ? ',' : '') + _audioCodec;
@@ -327,7 +343,7 @@
 			
 			case 'avcC':
 				_videoCodec = 'avc1.';
-				var u8 = new Uint8Array(e.box.data, 9, 3);
+				u8 = new Uint8Array(e.box.data, 9, 3);
 				
 				for (var i = 0; i < u8.byteLength; i++) {
 					var h = u8[i].toString(16);
@@ -340,7 +356,7 @@
 				break;
 				
 			case 'esds':
-				var u8 = new Uint8Array(e.box.data, 27, 1);
+				u8 = new Uint8Array(e.box.data, 27, 1);
 				_audioCodec = 'mp4a.40.' + (u8[0] >> 3);
 				break;
 			}

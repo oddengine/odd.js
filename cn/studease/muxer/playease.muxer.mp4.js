@@ -264,7 +264,7 @@
 				islive: false
 			},
 			_state,
-			_box,
+			_cache,
 			_dtsBase,
 			_fillSilentAfterSeek,
 			_videoNextDts,
@@ -298,9 +298,12 @@
 				];
 			}
 			
-			
 			_state = 0;
-			_box = { size: 0, type: '', data: undefined };
+			_cache = {
+				size: 0,
+				type: '',
+				data: undefined
+			};
 			
 			_dtsBase = 0;
 			_fillSilentAfterSeek = false;
@@ -322,7 +325,7 @@
 			_fillSilentAfterSeek = false;
 		};
 		
-		_this.parse = function(chunk) {
+		_this.parse = function(buf) {
 			var sw_size_0 = 0,
 				  sw_size_1 = 1,
 				  sw_size_2 = 2,
@@ -333,67 +336,62 @@
 				  sw_type_3 = 7,
 				  sw_data   = 8;
 			
-			var dv = new Uint8Array(chunk);
+			var v = new Uint8Array(buf);
 			
-			for (var i = 0; i < dv.byteLength; i++) {
+			for (var i = 0; i < v.byteLength; i++) {
 				switch (_state) {
 				case sw_size_0:
-					_box.size = dv[i] << 24;
+					_cache.size = v[i] << 24;
 					_state = sw_size_1;
 					break;
 					
 				case sw_size_1:
-					_box.size |= dv[i] << 16;
+					_cache.size |= v[i] << 16;
 					_state = sw_size_2;
 					break;
 					
 				case sw_size_2:
-					_box.size |= dv[i] << 8;
+					_cache.size |= v[i] << 8;
 					_state = sw_size_3;
 					break;
 					
 				case sw_size_3:
-					_box.size |= dv[i];
+					_cache.size |= v[i];
+					_cache.data = new Uint8Array(_cache.size - 8);
+					_cache.data.position = 0;
 					_state = sw_type_0;
 					break;
 					
 				case sw_type_0:
-					_box.type = String.fromCharCode(dv[i]);
+					_cache.type = String.fromCharCode(v[i]);
 					_state = sw_type_1;
 					break;
 					
 				case sw_type_1:
-					_box.type += String.fromCharCode(dv[i]);
+					_cache.type += String.fromCharCode(v[i]);
 					_state = sw_type_2;
 					break;
 					
 				case sw_type_2:
-					_box.type += String.fromCharCode(dv[i]);
+					_cache.type += String.fromCharCode(v[i]);
 					_state = sw_type_3;
 					break;
 					
 				case sw_type_3:
-					_box.type += String.fromCharCode(dv[i]);
+					_cache.type += String.fromCharCode(v[i]);
 					_state = sw_data;
 					break;
 					
 				case sw_data:
-					if (_box.data == undefined) {
-						_box.data = new Uint8Array(_box.size - 8);
-						_box.data.position = 0;
-					}
-					
-					var n = Math.min(_box.size - 8 - _box.data.position, dv.byteLength - i);
-					_box.data.set(dv.slice(i, n), _box.data.position);
-					_box.data.position += n;
+					var n = Math.min(_cache.data.byteLength - _cache.data.position, v.byteLength - i);
+					_cache.data.set(v.slice(i, i + n), _cache.data.position);
+					_cache.data.position += n;
 					
 					i += n - 1;
 					
-					if (_box.data.position == _box.size - 8) {
-						var buf = _box.data.buffer;
+					if (_cache.data.position == _cache.data.byteLength) {
 						_state = sw_size_0;
-						_box.data = undefined;
-						_this.dispatchEvent(events.PLAYEASE_MP4_BOX, { box: { size: _box.size, type: _box.type, data: buf } });
+						_this.dispatchEvent(events.PLAYEASE_MP4_BOX, { box: { size: _cache.size, type: _cache.type, data: _cache.data.buffer } });
 					}
 					break;
 					
