@@ -393,7 +393,7 @@
 				}
 			}
 			
-			//_loadSegment(_audioloader.request);
+			_loadSegment(_audioloader.request);
 			_loadSegment(_videoloader.request);
 			
 			_startTimer(_mpd['@minimumUpdatePeriod'] * 1000 || 2000);
