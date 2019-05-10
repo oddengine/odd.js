@@ -263,14 +263,16 @@
 			_defaults = {
 				islive: false
 			},
+			_state,
+			_box,
 			_dtsBase,
+			_fillSilentAfterSeek,
 			_videoNextDts,
 			_audioNextDts,
 			_videoMeta,
 			_audioMeta,
 			_videoseginfolist,
 			_audioseginfolist,
-			_fillSilentAfterSeek,
 			
 			_types = {
 				avc1: [], avcC: [], btrt: [], dinf: [],
@@ -296,15 +298,19 @@
 				];
 			}
 			
+			
+			_state = 0;
+			_box = { size: 0, type: '', data: undefined };
+			
 			_dtsBase = 0;
+			_fillSilentAfterSeek = false;
 			
 			_videoseginfolist = new segmentinfolist('video');
 			_audioseginfolist = new segmentinfolist('audio');
-			
-			_fillSilentAfterSeek = false;
 		}
 		
 		_this.reset = function() {
+			_state = 0;
 			_dtsBase = 0;
 			
 			_videoNextDts = undefined;
@@ -314,6 +320,88 @@
 			_audioseginfolist.reset();
 			
 			_fillSilentAfterSeek = false;
+		};
+		
+		_this.parse = function(chunk) {
+			var sw_size_0 = 0,
+				  sw_size_1 = 1,
+				  sw_size_2 = 2,
+				  sw_size_3 = 3,
+				  sw_type_0 = 4,
+				  sw_type_1 = 5,
+				  sw_type_2 = 6,
+				  sw_type_3 = 7,
+				  sw_data   = 8;
+			
+			var dv = new Uint8Array(chunk);
+			
+			for (var i = 0; i < dv.byteLength; i++) {
+				switch (_state) {
+				case sw_size_0:
+					_box.size = dv[i] << 24;
+					_state = sw_size_1;
+					break;
+					
+				case sw_size_1:
+					_box.size |= dv[i] << 16;
+					_state = sw_size_2;
+					break;
+					
+				case sw_size_2:
+					_box.size |= dv[i] << 8;
+					_state = sw_size_3;
+					break;
+					
+				case sw_size_3:
+					_box.size |= dv[i];
+					_state = sw_type_0;
+					break;
+					
+				case sw_type_0:
+					_box.type = String.fromCharCode(dv[i]);
+					_state = sw_type_1;
+					break;
+					
+				case sw_type_1:
+					_box.type += String.fromCharCode(dv[i]);
+					_state = sw_type_2;
+					break;
+					
+				case sw_type_2:
+					_box.type += String.fromCharCode(dv[i]);
+					_state = sw_type_3;
+					break;
+					
+				case sw_type_3:
+					_box.type += String.fromCharCode(dv[i]);
+					_state = sw_data;
+					break;
+					
+				case sw_data:
+					if (_box.data == undefined) {
+						_box.data = new Uint8Array(_box.size - 8);
+						_box.data.position = 0;
+					}
+					
+					var n = Math.min(_box.size - 8 - _box.data.position, dv.byteLength - i);
+					_box.data.set(dv.slice(i, n), _box.data.position);
+					_box.data.position += n;
+					
+					i += n - 1;
+					
+					if (_box.data.position == _box.size - 8) {
+						var buf = _box.data.buffer;
+						_state = sw_size_0;
+						_box.data = undefined;
+						_this.dispatchEvent(events.PLAYEASE_MP4_BOX, { box: { size: _box.size, type: _box.type, data: buf } });
+					}
+					break;
+					
+				default:
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown parsing state.' });
+					return;
+				}
+			}
 		};
 		
 		_this.getInitSegment = function(meta) {
