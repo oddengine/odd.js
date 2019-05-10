@@ -1,10 +1,11 @@
 ﻿(function(playease) {
 	var utils = playease.utils,
 		css = utils.css,
-		filekeeper = utils.filekeeper,
+		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
 		priority = io.priority,
+		muxer = playease.muxer,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
@@ -22,11 +23,15 @@
 			_range,
 			_contentLength,
 			_loader,
+			_demuxer,
+			_videoCodec,
+			_audioCodec,
+			_mimeType,
 			_ms,
 			_sb,
 			_segments,
-			_fileindex,
-			_filekeeper,
+			//_fileindex,
+			//_filekeeper,
 			_waiting,
 			_endOfStream = false;
 		
@@ -37,6 +42,9 @@
 			
 			_url = '';
 			_src = '';
+			_videoCodec = '';
+			_audioCodec = '';
+			_mimeType = '';
 			_contentLength = Number.MAX_VALUE;
 			_waiting = true;
 			
@@ -63,9 +71,10 @@
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			
-			_fileindex = 0;
-			_filekeeper = new filekeeper();
+			//_fileindex = 0;
+			//_filekeeper = new filekeeper();
 			
+			_initMuxer();
 			_initMSE();
 		}
 		
@@ -116,6 +125,12 @@
 				utils.log('Failed to init loader "' + name + '"!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
 			}
+		}
+		
+		function _initMuxer() {
+			_demuxer = new muxer.mp4();
+			_demuxer.addEventListener(events.PLAYEASE_MP4_BOX, _onMP4Box);
+			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
 		}
 		
 		function _initMSE() {
@@ -260,6 +275,10 @@
 				}
 			}*/
 			
+			if (_mimeType == '') {
+				_demuxer.parse(e.data);
+			}
+			
 			_segments.push(e.data);
 			_this.appendSegment();
 		}
@@ -283,6 +302,53 @@
 		function _onLoaderError(e) {
 			utils.log(e.message);
 			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
+		}
+		
+		/**
+		 * Demuxer
+		 */
+		function _onMP4Box(e) {
+			switch (e.box.type) {
+			case 'moov':
+			case 'trak':
+			case 'mdia':
+			case 'minf':
+			case 'stbl':
+			case 'stsd':
+			case 'avc1':
+			case 'mp4a':
+				_demuxer.parse(e.box.data);
+				
+				if (e.box.type == 'moov') {
+					var codecs = _videoCodec + (_videoCodec && _audioCodec ? ',' : '') + _audioCodec;
+					_this.addSourceBuffer('video/mp4; codecs="' + codecs + '"');
+				}
+				break;
+			
+			case 'avcC':
+				_videoCodec = 'avc1.';
+				var u8 = new Uint8Array(e.box.data, 9, 3);
+				
+				for (var i = 0; i < u8.byteLength; i++) {
+					var h = u8[i].toString(16);
+					if (h.length < 2) {
+						h = '0' + h;
+					}
+					
+					_videoCodec += h;
+				}
+				break;
+				
+			case 'esds':
+				var u8 = new Uint8Array(e.box.data, 27, 1);
+				_audioCodec = 'mp4a.40.' + (u8[0] >> 3);
+				break;
+			}
+		}
+		
+		function _onDemuxerError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Demuxer error ocurred.' });
 		}
 		
 		/**
@@ -331,7 +397,6 @@
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_this.addSourceBuffer('video/mp4; codecs="avc1.640028,mp4a.40.5"');
 			_loader.load(_url, _range.start, _range.end);
 		}
 		

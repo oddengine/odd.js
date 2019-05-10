@@ -369,7 +369,6 @@
 				_this.appendSegment(request.type);
 				
 				_loadSegment(request);
-				
 				return;
 			}
 			
@@ -382,19 +381,19 @@
 			if (_audioloader.request.fragmentType == fragmentTypes.INIT_SEGMENT
 					&& _videoloader.request.fragmentType == fragmentTypes.INIT_SEGMENT) {
 				var period = _mpd.Period[0];
+				
 				for (var i = 0; i < period.AdaptationSet.length; i++) {
 					var adp = period.AdaptationSet[i];
 					var type = adp['@mimeType'].split('/')[0];
 					var request = type == 'audio' ? _audioloader.request : _videoloader.request;
 					request.mimeType = adp['@mimeType'];
 					request.codecs = adp.Representation['@codecs'];
+					
+					_this.addSourceBuffer(type);
 				}
-				
-				_this.addSourceBuffer('audio');
-				_this.addSourceBuffer('video');
 			}
 			
-			_loadSegment(_audioloader.request);
+			//_loadSegment(_audioloader.request);
 			_loadSegment(_videoloader.request);
 			
 			_startTimer(_mpd['@minimumUpdatePeriod'] * 1000 || 2000);

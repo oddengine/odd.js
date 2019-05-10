@@ -65,6 +65,10 @@
 		}
 		
 		function _updateAdaptationSet(newPeriod, oldPeriod) {
+			if (utils.typeOf(newPeriod.AdaptationSet) != 'array') {
+				newPeriod.AdaptationSet = [newPeriod.AdaptationSet];
+			}
+			
 			for (var i = 0; i < newPeriod.AdaptationSet.length; i++) {
 				var newAdaptationSet = newPeriod.AdaptationSet[i];
 				var oldAdaptationSet = _getAdaptationSet(oldPeriod, newAdaptationSet);

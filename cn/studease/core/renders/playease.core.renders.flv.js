@@ -381,9 +381,6 @@
 		
 		function _onMediaInfo(e) {
 			_mediaInfo = e.info;
-			
-			_this.addSourceBuffer('audio');
-			_this.addSourceBuffer('video');
 		}
 		
 		function _onAVCConfigRecord(e) {
@@ -422,6 +419,7 @@
 				_filekeeper.append(e.data);
 			}*/
 			
+			_this.addSourceBuffer(e.tp);
 			_segments[e.tp].push(e.data);
 		}
 		

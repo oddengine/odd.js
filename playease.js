@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.2.03';
+playease.version = '1.2.04';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -1268,6 +1268,7 @@ playease.version = '1.2.03';
 		PLAYEASE_AAC_SPECIFIC_CONFIG: 'playeaseAACSpecificConfig',
 		PLAYEASE_AAC_SAMPLE: 'playeaseAACSample',
 		
+		PLAYEASE_MP4_BOX: 'playeaseMp4Box',
 		PLAYEASE_MP4_INIT_SEGMENT: 'playeaseMp4InitSegment',
 		PLAYEASE_MP4_SEGMENT: 'playeaseMp4Segment',
 		
@@ -1827,6 +1828,10 @@ playease.version = '1.2.03';
 		}
 		
 		function _updateAdaptationSet(newPeriod, oldPeriod) {
+			if (utils.typeOf(newPeriod.AdaptationSet) != 'array') {
+				newPeriod.AdaptationSet = [newPeriod.AdaptationSet];
+			}
+			
 			for (var i = 0; i < newPeriod.AdaptationSet.length; i++) {
 				var newAdaptationSet = newPeriod.AdaptationSet[i];
 				var oldAdaptationSet = _getAdaptationSet(oldPeriod, newAdaptationSet);
@@ -3840,6 +3845,7 @@ playease.version = '1.2.03';
 			_cachedChunks = [];
 			
 			_mediainfo = new mediainfo();
+			_metadata = {};
 			
 			_referenceFrameRate = {
 				fixed: true,
@@ -4148,9 +4154,9 @@ playease.version = '1.2.03';
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			if (_mediainfo.isComplete()) {
+			//if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			}
+			//}
 		}
 		
 		function _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, timestamp, frameType, cts) {
@@ -4341,9 +4347,9 @@ playease.version = '1.2.03';
 			_mediainfo.mimeType = 'video/mp4; codecs="' + _mediainfo.videoCodec
 					+ (_mediainfo.hasAudio && _mediainfo.audioCodec ? ',' + _mediainfo.audioCodec : '') + '"';
 			
-			if (_mediainfo.isComplete()) {
+			//if (_mediainfo.isComplete()) {
 				_this.dispatchEvent(events.PLAYEASE_MEDIA_INFO, { info: _mediainfo });
-			}
+			//}
 		}
 		
 		function _parseAACAudioData(arrayBuffer, dataOffset, dataSize, timestamp) {
@@ -4704,14 +4710,16 @@ playease.version = '1.2.03';
 			_defaults = {
 				islive: false
 			},
+			_state,
+			_box,
 			_dtsBase,
+			_fillSilentAfterSeek,
 			_videoNextDts,
 			_audioNextDts,
 			_videoMeta,
 			_audioMeta,
 			_videoseginfolist,
 			_audioseginfolist,
-			_fillSilentAfterSeek,
 			
 			_types = {
 				avc1: [], avcC: [], btrt: [], dinf: [],
@@ -4737,15 +4745,19 @@ playease.version = '1.2.03';
 				];
 			}
 			
+			
+			_state = 0;
+			_box = { size: 0, type: '', data: undefined };
+			
 			_dtsBase = 0;
+			_fillSilentAfterSeek = false;
 			
 			_videoseginfolist = new segmentinfolist('video');
 			_audioseginfolist = new segmentinfolist('audio');
-			
-			_fillSilentAfterSeek = false;
 		}
 		
 		_this.reset = function() {
+			_state = 0;
 			_dtsBase = 0;
 			
 			_videoNextDts = undefined;
@@ -4755,6 +4767,88 @@ playease.version = '1.2.03';
 			_audioseginfolist.reset();
 			
 			_fillSilentAfterSeek = false;
+		};
+		
+		_this.parse = function(chunk) {
+			var sw_size_0 = 0,
+				  sw_size_1 = 1,
+				  sw_size_2 = 2,
+				  sw_size_3 = 3,
+				  sw_type_0 = 4,
+				  sw_type_1 = 5,
+				  sw_type_2 = 6,
+				  sw_type_3 = 7,
+				  sw_data   = 8;
+			
+			var dv = new Uint8Array(chunk);
+			
+			for (var i = 0; i < dv.byteLength; i++) {
+				switch (_state) {
+				case sw_size_0:
+					_box.size = dv[i] << 24;
+					_state = sw_size_1;
+					break;
+					
+				case sw_size_1:
+					_box.size |= dv[i] << 16;
+					_state = sw_size_2;
+					break;
+					
+				case sw_size_2:
+					_box.size |= dv[i] << 8;
+					_state = sw_size_3;
+					break;
+					
+				case sw_size_3:
+					_box.size |= dv[i];
+					_state = sw_type_0;
+					break;
+					
+				case sw_type_0:
+					_box.type = String.fromCharCode(dv[i]);
+					_state = sw_type_1;
+					break;
+					
+				case sw_type_1:
+					_box.type += String.fromCharCode(dv[i]);
+					_state = sw_type_2;
+					break;
+					
+				case sw_type_2:
+					_box.type += String.fromCharCode(dv[i]);
+					_state = sw_type_3;
+					break;
+					
+				case sw_type_3:
+					_box.type += String.fromCharCode(dv[i]);
+					_state = sw_data;
+					break;
+					
+				case sw_data:
+					if (_box.data == undefined) {
+						_box.data = new Uint8Array(_box.size - 8);
+						_box.data.position = 0;
+					}
+					
+					var n = Math.min(_box.size - 8 - _box.data.position, dv.byteLength - i);
+					_box.data.set(dv.slice(i, n), _box.data.position);
+					_box.data.position += n;
+					
+					i += n - 1;
+					
+					if (_box.data.position == _box.size - 8) {
+						var buf = _box.data.buffer;
+						_state = sw_size_0;
+						_box.data = undefined;
+						_this.dispatchEvent(events.PLAYEASE_MP4_BOX, { box: { size: _box.size, type: _box.type, data: buf } });
+					}
+					break;
+					
+				default:
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown parsing state.' });
+					return;
+				}
+			}
 		};
 		
 		_this.getInitSegment = function(meta) {
@@ -6719,9 +6813,6 @@ playease.version = '1.2.03';
 		
 		function _onMediaInfo(e) {
 			_mediaInfo = e.info;
-			
-			_this.addSourceBuffer('audio');
-			_this.addSourceBuffer('video');
 		}
 		
 		function _onAVCConfigRecord(e) {
@@ -6760,6 +6851,7 @@ playease.version = '1.2.03';
 				_filekeeper.append(e.data);
 			}*/
 			
+			_this.addSourceBuffer(e.tp);
 			_segments[e.tp].push(e.data);
 		}
 		
@@ -6993,10 +7085,11 @@ playease.version = '1.2.03';
 (function(playease) {
 	var utils = playease.utils,
 		css = utils.css,
-		filekeeper = utils.filekeeper,
+		//filekeeper = utils.filekeeper,
 		events = playease.events,
 		io = playease.io,
 		priority = io.priority,
+		muxer = playease.muxer,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
@@ -7014,11 +7107,15 @@ playease.version = '1.2.03';
 			_range,
 			_contentLength,
 			_loader,
+			_demuxer,
+			_videoCodec,
+			_audioCodec,
+			_mimeType,
 			_ms,
 			_sb,
 			_segments,
-			_fileindex,
-			_filekeeper,
+			//_fileindex,
+			//_filekeeper,
 			_waiting,
 			_endOfStream = false;
 		
@@ -7029,6 +7126,9 @@ playease.version = '1.2.03';
 			
 			_url = '';
 			_src = '';
+			_videoCodec = '';
+			_audioCodec = '';
+			_mimeType = '';
 			_contentLength = Number.MAX_VALUE;
 			_waiting = true;
 			
@@ -7055,9 +7155,10 @@ playease.version = '1.2.03';
 			_video.addEventListener('ended', _onEnded);
 			_video.addEventListener('error', _onError);
 			
-			_fileindex = 0;
-			_filekeeper = new filekeeper();
+			//_fileindex = 0;
+			//_filekeeper = new filekeeper();
 			
+			_initMuxer();
 			_initMSE();
 		}
 		
@@ -7108,6 +7209,12 @@ playease.version = '1.2.03';
 				utils.log('Failed to init loader "' + name + '"!');
 				_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'No supported loader found.' });
 			}
+		}
+		
+		function _initMuxer() {
+			_demuxer = new muxer.mp4();
+			_demuxer.addEventListener(events.PLAYEASE_MP4_BOX, _onMP4Box);
+			_demuxer.addEventListener(events.ERROR, _onDemuxerError);
 		}
 		
 		function _initMSE() {
@@ -7252,6 +7359,10 @@ playease.version = '1.2.03';
 				}
 			}*/
 			
+			if (_mimeType == '') {
+				_demuxer.parse(e.data);
+			}
+			
 			_segments.push(e.data);
 			_this.appendSegment();
 		}
@@ -7275,6 +7386,53 @@ playease.version = '1.2.03';
 		function _onLoaderError(e) {
 			utils.log(e.message);
 			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: e.message });
+		}
+		
+		/**
+		 * Demuxer
+		 */
+		function _onMP4Box(e) {
+			switch (e.box.type) {
+			case 'moov':
+			case 'trak':
+			case 'mdia':
+			case 'minf':
+			case 'stbl':
+			case 'stsd':
+			case 'avc1':
+			case 'mp4a':
+				_demuxer.parse(e.box.data);
+				
+				if (e.box.type == 'moov') {
+					var codecs = _videoCodec + (_videoCodec && _audioCodec ? ',' : '') + _audioCodec;
+					_this.addSourceBuffer('video/mp4; codecs="' + codecs + '"');
+				}
+				break;
+			
+			case 'avcC':
+				_videoCodec = 'avc1.';
+				var u8 = new Uint8Array(e.box.data, 9, 3);
+				
+				for (var i = 0; i < u8.byteLength; i++) {
+					var h = u8[i].toString(16);
+					if (h.length < 2) {
+						h = '0' + h;
+					}
+					
+					_videoCodec += h;
+				}
+				break;
+				
+			case 'esds':
+				var u8 = new Uint8Array(e.box.data, 27, 1);
+				_audioCodec = 'mp4a.40.' + (u8[0] >> 3);
+				break;
+			}
+		}
+		
+		function _onDemuxerError(e) {
+			utils.log(e.message);
+			_this.dispatchEvent(events.PLAYEASE_RENDER_ERROR, { message: 'Demuxer error ocurred.' });
 		}
 		
 		/**
@@ -7323,7 +7481,6 @@ playease.version = '1.2.03';
 		function _onMediaSourceOpen(e) {
 			utils.log('media source open');
 			
-			_this.addSourceBuffer('video/mp4; codecs="avc1.640028,mp4a.40.5"');
 			_loader.load(_url, _range.start, _range.end);
 		}
 		
@@ -8405,7 +8562,6 @@ playease.version = '1.2.03';
 				_this.appendSegment(request.type);
 				
 				_loadSegment(request);
-				
 				return;
 			}
 			
@@ -8418,19 +8574,19 @@ playease.version = '1.2.03';
 			if (_audioloader.request.fragmentType == fragmentTypes.INIT_SEGMENT
 					&& _videoloader.request.fragmentType == fragmentTypes.INIT_SEGMENT) {
 				var period = _mpd.Period[0];
+				
 				for (var i = 0; i < period.AdaptationSet.length; i++) {
 					var adp = period.AdaptationSet[i];
 					var type = adp['@mimeType'].split('/')[0];
 					var request = type == 'audio' ? _audioloader.request : _videoloader.request;
 					request.mimeType = adp['@mimeType'];
 					request.codecs = adp.Representation['@codecs'];
+					
+					_this.addSourceBuffer(type);
 				}
-				
-				_this.addSourceBuffer('audio');
-				_this.addSourceBuffer('video');
 			}
 			
-			_loadSegment(_audioloader.request);
+			//_loadSegment(_audioloader.request);
 			_loadSegment(_videoloader.request);
 			
 			_startTimer(_mpd['@minimumUpdatePeriod'] * 1000 || 2000);
