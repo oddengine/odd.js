@@ -396,7 +396,7 @@
 					break;
 					
 				default:
-					_this.dispatchEvent(events.ERROR, { message: 'Unknown parsing state.' });
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown state while parsing box.' });
 					return;
 				}
 			}
@@ -1213,5 +1213,59 @@
 		};
 		
 		_init();
+	};
+	
+	muxer.mp4.parseDescriptor = function(buf) {
+		var sw_type   = 0,
+			  sw_size_0 = 1,
+			  sw_size_1 = 2,
+			  sw_size_2 = 3,
+			  sw_size_3 = 4,
+			  sw_data   = 5;
+		
+		var v = new Uint8Array(buf);
+		var state = sw_type;
+		var o = {};
+		var e;
+		
+		for (var i = 0; i < v.byteLength; i++) {
+			switch (state) {
+			case sw_type:
+				e = { type: v[i], size: 0, data: undefined };
+				o[e.type] = e;
+				state = sw_size_0;
+				break;
+				
+			case sw_size_0:
+			case sw_size_1:
+			case sw_size_2:
+			case sw_size_3:
+				var b = v[i];
+				if (e) {
+					e.size = (e.size << 7) | (b & 0x7F);
+				}
+				
+				if (b & 0x80) {
+					state++;
+				} else {
+					state = sw_data;
+				}
+				break;
+				
+			case sw_data:
+				if (e) {
+					e.data = v.slice(i, i + e.size);
+					i += e.size - 1;
+				}
+				state = sw_type;
+				break;
+				
+			default:
+				utils.log('Unknown state while parsing descriptor.');
+				return o;
+			}
+		}
+		
+		return o;
 	};
 })(playease);

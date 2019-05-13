@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.2.05';
+playease.version = '1.2.06';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -4843,7 +4843,7 @@ playease.version = '1.2.05';
 					break;
 					
 				default:
-					_this.dispatchEvent(events.ERROR, { message: 'Unknown parsing state.' });
+					_this.dispatchEvent(events.ERROR, { message: 'Unknown state while parsing box.' });
 					return;
 				}
 			}
@@ -5660,6 +5660,60 @@ playease.version = '1.2.05';
 		};
 		
 		_init();
+	};
+	
+	muxer.mp4.parseDescriptor = function(buf) {
+		var sw_type   = 0,
+			  sw_size_0 = 1,
+			  sw_size_1 = 2,
+			  sw_size_2 = 3,
+			  sw_size_3 = 4,
+			  sw_data   = 5;
+		
+		var v = new Uint8Array(buf);
+		var state = sw_type;
+		var o = {};
+		var e;
+		
+		for (var i = 0; i < v.byteLength; i++) {
+			switch (state) {
+			case sw_type:
+				e = { type: v[i], size: 0, data: undefined };
+				o[e.type] = e;
+				state = sw_size_0;
+				break;
+				
+			case sw_size_0:
+			case sw_size_1:
+			case sw_size_2:
+			case sw_size_3:
+				var b = v[i];
+				if (e) {
+					e.size = (e.size << 7) | (b & 0x7F);
+				}
+				
+				if (b & 0x80) {
+					state++;
+				} else {
+					state = sw_data;
+				}
+				break;
+				
+			case sw_data:
+				if (e) {
+					e.data = v.slice(i, i + e.size);
+					i += e.size - 1;
+				}
+				state = sw_type;
+				break;
+				
+			default:
+				utils.log('Unknown state while parsing descriptor.');
+				return o;
+			}
+		}
+		
+		return o;
 	};
 })(playease);
 
@@ -7088,6 +7142,7 @@ playease.version = '1.2.05';
 		io = playease.io,
 		priority = io.priority,
 		muxer = playease.muxer,
+		mp4 = muxer.mp4,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
@@ -7422,10 +7477,10 @@ playease.version = '1.2.05';
 					_this.addSourceBuffer('video/mp4; codecs="' + codecs + '"');
 				}
 				break;
-			
+				
 			case 'avcC':
 				_videoCodec = 'avc1.';
-				u8 = new Uint8Array(e.box.data, 9, 3);
+				u8 = new Uint8Array(e.box.data, 9, 3); // sps.slice(1, 4)
 				
 				for (var i = 0; i < u8.byteLength; i++) {
 					var h = u8[i].toString(16);
@@ -7438,8 +7493,22 @@ playease.version = '1.2.05';
 				break;
 				
 			case 'esds':
-				u8 = new Uint8Array(e.box.data, 27, 1);
-				_audioCodec = 'mp4a.40.' + (u8[0] >> 3);
+				_audioCodec = 'mp4a.40.';
+				u8 = new Uint8Array(e.box.data, 4); // version 0 + flags
+				
+				var o = mp4.parseDescriptor(u8);
+				if (o[3] && o[3].data) {
+					o = mp4.parseDescriptor(o[3].data.slice(3));
+					if (o[4] && o[4].data) {
+						o = mp4.parseDescriptor(o[4].data.slice(13));
+						if (o[5] && o[5].data) {
+							_audioCodec += o[5].data[0] >> 3;
+							break;
+						}
+					}
+				}
+				
+				_audioCodec += 5;
 				break;
 			}
 		}
