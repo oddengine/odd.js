@@ -6,6 +6,7 @@
 		io = playease.io,
 		priority = io.priority,
 		muxer = playease.muxer,
+		mp4 = muxer.mp4,
 		core = playease.core,
 		states = core.states,
 		renders = core.renders,
@@ -340,10 +341,10 @@
 					_this.addSourceBuffer('video/mp4; codecs="' + codecs + '"');
 				}
 				break;
-			
+				
 			case 'avcC':
 				_videoCodec = 'avc1.';
-				u8 = new Uint8Array(e.box.data, 9, 3);
+				u8 = new Uint8Array(e.box.data, 9, 3); // sps.slice(1, 4)
 				
 				for (var i = 0; i < u8.byteLength; i++) {
 					var h = u8[i].toString(16);
@@ -356,8 +357,22 @@
 				break;
 				
 			case 'esds':
-				u8 = new Uint8Array(e.box.data, 27, 1);
-				_audioCodec = 'mp4a.40.' + (u8[0] >> 3);
+				_audioCodec = 'mp4a.40.';
+				u8 = new Uint8Array(e.box.data, 4); // version 0 + flags
+				
+				var o = mp4.parseDescriptor(u8);
+				if (o[3] && o[3].data) {
+					o = mp4.parseDescriptor(o[3].data.slice(3));
+					if (o[4] && o[4].data) {
+						o = mp4.parseDescriptor(o[4].data.slice(13));
+						if (o[5] && o[5].data) {
+							_audioCodec += o[5].data[0] >> 3;
+							break;
+						}
+					}
+				}
+				
+				_audioCodec += 5;
 				break;
 			}
 		}
