@@ -10,6 +10,8 @@
 
 > QQ群：528109813
 
+> Skype: live:670292548
+
 This is a HTML5 video player for modern live streaming. It supports: 
 
 * **RTMP (For MSIE8-10 with flash embed in)**
