@@ -4,7 +4,7 @@
 	}
 };
 
-playease.version = '1.2.06';
+playease.version = '1.2.07';
 
 (function(playease) {
 	var utils = playease.utils = {};
@@ -12285,8 +12285,8 @@ playease.version = '1.2.06';
 		
 		
 		function _retry() {
-			if (model.config.maxretries < 0 || _retryCount < model.config.maxretries) {
-				var delay = Math.ceil(model.config.retrydelay + Math.random() * 5000);
+			if (model.config.maxRetries < 0 || _retryCount < model.config.maxRetries) {
+				var delay = Math.ceil(model.config.retryDelay + Math.random() * 5000);
 				
 				utils.log('Retry delay ' + delay / 1000 + 's ...');
 				
