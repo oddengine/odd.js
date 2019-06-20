@@ -22,7 +22,7 @@
 				width: 640,
 				height: 360,
 				enable: true,
-				fontsize: 14,
+				fontSize: 14,
 				lineHeight: 20,
 				interval: 30,
 				duration: 10000,
@@ -43,7 +43,7 @@
 			_this.config = utils.extend({}, _defaults, config);
 			
 			_rows = [];
-			_marginTop = _this.config.lineHeight - _this.config.fontsize;
+			_marginTop = _this.config.lineHeight - _this.config.fontSize;
 			
 			_canvas = utils.createElement('canvas');
 			
@@ -198,7 +198,7 @@
 		};
 		
 		_this.resize = function(width, height) {
-			var rows = _canvas.height / (_this.config.fontsize * 1.4);
+			var rows = _canvas.height / (_this.config.fontSize * 1.4);
 			_maxRow = Math.floor(rows);
 			_random = rows / 2;
 			
@@ -218,7 +218,7 @@
 				return;
 			}
 			
-			_context.font = 'bold ' + _this.config.fontsize + 'px Microsoft YaHei,arial,sans-serif';
+			_context.font = 'bold ' + _this.config.fontSize + 'px Microsoft YaHei,arial,sans-serif';
 			_context.fillStyle = '#E6E6E6';
 			_context.globalAlpha = _this.config.alpha;
 			_context.textAlign = 'left';
