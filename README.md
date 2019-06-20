@@ -218,7 +218,7 @@ playease('player').setup({
 		width: 640,
 		height: 360,
 		enable: true,
-		fontsize: 14,
+		fontSize: 14,
 		lineHeight: 20,
 		interval: 30,
 		duration: 10000,
