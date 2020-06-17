@@ -1,4 +1,4 @@
-﻿# playease.js 2.0
+﻿# playease.js
 
 > [[domain] http://studease.cn](http://studease.cn/playease.html)
 
