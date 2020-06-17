@@ -229,7 +229,7 @@ SDK:
 | seek(offset) | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
 | stop | Stops playing, sets the time property to 0. |
 | reload | Releases all the resources, reloads the media file or live stream. |
-| muted(bool) | Mutes or unmutes the audio/video elements. |
+| muted(mute) | Mutes or unmutes the audio/video elements. |
 | volume(f) | Sets volume in the range of 0 to 1. |
 | hd(index) | Switches to the specified bandwidth. |
 
@@ -243,13 +243,13 @@ Skin:
 | seek(offset) | -- |
 | stop() | -- |
 | reload() | -- |
-| muted(bool) | -- |
+| muted(mute) | -- |
 | volume(f) | -- |
 | hd(index) | -- |
 | danmu(enable) | Enables component of danmu. |
 | shoot(text, data = null) | Shoots the text with data binded to. |
-| fullpage(bool) | Requests or exits fullpage. |
-| fullscreen(bool) | Requests or exits fullscreen. |
+| fullpage(enter) | Requests or exits fullpage. |
+| fullscreen(enter) | Requests or exits fullscreen. |
 | resize() | Resizes the player to fit with the parent node. |
 
 
