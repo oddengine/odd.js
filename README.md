@@ -20,17 +20,40 @@ It supports:
 
 Main features: 
 
-- ES5 + closure + prototype (IE9+)
-- Multiple renders in a tiny SDK (src, flv, fmp4, dash, hls, rtc, flash)
-- Single and multiple modes for SourceBuffer
-- Buffer control for playback
-- Fast forward/backward for playback
-- Reduce latency due to cumulative ack of tcp
-- Generates silent frame while remote dropped some frames
-- Multiple components (poster, danmu, display, logo, controlbar, contextmenu, ad, playlist)
+- ES5 + closure + prototype (IE9+)  
+- Multiple SourceBuffer (Except Mac Safari)  
+
+
+### Roadmap
+-----------
+
+- Renders  
+   - [ ] src  
+   - [ ] flv  
+   - [ ] fmp4  
+   - [ ] dash  
+   - [ ] hls  
+   - [ ] rtc  
+   - [ ] flash  
+
+- Components  
+   - [ ] poster  
+   - [ ] danmu  
+   - [ ] display  
+   - [ ] logo  
+   - [ ] controlbar  
+   - [ ] contextmenu  
+   - [ ] ad  
+   - [ ] playlist  
+
+- [ ] Buffer control for playback  
+- [ ] Fast forward/backward for playback  
+- [ ] Reduce latency due to cumulative ack of tcp  
+- [ ] Generates silent frame while remote dropped some frames  
 
 
 ### Example
+-----------
 
 Use SDK directly: 
 
@@ -78,6 +101,7 @@ skin.init(config);
 
 
 ### Add Callback
+----------------
 
 ```js
 sdk.onready = function(e) {
@@ -97,6 +121,7 @@ function onReady(e) {
 
 
 ### Configuration
+-----------------
 
 ```js
 _defaults = {
@@ -192,8 +217,9 @@ _defaults = {
 
 
 ### API
+-------
 
-- sdk api
+SDK: 
 
 | Method | Description |
 | :--- | :--- |
@@ -207,7 +233,7 @@ _defaults = {
 | volume(f) | Sets volume in the range of 0 to 1. |
 | hd(index) | Switches to the specified bandwidth. |
 
-- skin api
+Skin: 
 
 | Method | Description |
 | :--- | :--- |
@@ -228,6 +254,7 @@ _defaults = {
 
 
 ### Event
+---------
 
 | Type | Meaning |
 | :---- | :---- |
@@ -249,5 +276,6 @@ _defaults = {
 
 
 ### License
+-----------
 
 BSD 3-Clause License ([NOTICE](https://github.com/studease/playease/blob/master/NOTICE))
