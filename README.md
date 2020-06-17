@@ -60,10 +60,10 @@ Use SDK directly:
 ```js
 var sdk = playease('player');
 sdk.addEventListener('ready', (e) => { _forward(e) });
-sdk.addEventListener('readystatechange', (readyState) => { });
-sdk.addEventListener('loadedmetadata', (metadata) => { });
-sdk.addEventListener('durationchange', (duration) => { });
-sdk.addEventListener('progress', (loaded, total) => { });
+sdk.addEventListener('readystatechange', (e) => { e.readyState });
+sdk.addEventListener('loadedmetadata', (e) => { e.metadata });
+sdk.addEventListener('durationchange', (e) => { e.duration });
+sdk.addEventListener('progress', (e) => { e.loaded, e.total });
 sdk.addEventListener('waiting', (e) => { });
 sdk.addEventListener('play', (e) => { });
 sdk.addEventListener('pause', (e) => { });
@@ -71,9 +71,9 @@ sdk.addEventListener('seeking', (e) => { });
 sdk.addEventListener('seeked', (e) => { });
 sdk.addEventListener('ended', (e) => { });
 sdk.addEventListener('timeupdate', (e) => { });
-sdk.addEventListener('volumechange', (volume) => { });
-sdk.addEventListener('hd', (index) => { });
-sdk.addEventListener('error', (code, text) => { });
+sdk.addEventListener('volumechange', (e) => { e.volume });
+sdk.addEventListener('hd', (e) => { e.index });
+sdk.addEventListener('error', (e) => { e.code, e.message });
 sdk.init(container, config);
 ```
 
@@ -90,12 +90,12 @@ skin.addEventListener('reload', (e) => { sdk.reload() });
 skin.addEventListener('muted', (e) => { sdk.muted() });
 skin.addEventListener('volume', (e) => { sdk.volume() });
 skin.addEventListener('hd', (e) => { sdk.hd() });
-skin.addEventListener('danmu', (text, data) => { });
-skin.addEventListener('fullpage', (bool) => { });
-skin.addEventListener('fullscreen', (bool) => { });
-skin.addEventListener('state', (state) => { });
-skin.addEventListener('resize', (width, height) => { });
-skin.addEventListener('error', (code, text) => { });
+skin.addEventListener('danmu', (e) => { e.text, e.data });
+skin.addEventListener('fullpage', (e) => { e.enter });
+skin.addEventListener('fullscreen', (e) => { e.enter });
+skin.addEventListener('state', (e) => { e.state });
+skin.addEventListener('resize', (e) => { e.width, e.height });
+skin.addEventListener('error', (e) => { e.code, e.message });
 skin.init(config);
 ```
 
@@ -257,7 +257,7 @@ Skin:
 ---------
 
 | Type | Meaning |
-| :---- | :---- |
+| :--- | :--- |
 | ready |  |
 | readystatechange | e.readyState |
 | loadedmetadata | e.metadata |
@@ -272,7 +272,7 @@ Skin:
 | timeupdate |  |
 | volumechange | e.volume |
 | hd | e.index |
-| error | e.code, e.text |
+| error | e.code, e.message |
 
 
 ### License
