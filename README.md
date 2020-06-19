@@ -108,7 +108,6 @@ SDK:
 | muted(b) | Mutes or unmutes the audio/video elements. |
 | volume(f) | Sets volume in the range of 0 to 1. |
 | hd(index) | Switches to the specified bandwidth. |
-| 
 
 Skin: 
 
