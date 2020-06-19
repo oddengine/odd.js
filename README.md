@@ -65,7 +65,7 @@ sdk.addEventListener('loadedmetadata', (e) => { e.metadata });
 sdk.addEventListener('durationchange', (e) => { e.duration });
 sdk.addEventListener('progress', (e) => { e.loaded, e.total });
 sdk.addEventListener('waiting', (e) => { });
-sdk.addEventListener('play', (e) => { });
+sdk.addEventListener('playing', (e) => { });
 sdk.addEventListener('pause', (e) => { });
 sdk.addEventListener('seeking', (e) => { });
 sdk.addEventListener('seeked', (e) => { });
@@ -82,14 +82,6 @@ Use skin module:
 ```js
 var skin = playease.build('player');
 skin.addEventListener('ready', (e) => { });
-skin.addEventListener('play', (e) => { sdk.play() });
-skin.addEventListener('pause', (e) => { sdk.pause() });
-skin.addEventListener('seek', (e) => { sdk.seek() });
-skin.addEventListener('stop', (e) => { sdk.stop() });
-skin.addEventListener('reload', (e) => { sdk.reload() });
-skin.addEventListener('muted', (e) => { sdk.muted() });
-skin.addEventListener('volume', (e) => { sdk.volume() });
-skin.addEventListener('hd', (e) => { sdk.hd() });
 skin.addEventListener('danmu', (e) => { e.text, e.data });
 skin.addEventListener('fullpage', (e) => { e.enter });
 skin.addEventListener('fullscreen', (e) => { e.enter });
@@ -98,6 +90,58 @@ skin.addEventListener('resize', (e) => { e.width, e.height });
 skin.addEventListener('error', (e) => { e.code, e.message });
 skin.init(config);
 ```
+
+
+### API
+-------
+
+SDK: 
+
+| Method | Description |
+| :--- | :--- |
+| init(container, config) | Init with the given configuration. |
+| play(url = '', options = null) | Plays the specified media file or live stream, or the current item of the sources if the url doesn't provided. |
+| pause | Pauses playing. Calling this method does nothing if the video is already paused. |
+| seek(offset) | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
+| stop | Stops playing, sets the time property to 0. |
+| reload | Releases all the resources, reloads the media file or live stream. |
+| muted(b) | Mutes or unmutes the audio/video elements. |
+| volume(f) | Sets volume in the range of 0 to 1. |
+| hd(index) | Switches to the specified bandwidth. |
+| 
+
+Skin: 
+
+| Method | Description |
+| :--- | :--- |
+| init(config) | Init with the given configuration. |
+| danmu(enable) | Enables component of danmu. |
+| shoot(text, data = null) | Shoots the text with data binded to. |
+| fullpage(enter) | Requests or exits fullpage. |
+| fullscreen(enter) | Requests or exits fullscreen. |
+| resize() | Resizes the player to fit with the parent node. |
+
+
+### Event
+---------
+
+| Type | Meaning |
+| :--- | :--- |
+| ready |  |
+| readystatechange | e.readyState |
+| loadedmetadata | e.metadata |
+| durationchange | e.duration |
+| progress | e.loaded, e.total |
+| waiting |  |
+| playing |  |
+| pause |  |
+| seeking |  |
+| seeked |  |
+| ended |  |
+| timeupdate | e.time, e.buffered |
+| volumechange | e.volume |
+| hd | e.index |
+| error | e.code, e.message |
 
 
 ### Add Callback
@@ -195,7 +239,8 @@ _defaults = {
 	}, {
 		name: 'controlbar',
 		index: 500,
-		layout: '[play][pause][stop][reload][time]|[report][mute][volume][hd][danmu][fullpage][exit-fullpage][fullscreen][exit-fullscreen]',
+		layout: '[play][pause][stop][reload][time]|
+			[report][mute][volume][hd][danmu][fullpage][exit-fullpage][fullscreen][exit-fullscreen]',
 		autohide: false,
 		visibility: true
 	}, {
@@ -214,65 +259,6 @@ _defaults = {
 	}]
 };
 ```
-
-
-### API
--------
-
-SDK: 
-
-| Method | Description |
-| :--- | :--- |
-| init(container, config) | Init with the given configuration. |
-| play(url = '', options = null) | Plays the specified media file or live stream, or the current item of the sources if the url doesn't provided. |
-| pause | Pauses playing. Calling this method does nothing if the video is already paused. |
-| seek(offset) | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
-| stop | Stops playing, sets the time property to 0. |
-| reload | Releases all the resources, reloads the media file or live stream. |
-| muted(mute) | Mutes or unmutes the audio/video elements. |
-| volume(f) | Sets volume in the range of 0 to 1. |
-| hd(index) | Switches to the specified bandwidth. |
-
-Skin: 
-
-| Method | Description |
-| :--- | :--- |
-| init(config) | Init with the given configuration. |
-| play(url = '', options = null) | -- |
-| pause() | -- |
-| seek(offset) | -- |
-| stop() | -- |
-| reload() | -- |
-| muted(mute) | -- |
-| volume(f) | -- |
-| hd(index) | -- |
-| danmu(enable) | Enables component of danmu. |
-| shoot(text, data = null) | Shoots the text with data binded to. |
-| fullpage(enter) | Requests or exits fullpage. |
-| fullscreen(enter) | Requests or exits fullscreen. |
-| resize() | Resizes the player to fit with the parent node. |
-
-
-### Event
----------
-
-| Type | Meaning |
-| :--- | :--- |
-| ready |  |
-| readystatechange | e.readyState |
-| loadedmetadata | e.metadata |
-| durationchange | e.duration |
-| progress | e.loaded, e.total |
-| waiting |  |
-| play |  |
-| pause |  |
-| seeking |  |
-| seeked |  |
-| ended |  |
-| timeupdate |  |
-| volumechange | e.volume |
-| hd | e.index |
-| error | e.code, e.message |
 
 
 ### License
