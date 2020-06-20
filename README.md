@@ -59,22 +59,22 @@ Use SDK directly:
 
 ```js
 var sdk = playease('player');
-sdk.addEventListener('ready', (e) => { _forward(e) });
-sdk.addEventListener('readystatechange', (e) => { e.readyState });
-sdk.addEventListener('loadedmetadata', (e) => { e.metadata });
-sdk.addEventListener('durationchange', (e) => { e.duration });
-sdk.addEventListener('progress', (e) => { e.loaded, e.total });
-sdk.addEventListener('waiting', (e) => { });
-sdk.addEventListener('playing', (e) => { });
-sdk.addEventListener('pause', (e) => { });
-sdk.addEventListener('seeking', (e) => { });
-sdk.addEventListener('seeked', (e) => { });
-sdk.addEventListener('ended', (e) => { });
-sdk.addEventListener('timeupdate', (e) => { });
-sdk.addEventListener('volumechange', (e) => { e.volume });
-sdk.addEventListener('hd', (e) => { e.index });
-sdk.addEventListener('error', (e) => { e.code, e.message });
-sdk.init(container, config);
+sdk.addEventListener('ready', onReady);
+sdk.addEventListener('loadedmetadata', onLoadedMetadata);
+sdk.addEventListener('durationchange', onDurationChange);
+sdk.addEventListener('waiting', onWaiting);
+sdk.addEventListener('playing', onPlaying);
+sdk.addEventListener('pause', onPause);
+sdk.addEventListener('seeking', onSeeking);
+sdk.addEventListener('seeked', onSeeked);
+sdk.addEventListener('ended', onEnded);
+sdk.addEventListener('timeupdate', onTimeUpdate);
+sdk.addEventListener('volumechange', onVolumeChange);
+sdk.addEventListener('hd', onHD);
+sdk.addEventListener('error', onError);
+sdk.setup(container, {
+    file: 'http://127.0.0.1/vod/sample.flv',
+});
 ```
 
 Use skin module: 
@@ -127,10 +127,8 @@ Skin:
 | Type | Meaning |
 | :--- | :--- |
 | ready |  |
-| readystatechange | e.readyState |
 | loadedmetadata | e.metadata |
 | durationchange | e.duration |
-| progress | e.loaded, e.total |
 | waiting |  |
 | playing |  |
 | pause |  |
@@ -167,31 +165,31 @@ function onReady(e) {
 -----------------
 
 ```js
-_defaults = {
+_default = {
 	airplay: 'allow',
+	aspectratio: '16:9',
 	autoplay: false,
-	debug: false,
-	dynamic: false,       // dynamic streaming
-	bufferLength: 0.1,    // sec.
+	dynamic: false,         // dynamic streaming
+	bufferLength: 0.1,      // sec.
 	file: '',
-	latency: 'low',       // normal, low, dynamic (for tcp)
-	maxBufferLength: 30,  // sec.
-	mode: 'live',         // live, vod
+	latency: 'low',         // normal, low, dynamic (for tcp)
+	maxBufferLength: 30,    // sec.
+	mode: 'live',           // live, vod
 	muted: false,
 	retries: 0,
-	retryInterval: 3,     // sec.
+	retryInterval: 3,       // sec.
 	playsinline: true,
-	preload: 'none',      // none, metadata, auto
-	render: '',           // src, flv, fmp4, dash, hls, rtc, flash
+	preload: 'none',        // none, metadata, auto
+	render: '',             // src, flv, fmp4, dash, hls, rtc, flash
 	skin: 'classic',
-	smooth: false,        // smooth switching
+	smooth: false,          // smooth switching
 	swf: 'swf/playease.swf',
 	loader: {
 		name: 'auto',
 		mode: 'cors',       // cors, no-cors, same-origin
 		credentials: 'omit' // omit, include, same-origin
 	},
-	sources: [{
+	sources: [{             // ignored if "file" is presented
 		file: '',
 		label: '',
 		render: '',
