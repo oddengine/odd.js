@@ -38,7 +38,7 @@ Main features:
    - [ ] contextmenu  
    - [ ] playlist  
 
-- Renders  
+- Modules  
    - [ ] src  
    - [ ] flv  
    - [ ] fmp4  
@@ -60,7 +60,7 @@ Use SDK directly:
 
 ```js
 var Event = playease.events.Event;
-var api = playease('player');
+var api = playease();
 api.addEventListener(Event.READY, console.log);
 api.addEventListener(Event.LOADEDMETADATA, console.log);
 api.addEventListener(Event.DURATIONCHANGE, console.log);
