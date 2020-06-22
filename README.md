@@ -196,8 +196,8 @@ _default = {
     retryInterval: 3,        // sec.
     playsinline: true,
     preload: 'none',         // none, metadata, auto
-	smooth: false,           // smooth switching
-	skin: 'classic',
+    smooth: false,           // smooth switching
+    skin: 'classic',
     swf: 'swf/playease.swf',
     loader: {
         name: 'auto',
