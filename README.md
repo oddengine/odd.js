@@ -222,12 +222,12 @@ _default = {
         }
     }],
     components: [{
-        name: 'poster',
+        kind: 'Poster',
         index: 100,
         file: 'images/poster.png',
         visibility: true,
     }, {
-        name: 'danmu',
+        kind: 'Danmu',
         index: 200,
         lineHeight: 20,
         alpha: 1,               // 0 ~ 1
@@ -237,20 +237,20 @@ _default = {
         enable: true,
         visibility: true,
     }, {
-        name: 'display',
+        kind: 'Display',
         index: 300,
         controls: true,
         visibility: true,
     }, {
-        name: 'ad',
+        kind: 'AD',
         index: 400,
         visibility: true,
     }, {
-        name: 'share',
+        kind: 'Share',
         index: 500,
         visibility: true,
     }, {
-        name: 'logo',
+        kind: 'Logo',
         index: 600,
         file: 'http://studease.cn/images/content/playease-logo.png',
         link: 'http://studease.cn/playease',
@@ -259,14 +259,14 @@ _default = {
         position: 'top-right',
         visibility: true,
     }, {
-        name: 'controlbar',
+        kind: 'Controlbar',
         index: 700,
         layout: '[play][pause][stop][reload][time]|
             [report][mute][volume][hd][danmu][fullpage][exit-fullpage][fullscreen][exit-fullscreen]',
         autohide: false,
         visibility: true,
     }, {
-        name: 'contextmenu',
+        kind: 'ContextMenu',
         index: 800,
         visibility: true,
         items: [{
