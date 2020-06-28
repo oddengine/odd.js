@@ -132,24 +132,24 @@ Event:
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
 | READY |  | The setup has succeeded. |
-| STALLED | The onstalled event occurs when the browser is trying to get media data, but data is not available. |
-| SUSPEND | The onsuspend event occurs when the browser is intentionally not getting media data. |
-| LOADSTART | The onloadstart event occurs when the browser starts loading. |
-| ABORT | The onabort event occurs when the loading is aborted. |
+| STALLED |  | The onstalled event occurs when the browser is trying to get media data, but data is not available. |
+| SUSPEND |  | The onsuspend event occurs when the browser is intentionally not getting media data. |
+| LOADSTART |  | The onloadstart event occurs when the browser starts loading. |
+| ABORT |  | The onabort event occurs when the loading is aborted. |
 | PLAY |  | The play event occurs when it has been started or is no longer paused. |
 | WAITING |  | The waiting event occurs when it stops because it needs to buffer the next frame. |
 | DURATIONCHANGE | duration | The durationchange event occurs when the duration data is changed. |
 | LOADEDMETADATA | metadata | The loadedmetadata event occurs when metadata has been loaded. |
 | LOADEDDATA |  | The onloadeddata event occurs when data for the current frame is loaded, but not enough data to play next frame. |
-| PROGRESS | The onprogress event occurs when the browser is downloading. |
-| CANPLAY | The oncanplay event occurs when the browser can start playing (when it has buffered enough to begin). |
+| PROGRESS |  | The onprogress event occurs when the browser is downloading. |
+| CANPLAY |  | The oncanplay event occurs when the browser can start playing (when it has buffered enough to begin). |
 | PLAYING |  | The playing event occurs when it is playing after having been paused or stopped for buffering. |
-| CANPLAYTHROUGH | The oncanplaythrough event occurs when the browser estimates it can play through the specified media without having to stop for buffering. |
+| CANPLAYTHROUGH |  | The oncanplaythrough event occurs when the browser estimates it can play through the specified media without having to stop for buffering. |
 | PAUSE |  | The pause event occurs when it is paused either by the user or programmatically. |
 | SEEKING |  | The seeking event occurs when the user starts moving/skipping to a new position. |
 | SEEKED |  | The seeked event occurs when the user is finished moving/skipping to a new position. |
 | ENDED |  | The ended event occurs when the media has reached the end. |
-| RATECHANGE| The onratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
+| RATECHANGE|  | The onratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
 | TIMEUPDATE | time, buffered | The timeupdate event occurs when the playing position has changed. |
 | VOLUMECHANGE | volume | The volumechange event occurs each time the volume has been changed. |
 | HD | index | Has switched to the indexed bandwidth. |
@@ -270,8 +270,7 @@ _default = {
     }, {
         kind: 'Controlbar',
         index: 700,
-        layout: '[play][pause][stop][reload][time]|
-            [report][mute][volume][hd][danmu][fullpage][exit-fullpage][fullscreen][exit-fullscreen]',
+        layout: '[play][pause][stop][reload][time]|[report][mute][volume][hd][danmu][fullpage][exit-fullpage][fullscreen][exit-fullscreen]',
         autohide: false,
         visibility: true,
     }, {
@@ -279,8 +278,10 @@ _default = {
         index: 800,
         visibility: true,
         items: [{
-            icon: '',
-            text: 'PLAYEASE ' + playease.version,
+            icon: 'http://studease.cn/images/content/playease-logo.png',
+            text: 'PLAYEASE ' + playease.VERSION,
+            handler: function () { window.open('http://studease.cn/playease'); },
+            visibility: true,
         }]
     }]
 };
