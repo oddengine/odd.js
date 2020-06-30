@@ -214,21 +214,27 @@ _default = {
         credentials: 'omit', // omit, include, same-origin
     },
     sources: [{              // ignored if "file" is presented
+        mime: 'application/vnd.apple.mpegurl',
         file: '',
         label: '',
-        render: '',
-        loader: {
-            name: 'auto'
-        },
-        representation: {
-            mimeType: 'video/x-flv',
-            codecs: 'avc1.64001e,mp4a.40.2',
-            bandwidth: 448000,
+        textTracks: [{
+            kind: 'thumbnails',
+            file: '',
+            default: true,
+        }],
+        metadata: {
+            bitrate: 1089536,
+            videocodec: 'avc1.64001e',
+            videodatarate: 1000,
             width: 640,
             height: 360,
-            frameRate: 30,
-            audioSamplingRate: 48000
-        }
+            framerate: 30,
+            audiocodec: 'mp4a.40.2',
+            audiodatarate: 64,
+            audiosamplerate: 48000,
+            audiosamplesize: 16,
+            channelcount: 2,
+        },
     }],
     components: [{
         kind: 'Poster',
