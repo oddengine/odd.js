@@ -196,7 +196,7 @@ function onReady(e) {
 ```js
 _default = {
     airplay: 'allow',
-    aspectratio: '16:9',
+    aspectratio: '',         // 16:9 etc.
     autoplay: false,
     dynamic: false,          // dynamic streaming
     bufferLength: 0.1,       // sec.
@@ -251,9 +251,9 @@ _default = {
         index: 200,
         fontSize: 14,
         lineHeight: 20,
-        alpha: 1,               // 0 ~ 1
-        duration: 10,           // sec. while width = 640 px
-        salt: 0.5,              // real duration = duration * (1 + (width - 640) / 640 * salt)
+        alpha: 1,       // 0 ~ 1
+        duration: 10,   // sec. while width = 640 px
+        salt: 0.5,      // real duration = duration * (1 + (width - 640) / 640 * salt)
         enable: true,
         visibility: true,
     }, {
