@@ -81,7 +81,7 @@ api.addEventListener(Event.SWITCHED, console.log);
 api.addEventListener(Event.RATECHANGE, console.log);
 api.addEventListener(Event.TIMEUPDATE, console.log);
 api.addEventListener(Event.VOLUMECHANGE, console.log);
-api.addEventListener(Event.LOAD, console.log);
+api.addEventListener(IOEvent.LOAD, console.log);
 api.addEventListener(Event.ENDED, console.log);
 api.addEventListener(Event.ERROR, console.error);
 api.setup(container, {
