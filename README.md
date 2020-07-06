@@ -98,7 +98,7 @@ ui.addEventListener(UIEvent.SHOOTING, console.log);
 ui.addEventListener(UIEvent.FULLPAGE, console.log);
 ui.addEventListener(UIEvent.FULLSCREEN, console.log);
 ui.addEventListener(UIEvent.RESIZE, console.log);
-ui.setup(config);
+ui.setup(container, config);
 ```
 
 ## API
