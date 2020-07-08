@@ -11,7 +11,7 @@ This is a HTML5 Video Player for modern media streaming.
 
 It supports:
 
-- RTMP (For MSIE8-10 with flash embed in)
+- RTMP (For MSIE9-10 with flash embed in)
 - HTTP/WebSocket-FLV
 - HTTP/WebSocket-fMP4
 - MPEG-DASH
@@ -20,30 +20,30 @@ It supports:
 
 Main features:
 
-- ES5 + closure + prototype (IE9+)  
-- Multiple SourceBuffer (Except Mac Safari)  
+- ES5 + closure + prototype (IE9+)
+- Multiple SourceBuffer (Except Mac Safari)
 
 ## Roadmap
 
 - Components  
-  - [x] poster  
-  - [x] danmu  
-  - [x] display  
-  - [ ] ad  
-  - [ ] share  
-  - [x] logo  
-  - [ ] controlbar  
-  - [x] contextmenu  
-  - [ ] playlist  
+  - [x] Poster  
+  - [x] Danmu  
+  - [x] Display  
+  - [ ] AD  
+  - [ ] Share  
+  - [x] Logo  
+  - [ ] Controlbar  
+  - [x] Contextmenu  
+  - [ ] Playlist  
 
 - Modules  
-  - [ ] src  
-  - [ ] flv  
-  - [ ] fmp4  
-  - [ ] dash  
-  - [ ] hls (on desktop)  
-  - [ ] rtc  
-  - [ ] flash  
+  - [ ] SRC  
+  - [ ] FLV  
+  - [ ] FMP4  
+  - [ ] DASH  
+  - [ ] HLS (on desktop)  
+  - [ ] RTC  
+  - [ ] Flash  
 
 - [ ] Buffer control for playback  
 - [ ] Fast forward/backward for playback  
@@ -89,7 +89,7 @@ api.setup(container, {
 });
 ```
 
-Use the builtin extendible UI framework:
+Use the built-in extendible UI framework:
 
 ```js
 var UIEvent = playease.events.UIEvent;
@@ -100,78 +100,6 @@ ui.addEventListener(UIEvent.FULLSCREEN, console.log);
 ui.addEventListener(UIEvent.RESIZE, console.log);
 ui.setup(container, config);
 ```
-
-## API
-
-SDK:
-
-| Method | Arguments | Description |
-| :--- | :--- | :--- |
-| setup | container, config | Setup the SDK with the given configuration. |
-| play | url = '', options = null | Plays the specified media file or live stream, or the current item of the sources if the url doesn't provided. |
-| pause |  | Pauses playing. Calling this method does nothing if the video is already paused. |
-| seek | offset | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
-| stop |  | Stops playing, sets the time property to 0. |
-| reload |  | Releases all the resources, reloads the media file or live stream. |
-| muted | status | Mutes or unmutes the audio/video elements. |
-| volume | f | Sets volume in the range of 0 to 1. |
-| switch | index | Switches to the specified bandwidth. |
-| state |  | Gets the state. |
-
-UI (All SDK methods are also supported by UI):
-
-| Method | Arguments | Description |
-| :--- | :--- | :--- |
-| setup | container, config | Setup the UI with the given configuration. |
-| danmu | enable | Enables or disables the danmu component. |
-| shoot | text, data = null | Shoots the text with the data binded to. |
-| displayAD | element | Displays the AD element. |
-| removeAD |  | Removes the AD element. |
-| fullpage | status | Requests or exits fullpage. |
-| fullscreen | status | Requests or exits fullscreen. |
-| resize |  | Resizes the player to fit with the parent node. |
-
-## Events
-
-Event:
-
-| Type | Properties | Meaning |
-| :--- | :--- | :--- |
-| READY |  | The ready event occurs when the setup is succeeded. |
-| PLAY |  | The play event occurs when it has been started or is no longer paused. |
-| SUSPEND |  | The suspend event occurs when the browser is intentionally not getting media data. |
-| STALLED |  | The stalled event occurs when the browser is trying to get media data, but data is not available. |
-| LOADSTART |  | The loadstart event occurs when the browser starts loading. |
-| WAITING |  | The waiting event occurs when it stops because it needs to buffer the next frame. |
-| ABORT |  | The abort event occurs when the loading is aborted. |
-| TIMEOUT |  | The timeout event occurs when progression is terminated due to preset time expiring. |
-| DURATIONCHANGE | duration | The durationchange event occurs when the duration data is changed. |
-| LOADEDMETADATA | metadata | The loadedmetadata event occurs when metadata has been loaded. |
-| LOADEDDATA |  | The loadeddata event occurs when data for the current frame is loaded, but not enough data to play next frame. |
-| PROGRESS | loaded, total, buffer | The progress event occurs when the browser is downloading. |
-| CANPLAY |  | The canplay event occurs when the browser can start playing (when it has buffered enough to begin). |
-| PLAYING |  | The playing event occurs when it is playing after having been paused or stopped for buffering. |
-| CANPLAYTHROUGH |  | The canplaythrough event occurs when the browser estimates it can play through the specified media without having to stop for buffering. |
-| PAUSE | timestamp | The pause event occurs when it is paused either by the user or programmatically. |
-| SEEKING | timestamp | The seeking event occurs when the user starts moving/skipping to a new position. |
-| SEEKED | timestamp | The seeked event occurs when the user is finished moving/skipping to a new position. |
-| SWITCHING | index | The switching event occurs when the user starts switching to a different bandwidth. |
-| SWITCHED | index | The switching event occurs when the user is finished switching to a different bandwidth. |
-| RATECHANGE| rate | The ratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
-| TIMEUPDATE | timestamp, buffered | The timeupdate event occurs when the playing position has changed. |
-| VOLUMECHANGE | volume | The volumechange event occurs each time the volume has been changed. |
-| LOAD |  | The onload event occurs when an object has been loaded. |
-| ENDED |  | The ended event occurs when the media has reached the end. |
-| ERROR | code, message | The error event occurs when an error occurred. |
-
-UIEvent (All SDK events will be forward to UI):
-
-| Type | Properties | Meaning |
-| :--- | :--- | :--- |
-| SHOOTING | text, data | The shooting event occurs when a damnu message is shot. |
-| FULLPAGE | status | The ended event occurs when the fullpage status is changed. |
-| FULLSCREEN | status | The ended event occurs when the fullscreen status is changed. |
-| RESIZE | width, height | The ended event occurs when the UI is resized. |
 
 ## Add Callback
 
@@ -191,10 +119,93 @@ function onReady(e) {
 }
 ```
 
+## API
+
+### API of SDK
+
+| Method | Arguments | Description |
+| :--- | :--- | :--- |
+| setup | container, config | Setup the SDK with the given configuration. |
+| play | url = '', options = null | Plays the specified media file or live stream, or the current item of the sources if the url doesn't provided. |
+| pause |  | Pauses playing. Calling this method does nothing if the video is already paused. |
+| seek | offset | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
+| stop |  | Stops playing, sets the time property to 0. |
+| reload |  | Releases all the resources, reloads the media file or live stream. |
+| muted | status | Mutes or unmutes the audio/video elements. |
+| volume | f | Sets volume, which in the range of 0 to 1. |
+| switch | index | Switches to the specified bandwidth. |
+| state |  | Gets the state. |
+
+### API of UI
+
+Note: All of the SDK methods are also supported by UI.
+
+| Method | Arguments | Description |
+| :--- | :--- | :--- |
+| setup | container, config | Setup the UI with the given configuration. |
+| danmu | enable | Enables or disables the danmu component. |
+| shoot | text, data = null | Shoots the text with the data binded to. |
+| displayAD | element | Displays the AD element. |
+| removeAD |  | Removes the AD element. |
+| fullpage | status | Requests or exits fullpage. |
+| fullscreen | status | Requests or exits fullscreen. |
+| resize |  | Resizes the player to fit with the parent node. |
+
+## Events
+
+The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
+
+### Event
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| READY |  | The ready event occurs when the setup is succeeded. |
+| PLAY |  | The play event occurs when it has been started or is no longer paused. |
+| WAITING |  | The waiting event occurs when it stops because it needs to buffer the next frame. |
+| DURATIONCHANGE | duration | The durationchange event occurs when the duration data is changed. |
+| LOADEDMETADATA | metadata | The loadedmetadata event occurs when metadata has been loaded. |
+| LOADEDDATA |  | The loadeddata event occurs when data for the current frame is loaded, but not enough data to play next frame. |
+| CANPLAY |  | The canplay event occurs when the browser can start playing (when it has buffered enough to begin). |
+| PLAYING |  | The playing event occurs when it is playing after having been paused or stopped for buffering. |
+| CANPLAYTHROUGH |  | The canplaythrough event occurs when the browser estimates it can play through the specified media without having to stop for buffering. |
+| PAUSE | timestamp | The pause event occurs when it is paused either by the user or programmatically. |
+| SEEKING | timestamp | The seeking event occurs when the user starts moving/skipping to a new position. |
+| SEEKED | timestamp | The seeked event occurs when the user is finished moving/skipping to a new position. |
+| SWITCHING | index | The switching event occurs when the user starts switching to a different bandwidth. |
+| SWITCHED | index | The switching event occurs when the user is finished switching to a different bandwidth. |
+| RATECHANGE| rate | The ratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
+| TIMEUPDATE | timestamp, buffered | The timeupdate event occurs when the playing position has changed. |
+| VOLUMECHANGE | volume | The volumechange event occurs each time the volume has been changed. |
+| ENDED |  | The ended event occurs when the media has reached the end. |
+| ERROR | code, message | The error event occurs when an error occurred. |
+
+### IOEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| SUSPEND |  | The suspend event occurs when the browser is intentionally not getting media data. |
+| LOADSTART |  | The loadstart event occurs when the browser starts loading. |
+| STALLED |  | The stalled event occurs when the browser is trying to get media data, but data is not available. |
+| ABORT |  | The abort event occurs when the loading is aborted. |
+| TIMEOUT |  | The timeout event occurs when progression is terminated due to preset time expiring. |
+| PROGRESS | loaded, total, buffer | The progress event occurs when the browser is downloading. |
+| LOAD |  | The onload event occurs when an object has been loaded. |
+
+### UIEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| SHOOTING | text, data | The shooting event occurs when a damnu message is shot. |
+| FULLPAGE | status | The ended event occurs when the fullpage status is changed. |
+| FULLSCREEN | status | The ended event occurs when the fullscreen status is changed. |
+| RESIZE | width, height | The ended event occurs when the UI is resized. |
+
 ## Configuration
 
+### Properties for SDK
+
 ```js
-_default = {
+{
     airplay: 'allow',
     aspectratio: '',         // 16:9 etc.
     autoplay: false,
@@ -211,7 +222,6 @@ _default = {
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     smooth: false,           // smooth switching
-    skin: 'classic-en',
     swf: 'swf/playease.swf',
     loader: {
         name: 'auto',
@@ -241,59 +251,59 @@ _default = {
             channelcount: 2,
         },
     }],
+```
+
+### Extension for UI
+
+```js
+{
+    aspectratio: '',         // 16:9 etc.
+    skin: 'classic en',
     components: [{
         kind: 'Poster',
-        index: 100,
         file: 'images/poster.png',
         visibility: true,
     }, {
         kind: 'Danmu',
-        index: 200,
         fontSize: 14,
         lineHeight: 20,
-        alpha: 1,       // 0 ~ 1
-        duration: 10,   // sec. while width = 640 px
-        salt: 0.5,      // real duration = duration * (1 + (width - 640) / 640 * salt)
+        alpha: 1,            // 0 ~ 1
+        duration: 10,        // sec. while width = 640 px
+        salt: 0.5,           // real duration = duration * (1 + (width - 640) / 640 * salt)
         enable: true,
         visibility: true,
     }, {
         kind: 'Display',
-        index: 300,
         controls: true,
         visibility: true,
     }, {
         kind: 'AD',
-        index: 400,
         visibility: true,
     }, {
         kind: 'Share',
-        index: 500,
         visibility: true,
     }, {
         kind: 'Logo',
-        index: 600,
-        file: 'http://studease.cn/images/content/playease-logo.png',
+        file: 'image/logo.png',
         link: 'http://studease.cn/playease',
         target: '_blank',
         style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
         visibility: true,
     }, {
         kind: 'Controlbar',
-        index: 700,
-        layout: '[slider:time=Preview]|[button:play=Play][button:pause=Pause][button:stop=Stop][button:reload=Reload][label:alert=]||[button:report=Report][button:mute=Mute][button:unmute=Unmute][slider:volume=80][select:hd=Definition][button:danmuoff=Danmu Off][button:danmuon=Danmu On][button:fullpage=Fullpage][button:exitfullpage=Exit Fullpage][button:fullscreen=Fullscreen][button:exitfullscreen=Exit Fullscreen]',
+        layout: '[slider:time=Preview]|[button:play=Play][button:pause=Pause][button:stop=Stop][button:reload=Reload][label:quote=Live broadcast]||[button:report=Report][button:mute=Mute][button:unmute=Unmute][slider:volume=80][select:definition=Definition][button:danmuoff=Danmu Off][button:danmuon=Danmu On][button:fullpage=Fullpage][button:exitfullpage=Exit Fullpage][button:fullscreen=Fullscreen][button:exitfullscreen=Exit Fullscreen]',
         autohide: false,
         visibility: true,
     }, {
         kind: 'ContextMenu',
-        index: 800,
         visibility: true,
         items: [{
-            icon: 'http://studease.cn/images/content/playease-logo.png',
-            text: 'PLAYEASE ' + playease.VERSION,
+            mode: '',        // '', 'featured', 'disable'
+            icon: 'image/github.png',
+            text: 'Visit on Github',
             shortcut: '',
-            handler: function () { window.open('http://studease.cn/playease'); },
-            enable: true,
-        }]
+            handler: function () { window.open('https://github.com/studease/playease'); },
+        }],
     }]
 };
 ```
