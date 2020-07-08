@@ -131,9 +131,9 @@ function onReady(e) {
 | seek | offset | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
 | stop |  | Stops playing, sets the time property to 0. |
 | reload |  | Releases all the resources, reloads the media file or live stream. |
-| muted | status | Mutes or unmutes the audio/video elements if status is a boolean. Otherwise, returns the current status. |
+| muted | status | Mutes or unmutes the audio/video elements, if status is a boolean. Otherwise, returns the current status. |
 | volume | f | Sets volume, which in the range of 0 to 1, if f is a number. Otherwise, returns the current volume. |
-| definition | index | Switches to the specified definition if index is a number. Otherwise, returns the current definition. |
+| definition | index | Switches to the specified definition, if index is a number. Otherwise, returns the current definition. |
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
@@ -145,13 +145,13 @@ Note: All of the SDK methods are also supported by UI.
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
 | setup | container, config | Setup the UI with the given configuration. |
-| danmu | enable | Enables or disables the danmu component. |
+| danmu | enable | Enables or disables the danmu plugin, if enable is a boolean. Otherwise, returns the current status. |
 | shoot | text, data = null | Shoots the text with the data binded to. |
 | displayAD | element | Displays the AD element. |
 | removeAD |  | Removes the AD element. |
-| fullpage | status | Requests or exits fullpage. |
-| fullscreen | status | Requests or exits fullscreen. |
-| resize |  | Resizes the player to fit with the parent node. |
+| fullpage | status | Requests or exits fullpage, if status is a boolean. Otherwise, returns the current status. |
+| fullscreen | status | Requests or exits fullscreen, if status is a boolean. Otherwise, returns the current status. |
+| resize |  | Resizes the player to fit to the parent node. However, if aspectratio is set, such as '16:9', the height will be calculated. |
 
 ## Events
 
@@ -209,7 +209,6 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 ```js
 {
     airplay: 'allow',
-    aspectratio: '',         // 16:9 etc.
     autoplay: false,
     dynamic: false,          // dynamic streaming
     bufferLength: 0.1,       // sec.
@@ -231,11 +230,13 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         credentials: 'omit', // omit, include, same-origin
     },
     sources: [{              // ignored if "file" is presented
-        mime: 'application/vnd.apple.mpegurl',
         file: '',
         label: '',
+        default: false,
+        mime: 'application/vnd.apple.mpegurl',
+        thumbnails: '',
         textTracks: [{
-            kind: 'thumbnails',
+            kind: '',
             file: '',
             default: true,
         }],
@@ -262,7 +263,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     aspectratio: '',         // 16:9 etc.
     skin: 'classic',
     lang: 'en',
-    components: [{
+    plugins: [{
         kind: 'Poster',
         file: 'images/poster.png',
         visibility: true,
