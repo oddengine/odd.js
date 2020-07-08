@@ -33,7 +33,7 @@ Main features:
   - [ ] Share  
   - [x] Logo  
   - [x] Controlbar  
-  - [x] Contextmenu  
+  - [x] ContextMenu  
   - [ ] Playlist  
 
 - Modules  
@@ -131,10 +131,12 @@ function onReady(e) {
 | seek | offset | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
 | stop |  | Stops playing, sets the time property to 0. |
 | reload |  | Releases all the resources, reloads the media file or live stream. |
-| muted | status | Mutes or unmutes the audio/video elements. |
-| volume | f | Sets volume, which in the range of 0 to 1. |
-| switch | index | Switches to the specified bandwidth. |
-| state |  | Gets the state. |
+| muted | status | Mutes or unmutes the audio/video elements if status is a boolean. Otherwise, returns the current status. |
+| volume | f | Sets volume, which in the range of 0 to 1, if f is a number. Otherwise, returns the current volume. |
+| definition | index | Switches to the specified definition if index is a number. Otherwise, returns the current definition. |
+| element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
+| duration |  | Gets the media duration. |
+| state |  | Gets the player state. |
 
 ### API of UI
 
@@ -258,7 +260,8 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 ```js
 {
     aspectratio: '',         // 16:9 etc.
-    skin: 'classic en',
+    skin: 'classic',
+    lang: 'en',
     components: [{
         kind: 'Poster',
         file: 'images/poster.png',
