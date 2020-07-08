@@ -262,7 +262,6 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 {
     aspectratio: '',         // 16:9 etc.
     skin: 'classic',
-    lang: 'en',
     plugins: [{
         kind: 'Poster',
         file: 'images/poster.png',
