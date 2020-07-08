@@ -93,7 +93,7 @@ Use the built-in extendible UI framework:
 
 ```js
 var UIEvent = playease.events.UIEvent;
-var ui = playease.ui('player');
+var ui = playease.ui();
 ui.addEventListener(UIEvent.SHOOTING, console.log);
 ui.addEventListener(UIEvent.FULLPAGE, console.log);
 ui.addEventListener(UIEvent.FULLSCREEN, console.log);
