@@ -32,7 +32,7 @@ Main features:
   - [ ] AD  
   - [ ] Share  
   - [x] Logo  
-  - [ ] Controlbar  
+  - [x] Controlbar  
   - [x] Contextmenu  
   - [ ] Playlist  
 
