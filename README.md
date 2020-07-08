@@ -173,8 +173,8 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 | PAUSE | timestamp | The pause event occurs when it is paused either by the user or programmatically. |
 | SEEKING | timestamp | The seeking event occurs when the user starts moving/skipping to a new position. |
 | SEEKED | timestamp | The seeked event occurs when the user is finished moving/skipping to a new position. |
-| SWITCHING | index | The switching event occurs when the user starts switching to a different bandwidth. |
-| SWITCHED | index | The switching event occurs when the user is finished switching to a different bandwidth. |
+| SWITCHING | index | The switching event occurs when the user starts switching to a different difinition. |
+| SWITCHED | index | The switching event occurs when the user is finished switching to a different difinition. |
 | RATECHANGE| rate | The ratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
 | TIMEUPDATE | timestamp, buffered | The timeupdate event occurs when the playing position has changed. |
 | VOLUMECHANGE | volume | The volumechange event occurs each time the volume has been changed. |
