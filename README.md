@@ -173,8 +173,8 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 | PAUSE | timestamp | The pause event occurs when it is paused either by the user or programmatically. |
 | SEEKING | timestamp | The seeking event occurs when the user starts moving/skipping to a new position. |
 | SEEKED | timestamp | The seeked event occurs when the user is finished moving/skipping to a new position. |
-| SWITCHING | index | The switching event occurs when the user starts switching to a different difinition. |
-| SWITCHED | index | The switching event occurs when the user is finished switching to a different difinition. |
+| SWITCHING | index | The switching event occurs when the user starts switching to a different definition. |
+| SWITCHED | index | The switching event occurs when the user is finished switching to a different definition. |
 | RATECHANGE| rate | The ratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
 | TIMEUPDATE | timestamp, buffered | The timeupdate event occurs when the playing position has changed. |
 | VOLUMECHANGE | volume | The volumechange event occurs each time the volume has been changed. |
@@ -216,7 +216,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     latency: 'low',          // normal, low, dynamic (for tcp)
     maxBufferLength: 30,     // sec.
     mode: 'live',            // live, vod
-    module: '',              // src, flv, fmp4, dash, hls, rtc, flash
+    module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
     retries: 0,
     retryInterval: 3,        // sec.
@@ -231,6 +231,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     },
     sources: [{              // ignored if "file" is presented
         file: '',
+        module: '',
         label: '',
         default: false,
         mime: 'application/vnd.apple.mpegurl',
