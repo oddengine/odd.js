@@ -15,13 +15,8 @@ It supports:
 - HTTP/WebSocket-FLV
 - HTTP/WebSocket-fMP4
 - MPEG-DASH
-- HLS (on mobile)
+- HLS
 - Original HTML5 media resources (eg. Ogg, Mpeg4, WebM)
-
-Main features:
-
-- ES5 + closure + prototype (IE9+)
-- Multiple SourceBuffer (Except Mac Safari)
 
 ## Roadmap
 
@@ -37,7 +32,7 @@ Main features:
   - [ ] Playlist  
 
 - Modules  
-  - [ ] SRC  
+  - [x] SRC  
   - [ ] FLV  
   - [ ] FMP4  
   - [ ] DASH  
@@ -104,7 +99,7 @@ ui.setup(container, config);
 ## Add Callback
 
 ```js
-sdk.onready = function(e) {
+api.onready = function(e) {
     // do something
 };
 ```
@@ -112,7 +107,7 @@ sdk.onready = function(e) {
 Or:
 
 ```js
-sdk.addEventListener('ready', onReady);
+api.addEventListener('ready', onReady);
 
 function onReady(e) {
     // do something
@@ -161,7 +156,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| READY |  | The ready event occurs when the setup is succeeded. |
+| READY |  | The ready event occurs when a module is ready. |
 | PLAY |  | The play event occurs when it has been started or is no longer paused. |
 | WAITING |  | The waiting event occurs when it stops because it needs to buffer the next frame. |
 | DURATIONCHANGE | duration | The durationchange event occurs when the duration data is changed. |
@@ -304,7 +299,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         items: [{
             mode: '',        // '', 'featured', 'disable'
             icon: 'image/github.png',
-            text: 'Visit on Github',
+            text: 'studease',
             shortcut: '',
             handler: function () { window.open('https://github.com/studease/playease'); },
         }],
