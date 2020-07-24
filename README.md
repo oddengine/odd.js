@@ -290,7 +290,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[slider:timebar=Preview]|[button:play=Play][button:pause=Pause][button:reload=Reload][button:stop=Stop][label:quote=Live broadcast][label:time=--:--/--:--]||[button:report=Report][button:mute=Mute][button:unmute=Unmute][slider:volumebar=80][select:definition=Definition][button:danmuoff=Danmu Off][button:danmuon=Danmu On][button:fullpage=Fullpage][button:exitfullpage=Exit Fullpage][button:fullscreen=Fullscreen][button:exitfullscreen=Exit Fullscreen]',
+        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=--:--/--:--]||[Button:report=Report][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
         autohide: false,
         visibility: true,
     }, {
