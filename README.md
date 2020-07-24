@@ -64,7 +64,7 @@ api.addEventListener(IOEvent.TIMEOUT, console.log);
 api.addEventListener(Event.DURATIONCHANGE, console.log);
 api.addEventListener(Event.LOADEDMETADATA, console.log);
 api.addEventListener(Event.LOADEDDATA, console.log);
-api.addEventListener(IOEvent.PROGRESS, _forward);
+api.addEventListener(IOEvent.PROGRESS, console.log);
 api.addEventListener(Event.CANPLAY, console.log);
 api.addEventListener(Event.PLAYING, console.log);
 api.addEventListener(Event.CANPLAYTHROUGH, console.log);
@@ -290,7 +290,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[slider:time=Preview]|[button:play=Play][button:pause=Pause][button:stop=Stop][button:reload=Reload][label:quote=Live broadcast]||[button:report=Report][button:mute=Mute][button:unmute=Unmute][slider:volume=80][select:definition=Definition][button:danmuoff=Danmu Off][button:danmuon=Danmu On][button:fullpage=Fullpage][button:exitfullpage=Exit Fullpage][button:fullscreen=Fullscreen][button:exitfullscreen=Exit Fullscreen]',
+        layout: '[slider:timebar=Preview]|[button:play=Play][button:pause=Pause][button:reload=Reload][button:stop=Stop][label:quote=Live broadcast][label:time=--:--/--:--]||[button:report=Report][button:mute=Mute][button:unmute=Unmute][slider:volumebar=80][select:definition=Definition][button:danmuoff=Danmu Off][button:danmuon=Danmu On][button:fullpage=Fullpage][button:exitfullpage=Exit Fullpage][button:fullscreen=Fullscreen][button:exitfullscreen=Exit Fullscreen]',
         autohide: false,
         visibility: true,
     }, {
