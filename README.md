@@ -22,7 +22,7 @@ It supports:
 
 - Components  
   - [x] Poster  
-  - [x] Danmu  
+  - [ ] Danmu  
   - [x] Display  
   - [ ] AD  
   - [ ] Share  
@@ -33,17 +33,17 @@ It supports:
 
 - Modules  
   - [x] SRC  
-  - [ ] FLV  
+  - [x] FLV  
   - [ ] FMP4  
   - [ ] DASH  
   - [ ] HLS (on desktop)  
   - [ ] RTC  
   - [ ] Flash  
 
-- [ ] Buffer control for playback  
-- [ ] Fast forward/backward for playback  
-- [ ] Reduce latency due to cumulative ack of tcp  
-- [ ] Generates silent frame while remote dropped some frames  
+- [ ] Buffer control for playback.  
+- [ ] Fast forward/backward for playback.  
+- [ ] Reduce latency due to cumulative ack of tcp.  
+- [ ] Generates silent frame while remote dropped some frames.  
 
 ## Example
 
@@ -290,7 +290,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=--:--/--:--]||[Button:report=Report][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
+        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
         autohide: false,
         visibility: true,
     }, {
