@@ -273,7 +273,8 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         visibility: true,
     }, {
         kind: 'Display',
-        controls: true,
+        layout: '[Button:play=][Button:waiting=]',
+        ondoubleclick: 'fullscreen', // 'fullpage', 'fullscreen'
         visibility: true,
     }, {
         kind: 'AD',
@@ -299,7 +300,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         items: [{
             mode: '',        // '', 'featured', 'disable'
             icon: 'image/github.png',
-            text: 'studease',
+            text: 'github.com',
             shortcut: '',
             handler: function () { window.open('https://github.com/studease/playease'); },
         }],
