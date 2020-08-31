@@ -11,16 +11,18 @@ This is a HTML5 Video Player for modern media streaming.
 
 It supports:
 
-- RTMP (For MSIE9-10 with flash embed in)
-- HTTP/WebSocket-FLV
-- HTTP/WebSocket-fMP4
-- MPEG-DASH
-- HLS
-- Original HTML5 media resources (eg. Ogg, Mpeg4, WebM)
-
 ## Roadmap
 
-- Components  
+- Modules  
+  - [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, etc.)  
+  - [x] FLV (http[s]/ws[s])  
+  - [ ] FMP4 (http[s]/ws[s])  
+  - [ ] DASH (CMAF)  
+  - [ ] HLS (on desktop)  
+  - [ ] RTC  
+  - [ ] ~~Flash~~  
+
+- Plugins  
   - [x] Poster  
   - [ ] Danmu  
   - [x] Display  
@@ -31,19 +33,13 @@ It supports:
   - [x] ContextMenu  
   - [ ] Playlist  
 
-- Modules  
-  - [x] SRC  
-  - [x] FLV  
-  - [ ] FMP4  
-  - [ ] DASH  
-  - [ ] HLS (on desktop)  
-  - [ ] RTC  
-  - [ ] Flash  
-
-- [ ] Buffer control for playback.  
-- [ ] Fast forward/backward for playback.  
-- [ ] Reduce latency due to cumulative ack of tcp.  
-- [ ] Generates silent frame while remote dropped some frames.  
+- Others  
+  - [x] Synchronization of audio and video while the remote dropped some frames.  
+  - [ ] Buffer length.  
+  - [ ] Reduce latency smoothly, due to cumulative ack of tcp.  
+  - [ ] Breakpoint downloading for http-flv playback.  
+  - [ ] Remove media segments within a specific time range to reduce memory usage.  
+  - [ ] Carry api.id while dispatching events.  
 
 ## Example
 
@@ -208,13 +204,12 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     dynamic: false,          // dynamic streaming
     bufferLength: 0.1,       // sec.
     file: '',
-    latency: 'low',          // normal, low, dynamic (for tcp)
+    latency: 'none',         // none, auto (for tcp)
     maxBufferLength: 30,     // sec.
     mode: 'live',            // live, vod
     module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
-    retries: 0,
-    retryInterval: 3,        // sec.
+    objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     smooth: false,           // smooth switching
@@ -261,6 +256,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     plugins: [{
         kind: 'Poster',
         file: 'images/poster.png',
+        objectfit: 'fill',   // 'fill', 'contain', 'cover', 'none', 'scale-down'
         visibility: true,
     }, {
         kind: 'Danmu',
