@@ -9,8 +9,6 @@
 
 This is a HTML5 Video Player for modern media streaming.  
 
-It supports:
-
 ## Roadmap
 
 - Modules  
