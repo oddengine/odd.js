@@ -168,20 +168,6 @@
 				}
 			}
 			
-			if (position + _this.config.bufferTime <= end) {
-				if (_waiting) {
-					_waiting = false;
-					_video.play();
-					_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.PLAYING });
-				}
-			} else {
-				if (!_waiting && (!duration || position + _this.config.bufferTime <= duration)) {
-					_waiting = true;
-					_video.pause();
-					_this.dispatchEvent(events.PLAYEASE_STATE, { state: states.BUFFERING });
-				}
-			}
-			
 			return {
 				buffered: buffered,
 				position: position,
