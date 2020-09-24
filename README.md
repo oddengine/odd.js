@@ -22,7 +22,7 @@ This is a HTML5 Video Player for modern media streaming.
 
 - Plugins  
   - [x] Poster  
-  - [ ] Danmu  
+  - [x] Danmu  
   - [x] Display  
   - [ ] AD  
   - [ ] Share  
@@ -33,11 +33,17 @@ This is a HTML5 Video Player for modern media streaming.
 
 - Others  
   - [x] Synchronization of audio and video while the remote dropped some frames.  
+  - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
   - [ ] Buffer length.  
-  - [ ] Reduce latency smoothly, due to cumulative ack of tcp.  
-  - [ ] Breakpoint downloading for http-flv playback.  
-  - [ ] Remove media segments within a specific time range to reduce memory usage.  
   - [ ] Carry api.id while dispatching events.  
+  - [ ] Reduce latency smoothly, due to cumulative ack of tcp.  
+  - [ ] Remove media segments within a specific time range to reduce memory usage.  
+
+## Solutions
+
+[ ] [Live Broadcast on Desktop](http://studease.cn/solutions/live.html).  
+[ ] [Live Broadcast on Mobile](http://studease.cn/solutions/live-mobile.html).  
+[ ] [Vehicle Monitoring System](http://studease.cn/solutions/monitoring.html).  
 
 ## Example
 
@@ -229,19 +235,6 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
             file: '',
             default: true,
         }],
-        metadata: {
-            bitrate: 1089536,
-            videocodec: 'avc1.64001e',
-            videodatarate: 1000,
-            width: 640,
-            height: 360,
-            framerate: 30,
-            audiocodec: 'mp4a.40.2',
-            audiodatarate: 64,
-            audiosamplerate: 48000,
-            audiosamplesize: 16,
-            channelcount: 2,
-        },
     }],
 }
 ```
@@ -259,16 +252,13 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         visibility: true,
     }, {
         kind: 'Danmu',
-        fontSize: 14,
-        lineHeight: 20,
-        alpha: 1,            // 0 ~ 1
-        duration: 10,        // sec. while width = 640 px
-        salt: 0.5,           // real duration = duration * (1 + (width - 640) / 640 * salt)
+        speed: 100,
+        lineHeight: 32,
         enable: true,
         visibility: true,
     }, {
         kind: 'Display',
-        layout: '[Button:play=][Button:waiting=]',
+        layout: '[Button:play=][Button:waiting=][Label:error=]',
         ondoubleclick: 'fullscreen', // 'fullpage', 'fullscreen'
         visibility: true,
     }, {
