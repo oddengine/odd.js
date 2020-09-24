@@ -41,9 +41,9 @@ This is a HTML5 Video Player for modern media streaming.
 
 ## Solutions
 
-[ ] [Live Broadcast on Desktop](http://studease.cn/solutions/live.html).  
-[ ] [Live Broadcast on Mobile](http://studease.cn/solutions/live-mobile.html).  
-[ ] [Vehicle Monitoring System](http://studease.cn/solutions/monitoring.html).  
+- [ ] [Live Broadcast on Desktop](http://studease.cn/solutions/live.html).  
+- [ ] [Live Broadcast on Mobile](http://studease.cn/solutions/live-mobile.html).  
+- [ ] [Vehicle Monitoring System](http://studease.cn/solutions/monitoring.html).  
 
 ## Example
 
