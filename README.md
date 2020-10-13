@@ -41,9 +41,9 @@ This is a HTML5 Video Player for modern media streaming.
 
 ## Solutions
 
-- [ ] [Live Broadcast on Desktop](http://studease.cn/solutions/live.html).  
-- [ ] [Live Broadcast on Mobile](http://studease.cn/solutions/live-mobile.html).  
-- [ ] [Vehicle Monitoring System](http://studease.cn/solutions/monitoring.html).  
+- [x] [Live Broadcast Solution](http://studease.cn/solutions.html).  
+- [x] [Live Broadcast on Mobile](http://studease.cn/solutions-mobile.html).  
+- [x] [Monitoring Example](http://studease.cn/cms/index.html?n=9).  
 
 ## Example
 
@@ -55,10 +55,9 @@ var IOEvent = playease.events.IOEvent;
 var api = playease();
 api.addEventListener(Event.READY, console.log);
 api.addEventListener(Event.PLAY, console.log);
-api.addEventListener(IOEvent.SUSPEND, console.log);
-api.addEventListener(IOEvent.STALLED, console.log);
 api.addEventListener(IOEvent.LOADSTART, console.log);
 api.addEventListener(Event.WAITING, console.log);
+api.addEventListener(IOEvent.STALLED, console.log);
 api.addEventListener(IOEvent.ABORT, console.log);
 api.addEventListener(IOEvent.TIMEOUT, console.log);
 api.addEventListener(Event.DURATIONCHANGE, console.log);
@@ -68,6 +67,7 @@ api.addEventListener(IOEvent.PROGRESS, console.log);
 api.addEventListener(Event.CANPLAY, console.log);
 api.addEventListener(Event.PLAYING, console.log);
 api.addEventListener(Event.CANPLAYTHROUGH, console.log);
+api.addEventListener(IOEvent.SUSPEND, console.log);
 api.addEventListener(Event.PAUSE, console.log);
 api.addEventListener(Event.SEEKING, console.log);
 api.addEventListener(Event.SEEKED, console.log);
@@ -180,13 +180,14 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| SUSPEND |  | The suspend event occurs when the browser is intentionally not getting media data. |
 | LOADSTART |  | The loadstart event occurs when the browser starts loading. |
 | STALLED |  | The stalled event occurs when the browser is trying to get media data, but data is not available. |
 | ABORT |  | The abort event occurs when the loading is aborted. |
 | TIMEOUT |  | The timeout event occurs when progression is terminated due to preset time expiring. |
 | PROGRESS | loaded, total, buffer | The progress event occurs when the browser is downloading. |
-| LOAD |  | The onload event occurs when an object has been loaded. |
+| SUSPEND |  | The suspend event occurs when the browser is intentionally not getting media data. |
+| LOAD |  | The load event occurs when an object has been loaded. |
+| LOADEND |  | The loadend event occurs when a request has completed, whether successfully (after load) or unsuccessfully (after abort or error). |
 
 ### UIEvent
 
@@ -214,6 +215,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
     objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
+    playbackLength: 30,      // sec.
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     smooth: false,           // smooth switching
