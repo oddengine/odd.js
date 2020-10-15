@@ -22,7 +22,7 @@ This is a HTML5 Video Player for modern media streaming.
 
 - Plugins  
   - [x] Poster  
-  - [x] Danmu  
+  - [x] v2.1.00 - Danmu  
   - [x] Display  
   - [ ] AD  
   - [ ] Share  
@@ -35,9 +35,9 @@ This is a HTML5 Video Player for modern media streaming.
   - [x] Synchronization of audio and video while the remote dropped some frames.  
   - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
   - [ ] Buffer length.  
-  - [ ] Carry api.id while dispatching events.  
+  - [x] v2.1.07 - Carry api.id while dispatching events.  
   - [ ] Reduce latency smoothly, due to cumulative ack of tcp.  
-  - [ ] Remove media segments within a specific time range to reduce memory usage.  
+  - [x] v2.1.10 - Remove media segments within a specific time range to reduce memory usage.  
 
 ## Solutions
 
@@ -211,6 +211,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     file: '',
     latency: 'none',         // none, auto (for tcp)
     maxBufferLength: 30,     // sec.
+    maxPlaybackLength: 10,   // sec. for live mode only
     mode: 'live',            // live, vod
     module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
@@ -219,7 +220,6 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     smooth: false,           // smooth switching
-    swf: 'swf/playease.swf',
     loader: {
         name: 'auto',
         mode: 'cors',        // cors, no-cors, same-origin
