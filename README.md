@@ -42,7 +42,7 @@ This is a HTML5 Video Player for modern media streaming.
 ## Solutions
 
 - [x] [Live Broadcast Solution](http://studease.cn/solutions.html).  
-- [x] [Live Broadcast on Mobile](http://studease.cn/solutions-mobile.html).  
+- [x] [Live Broadcast Solution on Mobile](http://studease.cn/solutions-mobile.html).  
 - [x] [Monitoring Example](http://studease.cn/cms/index.html?n=9).  
 
 ## Example
