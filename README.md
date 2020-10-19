@@ -15,8 +15,8 @@ This is a HTML5 Video Player for modern media streaming.
   - [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, etc.)  
   - [x] FLV (http[s]/ws[s])  
   - [ ] FMP4 (http[s]/ws[s])  
-  - [ ] DASH (CMAF)  
-  - [ ] HLS (on desktop)  
+  - [ ] DASH (LL-CMAF)  
+  - [ ] HLS (LL-CMAF)  
   - [ ] RTC  
   - [ ] ~~Flash~~  
 
@@ -209,7 +209,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     dynamic: false,          // dynamic streaming
     bufferLength: 0.1,       // sec.
     file: '',
-    latency: 'none',         // none, auto (for tcp)
+    lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
     maxBufferLength: 30,     // sec.
     maxPlaybackLength: 10,   // sec. for live mode only
     mode: 'live',            // live, vod
@@ -220,6 +220,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     smooth: false,           // smooth switching
+    volume: 0.8,
     loader: {
         name: 'auto',
         mode: 'cors',        // cors, no-cors, same-origin
@@ -260,7 +261,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
         visibility: true,
     }, {
         kind: 'Display',
-        layout: '[Button:play=][Button:waiting=][Label:error=]',
+        layout: '[Button:play=][Button:waiting=][Label:error=][Panel:info=][Panel:stats=]',
         ondoubleclick: 'fullscreen', // 'fullpage', 'fullscreen'
         visibility: true,
     }, {
