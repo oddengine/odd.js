@@ -51,8 +51,13 @@ This is a HTML5 Video Player for modern media streaming.
 Use the SDK directly:
 
 ```js
-var Event = playease.events.Event;
-var IOEvent = playease.events.IOEvent;
+var utils = playease.utils,
+    events = playease.events,
+    Event = events.Event,
+    IOEvent = events.IOEvent,
+    MediaEvent = events.MediaEvent,
+    index = 0;
+
 var api = playease();
 api.addEventListener(Event.READY, console.log);
 api.addEventListener(Event.PLAY, console.log);
@@ -78,11 +83,28 @@ api.addEventListener(Event.RATECHANGE, console.log);
 api.addEventListener(Event.TIMEUPDATE, console.log);
 api.addEventListener(Event.VOLUMECHANGE, console.log);
 api.addEventListener(IOEvent.LOAD, console.log);
+api.addEventListener(MediaEvent.INFOCHANGE, console.log);
+api.addEventListener(MediaEvent.STATSUPDATE, console.log);
+api.addEventListener(MediaEvent.SCREENSHOT, onScreenshot);
 api.addEventListener(Event.ENDED, console.log);
 api.addEventListener(Event.ERROR, console.error);
 api.setup(container, {
     file: 'http://127.0.0.1/vod/sample.flv',
 });
+
+function onScreenshot(e) {
+    var arr = e.data.image.split(',');
+    var ret = arr[0].match(/^data:(image\/(.+));base64$/);
+    if (ret === null) {
+        console.error('The string did not match the expected pattern.');
+        return;
+    }
+
+    var link = document.createElement('a');
+    link.href = e.data.image;
+    link.download = 'screenshot-' + utils.padStart(index++, 3, '0') + '.' + ret[2];
+    link.click();
+}
 ```
 
 Use the built-in extendible UI framework:
@@ -127,7 +149,7 @@ function onReady(e) {
 | seek | offset | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
 | stop |  | Stops playing, sets the time property to 0. |
 | reload |  | Releases all the resources, reloads the media file or live stream. |
-| capture | width, height, mime | Captures the current frame, and saves as a picture of the mime, which is image/png by default. |
+| capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
 | muted | status | Mutes or unmutes the audio/video elements, if status is a boolean. Otherwise, returns the current status. |
 | volume | f | Sets volume, which in the range of 0 to 1, if f is a number. Otherwise, returns the current volume. |
 | definition | index | Switches to the specified definition, if index is a number. Otherwise, returns the current definition. |
@@ -196,9 +218,17 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
 | SHOOTING | text, data | The shooting event occurs when a damnu message is shot. |
-| FULLPAGE | status | The ended event occurs when the fullpage status is changed. |
-| FULLSCREEN | status | The ended event occurs when the fullscreen status is changed. |
-| RESIZE | width, height | The ended event occurs when the UI is resized. |
+| FULLPAGE | status | The fullpage event occurs when the fullpage status is changed. |
+| FULLSCREEN | status | The fullscreen event occurs when the fullscreen status is changed. |
+| RESIZE | width, height | The resize event occurs when the UI is resized. |
+
+### MediaEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| INFOCHANGE | info | The infochange event occurs when the meida info is changed. |
+| STATSUPDATE | stats | The statsupdate event occurs when the media stats is changed. |
+| SCREENSHOT | image | The screenshot event occurs when an image is captured. |
 
 ## Configuration
 
