@@ -34,7 +34,7 @@ This is a HTML5 Video Player for modern media streaming.
 - Others  
   - [x] Synchronization of audio and video while the remote dropped some frames.  
   - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
-  - [ ] Buffer length.  
+  - [x] v2.1.43 - Buffer before starting to play.  
   - [x] v2.1.07 - Carry api.id while dispatching events.  
   - [ ] Reduce latency smoothly, due to cumulative ack of tcp.  
   - [x] v2.1.10 - Remove media segments within a specific time range to reduce memory usage.  
@@ -209,16 +209,15 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
     airplay: 'allow',
     autoplay: false,
     dynamic: false,          // dynamic streaming
-    bufferLength: 0.1,       // sec.
+    bufferLength: 0.3,       // sec.
     file: '',
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
-    maxBufferLength: 30,     // sec.
+    maxBufferLength: 1.2,    // sec.
     maxPlaybackLength: 10,   // sec. for live mode only
     mode: 'live',            // live, vod
     module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
     objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
-    playbackLength: 30,      // sec.
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     smooth: false,           // smooth switching
