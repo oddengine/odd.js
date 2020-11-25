@@ -1,4 +1,4 @@
-﻿# playease.js 2.0
+﻿# playease.js 2.1
 
 > [[domain] http://studease.cn](http://studease.cn/playease.html)  
 > [[source] https://github.com/studease/playease](https://github.com/studease/playease)  
@@ -8,6 +8,11 @@
 > Skype: live:670292548  
 
 This is a HTML5 Video Player for modern media streaming.  
+
+## Supported Browsers
+
+| Method | Arguments | Description |
+| :--- | :--- | :--- |
 
 ## Roadmap
 
@@ -32,13 +37,21 @@ This is a HTML5 Video Player for modern media streaming.
   - [ ] Playlist  
 
 - Others  
-  - [x] Synchronization of audio and video while the remote dropped some frames.  
-  - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
-  - [x] v2.1.43 - Buffer before starting to play.  
+  - [x] v2.0.89 - Synchronize video with audio while some frames are missing.  
   - [x] v2.1.07 - Carry api.id while dispatching events.  
-  - [ ] Reduce latency smoothly, due to cumulative ack of tcp.  
-  - [x] v2.1.10 - Remove media segments within a specific time range to reduce memory usage.  
+  - [x] v2.1.10 - Remove media segments within a specific time range to release memory usage.  
   - [x] v2.1.20 - Capture the current frame, and save as a picture.  
+    - [x] v2.1.45 - New event for screenshot, and capture() will no longer auto download, but return the image data.  
+  - [x] v2.1.27 - Reduce latency by simply seeking.  
+    - [ ] Reduce latency smoothly, due to the cumulative ack of tcp.  
+  - [x] v2.1.33 - Ignore track depending on flv flags, to optimize audio only or video only streaming.  
+  - [x] v2.1.36 - Optimize track data into interleaved mode.  
+  - [x] v2.1.37 - Fix audio time issue.  
+  - [x] v2.1.38 - Fix incorrect ui display when exiting fullscreen by pressing esc.  
+  - [x] v2.1.43 - Buffer before starting to play.  
+  - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
+  - [ ] Experience statistics and analysis.  
+  - [ ] Log reporting.  
 
 ## Solutions
 
@@ -48,7 +61,7 @@ This is a HTML5 Video Player for modern media streaming.
 
 ## Example
 
-Use the SDK directly:
+### Use the SDK directly
 
 ```js
 var utils = playease.utils,
@@ -107,19 +120,23 @@ function onScreenshot(e) {
 }
 ```
 
-Use the built-in extendible UI framework:
+### Use the built-in extendible UI framework
 
 ```js
-var UIEvent = playease.events.UIEvent;
+var events = playease.events,
+    UIEvent = events.UIEvent;
+
 var ui = playease.ui();
 ui.addEventListener(UIEvent.SHOOTING, console.log);
 ui.addEventListener(UIEvent.FULLPAGE, console.log);
 ui.addEventListener(UIEvent.FULLSCREEN, console.log);
 ui.addEventListener(UIEvent.RESIZE, console.log);
-ui.setup(container, config);
+ui.setup(container, {
+    ...
+});
 ```
 
-## Add Callback
+### Add Callback
 
 ```js
 api.onready = function(e) {
@@ -135,6 +152,96 @@ api.addEventListener('ready', onReady);
 function onReady(e) {
     // do something
 }
+```
+
+## Configuration
+
+### Properties for SDK
+
+```js
+{
+    airplay: 'allow',
+    autoplay: false,
+    dynamic: false,          // dynamic streaming
+    bufferLength: 0.3,       // sec.
+    file: '',
+    lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
+    maxBufferLength: 1.2,    // sec.
+    maxPlaybackLength: 10,   // sec. for live mode only
+    mode: 'live',            // live, vod
+    module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
+    muted: false,
+    objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
+    playsinline: true,
+    preload: 'none',         // none, metadata, auto
+    smooth: false,           // smooth switching
+    volume: 0.8,
+    loader: {
+        name: 'auto',
+        mode: 'cors',        // cors, no-cors, same-origin
+        credentials: 'omit', // omit, include, same-origin
+    },
+    sources: [{              // ignored if "file" is presented
+        file: '',
+        module: '',
+        label: '',
+        default: false,
+    }],
+}
+```
+
+### Extension for UI
+
+```js
+{
+    aspectratio: '',         // 16:9 etc.
+    skin: 'classic',
+    plugins: [{
+        kind: 'Poster',
+        file: 'images/poster.png',
+        objectfit: 'fill',   // 'fill', 'contain', 'cover', 'none', 'scale-down'
+        visibility: true,
+    }, {
+        kind: 'Danmu',
+        speed: 100,
+        lineHeight: 32,
+        enable: true,
+        visibility: true,
+    }, {
+        kind: 'Display',
+        layout: '[Button:play=][Button:waiting=][Label:error=][Panel:info=][Panel:stats=]',
+        ondoubleclick: 'fullscreen', // 'fullpage', 'fullscreen'
+        visibility: true,
+    }, {
+        kind: 'AD',
+        visibility: true,
+    }, {
+        kind: 'Share',
+        visibility: true,
+    }, {
+        kind: 'Logo',
+        file: 'image/logo.png',
+        link: 'http://studease.cn/playease',
+        target: '_blank',
+        style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
+        visibility: true,
+    }, {
+        kind: 'Controlbar',
+        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:capture=Capture][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
+        autohide: false,
+        visibility: true,
+    }, {
+        kind: 'ContextMenu',
+        visibility: true,
+        items: [{
+            mode: '',        // '', 'featured', 'disable'
+            icon: 'image/github.png',
+            text: 'github.com',
+            shortcut: '',
+            handler: function () { window.open('https://github.com/studease/playease'); },
+        }],
+    }]
+};
 ```
 
 ## API
@@ -213,6 +320,14 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 | LOAD |  | The load event occurs when an object has been loaded. |
 | LOADEND |  | The loadend event occurs when a request has completed, whether successfully (after load) or unsuccessfully (after abort or error). |
 
+### MediaEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| INFOCHANGE | info | The infochange event occurs when the meida info is changed. |
+| STATSUPDATE | stats | The statsupdate event occurs when the media stats is changed. |
+| SCREENSHOT | image | The screenshot event occurs when an image is captured. |
+
 ### UIEvent
 
 | Type | Properties | Meaning |
@@ -222,110 +337,34 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 | FULLSCREEN | status | The fullscreen event occurs when the fullscreen status is changed. |
 | RESIZE | width, height | The resize event occurs when the UI is resized. |
 
-### MediaEvent
+### GlobalEvent
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| INFOCHANGE | info | The infochange event occurs when the meida info is changed. |
-| STATSUPDATE | stats | The statsupdate event occurs when the media stats is changed. |
-| SCREENSHOT | image | The screenshot event occurs when an image is captured. |
+| CHANGE | name, value | The change event occurs when the value of the named target is changed. |
+| VISIBILITYCHANGE | name, state | The visibilitychange event occurs when the visibility of the named target is changed. The state could be "visible" "hidden". |
 
-## Configuration
+### MouseEvent
 
-### Properties for SDK
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| CLICK | name, value | The click event occurs when the user clicked the named target. |
+| DOUBLE_CLICK | name, state | The doubleclick event occurs when the user double clicked the named target. |
+| MOUSE_MOVE | name, value | The mousemove event occurs when the mouse is moved upon the named target. |
 
-```js
-{
-    airplay: 'allow',
-    autoplay: false,
-    dynamic: false,          // dynamic streaming
-    bufferLength: 0.3,       // sec.
-    file: '',
-    lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
-    maxBufferLength: 1.2,    // sec.
-    maxPlaybackLength: 10,   // sec. for live mode only
-    mode: 'live',            // live, vod
-    module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
-    muted: false,
-    objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
-    playsinline: true,
-    preload: 'none',         // none, metadata, auto
-    smooth: false,           // smooth switching
-    volume: 0.8,
-    loader: {
-        name: 'auto',
-        mode: 'cors',        // cors, no-cors, same-origin
-        credentials: 'omit', // omit, include, same-origin
-    },
-    sources: [{              // ignored if "file" is presented
-        file: '',
-        module: '',
-        label: '',
-        default: false,
-        mime: 'application/vnd.apple.mpegurl',
-        thumbnails: '',
-        textTracks: [{
-            kind: '',
-            file: '',
-            default: true,
-        }],
-    }],
-}
-```
+### KeyboardEvent
 
-### Extension for UI
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| KEY_DOWN | code, alt, control, shift, command | The keydown event occurs when the key is pressed. |
+| KEY_UP | code, alt, control, shift, command | The keyup event occurs when the key is released. |
 
-```js
-{
-    aspectratio: '',         // 16:9 etc.
-    skin: 'classic',
-    plugins: [{
-        kind: 'Poster',
-        file: 'images/poster.png',
-        objectfit: 'fill',   // 'fill', 'contain', 'cover', 'none', 'scale-down'
-        visibility: true,
-    }, {
-        kind: 'Danmu',
-        speed: 100,
-        lineHeight: 32,
-        enable: true,
-        visibility: true,
-    }, {
-        kind: 'Display',
-        layout: '[Button:play=][Button:waiting=][Label:error=][Panel:info=][Panel:stats=]',
-        ondoubleclick: 'fullscreen', // 'fullpage', 'fullscreen'
-        visibility: true,
-    }, {
-        kind: 'AD',
-        visibility: true,
-    }, {
-        kind: 'Share',
-        visibility: true,
-    }, {
-        kind: 'Logo',
-        file: 'image/logo.png',
-        link: 'http://studease.cn/playease',
-        target: '_blank',
-        style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
-        visibility: true,
-    }, {
-        kind: 'Controlbar',
-        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:capture=Capture][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
-        autohide: false,
-        visibility: true,
-    }, {
-        kind: 'ContextMenu',
-        visibility: true,
-        items: [{
-            mode: '',        // '', 'featured', 'disable'
-            icon: 'image/github.png',
-            text: 'github.com',
-            shortcut: '',
-            handler: function () { window.open('https://github.com/studease/playease'); },
-        }],
-    }]
-};
-```
+### TimerEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| TIMER | | The timer event occurs when the timer clock. |
+| COMPLETE | | The complete event occurs when the timer is completed. |
 
 ## License
 
