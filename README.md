@@ -14,7 +14,7 @@ Note:
 
 The open-sourced version (v1.2) is no longer being maintained. You can still find the source under branch "v1.2.xx". But it is outdated and not recommended to use in productions.
 
-Instead, we've started a new version (v2) for business usage, which is much more professional, efficient and stable. In this version, an UI framework is developed separately from the core SDK which is named as API, and is much easier to understand and extend. The UI framework is open-sourced since v2.1 to help building customized UI, plugins and components.
+Instead, we've started a new version (v2) for business usage, which is much more professional, efficient and stable. In this version, an UI framework is developed separately from the core SDK which is named as API, and is much easier to understand and extend. The UI framework is open-sourced since v2.1.49 to help building customized UI, plugins and components.
 
 If you are interested in this player, please contact for details.
 
