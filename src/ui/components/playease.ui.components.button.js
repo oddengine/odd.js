@@ -1,0 +1,45 @@
+(function (playease) {
+    var utils = playease.utils,
+        events = playease.events,
+        EventDispatcher = events.EventDispatcher,
+        MouseEvent = events.MouseEvent,
+        UI = playease.UI,
+        components = UI.components,
+
+        CLASS_BUTTON = 'pe-button';
+
+    function Button(name, kind) {
+        EventDispatcher.call(this, 'Button', null, [MouseEvent.CLICK]);
+
+        var _this = this,
+            _name,
+            _container;
+
+        function _init() {
+            _name = name;
+            _container = utils.createElement('span', CLASS_BUTTON + ' ' + name);
+            _container.addEventListener('click', _onClick);
+        }
+
+        function _onClick(e) {
+            _this.dispatchEvent(MouseEvent.CLICK, { name: _name });
+        }
+
+        _this.element = function () {
+            return _container;
+        };
+
+        _this.resize = function (width, height) {
+
+        };
+
+        _init();
+    }
+
+    Button.prototype = Object.create(EventDispatcher.prototype);
+    Button.prototype.constructor = Button;
+    Button.prototype.kind = 'Button';
+
+    components.Button = Button;
+})(playease);
+
