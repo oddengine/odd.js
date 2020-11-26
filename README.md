@@ -6,47 +6,59 @@
 > 公众号：STUDEASE  
 > QQ群：528109813  
 > Skype: live:670292548  
+> Email: 670292548@qq.com  
 
 This is a HTML5 Video Player for modern media streaming.  
 
+Note:  
+
+The open-sourced version (v1.2) is no longer being maintained. You can still find the source under branch "v1.2.xx". But it is outdated and not recommended to use in productions.
+
+Instead, we've started a new version (v2) for business usage, which is much more professional, efficient and stable. In this version, an UI framework is developed separately from the core SDK which is named as API, and is much easier to understand and extend. The UI framework is open-sourced since v2.1 to help building customized UI, plugins and components.
+
+If you are interested in this player, please contact for details.
+
 ## Roadmap
 
-- Modules  
-  - [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, etc.)  
-  - [x] FLV (http[s]/ws[s])  
-  - [ ] FMP4 (http[s]/ws[s])  
-  - [ ] DASH (LL-CMAF)  
-  - [ ] HLS (LL-CMAF)  
-  - [ ] RTC  
-  - [ ] ~~Flash~~  
+### Core Modules
 
-- Plugins  
-  - [x] Poster  
-  - [x] v2.1.00 - Danmu  
-  - [x] Display  
-  - [ ] AD  
-  - [ ] Share  
-  - [x] Logo  
-  - [x] Controlbar  
-  - [x] ContextMenu  
-  - [ ] Playlist  
+- [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, etc.)  
+- [x] FLV (http[s]/ws[s])  
+- [ ] FMP4 (http[s]/ws[s])  
+- [ ] DASH (LL-CMAF)  
+- [ ] HLS (LL-CMAF)  
+- [ ] RTC  
+- [ ] ~~Flash~~  
 
-- Others  
-  - [x] v2.0.89 - Synchronize video with audio while some frames are missing.  
-  - [x] v2.1.07 - Carry api.id while dispatching events.  
-  - [x] v2.1.10 - Remove media segments within a specific time range to release memory usage.  
-  - [x] v2.1.20 - Capture the current frame, and save as a picture.  
-    - [x] v2.1.45 - New event for screenshot, and capture() will no longer auto download, but return the image data.  
-  - [x] v2.1.27 - Reduce latency by simply seeking.  
-    - [ ] Reduce latency smoothly, due to the cumulative ack of tcp.  
-  - [x] v2.1.33 - Ignore track depending on flv flags, to optimize audio only or video only streaming.  
-  - [x] v2.1.36 - Optimize track data into interleaved mode.  
-  - [x] v2.1.37 - Fix audio time issue.  
-  - [x] v2.1.38 - Fix incorrect ui display when exiting fullscreen by pressing esc.  
-  - [x] v2.1.43 - Buffer before starting to play.  
-  - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
-  - [ ] Experience statistics and analysis.  
-  - [ ] Log reporting.  
+### UI Plugins
+
+- [x] Poster  
+- [x] v2.1.00 - Danmu  
+- [x] Display  
+- [ ] AD  
+- [ ] Share  
+- [x] Logo  
+- [x] Controlbar  
+- [x] ContextMenu  
+- [ ] Playlist  
+
+### Features
+
+- [x] v2.0.89 - Synchronize video with audio while some frames are missing.  
+- [x] v2.1.07 - Carry api.id while dispatching events.  
+- [x] v2.1.10 - Remove media segments within a specific time range to release memory usage.  
+- [x] v2.1.20 - Capture the current frame, and save as a picture.  
+  - [x] v2.1.45 - New event for screenshot, and capture() will no longer auto download, but return the image data.  
+- [x] v2.1.27 - Reduce latency by simply seeking.  
+  - [ ] Reduce latency smoothly, due to the cumulative ack of tcp.  
+- [x] v2.1.33 - Ignore track depending on flv flags, to optimize audio only or video only streaming.  
+- [x] v2.1.36 - Optimize track data into interleaved mode.  
+- [x] v2.1.37 - Fix audio time issue.  
+- [x] v2.1.38 - Fix incorrect ui display when exiting fullscreen by pressing esc.  
+- [x] v2.1.43 - Buffer before starting to play.  
+- [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
+- [ ] Experience statistics and analysis.  
+- [ ] Log reporting.  
 
 ## Solutions
 
