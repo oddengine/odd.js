@@ -16,6 +16,7 @@
         CLASS_WRAPPER = 'pe-wrapper',
         CLASS_CONTENT = 'pe-content',
 
+        _id = 0,
         _instances = {},
         _default = {
             aspectratio: '',    // Deprecated! 16:9 etc.
@@ -630,6 +631,45 @@
             _this.dispatchEvent(UIEvent.RESIZE, { width: width, height: height });
         };
 
+        _this.destroy = function () {
+            if (_api) {
+                _api.destroy();
+                _api.removeEventListener(Event.BIND, _onBind);
+                _api.removeEventListener(Event.READY, _onReady);
+                _api.removeEventListener(Event.PLAY, _onStateChange);
+                _api.removeEventListener(Event.WAITING, _onStateChange);
+                _api.removeEventListener(IOEvent.LOADSTART, _this.forward);
+                _api.removeEventListener(IOEvent.PROGRESS, _this.forward);
+                _api.removeEventListener(IOEvent.SUSPEND, _this.forward);
+                _api.removeEventListener(IOEvent.STALLED, _this.forward);
+                _api.removeEventListener(IOEvent.ABORT, _this.forward);
+                _api.removeEventListener(IOEvent.TIMEOUT, _this.forward);
+                _api.removeEventListener(Event.DURATIONCHANGE, _onDurationChange);
+                _api.removeEventListener(Event.LOADEDMETADATA, _this.forward);
+                _api.removeEventListener(Event.LOADEDDATA, _this.forward);
+                _api.removeEventListener(Event.CANPLAY, _this.forward);
+                _api.removeEventListener(Event.PLAYING, _onStateChange);
+                _api.removeEventListener(Event.CANPLAYTHROUGH, _this.forward);
+                _api.removeEventListener(Event.PAUSE, _onStateChange);
+                _api.removeEventListener(Event.SEEKING, _onStateChange);
+                _api.removeEventListener(Event.SEEKED, _this.forward);
+                _api.removeEventListener(Event.SWITCHING, _onSwitching);
+                _api.removeEventListener(Event.SWITCHED, _this.forward);
+                _api.removeEventListener(Event.RATECHANGE, _this.forward);
+                _api.removeEventListener(Event.TIMEUPDATE, _onTimeUpdate);
+                _api.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
+                _api.removeEventListener(IOEvent.LOAD, _this.forward);
+                _api.removeEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
+                _api.removeEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+                _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
+                _api.removeEventListener(Event.ENDED, _onStateChange);
+                _api.removeEventListener(Event.ERROR, _onError);
+                _api = undefined;
+                _container.innerHTML = '';
+            }
+            delete _instances[_this.id];
+        };
+
         _init();
     }
 
@@ -659,9 +699,14 @@
 
         return ui;
     };
-    UI.get.VERSION = '2.1.49';
+
+    UI.create = function () {
+        return UI.get(_id++);
+    };
 
     playease.ui = UI.get;
+    playease.ui.create = UI.create;
     playease.UI = UI;
+    playease.UI.VERSION = '2.1.50';
 })(playease);
 
