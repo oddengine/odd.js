@@ -253,7 +253,19 @@ function onReady(e) {
 
 ## API
 
-### API of SDK
+### Statics of SDK
+
+| Method | Arguments | Description |
+| :--- | :--- | :--- |
+| get | id = 0 | Gets the SDK instance by id, create one if it doesn't exist. |
+| create |  | Creates an API instance with an auto-increased id, or return the one already exist. |
+
+Note:
+
+> playease(id) is short for playease.API.get(id).
+> playease.create() is short for playease.API.create().
+
+### API of SDK Instance
 
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
@@ -270,8 +282,21 @@ function onReady(e) {
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
+| destroy | | Destroy this instance, removes dom elements. |
 
-### API of UI
+### Statics of UI
+
+| Method | Arguments | Description |
+| :--- | :--- | :--- |
+| get | id = 0 | Gets the UI instance by id, create one if it doesn't exist. |
+| create |  | Create an UI instance with an auto-increment id, or return the one already exist. |
+
+Note:
+
+> playease.ui(id) is short for playease.UI.get(id).
+> playease.ui.create() is short for playease.UI.create().
+
+### API of UI Instance
 
 Note: All of the SDK methods are also supported by UI.
 
@@ -285,6 +310,7 @@ Note: All of the SDK methods are also supported by UI.
 | fullpage | status | Requests or exits fullpage, if status is a boolean. Otherwise, returns the current status. |
 | fullscreen | status | Requests or exits fullscreen, if status is a boolean. Otherwise, returns the current status. |
 | resize |  | Resizes the player to fit to the parent node. However, if aspectratio is set, such as '16:9', the height will be calculated. |
+| destroy | | Destroy this instance, removes dom elements. |
 
 ## Events
 
