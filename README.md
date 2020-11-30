@@ -262,8 +262,8 @@ function onReady(e) {
 
 Note:
 
-> playease(id) is short for playease.API.get(id).
-> playease.create() is short for playease.API.create().
+> playease(id) is short for playease.API.get(id).  
+> playease.create() is short for playease.API.create().  
 
 ### API of SDK Instance
 
@@ -293,8 +293,8 @@ Note:
 
 Note:
 
-> playease.ui(id) is short for playease.UI.get(id).
-> playease.ui.create() is short for playease.UI.create().
+> playease.ui(id) is short for playease.UI.get(id).  
+> playease.ui.create() is short for playease.UI.create().  
 
 ### API of UI Instance
 
