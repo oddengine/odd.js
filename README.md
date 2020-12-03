@@ -175,13 +175,15 @@ function onReady(e) {
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
     maxBufferLength: 1.2,    // sec.
     maxPlaybackLength: 10,   // sec. for live mode only
+    maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
     mode: 'live',            // live, vod
     module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
     objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
     playsinline: true,
     preload: 'none',         // none, metadata, auto
-    smooth: false,           // smooth switching
+    retrying: 0,             // ms. retrying interval
+    smoothing: false,        // smooth switching
     volume: 0.8,
     loader: {
         name: 'auto',
