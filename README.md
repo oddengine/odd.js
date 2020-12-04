@@ -179,7 +179,7 @@ function onReady(e) {
     mode: 'live',            // live, vod
     module: '',              // SRC, FLV, FMP4, DASH, HLS, RTC, Flash
     muted: false,
-    objectfit: 'contain',    // 'fill', 'contain', 'cover', 'none', 'scale-down'
+    objectfit: 'contain',    // fill, contain, cover, none, scale-down
     playsinline: true,
     preload: 'none',         // none, metadata, auto
     retrying: 0,             // ms. retrying interval
@@ -203,12 +203,13 @@ function onReady(e) {
 
 ```js
 {
-    aspectratio: '',         // 16:9 etc.
+    aspectratio: '',         // deprecated! 16:9 etc.
     skin: 'classic',
     plugins: [{
         kind: 'Poster',
         file: 'images/poster.png',
-        objectfit: 'fill',   // 'fill', 'contain', 'cover', 'none', 'scale-down'
+        cors: 'anonymous',   // anonymous, use-credentials
+        objectfit: 'fill',   // fill, contain, cover, none, scale-down
         visibility: true,
     }, {
         kind: 'Danmu',
@@ -219,7 +220,7 @@ function onReady(e) {
     }, {
         kind: 'Display',
         layout: '[Button:play=][Button:waiting=][Label:error=][Panel:info=][Panel:stats=]',
-        ondoubleclick: 'fullscreen', // 'fullpage', 'fullscreen'
+        ondoubleclick: 'fullscreen', // fullpage, fullscreen
         visibility: true,
     }, {
         kind: 'AD',
@@ -231,6 +232,7 @@ function onReady(e) {
         kind: 'Logo',
         file: 'image/logo.png',
         link: 'http://studease.cn/playease',
+        cors: 'anonymous',   // anonymous, use-credentials
         target: '_blank',
         style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
         visibility: true,
@@ -243,7 +245,7 @@ function onReady(e) {
         kind: 'ContextMenu',
         visibility: true,
         items: [{
-            mode: '',        // '', 'featured', 'disable'
+            mode: '',        // '', featured, disable
             icon: 'image/github.png',
             text: 'github.com',
             shortcut: '',
