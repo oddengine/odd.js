@@ -279,10 +279,11 @@ Note:
 | seek | offset | Seeks the keyframe (also called an I-frame in the video industry) closest to the specified location. |
 | stop |  | Stops playing, sets the time property to 0. |
 | reload |  | Releases all the resources, reloads the media file or live stream. |
-| capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
 | muted | status | Mutes or unmutes the audio/video elements, if status is a boolean. Otherwise, returns the current status. |
 | volume | f | Sets volume, which in the range of 0 to 1, if f is a number. Otherwise, returns the current volume. |
 | definition | index | Switches to the specified definition, if index is a number. Otherwise, returns the current definition. |
+| capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
+| record | mode, option = null | Records stream if possible. |
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
