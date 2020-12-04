@@ -10,7 +10,8 @@
         _default = {
             kind: 'Poster',
             file: 'image/poster.png',
-            objectfit: 'fill', // 'fill', 'contain', 'cover', 'none', 'scale-down'
+            cors: 'anonymous',   // anonymous, use-credentials
+            objectfit: 'fill',   // fill, contain, cover, none, scale-down
             visibility: true,
         };
 
@@ -34,6 +35,7 @@
                     'object-fit': _this.config.objectfit,
                 });
             }
+            _img.crossOrigin = _this.config.cors;
             _img.src = _this.config.file;
         }
 

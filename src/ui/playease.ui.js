@@ -19,7 +19,7 @@
         _id = 0,
         _instances = {},
         _default = {
-            aspectratio: '',    // Deprecated! 16:9 etc.
+            aspectratio: '',         // deprecated! 16:9 etc.
             skin: 'classic',
             plugins: [],
         };
@@ -190,10 +190,11 @@
             _this.seek = _api.seek;
             _this.stop = _api.stop;
             _this.reload = _api.reload;
-            _this.capture = _api.capture;
             _this.muted = _api.muted;
             _this.volume = _api.volume;
             _this.definition = _api.definition;
+            _this.capture = _api.capture;
+            _this.record = _api.record;
             _this.element = _api.element;
             _this.duration = _api.duration;
             _this.state = _api.state;
@@ -707,6 +708,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.50';
+    playease.UI.VERSION = '2.1.53';
 })(playease);
 
