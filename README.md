@@ -56,6 +56,8 @@ If you are interested in this player, please contact for details.
 - [x] v2.1.37 - Fix audio time issue.  
 - [x] v2.1.38 - Fix incorrect ui display when exiting fullscreen by pressing esc.  
 - [x] v2.1.43 - Buffer before starting to play.  
+- [x] v2.1.50 - New interface[s]: create, destroy.  
+- [x] v2.1.54 - New interface[s]: record.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 - [ ] Log reporting.  
