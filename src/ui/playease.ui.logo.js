@@ -11,6 +11,7 @@
             kind: 'Logo',
             file: 'http://studease.cn/images/content/playease-logo.png',
             link: 'https://github.com/studease/playease',
+            cors: 'anonymous',   // anonymous, use-credentials
             target: '_blank',
             style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
             visibility: true,
@@ -34,6 +35,7 @@
             _img.onload = _onLoad;
             _img.onabort = _onError;
             _img.onerror = _onError;
+            _img.crossOrigin = _this.config.cors;
             _img.src = _this.config.file;
         }
 

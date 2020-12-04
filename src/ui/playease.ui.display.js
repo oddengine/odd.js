@@ -15,7 +15,7 @@
         _default = {
             kind: 'Display',
             layout: '[Button:play=][Button:waiting=][Label:error=][Panel:info=][Panel:stats=]',
-            ondoubleclick: 'fullscreen',
+            ondoubleclick: 'fullscreen', // fullpage, fullscreen
             visibility: true,
         };
 
