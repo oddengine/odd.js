@@ -52,6 +52,14 @@
             REMOVETRACK: 'removetrack', // track
         },
 
+        SaverEvent = {
+            RIGISTER: 'register',
+            UNRIGISTER: 'unregister',
+            OUTDATED: 'outdated',       // version
+            WRITERSTART: 'writerstart', // writer
+            WRITEREND: 'writerend',     // writer
+        },
+
         UIEvent = {
             SHOOTING: 'shooting',     // text, data
             FULLPAGE: 'fullpage',     // status
@@ -85,6 +93,7 @@
     events.IOEvent = IOEvent;
     events.MediaEvent = MediaEvent;
     events.MediaStreamTrackEvent = MediaStreamTrackEvent;
+    events.SaverEvent = SaverEvent;
     events.UIEvent = UIEvent;
     events.GlobalEvent = GlobalEvent;
     events.MouseEvent = MouseEvent;

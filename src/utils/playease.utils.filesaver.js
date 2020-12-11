@@ -2,19 +2,12 @@
     var utils = playease.utils,
         OS = playease.OS,
 
-        Mode = {
-            None: 0x00,
-            Video: 0x01,
-            Audio: 0x04,
-            All: 0x05,
-            Off: 0x80,
-        },
         _default = {
             filename: 'sample.mp4',
             type: 'video/mpeg',
         };
 
-    function FileSaver(mode, config) {
+    function FileSaver(config) {
         var _this = this,
             _array,
             _blob,
@@ -23,7 +16,6 @@
             _link;
 
         function _init() {
-            _this.mode = mode || Mode.None;
             _this.config = utils.extendz({}, _default, config);
             _array = [];
         }
@@ -57,11 +49,10 @@
         };
 
         _init();
-    };
+    }
 
     FileSaver.prototype.CONF = _default;
 
     utils.FileSaver = FileSaver;
-    utils.FileSaver.Mode = Mode;
 })(playease);
 

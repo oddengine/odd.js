@@ -7,6 +7,7 @@
         Event = events.Event,
         IOEvent = events.IOEvent,
         MediaEvent = events.MediaEvent,
+        SaverEvent = events.SaverEvent,
         UIEvent = events.UIEvent,
         GlobalEvent = events.GlobalEvent,
         MouseEvent = events.MouseEvent,
@@ -80,6 +81,9 @@
             _api.addEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
             _api.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
             _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
+            _api.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
+            _api.addEventListener(SaverEvent.WRITEREND, _onWriterEnd);
+            _api.addEventListener(SaverEvent.OUTDATED, _this.forward);
             _api.addEventListener(Event.ENDED, _onStateChange);
             _api.addEventListener(Event.ERROR, _onError);
             _api.setup(_content, _this.config);
@@ -565,6 +569,16 @@
             _this.forward(e);
         }
 
+        function _onWriterStart(e) {
+            // TODO(spencer-lau): Download button
+            _this.forward(e);
+        }
+
+        function _onWriterEnd(e) {
+            // TODO(spencer-lau): Download button
+            _this.forward(e);
+        }
+
         function _showPanel(name) {
             var display = _plugins['Display'];
             if (display) {
@@ -708,6 +722,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.53';
+    playease.UI.VERSION = '2.1.59';
 })(playease);
 
