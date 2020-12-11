@@ -58,6 +58,7 @@ If you are interested in this player, please contact for details.
 - [x] v2.1.43 - Buffer before starting to play.  
 - [x] v2.1.50 - New interface[s]: create, destroy.  
 - [x] v2.1.54 - New interface[s]: record.  
+  - [x] v2.1.59 - StreamSaver using ServiceWorker.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 - [ ] Log reporting.  
@@ -78,6 +79,7 @@ var utils = playease.utils,
     Event = events.Event,
     IOEvent = events.IOEvent,
     MediaEvent = events.MediaEvent,
+    SaverEvent = events.SaverEvent,
     index = 0;
 
 var api = playease();
@@ -108,6 +110,9 @@ api.addEventListener(IOEvent.LOAD, console.log);
 api.addEventListener(MediaEvent.INFOCHANGE, console.log);
 api.addEventListener(MediaEvent.STATSUPDATE, console.log);
 api.addEventListener(MediaEvent.SCREENSHOT, onScreenshot);
+api.addEventListener(SaverEvent.WRITERSTART, console.log);
+api.addEventListener(SaverEvent.WRITEREND, console.log);
+api.addEventListener(SaverEvent.OUTDATED, console.log);
 api.addEventListener(Event.ENDED, console.log);
 api.addEventListener(Event.ERROR, console.error);
 api.setup(container, {
@@ -133,16 +138,23 @@ function onScreenshot(e) {
 
 ```js
 var events = playease.events,
+    Event = events.Event,
     UIEvent = events.UIEvent;
 
 var ui = playease.ui();
+ui.addEventListener(Event.READY, onReady);
 ui.addEventListener(UIEvent.SHOOTING, console.log);
 ui.addEventListener(UIEvent.FULLPAGE, console.log);
 ui.addEventListener(UIEvent.FULLSCREEN, console.log);
 ui.addEventListener(UIEvent.RESIZE, console.log);
 ui.setup(container, {
     ...
+    sw: true,
 });
+
+function onReady(e) {
+    ui.record('sample.mp4');
+}
 ```
 
 ### Add Callback
@@ -186,6 +198,7 @@ function onReady(e) {
     preload: 'none',         // none, metadata, auto
     retrying: 0,             // ms. retrying interval
     smoothing: false,        // smooth switching
+    sw: false,
     volume: 0.8,
     loader: {
         name: 'auto',
@@ -285,7 +298,7 @@ Note:
 | volume | f | Sets volume, which in the range of 0 to 1, if f is a number. Otherwise, returns the current volume. |
 | definition | index | Switches to the specified definition, if index is a number. Otherwise, returns the current definition. |
 | capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
-| record | mode, option = null | Records stream if possible. |
+| record | filename | Records stream if possible. |
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
