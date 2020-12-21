@@ -55,7 +55,6 @@
         SaverEvent = {
             RIGISTER: 'register',
             UNRIGISTER: 'unregister',
-            OUTDATED: 'outdated',       // version
             WRITERSTART: 'writerstart', // writer
             WRITEREND: 'writerend',     // writer
         },

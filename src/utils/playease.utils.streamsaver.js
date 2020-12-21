@@ -13,6 +13,7 @@
         _default = {
             script: 'js/sw.js',
             scope: 'js/',
+            enable: false,
         };
 
     function StreamWriter(filename, writer) {
@@ -23,7 +24,7 @@
 
         function _init() {
             _this.filename = filename;
-            _this.state = WriterState.INIT;
+            _this.readyState = WriterState.INIT;
             _writer = writer;
             _writer.closed.then(function () {
                 utils.log('StreamWriter.closed: ' + _this.filename);
@@ -32,7 +33,7 @@
         }
 
         _this.start = function () {
-            _this.state = WriterState.START;
+            _this.readyState = WriterState.START;
             _this.dispatchEvent(SaverEvent.WRITERSTART);
         };
 
@@ -44,10 +45,10 @@
         };
 
         _this.close = function () {
-            switch (_this.state) {
+            switch (_this.readyState) {
                 case WriterState.INIT:
                 case WriterState.START:
-                    _this.state = WriterState.END;
+                    _this.readyState = WriterState.END;
                     _writer.close();
                     _this.dispatchEvent(SaverEvent.WRITEREND);
                     break;
@@ -108,7 +109,7 @@
             _writers[filename] = writer;
 
             _sw.postMessage({
-                operation: 'start',
+                operation: 'recordstart',
                 filename: filename,
                 version: playease.VERSION,
             }, [channel.port2]);
@@ -117,7 +118,7 @@
 
         function _onMessage(e) {
             switch (e.data.event) {
-                case 'ready':
+                case 'recordstart':
                     if (StreamSaver.prototype.isSupported(e.data.version) === false) {
                         utils.warn('ServiceWorker upgrading...');
                         _this.unregister();
@@ -130,15 +131,20 @@
                     document.body.appendChild(iframe);
                     break;
 
-                case 'start':
+                case 'loadstart':
                     var writer = _writers[e.data.filename];
                     writer.start();
                     break;
 
-                case 'outdated':
-                    utils.warn('The player is outdated, please upgrade to ' + e.data.version + ' at least.');
+                case 'error':
+                    utils.warn(e.data.name + ': ' + e.data.message);
                     _this.unregister(true);
-                    _this.dispatchEvent(SaverEvent.OUTDATED, { version: e.data.version });
+                    _this.dispatchEvent(Event.ERROR, {
+                        name: e.data.name,
+                        message: e.data.message,
+                        filename: e.data.filename,
+                        version: e.data.version,
+                    });
                     break;
             }
         }
@@ -150,7 +156,7 @@
             delete _writers[writer.filename];
 
             _sw.postMessage({
-                operation: 'end',
+                operation: 'recordend',
                 filename: writer.filename,
                 version: playease.VERSION,
             });
@@ -158,20 +164,15 @@
         }
 
         _this.unregister = function (outdated) {
+            if (!outdated && _registration) {
+                _registration.unregister();
+                _this.dispatchEvent(SaverEvent.UNRIGISTER);
+            }
             utils.forEach(_writers, function (filename, writer) {
                 writer.close();
             });
             _registration = undefined;
             _sw = undefined;
-
-            if (!outdated) {
-                navigator.serviceWorker.getRegistration(_this.config.scope).then(function (registration) {
-                    registration.unregister();
-                    _this.dispatchEvent(SaverEvent.UNRIGISTER);
-                }).catch(function (err) {
-                    utils.debug('Failed to unregister ServiceWorkerRegistration: ' + err);
-                });
-            }
         };
 
         _init();
@@ -180,7 +181,7 @@
     StreamSaver.prototype.CONF = _default;
 
     StreamSaver.prototype.isSupported = function (version) {
-        var minimum = '2.1.59';
+        var minimum = '2.1.60';
         var reg = /^(\d+)\.(\d+)\.(\d+)$/;
         var min = minimum.match(reg);
         var ver = version.match(reg);

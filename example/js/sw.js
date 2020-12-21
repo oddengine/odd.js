@@ -1,4 +1,4 @@
-var VERSION = '2.1.59';
+var VERSION = '2.1.60';
 var map = {};
 
 self.addEventListener('install', function (e) {
@@ -11,28 +11,51 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('message', function (e) {
     switch (e.data.operation) {
-        case 'start':
+        case 'recordstart':
             var item = { data: e.data };
             item.port = e.ports[0];
             if (isSupported(e.data.version) === false) {
-                item.port.postMessage({ event: 'outdated', filename: e.data.filename, version: VERSION });
+                item.port.postMessage({
+                    event: 'error',
+                    name: 'VersionError',
+                    message: 'The player is outdated, please upgrade to ' + e.data.version + ' at least.',
+                    filename: e.data.filename,
+                    version: VERSION,
+                });
                 break;
             }
             item.port.onmessage = function (evt) {
                 item.stream = evt.data.stream;
                 item.port.onmessage = null;
-                item.port.postMessage({ event: 'ready', filename: e.data.filename, version: VERSION });
+                item.port.postMessage({
+                    event: 'recordstart',
+                    filename: e.data.filename,
+                    version: VERSION,
+                });
             };
             map[self.registration.scope + e.data.filename] = item;
             break;
 
-        case 'end':
+        case 'recordend':
             if (isSupported(e.data.version) === false) {
                 break;
             }
             var item = map[self.registration.scope + e.data.filename];
             item.port.onmessage = null;
             delete map[self.registration.scope + e.data.filename];
+            break;
+
+        default:
+            var port = e.ports[0];
+            if (port) {
+                item.port.postMessage({
+                    event: 'error',
+                    name: 'NotSupportedError',
+                    message: 'The operation is not supported.',
+                    operation: e.data.operation,
+                    version: VERSION,
+                });
+            }
             break;
     }
 });
@@ -51,11 +74,15 @@ self.addEventListener('fetch', function (e) {
         'X-XSS-Protection': '1; mode=block',
     });
     e.respondWith(new Response(item.stream, { headers: headers }));
-    item.port.postMessage({ event: 'start', filename: item.data.filename, version: VERSION });
+    item.port.postMessage({
+        event: 'loadstart',
+        filename: item.data.filename,
+        version: VERSION,
+    });
 });
 
 function isSupported(version) {
-    var minimum = '2.1.59';
+    var minimum = '2.1.60';
     var reg = /^(\d+)\.(\d+)\.(\d+)$/;
     var min = minimum.match(reg);
     var ver = version.match(reg);
