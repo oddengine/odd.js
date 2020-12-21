@@ -5,6 +5,7 @@ var utils = playease.utils,
 
 var ui = playease.ui();
 // ui.addGlobalListener(console.log);
+ui.addEventListener('ready', onReady);
 ui.addEventListener('screenshot', onScreenshot);
 ui.addEventListener('error', console.error);
 ui.setup(player, {
@@ -16,12 +17,20 @@ ui.setup(player, {
     file: 'http://127.0.0.1/live/_definst_/stream02/video.m3u8',
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
     maxBufferLength: 1.5,    // sec.
-    mode: 'live',
+    maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
+    mode: 'live',            // live, vod
     module: 'FLV',
+    objectfit: 'contain',    // fill, contain, cover, none, scale-down
+    retrying: 0,             // ms. retrying interval
     loader: {
         name: 'auto',
         mode: 'cors',        // cors, no-cors, same-origin
         credentials: 'omit', // omit, include, same-origin
+    },
+    service: {
+        script: 'js/sw.js',
+        scope: 'js/',
+        enable: true,
     },
     sources: [{
         file: 'http://127.0.0.1/live/_definst_/stream02/index.m3u8',
@@ -34,7 +43,8 @@ ui.setup(player, {
     plugins: [{
         kind: 'Poster',
         file: 'image/poster.png',
-        objectfit: 'contain',
+        cors: 'anonymous',    // anonymous, use-credentials
+        objectfit: 'contain', // fill, contain, cover, none, scale-down
         visibility: true,
     }, {
         kind: 'Display',
@@ -43,11 +53,15 @@ ui.setup(player, {
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[Slider:timebar=Preview]|[Button:play=播放][Button:pause=暂停][Button:reload=重新加载][Button:stop=停止][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=反馈][Button:capture=截图][Button:mute=静音][Button:unmute=取消静音][Slider:volumebar=80][Select:definition=清晰度][Button:danmuoff=关闭弹幕][Button:danmuon=打开弹幕][Button:fullpage=网页全屏][Button:exitfullpage=退出网页全屏][Button:fullscreen=全屏][Button:exitfullscreen=退出全屏]',
+        layout: '[Slider:timebar=Preview]|[Button:play=播放][Button:pause=暂停][Button:reload=重新加载][Button:stop=停止][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=反馈][Button:capture=截图][Button:download=下载][Button:mute=静音][Button:unmute=取消静音][Slider:volumebar=80][Select:definition=清晰度][Button:danmuoff=关闭弹幕][Button:danmuon=打开弹幕][Button:fullpage=网页全屏][Button:exitfullpage=退出网页全屏][Button:fullscreen=全屏][Button:exitfullscreen=退出全屏]',
         autohide: false,
         visibility: true,
     }],
 });
+
+function onReady(e) {
+    // ui.record('sample.mp4');
+}
 
 function onScreenshot(e) {
     var arr = e.data.image.split(',');
