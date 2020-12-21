@@ -268,6 +268,10 @@
         error: function () { },
     };
 
+    utils.setLogger = function (logger) {
+        console = logger;
+    };
+
     utils.debug = function () {
         if (playease.DEBUG) {
             utils.log.apply(utils, arguments);

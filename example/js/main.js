@@ -6,6 +6,7 @@ var utils = playease.utils,
 var ui = playease.ui();
 // ui.addGlobalListener(console.log);
 ui.addEventListener('ready', onReady);
+ui.addEventListener('click', onClick);
 ui.addEventListener('screenshot', onScreenshot);
 ui.addEventListener('error', console.error);
 ui.setup(player, {
@@ -61,6 +62,14 @@ ui.setup(player, {
 
 function onReady(e) {
     // ui.record('sample.mp4');
+}
+
+function onClick(e) {
+    switch (e.data.name) {
+        case 'report':
+            utils.logger.save();
+            break;
+    }
 }
 
 function onScreenshot(e) {
