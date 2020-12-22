@@ -25,8 +25,8 @@ If you are interested in this player, please contact for details.
 - [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, etc.)  
 - [x] FLV (http[s]/ws[s])  
 - [ ] FMP4 (http[s]/ws[s])  
-- [ ] DASH (LL-CMAF)  
-- [ ] HLS (LL-CMAF)  
+- [ ] DASH (ll-cmaf)  
+- [ ] HLS (ll-cmaf)  
 - [ ] RTC  
 - [ ] ~~Flash~~  
 
@@ -83,7 +83,7 @@ var utils = playease.utils,
     index = 0;
 
 var api = playease();
-api.addEventListener(Event.READY, console.log);
+api.addEventListener(Event.READY, onReady);
 api.addEventListener(Event.PLAY, console.log);
 api.addEventListener(IOEvent.LOADSTART, console.log);
 api.addEventListener(Event.WAITING, console.log);
@@ -112,12 +112,15 @@ api.addEventListener(MediaEvent.STATSUPDATE, console.log);
 api.addEventListener(MediaEvent.SCREENSHOT, onScreenshot);
 api.addEventListener(SaverEvent.WRITERSTART, console.log);
 api.addEventListener(SaverEvent.WRITEREND, console.log);
-api.addEventListener(SaverEvent.OUTDATED, console.log);
 api.addEventListener(Event.ENDED, console.log);
 api.addEventListener(Event.ERROR, console.error);
 api.setup(container, {
     file: 'http://127.0.0.1/vod/sample.flv',
 });
+
+function onReady(e) {
+    // ui.record('sample.mp4');
+}
 
 function onScreenshot(e) {
     var arr = e.data.image.split(',');
@@ -139,21 +142,35 @@ function onScreenshot(e) {
 ```js
 var events = playease.events,
     Event = events.Event,
-    UIEvent = events.UIEvent;
+    UIEvent = events.UIEvent,
+    MouseEvent = events.MouseEvent;
 
 var ui = playease.ui();
 ui.addEventListener(Event.READY, onReady);
+ui.addEventListener(MouseEvent.CLICK, onClick);
 ui.addEventListener(UIEvent.SHOOTING, console.log);
 ui.addEventListener(UIEvent.FULLPAGE, console.log);
 ui.addEventListener(UIEvent.FULLSCREEN, console.log);
 ui.addEventListener(UIEvent.RESIZE, console.log);
 ui.setup(container, {
     ...
-    sw: true,
+    service: {
+        script: 'js/sw.js',
+        scope: 'js/',
+        enable: true,
+    },
 });
 
 function onReady(e) {
-    ui.record('sample.mp4');
+    // ui.record('sample.mp4');
+}
+
+function onClick(e) {
+    switch (e.data.name) {
+        case 'report':
+            utils.logger.save();
+            break;
+    }
 }
 ```
 
@@ -198,12 +215,16 @@ function onReady(e) {
     preload: 'none',         // none, metadata, auto
     retrying: 0,             // ms. retrying interval
     smoothing: false,        // smooth switching
-    sw: false,
     volume: 0.8,
     loader: {
         name: 'auto',
         mode: 'cors',        // cors, no-cors, same-origin
         credentials: 'omit', // omit, include, same-origin
+    },
+    service: {
+        script: 'js/sw.js',
+        scope: 'js/',
+        enable: false,
     },
     sources: [{              // ignored if "file" is presented
         file: '',
@@ -253,7 +274,7 @@ function onReady(e) {
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:capture=Capture][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
+        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:capture=Capture][Button:download=Download][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
         autohide: false,
         visibility: true,
     }, {
