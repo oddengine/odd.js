@@ -4,7 +4,7 @@ playease = function () {
     }
 };
 
-playease.VERSION = '2.1.62';
+playease.VERSION = '2.1.63';
 playease.DEBUG = false;
 playease.LOGGER = false;
 
