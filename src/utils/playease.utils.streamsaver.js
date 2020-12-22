@@ -69,6 +69,14 @@
         function _init() {
             _this.config = utils.extendz({}, _default, config);
             _writers = {};
+
+            window.addEventListener('beforeunload', _onBeforeUnload);
+        }
+
+        function _onBeforeUnload(e) {
+            utils.forEach(_writers, function (filename, writer) {
+                writer.close();
+            });
         }
 
         _this.register = function () {
