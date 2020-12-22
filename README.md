@@ -169,7 +169,9 @@ function onReady(e) {
 function onClick(e) {
     switch (e.data.name) {
         case 'report':
-            utils.logger.save();
+            if (playease.LOGGER) {
+                utils.logger.save();
+            }
             break;
     }
 }
