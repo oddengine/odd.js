@@ -109,6 +109,7 @@ api.addEventListener(Event.VOLUMECHANGE, console.log);
 api.addEventListener(IOEvent.LOAD, console.log);
 api.addEventListener(MediaEvent.INFOCHANGE, console.log);
 api.addEventListener(MediaEvent.STATSUPDATE, console.log);
+api.addEventListener(MediaEvent.SEI, console.log);
 api.addEventListener(MediaEvent.SCREENSHOT, onScreenshot);
 api.addEventListener(SaverEvent.WRITERSTART, console.log);
 api.addEventListener(SaverEvent.WRITEREND, console.log);
@@ -400,6 +401,7 @@ The SDK supports Event and IOEvent. All of the SDK events will be forward to UI.
 | :--- | :--- | :--- |
 | INFOCHANGE | info | The infochange event occurs when the meida info is changed. |
 | STATSUPDATE | stats | The statsupdate event occurs when the media stats is changed. |
+| SEI | packet, nalu | The sei event occurs when a SEI NalUnit is detected. |
 | SCREENSHOT | image | The screenshot event occurs when an image is captured. |
 
 ### UIEvent

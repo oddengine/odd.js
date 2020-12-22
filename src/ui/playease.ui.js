@@ -80,10 +80,10 @@
             _api.addEventListener(IOEvent.LOAD, _this.forward);
             _api.addEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
             _api.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+            _api.addEventListener(MediaEvent.SEI, _this.forward);
             _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
             _api.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _api.addEventListener(SaverEvent.WRITEREND, _onWriterEnd);
-            _api.addEventListener(SaverEvent.OUTDATED, _this.forward);
             _api.addEventListener(Event.ENDED, _onStateChange);
             _api.addEventListener(Event.ERROR, _onError);
             _api.setup(_content, _this.config);
@@ -723,6 +723,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.60';
+    playease.UI.VERSION = '2.1.62';
 })(playease);
 

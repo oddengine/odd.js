@@ -43,6 +43,7 @@
             AAC_SAMPLE: 'aac-sample',                   // packet
             AVC_CONFIG_RECORD: 'avc-config-record',     // packet
             AVC_SAMPLE: 'avc-sample',                   // packet
+            SEI: 'sei',                                 // packet, nalu
             END_OF_STREAM: 'end-of-stream',             // packet
             SCREENSHOT: 'screenshot',                   // image
         },
