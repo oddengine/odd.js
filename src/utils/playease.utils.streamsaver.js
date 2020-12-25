@@ -189,7 +189,7 @@
     StreamSaver.prototype.CONF = _default;
 
     StreamSaver.prototype.isSupported = function (version) {
-        var minimum = '2.1.60';
+        var minimum = '2.1.64';
         var reg = /^(\d+)\.(\d+)\.(\d+)$/;
         var min = minimum.match(reg);
         var ver = version.match(reg);

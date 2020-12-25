@@ -393,7 +393,7 @@
                 'stop': _this.stop,
                 'reload': _this.reload,
                 'capture': _this.capture,
-                'download': _this.record,
+                'download': function () { _this.record('fragmented.mp4'); },
                 'mute': function () { _this.muted(true); },
                 'unmute': function () { _this.muted(false); },
                 'danmuoff': function () { _this.danmu(false); },
@@ -723,6 +723,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.62';
+    playease.UI.VERSION = '2.1.64';
 })(playease);
 

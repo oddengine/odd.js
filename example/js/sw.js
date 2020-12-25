@@ -1,4 +1,4 @@
-var VERSION = '2.1.60';
+var VERSION = '2.1.64';
 var map = {};
 
 self.addEventListener('install', function (e) {
@@ -67,7 +67,7 @@ self.addEventListener('fetch', function (e) {
     }
     var headers = new Headers({
         'Content-Type': 'application/octet-stream; charset=utf-8',
-        'Content-Disposition': 'attachment; filename*=UTF-8\'\'sample.mp4',
+        'Content-Disposition': 'attachment; filename*=UTF-8\'\'' + item.data.filename,
         'Content-Security-Policy': "default-src 'none'",
         'X-Content-Security-Policy': "default-src 'none'",
         'X-WebKit-CSP': "default-src 'none'",
@@ -82,7 +82,7 @@ self.addEventListener('fetch', function (e) {
 });
 
 function isSupported(version) {
-    var minimum = '2.1.60';
+    var minimum = '2.1.64';
     var reg = /^(\d+)\.(\d+)\.(\d+)$/;
     var min = minimum.match(reg);
     var ver = version.match(reg);

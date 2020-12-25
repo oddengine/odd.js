@@ -7,15 +7,22 @@ var ui = playease.ui();
 // ui.addGlobalListener(console.log);
 ui.addEventListener('ready', onReady);
 ui.addEventListener('click', onClick);
+// ui.addEventListener('sei', console.log);
 ui.addEventListener('screenshot', onScreenshot);
 ui.addEventListener('error', console.error);
 ui.setup(player, {
     autoplay: false,
     bufferLength: 0.5,       // sec.
-    // file: 'http://127.0.0.1/vod/sample.mp4',
-    // file: 'http://127.0.0.1/vod/sample.flv',
-    // file: 'http://127.0.0.1/live/_definst_/stream02.flv',
-    file: 'http://127.0.0.1/live/_definst_/stream02/video.m3u8',
+    // file: 'http://192.168.100.101/vod/sample.mp4',
+    file: 'http://127.0.0.1/vod/sample.flv',
+    // file: 'http://127.0.0.1/vod/abc.flv',
+    // file: 'http://127.0.0.1/vod/video-only.flv',
+    // file: 'http://192.168.100.101/live/_definst_/stream02.flv',
+    // file: 'http://192.168.100.101/live/_definst_/stream02/video.m3u8',
+    // file: 'http://39.98.40.193/live/_definst_/stream02.flv',
+    // file: 'http://120.76.235.109:4025/flv?port=10077&app=live&stream=13800000002_channel_1',
+    // file: 'http://120.76.235.109:4025/flv?port=10077&app=live&stream=13751093611_channel_2',
+    // file: 'ws://120.79.67.102:4022/ws?port=10077&app=live&stream=64921778277_channel_1',
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
     maxBufferLength: 1.5,    // sec.
     maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
@@ -34,10 +41,10 @@ ui.setup(player, {
         enable: true,
     },
     sources: [{
-        file: 'http://127.0.0.1/live/_definst_/stream02/index.m3u8',
+        file: 'http://39.98.40.193/live/_definst_/stream02/index.m3u8',
         label: 'hls',
     }, {
-        file: 'http://127.0.0.1/live/_definst_/stream02.flv',
+        file: 'http://39.98.40.193/live/_definst_/stream02.flv',
         label: 'http-flv',
         default: true,
     }],
@@ -61,7 +68,7 @@ ui.setup(player, {
 });
 
 function onReady(e) {
-    // ui.record('sample.mp4');
+    // ui.record('fragmented.mp4');
 }
 
 function onClick(e) {
