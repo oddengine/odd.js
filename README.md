@@ -322,11 +322,11 @@ Note:
 | volume | f | Sets volume, which in the range of 0 to 1, if f is a number. Otherwise, returns the current volume. |
 | definition | index | Switches to the specified definition, if index is a number. Otherwise, returns the current definition. |
 | capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
-| record | filename | Records stream if possible. |
+| record | filename | Records a stream once the ServiceWorker is activated, and returns a StreamWriter. The current writer will be closed if filename equals false. |
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
-| destroy | | Destroy this instance, removes dom elements. |
+| destroy |  | Destroy this instance, removes dom elements. |
 
 ### Statics of UI
 
