@@ -8,10 +8,11 @@
 
         CLASS_TOOLTIP = 'pe-tooltip';
 
-    function Preview() {
-        EventDispatcher.call(this, 'Preview', null, [MouseEvent.CLICK]);
+    function Preview(name, kind, logger) {
+        EventDispatcher.call(this, 'Preview', { logger: logger }, [MouseEvent.CLICK]);
 
         var _this = this,
+            _logger = logger,
             _container,
             _content;
 

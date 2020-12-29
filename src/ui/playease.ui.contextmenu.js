@@ -18,10 +18,11 @@
             visibility: true,
         };
 
-    function ContextMenu(config) {
-        EventDispatcher.call(this, 'ContextMenu', null, [MouseEvent.CLICK]);
+    function ContextMenu(config, logger) {
+        EventDispatcher.call(this, 'ContextMenu', { logger: logger }, [MouseEvent.CLICK]);
 
         var _this = this,
+            _logger = logger,
             _container,
             _table;
 

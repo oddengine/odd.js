@@ -15,8 +15,9 @@
             matchers: [],
         };
 
-    function XML2JSON(config) {
-        var _this = this;
+    function XML2JSON(config, logger) {
+        var _this = this,
+            _logger = logger;
 
         function _init() {
             _this.config = utils.extendz({}, _default, config);
@@ -31,7 +32,7 @@
                 try {
                     xml = parser.parseFromString(str, 'text/xml');
                 } catch (err) {
-                    utils.error('Failed to parse XML structure.');
+                    _logger.error('Failed to parse XML structure.');
                     return null;
                 }
             } else {

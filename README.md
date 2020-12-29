@@ -59,9 +59,10 @@ If you are interested in this player, please contact for details.
 - [x] v2.1.50 - New interface[s]: create, destroy.  
 - [x] v2.1.54 - New interface[s]: record.  
   - [x] v2.1.59 - StreamSaver using ServiceWorker.  
+- [x] v2.1.67 - Implemented Logger class. New interface[s]: getProperties.  
+  - [ ] Log feedback.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
-- [ ] Log reporting.  
 
 ## Solutions
 
@@ -120,7 +121,7 @@ api.setup(container, {
 });
 
 function onReady(e) {
-    // ui.record('sample.mp4');
+    // ui.record('fragmented.mp4');
 }
 
 function onScreenshot(e) {
@@ -158,20 +159,18 @@ ui.setup(container, {
     service: {
         script: 'js/sw.js',
         scope: 'js/',
-        enable: true,
+        enable: false,
     },
 });
 
 function onReady(e) {
-    // ui.record('sample.mp4');
+    // ui.record('fragmented.mp4');
 }
 
 function onClick(e) {
     switch (e.data.name) {
         case 'report':
-            if (playease.LOGGER) {
-                utils.logger.save();
-            }
+            ui.logger.flush();
             break;
     }
 }
@@ -294,19 +293,29 @@ function onReady(e) {
 };
 ```
 
+### Config of Logger
+
+```js
+{
+    level: 'log',    // debug, log, warn, error
+    mode: 'console', // console, file, feedback
+    maxLines: 60,
+}
+```
+
 ## API
 
 ### Statics of SDK
 
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
-| get | id = 0 | Gets the SDK instance by id, create one if it doesn't exist. |
-| create |  | Creates an API instance with an auto-increased id, or return the one already exist. |
+| get | id = 0, option = undefined | Gets the SDK instance by id, create one if it doesn't exist. Option is the config of Logger. |
+| create | option = undefined | Creates an API instance with an auto-increased id, or return the one already exist. Option is the config of Logger. |
 
 Note:
 
-> playease(id) is short for playease.API.get(id).  
-> playease.create() is short for playease.API.create().  
+> playease(id, option) is short for playease.API.get(id, option).  
+> playease.create(option) is short for playease.API.create(option).  
 
 ### API of SDK Instance
 
@@ -324,6 +333,7 @@ Note:
 | capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
 | record | filename | Records a stream once the ServiceWorker is activated, and returns a StreamWriter. The current writer will be closed if filename equals false. |
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
+| getProperties | key | Gets the current properties by key. Currently, key could be "info" and "stats". |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
 | destroy |  | Destroy this instance, removes dom elements. |
@@ -332,13 +342,13 @@ Note:
 
 | Method | Arguments | Description |
 | :--- | :--- | :--- |
-| get | id = 0 | Gets the UI instance by id, create one if it doesn't exist. |
-| create |  | Create an UI instance with an auto-increment id, or return the one already exist. |
+| get | id = 0, option = undefined | Gets the UI instance by id, create one if it doesn't exist. Option is the config of Logger. |
+| create | option = undefined | Create an UI instance with an auto-increment id, or return the one already exist. Option is the config of Logger. |
 
 Note:
 
-> playease.ui(id) is short for playease.UI.get(id).  
-> playease.ui.create() is short for playease.UI.create().  
+> playease.ui(id, option) is short for playease.UI.get(id, option).  
+> playease.ui.create(option) is short for playease.UI.create(option).  
 
 ### API of UI Instance
 

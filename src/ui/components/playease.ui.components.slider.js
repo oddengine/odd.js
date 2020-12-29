@@ -18,11 +18,12 @@
         HORIZONTAL = 'horizontal',
         VERTICAL = 'vertical';
 
-    function Slider(name, kind) {
-        EventDispatcher.call(this, 'Slider', null, [GlobalEvent.CHANGE, MouseEvent.MOUSE_MOVE]);
+    function Slider(name, kind, logger) {
+        EventDispatcher.call(this, 'Slider', { logger: logger }, [GlobalEvent.CHANGE, MouseEvent.MOUSE_MOVE]);
 
         var _this = this,
             _name,
+            _logger = logger,
             _direction,
             _active,
             _container,

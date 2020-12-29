@@ -13,7 +13,6 @@
         } catch (err) {
             /* void */
         }
-
         return array && array[0] === 256;
     })();
 
@@ -30,7 +29,6 @@
                 uint8[byteOffset + 3]
             );
         }
-
         return (
             uint8[byteOffset + 0] |
             uint8[byteOffset + 1] >>> 8 |

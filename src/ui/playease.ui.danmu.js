@@ -17,10 +17,11 @@
             visibility: true,
         };
 
-    function Danmu(config) {
-        EventDispatcher.call(this, 'Danmu', null, [UIEvent.SHOOTING]);
+    function Danmu(config, logger) {
+        EventDispatcher.call(this, 'Danmu', { logger: logger }, [UIEvent.SHOOTING]);
 
         var _this = this,
+            _logger = logger,
             _container,
             _content;
 

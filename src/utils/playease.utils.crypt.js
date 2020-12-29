@@ -22,7 +22,6 @@
 
             output[p++] = c;
         }
-
         return output;
     };
 
@@ -49,7 +48,6 @@
             var chunk = Array.slice(bytes, i, i + CHUNK_SIZE);
             str += String.fromCharCode.apply(null, chunk);
         }
-
         return str;
     };
 
@@ -73,15 +71,13 @@
      */
     crypt.hexToByteArray = function (hexString) {
         if (hexString.length % 2 !== 0) {
-            utils.error('Key string length must be multiple of 2.');
-            return null;
+            throw { name: 'DataError', message: 'Key string length must be multiple of 2.' };
         }
 
         var arr = [];
         for (var i = 0; i < hexString.length; i += 2) {
             arr.push(parseInt(hexString.substring(i, i + 2), 16));
         }
-
         return arr;
     };
 
@@ -115,7 +111,6 @@
                 out[p++] = (c & 63) | 128;
             }
         }
-
         return out;
     };
 
@@ -151,7 +146,6 @@
                 out[c++] = String.fromCharCode((c1 & 15) << 12 | (c2 & 63) << 6 | c3 & 63);
             }
         }
-
         return out.join('');
     };
 
@@ -163,15 +157,13 @@
      */
     crypt.XORByteArray = function (bytes1, bytes2) {
         if (bytes1.length !== bytes2.length) {
-            utils.error('XOR array lengths must match.');
-            return
+            throw { name: 'DataError', message: 'XOR array lengths must match.' };
         }
 
         var result = [];
         for (var i = 0; i < bytes1.length; i++) {
             result.push(bytes1[i] ^ bytes2[i]);
         }
-
         return result;
     };
 

@@ -25,10 +25,9 @@
             plugins: [],
         };
 
-    function UI(id) {
-        EventDispatcher.call(this, 'UI', { id: id }, utils.extendz({}, Event, IOEvent, UIEvent));
-
+    function UI(id, option) {
         var _this = this,
+            _logger = new utils.Logger(id, option),
             _plugins,
             _container,
             _wrapper,
@@ -36,10 +35,13 @@
             _api,
             _timer;
 
+        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, utils.extendz({}, Event, IOEvent, UIEvent));
+
         function _init() {
             _this.id = id;
+            _this.logger = _logger;
             _plugins = {};
-            _timer = new utils.Timer(3000, 1);
+            _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
         }
 
@@ -52,7 +54,7 @@
             _wrapper.appendChild(_content);
             _container.appendChild(_wrapper);
 
-            _api = API.get(_this.id);
+            _api = API.get(_this.id, _logger);
             _api.addEventListener(Event.BIND, _onBind);
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(Event.PLAY, _onStateChange);
@@ -121,11 +123,11 @@
         function _buildPlugins() {
             utils.forEach(_this.config.plugins, function (i, config) {
                 if (utils.typeOf(UI[config.kind]) !== 'function') {
-                    utils.error('Unrecognized plugin: index=' + i + ', kind=' + config.kind + '.');
+                    _logger.error('Unrecognized plugin: index=' + i + ', kind=' + config.kind + '.');
                     return;
                 }
                 if (config.visibility === false) {
-                    utils.log('Component ' + config.kind + ' is disabled.');
+                    _logger.log('Component ' + config.kind + ' is disabled.');
                     return;
                 }
                 if (config.kind === 'Controlbar' && !_this.config.file) {
@@ -133,14 +135,14 @@
                 }
 
                 try {
-                    var plugin = new UI[config.kind](config);
+                    var plugin = new UI[config.kind](config, _logger);
                     if (utils.typeOf(plugin.addGlobalListener) === 'function') {
                         plugin.addGlobalListener(_onPluginEvent);
                     }
                     _wrapper.appendChild(plugin.element());
                     _plugins[config.kind] = plugin;
                 } catch (err) {
-                    utils.error('Failed to initialize plugin: index=' + i + ', kind=' + config.kind + '. Error=' + err.message);
+                    _logger.error('Failed to initialize plugin: index=' + i + ', kind=' + config.kind + '. Error=' + err.message);
                 }
             });
         }
@@ -200,6 +202,7 @@
             _this.capture = _api.capture;
             _this.record = _api.record;
             _this.element = _api.element;
+            _this.getProperties = _api.getProperties;
             _this.duration = _api.duration;
             _this.state = _api.state;
             _this.forward(e);
@@ -282,7 +285,7 @@
                     var promise = requestFullscreen.call(_wrapper);
                     if (promise) {
                         promise['catch'](function (err) {
-                            utils.debug(err.name + ': ' + err.message);
+                            _logger.debug(err.name + ': ' + err.message);
                         });
                     }
                 } else {
@@ -302,7 +305,7 @@
                     var promise = exitFullscreen.call(document);
                     if (promise) {
                         promise['catch'](function (err) {
-                            utils.debug(err.name + ': ' + err.message);
+                            _logger.debug(err.name + ': ' + err.message);
                         });
                     }
                 } else {
@@ -698,31 +701,31 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            utils.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            _logger.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
         }
     };
 
-    UI.get = function (id) {
+    UI.get = function (id, option) {
         if (id == null) {
             id = 0;
         }
 
         var ui = _instances[id];
         if (ui === undefined) {
-            ui = new UI(id);
+            ui = new UI(id, option);
             _instances[id] = ui;
         }
 
         return ui;
     };
 
-    UI.create = function () {
-        return UI.get(_id++);
+    UI.create = function (option) {
+        return UI.get(_id++, option);
     };
 
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.64';
+    playease.UI.VERSION = '2.1.67';
 })(playease);
 

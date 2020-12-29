@@ -7,12 +7,13 @@
 
         CLASS_LABEL = 'pe-label';
 
-    function Label(name, kind) {
-        EventDispatcher.call(this, 'Label');
+    function Label(name, kind, logger) {
+        EventDispatcher.call(this, 'Label', { logger: logger });
 
         var _this = this,
             _name,
             _kind,
+            _logger = logger,
             _container;
 
         function _init() {

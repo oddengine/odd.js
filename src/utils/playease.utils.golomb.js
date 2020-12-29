@@ -18,7 +18,6 @@
             dst[i] = arr[j];
             i++;
         }
-
         return dst.subarray(0, i);
     }
 
@@ -37,7 +36,6 @@
             for (var i = 0; i === 0 && _this.Left() > 0; n++) {
                 i = _this.ReadBits(1);
             }
-
             return (1 << n >>> 0) - 1 + _this.ReadBitsLong(n);
         };
 

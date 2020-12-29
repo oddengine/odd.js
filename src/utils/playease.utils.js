@@ -20,7 +20,7 @@
                 case 'number':
                 case 'string':
                     if (playease.DEBUG) {
-                        utils.warn('Could not extend from type ' + utils.typeOf(arg));
+                        utils.warn('Could not extend from type ' + utils.typeOf(arg) + '.');
                     }
                     break;
 
@@ -268,13 +268,10 @@
         error: function () { },
     };
 
-    utils.setLogger = function (logger) {
-        console = logger;
-    };
-
     utils.debug = function () {
         if (playease.DEBUG) {
-            utils.log.apply(utils, arguments);
+            var args = Array.prototype.slice.call(arguments, 0);
+            utils.log.apply(utils, args);
         }
     };
 
