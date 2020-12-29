@@ -147,7 +147,7 @@ var events = playease.events,
     UIEvent = events.UIEvent,
     MouseEvent = events.MouseEvent;
 
-var ui = playease.ui();
+var ui = playease.ui(0, { mode: 'file' });
 ui.addEventListener(Event.READY, onReady);
 ui.addEventListener(MouseEvent.CLICK, onClick);
 ui.addEventListener(UIEvent.SHOOTING, console.log);
