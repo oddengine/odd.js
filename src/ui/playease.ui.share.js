@@ -11,10 +11,11 @@
             visibility: true,
         };
 
-    function Share(config) {
-        EventDispatcher.call(this, 'Share');
+    function Share(config, logger) {
+        EventDispatcher.call(this, 'Share', { logger: logger });
 
         var _this = this,
+            _logger = logger,
             _container;
 
         function _init() {

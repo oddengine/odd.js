@@ -24,10 +24,11 @@
             visibility: true,
         };
 
-    function Controlbar(config) {
-        EventDispatcher.call(this, 'Controlbar', null, [GlobalEvent.CHANGE, MouseEvent.CLICK, MouseEvent.MOUSE_MOVE]);
+    function Controlbar(config, logger) {
+        EventDispatcher.call(this, 'Controlbar', { logger: logger }, [GlobalEvent.CHANGE, MouseEvent.CLICK, MouseEvent.MOUSE_MOVE]);
 
         var _this = this,
+            _logger = logger,
             _container,
             _content;
 
@@ -95,7 +96,7 @@
             }
 
             try {
-                component = new components[type](name, kind);
+                component = new components[type](name, kind, _logger);
                 if (utils.typeOf(component.addGlobalListener) === 'function') {
                     component.addGlobalListener(_this.forward);
                     if (type === 'Slider') {
@@ -106,7 +107,7 @@
                 container.appendChild(element);
                 _this.components[name] = component;
             } catch (err) {
-                utils.error('Failed to initialize component: type=' + type + ', name=' + name + ', Error=' + err.message);
+                _logger.error('Failed to initialize component: type=' + type + ', name=' + name + ', Error=' + err.message);
                 return;
             }
 
@@ -119,7 +120,7 @@
                     if (kind !== undefined) {
                         var tooltip;
                         if (utils.typeOf(components[kind]) === 'function') {
-                            tooltip = new components[kind]();
+                            tooltip = new components[kind](name, kind, _logger);
                             element.insertAdjacentElement('afterbegin', tooltip.element());
                         } else {
                             tooltip = utils.createElement('span', CLASS_TOOLTIP);

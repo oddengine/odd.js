@@ -4,8 +4,8 @@
         EventDispatcher = events.EventDispatcher,
         TimerEvent = events.TimerEvent;
 
-    function Timer(delay, repeatCount) {
-        EventDispatcher.call(this, 'Timer', null, [TimerEvent.TIMER, TimerEvent.COMPLETE]);
+    function Timer(delay, repeatCount, logger) {
+        EventDispatcher.call(this, 'Timer', { logger: logger }, [TimerEvent.TIMER, TimerEvent.COMPLETE]);
 
         var _this = this,
             _intervalId,

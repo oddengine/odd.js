@@ -20,7 +20,7 @@
                 sheet.addRule(selector, rules, sheet.rules.length);
             }
         } catch (err) {
-            utils.error('Failed to insert css rule: ' + selector);
+            throw { name: 'AbortError', message: 'Failed to insert css rule ' + selector + ': ' + err };
         }
     }
 

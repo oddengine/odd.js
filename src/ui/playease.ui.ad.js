@@ -11,10 +11,11 @@
             visibility: true,
         };
 
-    function AD(config) {
-        EventDispatcher.call(this, 'AD');
+    function AD(config, logger) {
+        EventDispatcher.call(this, 'AD', { logger: logger });
 
         var _this = this,
+            _logger = logger,
             _container;
 
         function _init() {

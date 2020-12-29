@@ -12,11 +12,12 @@
         CLASS_SELECT_MENU = 'pe-select-menu',
         CLASS_SELECT_MENU_OPTION = 'pe-select-menu-option';
 
-    function Select(name, kind) {
-        EventDispatcher.call(this, 'Select', null, [GlobalEvent.CHANGE]);
+    function Select(name, kind, logger) {
+        EventDispatcher.call(this, 'Select', { logger: logger }, [GlobalEvent.CHANGE]);
 
         var _this = this,
             _name,
+            _logger = logger,
             _value,
             _options,
             _container,

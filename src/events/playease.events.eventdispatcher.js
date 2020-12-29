@@ -6,6 +6,7 @@
         var _this = this,
             _kind = kind,
             _option = option,
+            _logger = option.logger || utils,
             _args = Array.prototype.slice.call(arguments, 2),
             _listeners,
             _globallisteners;
@@ -41,7 +42,7 @@
                     count: count || NaN,
                 });
             } catch (err) {
-                utils.error(_kind + ' failed to addEventListener(' + type + '):', err);
+                _logger.error(_kind + ' failed to addEventListener(' + type + '):', err);
             }
         };
 
@@ -63,7 +64,7 @@
                     }
                 }
             } catch (err) {
-                utils.error(_kind + ' failed to removeEventListener(' + type + '):', err);
+                _logger.error(_kind + ' failed to removeEventListener(' + type + '):', err);
             }
         };
 
@@ -82,7 +83,7 @@
                     count: count || NaN,
                 });
             } catch (err) {
-                utils.error(_kind + ' failed to addGlobalListener():', err);
+                _logger.error(_kind + ' failed to addGlobalListener():', err);
             }
         };
 
@@ -99,7 +100,7 @@
                     }
                 }
             } catch (err) {
-                utils.error(_kind + ' failed to removeGlobalListener():', err);
+                _logger.error(_kind + ' failed to removeGlobalListener():', err);
             }
         };
 
@@ -118,7 +119,7 @@
             event.api = _option && (typeof _option.id === 'string' || typeof _option.id === 'number') ? _option.id : undefined;
 
             if (playease.DEBUG) {
-                utils.log(_kind, event);
+                _logger.debug(_kind, event);
             }
 
             var onevent = 'on' + event.type.replace(/-/g, '');
@@ -150,7 +151,7 @@
                             break;
                         }
                     } catch (err) {
-                        utils.error(_kind + ' failed to dispatch event:', event, err.toString());
+                        _logger.error(_kind + ' failed to dispatch event:', event, err.toString());
                     }
                 }
             }

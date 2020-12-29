@@ -3,7 +3,7 @@ player.innerHTML = '';
 var utils = playease.utils,
     index = 0;
 
-var ui = playease.ui();
+var ui = playease.ui(0, { level: 'log', mode: 'file', maxLines: 60 });
 // ui.addGlobalListener(console.log);
 ui.addEventListener('ready', onReady);
 ui.addEventListener('click', onClick);
@@ -38,7 +38,7 @@ ui.setup(player, {
     service: {
         script: 'js/sw.js',
         scope: 'js/',
-        enable: true,
+        enable: false,
     },
     sources: [{
         file: 'http://39.98.40.193/live/_definst_/stream02/index.m3u8',
@@ -74,9 +74,7 @@ function onReady(e) {
 function onClick(e) {
     switch (e.data.name) {
         case 'report':
-            if (playease.LOGGER) {
-                utils.logger.save();
-            }
+            ui.logger.flush();
             break;
     }
 }

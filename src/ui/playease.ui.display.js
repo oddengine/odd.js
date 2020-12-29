@@ -19,10 +19,11 @@
             visibility: true,
         };
 
-    function Display(config) {
-        EventDispatcher.call(this, 'Display', null, [MouseEvent.CLICK]);
+    function Display(config, logger) {
+        EventDispatcher.call(this, 'Display', { logger: logger }, [MouseEvent.CLICK]);
 
         var _this = this,
+            _logger = logger,
             _container,
             _content,
             _timer,
@@ -38,7 +39,7 @@
             _container.appendChild(_content);
             _buildComponents();
 
-            _timer = new utils.Timer(80);
+            _timer = new utils.Timer(80, 0, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
             _timestamp = 0;
         }
@@ -55,7 +56,7 @@
                 element;
 
             try {
-                component = new components[type](name, kind);
+                component = new components[type](name, kind, _logger);
                 if (utils.typeOf(component.addGlobalListener) === 'function') {
                     component.addGlobalListener(_this.forward);
                 }
@@ -63,7 +64,7 @@
                 container.appendChild(element);
                 _this.components[name] = component;
             } catch (err) {
-                utils.error('Failed to initialize component: type=' + type + ', name=' + name + ', Error=' + err.message);
+                _logger.error('Failed to initialize component: type=' + type + ', name=' + name + ', Error=' + err.message);
                 return;
             }
         }

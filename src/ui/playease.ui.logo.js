@@ -17,10 +17,11 @@
             visibility: true,
         };
 
-    function Logo(config) {
-        EventDispatcher.call(this, 'Logo');
+    function Logo(config, logger) {
+        EventDispatcher.call(this, 'Logo', { logger: logger });
 
         var _this = this,
+            _logger = logger,
             _container,
             _logo,
             _img;
@@ -54,7 +55,7 @@
         }
 
         function _onError(e) {
-            utils.log('Failed to load logo "' + _img.src + '".');
+            _logger.log('Failed to load logo "' + _img.src + '".');
         }
 
         _this.element = function () {

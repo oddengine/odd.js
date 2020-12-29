@@ -16,10 +16,11 @@
             enable: false,
         };
 
-    function StreamWriter(filename, writer) {
-        EventDispatcher.call(this, 'StreamWriter', null, [SaverEvent.WRITERSTART, SaverEvent.WRITEREND]);
+    function StreamWriter(filename, writer, logger) {
+        EventDispatcher.call(this, 'StreamWriter', { logger: logger }, [SaverEvent.WRITERSTART, SaverEvent.WRITEREND]);
 
         var _this = this,
+            _logger = logger,
             _writer;
 
         function _init() {
@@ -27,7 +28,7 @@
             _this.readyState = WriterState.INIT;
             _writer = writer;
             _writer.closed.then(function () {
-                utils.log('StreamWriter.closed: ' + _this.filename);
+                _logger.log('StreamWriter.closed: ' + _this.filename);
                 _this.close();
             });
         }
@@ -40,7 +41,7 @@
         _this.write = function (chunk) {
             // It is writable even in 'init' state.
             return _writer.write(chunk).catch(function (err) {
-                utils.error('StreamWriter failed to write: ' + err);
+                _logger.error('StreamWriter failed to write: ' + err);
             });
         };
 
@@ -58,10 +59,11 @@
         _init();
     }
 
-    function StreamSaver(config) {
-        EventDispatcher.call(this, 'StreamSaver', null, [Event.ERROR], SaverEvent);
+    function StreamSaver(config, logger) {
+        EventDispatcher.call(this, 'StreamSaver', { logger: logger }, [Event.ERROR], SaverEvent);
 
         var _this = this,
+            _logger = logger,
             _writers,
             _registration,
             _sw;
@@ -86,14 +88,14 @@
             return navigator.serviceWorker.getRegistration(_this.config.scope).then(function (registration) {
                 return registration || navigator.serviceWorker.register(_this.config.script, { scope: _this.config.scope });
             }).then(function (registration) {
-                utils.log('Registered ServiceWorkerRegistration: ' + registration.scope);
+                _logger.log('Registered ServiceWorkerRegistration: ' + registration.scope);
                 _registration = registration;
                 _sw = registration.installing || registration.waiting || registration.active;
                 _sw.addEventListener('statechange', function (e) {
-                    utils.log('ServiceWorker.state: ' + _sw.state);
+                    _logger.log('ServiceWorker.state: ' + _sw.state);
                 });
             }).catch(function (err) {
-                utils.error('Failed to register ServiceWorkerRegistration: ' + err);
+                _logger.error('Failed to register ServiceWorkerRegistration: ' + err);
             });
         };
 
@@ -111,7 +113,7 @@
             channel.port1.onmessage = _onMessage;
             channel.port1.postMessage({ stream: ts.readable }, [ts.readable]);
 
-            var writer = new StreamWriter(filename, ts.writable.getWriter());
+            var writer = new StreamWriter(filename, ts.writable.getWriter(), _logger);
             writer.addEventListener(SaverEvent.WRITERSTART, _this.forward);
             writer.addEventListener(SaverEvent.WRITEREND, _onWriterEnd);
             _writers[filename] = writer;
@@ -128,7 +130,7 @@
             switch (e.data.event) {
                 case 'recordstart':
                     if (StreamSaver.prototype.isSupported(e.data.version) === false) {
-                        utils.warn('ServiceWorker upgrading...');
+                        _logger.warn('ServiceWorker upgrading...');
                         _this.unregister();
                         _this.register(e.data.filename);
                         break;
@@ -145,7 +147,7 @@
                     break;
 
                 case 'error':
-                    utils.warn(e.data.name + ': ' + e.data.message);
+                    _logger.warn(e.data.name + ': ' + e.data.message);
                     _this.unregister(true);
                     _this.dispatchEvent(Event.ERROR, {
                         name: e.data.name,

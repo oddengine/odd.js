@@ -9,11 +9,12 @@
 
         CLASS_PANEL = 'pe-panel';
 
-    function Panel(name, kind) {
-        EventDispatcher.call(this, 'Panel', null, [GlobalEvent.VISIBILITYCHANGE]);
+    function Panel(name, kind, logger) {
+        EventDispatcher.call(this, 'Panel', { logger: logger }, [GlobalEvent.VISIBILITYCHANGE]);
 
         var _this = this,
             _name,
+            _logger = logger,
             _container,
             _content,
             _data;

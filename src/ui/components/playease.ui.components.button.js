@@ -8,11 +8,12 @@
 
         CLASS_BUTTON = 'pe-button';
 
-    function Button(name, kind) {
-        EventDispatcher.call(this, 'Button', null, [MouseEvent.CLICK]);
+    function Button(name, kind, logger) {
+        EventDispatcher.call(this, 'Button', { logger: logger }, [MouseEvent.CLICK]);
 
         var _this = this,
             _name,
+            _logger = logger,
             _container;
 
         function _init() {
