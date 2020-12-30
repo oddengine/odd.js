@@ -114,7 +114,7 @@
         _this.flush = function () {
             var api = playease(_this.id);
             utils.forEach(['info', 'stats'], function (i, key) {
-                var data = api.getProperties(key) || {};
+                var data = api.getProperty(key) || {};
                 _this.log(key + ':', data);
             });
 

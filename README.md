@@ -59,6 +59,7 @@ If you are interested in this player, please contact for details.
 - [x] v2.1.50 - New interface[s]: create, destroy.  
 - [x] v2.1.54 - New interface[s]: record.  
   - [x] v2.1.59 - StreamSaver using ServiceWorker.  
+  - [x] v2.1.69 - StreamWriter starts while the first keyframe is detected.  
 - [x] v2.1.67 - Implemented Logger class. New interface[s]: getProperties.  
   - [ ] Log feedback.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  

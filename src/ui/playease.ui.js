@@ -202,7 +202,7 @@
             _this.capture = _api.capture;
             _this.record = _api.record;
             _this.element = _api.element;
-            _this.getProperties = _api.getProperties;
+            _this.getProperty = _api.getProperty;
             _this.duration = _api.duration;
             _this.state = _api.state;
             _this.forward(e);
@@ -726,6 +726,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.67';
+    playease.UI.VERSION = '2.1.68';
 })(playease);
 
