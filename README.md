@@ -60,7 +60,7 @@ If you are interested in this player, please contact for details.
 - [x] v2.1.54 - New interface[s]: record.  
   - [x] v2.1.59 - StreamSaver using ServiceWorker.  
   - [x] v2.1.69 - StreamWriter starts while the first keyframe is detected.  
-- [x] v2.1.67 - Implemented Logger class. New interface[s]: getProperties.  
+- [x] v2.1.67 - Implemented Logger class. New interface[s]: getProperty.  
   - [ ] Log feedback.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
@@ -334,7 +334,7 @@ Note:
 | capture | width, height, mime | Captures the current frame, dispatches an screenshot event, and returns the image. |
 | record | filename | Records a stream once the ServiceWorker is activated, and returns a StreamWriter. The current writer will be closed if filename equals false. |
 | element |  | Gets the current rendering element, such as video, flash, canvas, etc. |
-| getProperties | key | Gets the current properties by key. Currently, key could be "info" and "stats". |
+| getProperty | key | Gets property by key. Currently, key could be "info" and "stats". |
 | duration |  | Gets the media duration. |
 | state |  | Gets the player state. |
 | destroy |  | Destroy this instance, removes dom elements. |
