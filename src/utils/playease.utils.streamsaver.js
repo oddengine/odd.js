@@ -33,16 +33,18 @@
             });
         }
 
+        // Should be called once the first keyframe is detected.
         _this.start = function () {
             _this.readyState = WriterState.START;
             _this.dispatchEvent(SaverEvent.WRITERSTART);
         };
 
         _this.write = function (chunk) {
-            // It is writable even in 'init' state.
-            return _writer.write(chunk).catch(function (err) {
-                _logger.error('StreamWriter failed to write: ' + err);
-            });
+            if (_this.readyState === WriterState.START) {
+                _writer.write(chunk).catch(function (err) {
+                    _logger.error('StreamWriter failed to write: ' + err);
+                });
+            }
         };
 
         _this.close = function () {
@@ -127,6 +129,7 @@
         };
 
         function _onMessage(e) {
+            _logger.log('ServiceWorker: event=' + e.data.event + ', filename=' + e.data.filename);
             switch (e.data.event) {
                 case 'recordstart':
                     if (StreamSaver.prototype.isSupported(e.data.version) === false) {
@@ -142,8 +145,7 @@
                     break;
 
                 case 'loadstart':
-                    var writer = _writers[e.data.filename];
-                    writer.start();
+                    // Do nothing here.
                     break;
 
                 case 'error':
@@ -203,6 +205,8 @@
         return true;
     };
 
+    StreamWriter.WriterState = WriterState;
+    utils.StreamWriter = StreamWriter;
     utils.StreamSaver = StreamSaver;
 })(playease);
 

@@ -3,7 +3,7 @@ player.innerHTML = '';
 var utils = playease.utils,
     index = 0;
 
-var ui = playease.ui(0, { level: 'log', mode: 'file', maxLines: 60 });
+var ui = playease.ui.create({ mode: 'file' });
 // ui.addGlobalListener(console.log);
 ui.addEventListener('ready', onReady);
 ui.addEventListener('click', onClick);
