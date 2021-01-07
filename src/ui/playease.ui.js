@@ -529,8 +529,8 @@
             var display = _plugins['Display'];
             if (display) {
                 display.update('stats', {
-                    SeekableRange: e.data.start + '/' + e.data.buffered + ' sec.',
-                    Buffer: (e.data.buffered - e.data.time).toLocaleString() + ' sec.',
+                    TimeRange: utils.time2string(e.data.start) + '/' + utils.time2string(e.data.buffered),
+                    JitterBuffer: (e.data.buffered - e.data.time).toLocaleString() + ' sec.',
                 });
             }
 
@@ -567,7 +567,26 @@
         function _onStatsUpdate(e) {
             var display = _plugins['Display'];
             if (display) {
-                display.update('stats', e.data.stats);
+                var data = utils.extendz({}, e.data.stats);
+                utils.forEach(data, function (key, value) {
+                    switch (key) {
+                        case 'BytesReceived':
+                        case 'BytesReceivedPerSecond':
+                            data[key] = utils.formatBytes(value);
+                            break;
+                        case 'AudioPacketsReceivedPerSecond':
+                        case 'VideoPacketsReceivedPerSecond':
+                        case 'DroppedVideoFrames':
+                        case 'TotalVideoFrames':
+                            data[key] = value.toLocaleString();
+                            break;
+                        case 'FirstAudioFrameReceivedIn':
+                        case 'FirstVideoFrameReceivedIn':
+                            data[key] = value.toLocaleString() + ' ms.';
+                            break;
+                    }
+                });
+                display.update('stats', data);
             }
 
             _this.forward(e);
@@ -726,6 +745,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.68';
+    playease.UI.VERSION = '2.1.71';
 })(playease);
 

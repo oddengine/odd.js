@@ -142,7 +142,7 @@
             }
             n /= 1024;
         }
-        return n + ' B';
+        return n.toFixed(3) + ' B'; // Should not reach here.
     };
 
     utils.typeOf = function (value) {

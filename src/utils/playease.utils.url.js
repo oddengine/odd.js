@@ -1,7 +1,7 @@
 (function (playease) {
     var utils = playease.utils,
 
-        re = /^(([a-z]+\:)\/\/(([-a-z\d\.]+)(?:\:(\d+))?))((?:\/[-_a-z\d\s\.]*)*)([?#][-_+=:/%&?a-z\d\s\.]+)?$/i;
+        re = /^(([a-z]+\:)\/\/(([-a-z\d\.]+)(?:\:(\d+))?))((?:\/[-_a-z\d\s\.]*)*)([?#][-_+=:/@#%&?a-z\d\s\.]+)?$/i;
 
     function URL(raw) {
         var _this = this;
