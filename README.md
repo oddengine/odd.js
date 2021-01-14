@@ -24,7 +24,7 @@ If you are interested in this player, please contact for details.
 
 - [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, etc.)  
 - [x] FLV (http[s]/ws[s])  
-- [ ] FMP4 (http[s]/ws[s])  
+- [x] FMP4 (http[s]/ws[s])  
 - [ ] DASH (ll-cmaf)  
 - [ ] HLS (ll-cmaf)  
 - [ ] RTC  
@@ -62,6 +62,7 @@ If you are interested in this player, please contact for details.
   - [x] v2.1.69 - StreamWriter starts while the first keyframe is detected.  
 - [x] v2.1.67 - Implemented Logger class. New interface[s]: getProperty.  
   - [ ] Log feedback.  
+- [x] v2.1.73 - New module[s]: FMP4.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 
