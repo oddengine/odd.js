@@ -14,9 +14,13 @@ Note:
 
 The open-sourced version (v1.2) is no longer being maintained. You can still find the source under branch "v1.2.xx". But it is outdated and not recommended to use in productions.
 
-Instead, we've started a new version (v2) for business usage, which is much more professional, efficient and stable. In this build, an UI framework is developed separately from the core SDK (known as API), and is much easier to understand and extend. The UI framework is open-sourced since v2.1.49 to help building customized UI, plugins and components.
+Instead, we've started a new version (v2) for business usage, which is much more professional, high-performance and stable, and compatiable with all of the browsers that supports [MSE](https://caniuse.com/?search=mse), including iPad Safari and Android Chrome. In this build, an UI framework is developed separately from the core SDK (known as API), and is much easier to understand and extend. In the meantime, the UI framework is open-sourced since v2.1.49 to help building customized UI, plugins and components.
 
-If you are interested in this player, please contact for details.
+The new core SDK provides more professional configurations, interfaces and events. In allusion to entertainment, monitoring, education and VR scenes, it is able to run in multi-instance mode and destroy dynamically, detect tracks automatically, synchronize audio and video while missing frames. In addition, configurable time range collector makes it functional 24/7. Tying in with reducing latency due to the cumulative ack of tcp, the latency of live broadcast can remain low. Besides, it also supports frame capture, progressive fMP4 recording at any time, real-time fetching and event reporting of media info, log feedback and so on.
+
+The UI framework is built independently from the core SDK, driven by the interfaces and events. It is designed with multiple scalable and registering plugins, each instance supports simple skin switching. Among these plugins, Display and Controlbar provide a flexible way to setup components, such as customization, deleting or re-sorting.
+
+If you are interested in this player, and or solutions about live media streaming, please contact us for details.
 
 ## Roadmap
 
