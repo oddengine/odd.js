@@ -54,7 +54,7 @@ If you are interested in this player, and or solutions about live media streamin
 - [x] v2.1.20 - Capture the current frame, and save as a picture.  
   - [x] v2.1.45 - New event for screenshot, and capture() will no longer auto download, but return the image data.  
 - [x] v2.1.27 - Reduce latency by simply seeking.  
-  - [ ] Reduce latency smoothly, due to the cumulative ack of tcp.  
+  - [x] v2.1.77 - Reduce latency smoothly, due to the cumulative ack of tcp.  
 - [x] v2.1.33 - Ignore track depending on flv flags, to optimize audio only or video only streaming.  
 - [x] v2.1.36 - Optimize track data into interleaved mode.  
 - [x] v2.1.37 - Fix audio time issue.  
