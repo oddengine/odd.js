@@ -35,8 +35,10 @@
 
         // Should be called once the first keyframe is detected.
         _this.start = function () {
-            _this.readyState = WriterState.START;
-            _this.dispatchEvent(SaverEvent.WRITERSTART);
+            if (_this.readyState === WriterState.INIT) {
+                _this.readyState = WriterState.START;
+                _this.dispatchEvent(SaverEvent.WRITERSTART);
+            }
         };
 
         _this.write = function (chunk) {

@@ -14,8 +14,8 @@ ui.setup(player, {
     autoplay: false,
     bufferLength: 0.5,       // sec.
     // file: 'http://127.0.0.1/vod/sample.mp4',
-    file: 'http://127.0.0.1/vod/sample.flv',
-    // file: 'http://192.168.1.101/live/_definst_/stream02.flv',
+    // file: 'http://127.0.0.1/vod/sample.flv',
+    file: 'http://192.168.1.101/live/_definst_/stream02.flv',
     // file: 'http://192.168.1.101/live/_definst_/stream02/video.m3u8',
     // file: 'http://39.98.40.193/live/_definst_/stream02.flv',
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
