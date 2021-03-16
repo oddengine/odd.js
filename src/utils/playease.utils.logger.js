@@ -25,7 +25,7 @@
         _default = {
             level: 'log',    // debug, log, warn, error
             mode: 'console', // console, file, feedback
-            maxLines: 60,
+            maxLines: 100,
         };
 
     function getLevel(level) {
@@ -65,7 +65,7 @@
             _this.config.level = getLevel(_this.config.level);
             _this.config.mode = getMode(_this.config.mode);
 
-            _prefix = '[ID:' + utils.padStart(_this.id, 2, '0') + ']';
+            _prefix = '[' + utils.padStart(_this.id, 2, '0') + ']';
 
             playease.DEBUG = _this.config.level === Level.DEBUG;
             if (_this.config.mode >= Mode.FILE) {

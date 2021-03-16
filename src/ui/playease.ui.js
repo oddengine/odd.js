@@ -80,6 +80,7 @@
             _api.addEventListener(Event.TIMEUPDATE, _onTimeUpdate);
             _api.addEventListener(Event.VOLUMECHANGE, _onVolumeChange);
             _api.addEventListener(IOEvent.LOAD, _this.forward);
+            _api.addEventListener(IOEvent.LOADEND, _this.forward);
             _api.addEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
             _api.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
             _api.addEventListener(MediaEvent.SEI, _this.forward);
@@ -529,8 +530,10 @@
             var display = _plugins['Display'];
             if (display) {
                 display.update('stats', {
-                    TimeRange: utils.time2string(e.data.start) + '/' + utils.time2string(e.data.buffered),
-                    JitterBuffer: (e.data.buffered - e.data.time).toLocaleString() + ' sec.',
+                    TimeStart: utils.time2string(e.data.start),
+                    TimeEnd: utils.time2string(e.data.buffered),
+                    Time: utils.time2string(e.data.time),
+                    BufferLength: (e.data.buffered - e.data.time).toLocaleString() + ' sec.',
                 });
             }
 
@@ -745,6 +748,6 @@
     playease.ui = UI.get;
     playease.ui.create = UI.create;
     playease.UI = UI;
-    playease.UI.VERSION = '2.1.71';
+    playease.UI.VERSION = '2.1.83';
 })(playease);
 
