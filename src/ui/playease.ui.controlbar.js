@@ -89,7 +89,7 @@
                     }
                     break;
                 case 'download':
-                    if (!TransformStream) {
+                    if (!window.TransformStream) {
                         return;
                     }
                     break;

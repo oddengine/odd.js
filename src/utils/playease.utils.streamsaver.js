@@ -104,6 +104,10 @@
         };
 
         _this.record = function (filename) {
+            if (!window.TransformStream) {
+                _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Not supportped.' });
+                return null;
+            }
             if (!filename) {
                 _this.dispatchEvent(Event.ERROR, { name: 'AbortError', message: 'The operation was aborted.' });
                 return null;
