@@ -67,6 +67,7 @@ If you are interested in this player, and or solutions about live media streamin
 - [x] v2.1.67 - Implemented Logger class. New interface[s]: getProperty.  
   - [ ] Log feedback.  
 - [x] v2.1.73 - New module[s]: FMP4.  
+- [x] v2.1.93 - Fix sps parsing issue caused log2_max_frame_num_minus4 out of range.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 
