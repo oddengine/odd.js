@@ -60,6 +60,7 @@
             _api.addEventListener(Event.PLAY, _onStateChange);
             _api.addEventListener(Event.WAITING, _onStateChange);
             _api.addEventListener(IOEvent.LOADSTART, _this.forward);
+            _api.addEventListener(IOEvent.OPEN, _this.forward);
             _api.addEventListener(IOEvent.PROGRESS, _this.forward);
             _api.addEventListener(IOEvent.SUSPEND, _this.forward);
             _api.addEventListener(IOEvent.STALLED, _this.forward);
@@ -643,7 +644,6 @@
             var display = _plugins['Display'];
             if (display) {
                 display.state(e.type);
-                // display.error({ name: 'state', message: e.type });
             }
 
             _this.resize();
@@ -673,6 +673,8 @@
         };
 
         _this.destroy = function () {
+            _timer.stop();
+            _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
             if (_api) {
                 _api.destroy();
                 _api.removeEventListener(Event.BIND, _onBind);
@@ -680,6 +682,7 @@
                 _api.removeEventListener(Event.PLAY, _onStateChange);
                 _api.removeEventListener(Event.WAITING, _onStateChange);
                 _api.removeEventListener(IOEvent.LOADSTART, _this.forward);
+                _api.removeEventListener(IOEvent.OPEN, _this.forward);
                 _api.removeEventListener(IOEvent.PROGRESS, _this.forward);
                 _api.removeEventListener(IOEvent.SUSPEND, _this.forward);
                 _api.removeEventListener(IOEvent.STALLED, _this.forward);

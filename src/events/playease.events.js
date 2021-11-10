@@ -22,10 +22,12 @@
             VOLUMECHANGE: 'volumechange',     // volume
             ENDED: 'ended',
             ERROR: 'error',                   // name, message
+            CLOSE: 'close',                   // reason
         },
 
         IOEvent = {
             LOADSTART: 'loadstart',
+            OPEN: 'open',
             PROGRESS: 'progress',   // loaded, total, buffer
             SUSPEND: 'suspend',
             STALLED: 'stalled',
@@ -51,6 +53,10 @@
         MediaStreamTrackEvent = {
             ADDTRACK: 'addtrack',       // track
             REMOVETRACK: 'removetrack', // track
+        },
+
+        NetStatusEvent = {
+            ON_STATUS: 'onStatus', // level, code, description, info
         },
 
         SaverEvent = {
@@ -93,6 +99,7 @@
     events.IOEvent = IOEvent;
     events.MediaEvent = MediaEvent;
     events.MediaStreamTrackEvent = MediaStreamTrackEvent;
+    events.NetStatusEvent = NetStatusEvent;
     events.SaverEvent = SaverEvent;
     events.UIEvent = UIEvent;
     events.GlobalEvent = GlobalEvent;
