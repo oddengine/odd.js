@@ -22,7 +22,7 @@ ui.setup(player, {
     maxBufferLength: 1.5,    // sec.
     maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
     mode: 'live',            // live, vod
-    module: 'FLV',
+    module: 'FLV',           // SRC, FLV, FMP4, DASH*, HLS*, RTC
     objectfit: 'contain',    // fill, contain, cover, none, scale-down
     retrying: 0,             // ms. retrying interval
     loader: {
