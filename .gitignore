@@ -6,3 +6,5 @@ src/av/
 src/core/
 src/io/
 src/module/
+src/rtc/
+src/playease.js
