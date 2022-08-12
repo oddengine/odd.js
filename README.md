@@ -3,7 +3,6 @@
 > [[domain] http://studease.cn](http://studease.cn/playease.html)  
 > [[source] https://github.com/studease/playease](https://github.com/studease/playease)  
 > [[中文] http://blog.csdn.net/icysky1989/article/details/75094205](http://blog.csdn.net/icysky1989/article/details/75094205)  
-> 公众号：STUDEASE  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
@@ -11,6 +10,8 @@
 This is not only an [HTML5 FLV Player](https://github.com/studease/playease#roadmap), which supports HTTP/WS-FLV live streaming, but also supports HTTP/WS-fMP4, MPEG-DASH, HLS and Original HTML5 Media Resources (eg. Ogg, Mpeg4, WebM), with an independent UI framework.  
 
 Note:  
+
+This project is part of [odd.js](https://github.com/oddcancer/odd.js) now, knowing as [odd.player.js](https://github.com/oddcancer/odd.js/blob/master/doc/player.md).  
 
 The open-sourced version (v1.2) is no longer being maintained. You can still find the source under branch "v1.2.xx". But it is outdated and not recommended to use in productions.
 
