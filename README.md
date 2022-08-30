@@ -1,7 +1,7 @@
 ﻿# playease.js 2.1
 
-> [[domain] http://studease.cn](http://studease.cn/playease.html)  
-> [[source] https://github.com/studease/playease](https://github.com/studease/playease)  
+> [[domain] https://www.oddcancer.com](https://www.oddcancer.com/product/player.html)  
+> [[source] https://github.com/oddcancer/odd.js](https://github.com/oddcancer/odd.js)  
 > [[中文] http://blog.csdn.net/icysky1989/article/details/75094205](http://blog.csdn.net/icysky1989/article/details/75094205)  
 > QQ群：528109813  
 > Skype: live:670292548  
@@ -11,7 +11,7 @@ This is not only an [HTML5 FLV Player](https://github.com/studease/playease#road
 
 Note:  
 
-This project is part of [odd.js](https://github.com/oddcancer/odd.js) now, knowing as [odd.player.js](https://github.com/oddcancer/odd.js/blob/master/doc/player.md).  
+This project is part of [odd.js](https://github.com/oddcancer/odd.js) now, knowing as [odd.player.js](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md).  
 
 The open-sourced version (v1.2) is no longer being maintained. You can still find the source under branch "v1.2.xx". But it is outdated and not recommended to use in productions.
 
@@ -32,7 +32,7 @@ If you are interested in this player, and or solutions about live media streamin
 - [x] FMP4 (http[s]/ws[s])  
 - [ ] DASH (ll-cmaf)  
 - [ ] HLS (ll-cmaf)  
-- [ ] RTC  
+- [X] RTC  
 - [ ] ~~Flash~~  
 
 ### UI Plugins
