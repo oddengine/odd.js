@@ -1,10 +1,10 @@
 .DS_Store
 */.DS_Store
 release/
-src/api/
-src/av/
-src/core/
-src/io/
-src/module/
-src/rtc/
-src/playease.js
+src/player/av/
+src/player/module/
+src/player/player.controller.js
+src/player/player.js
+src/player/player.model.js
+src/player/player.view.js
+src/rtc/rtc.beauty.shader.js
