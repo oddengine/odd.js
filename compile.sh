@@ -1,30 +1,146 @@
 #!/bin/sh
 
 scripts=()
-scripts[0]="./release/playease.api.min.js"
-scripts[1]="./src/ui/playease.ui.js"
-scripts[2]="./src/ui/components/playease.ui.components.js"
-scripts[3]="./src/ui/components/playease.ui.components.button.js"
-scripts[4]="./src/ui/components/playease.ui.components.label.js"
-scripts[5]="./src/ui/components/playease.ui.components.preview.js"
-scripts[6]="./src/ui/components/playease.ui.components.select.js"
-scripts[7]="./src/ui/components/playease.ui.components.slider.js"
-scripts[8]="./src/ui/components/playease.ui.components.panel.js"
-scripts[9]="./src/ui/playease.ui.poster.js"
-scripts[10]="./src/ui/playease.ui.danmu.js"
-scripts[11]="./src/ui/playease.ui.display.js"
-scripts[12]="./src/ui/playease.ui.ad.js"
-scripts[13]="./src/ui/playease.ui.share.js"
-scripts[14]="./src/ui/playease.ui.logo.js"
-scripts[15]="./src/ui/playease.ui.controlbar.js"
-scripts[16]="./src/ui/playease.ui.contextmenu.js"
+scripts[0]="./src/odd.js"
+scripts[1]="./src/utils/utils.js"
+scripts[2]="./src/utils/utils.amf.js"
+scripts[3]="./src/utils/utils.bitstream.js"
+scripts[4]="./src/utils/utils.browser.js"
+scripts[5]="./src/utils/utils.crypt.js"
+scripts[6]="./src/utils/utils.css.js"
+scripts[7]="./src/utils/utils.endian.js"
+scripts[8]="./src/utils/utils.filesaver.js"
+scripts[9]="./src/utils/utils.golomb.js"
+scripts[10]="./src/utils/utils.logger.js"
+scripts[11]="./src/utils/utils.url.js"
+scripts[12]="./src/utils/utils.xml2json.js"
+scripts[13]="./src/utils/mpd/mpd.js"
+scripts[14]="./src/utils/mpd/mpd.matchers.js"
+scripts[15]="./src/utils/mpd/mpd.matchers.datetime.js"
+scripts[16]="./src/utils/mpd/mpd.matchers.duration.js"
+scripts[17]="./src/utils/mpd/mpd.matchers.numeric.js"
+scripts[18]="./src/utils/mpd/mpd.matchers.string.js"
+scripts[19]="./src/events/events.js"
+scripts[20]="./src/events/events.eventdispatcher.js"
+scripts[21]="./src/utils/utils.streamsaver.js"
+scripts[22]="./src/utils/utils.timer.js"
 
-:>./release/playease.js
+:>./release/odd.common.js
 
 for item in ${scripts[@]};
 do
     echo ${item}
-    cat ${item} >> ./release/playease.js
+    cat ${item} >> ./release/odd.common.js
 done
 
-uglifyjs ./release/playease.js -c -m --warn -o ./release/playease.min.js
+scripts=()
+scripts[0]="./src/im/im.js"
+scripts[1]="./src/im/message/message.js"
+scripts[2]="./src/im/message/message.abort.js"
+scripts[3]="./src/im/message/message.ackwindowsize.js"
+scripts[4]="./src/im/message/message.ack.js"
+scripts[5]="./src/im/message/message.command.js"
+scripts[6]="./src/im/im.state.js"
+scripts[7]="./src/im/im.responder.js"
+scripts[8]="./src/im/im.netconnection.js"
+scripts[9]="./src/im/im.netstream.js"
+
+:>./release/odd.im.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.im.js
+done
+
+scripts=()
+scripts[0]="./src/im/ui/ui.js"
+scripts[1]="./src/im/ui/components/components.js"
+scripts[2]="./src/im/ui/components/components.button.js"
+scripts[3]="./src/im/ui/components/components.dialog.js"
+scripts[4]="./src/im/ui/components/components.label.js"
+scripts[5]="./src/im/ui/components/components.panel.js"
+scripts[6]="./src/im/ui/components/components.select.js"
+scripts[7]="./src/im/ui/components/components.slider.js"
+scripts[8]="./src/im/ui/components/components.tab.js"
+scripts[9]="./src/im/ui/ui.messages.js"
+scripts[10]="./src/im/ui/ui.contacts.js"
+scripts[11]="./src/im/ui/ui.settings.js"
+
+:>./release/odd.im.ui.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.im.ui.js
+done
+
+scripts=()
+scripts[0]="./src/rtc/rtc.js"
+scripts[1]="./src/rtc/rtc.constraints.js"
+scripts[2]="./src/rtc/rtc.stats.js"
+scripts[3]="./src/rtc/rtc.audiometer.js"
+scripts[4]="./src/rtc/rtc.beauty.js"
+scripts[5]="./src/rtc/rtc.beauty.shader.js"
+scripts[6]="./src/rtc/rtc.mixer.js"
+scripts[7]="./src/rtc/rtc.audiomixer.js"
+scripts[8]="./src/rtc/rtc.videomixer.js"
+scripts[9]="./src/rtc/rtc.netstream.js"
+
+:>./release/odd.rtc.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.rtc.js
+done
+
+scripts=()
+scripts[0]="./src/player/ui/ui.js"
+scripts[1]="./src/player/ui/components/components.js"
+scripts[2]="./src/player/ui/components/components.button.js"
+scripts[3]="./src/player/ui/components/components.label.js"
+scripts[4]="./src/player/ui/components/components.preview.js"
+scripts[5]="./src/player/ui/components/components.select.js"
+scripts[6]="./src/player/ui/components/components.slider.js"
+scripts[7]="./src/player/ui/components/components.panel.js"
+scripts[8]="./src/player/ui/components/components.settings.js"
+scripts[9]="./src/player/ui/ui.poster.js"
+scripts[10]="./src/player/ui/ui.chat.js"
+scripts[11]="./src/player/ui/ui.danmu.js"
+scripts[12]="./src/player/ui/ui.display.js"
+scripts[13]="./src/player/ui/ui.ad.js"
+scripts[14]="./src/player/ui/ui.share.js"
+scripts[15]="./src/player/ui/ui.logo.js"
+scripts[16]="./src/player/ui/ui.controlbar.js"
+scripts[17]="./src/player/ui/ui.contextmenu.js"
+
+:>./release/odd.player.ui.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.player.ui.js
+done
+
+uglifyjs ./release/odd.common.js -c -m --warn -o ./release/odd.common.min.js
+uglifyjs ./release/odd.im.js -c -m --warn -o ./release/odd.im.min.js
+uglifyjs ./release/odd.im.ui.js -c -m --warn -o ./release/odd.im.ui.min.js
+uglifyjs ./release/odd.rtc.js -c -m --warn -o ./release/odd.rtc.min.js
+uglifyjs ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
+
+scripts=()
+scripts[0]="./release/odd.common.min.js"
+scripts[1]="./release/odd.im.min.js"
+scripts[2]="./release/odd.im.ui.min.js"
+scripts[3]="./release/odd.rtc.min.js"
+scripts[4]="./release/odd.player.min.js"
+scripts[5]="./release/odd.player.ui.min.js"
+
+:>./release/odd.min.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.min.js
+done
