@@ -259,6 +259,17 @@ function onReady(e) {
         objectfit: 'fill',   // fill, contain, cover, none, scale-down
         visibility: true,
     }, {
+        kind: 'Chat',
+        maxRetries: 0,
+        url: 'wss://' + location.host + '/rtc/sig',
+        codecpreferences: [
+            'audio/opus',
+            'video/VP8',
+        ],
+        client: null,
+        enable: false,
+        visibility: true,
+    }, {
         kind: 'Danmu',
         speed: 100,
         lineHeight: 32,
@@ -285,7 +296,7 @@ function onReady(e) {
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:capture=Capture][Button:download=Download][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
+        layout: '[Slider:timebar=Preview]|[Button:play=Play][Button:pause=Pause][Button:reload=Reload][Button:stop=Stop][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=Report][Button:capture=Capture][Button:download=Download][Button:dial=Dial][Button:hangup=Hang Up][Button:mute=Mute][Button:unmute=Unmute][Slider:volumebar=80][Select:definition=Definition][Button:danmuoff=Danmu Off][Button:danmuon=Danmu On][Button:fullpage=Fullpage][Button:exitfullpage=Exit Fullpage][Button:fullscreen=Fullscreen][Button:exitfullscreen=Exit Fullscreen]',
         autohide: false,
         visibility: true,
     }, {
