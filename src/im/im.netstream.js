@@ -116,7 +116,7 @@
                 status = reject;
             });
             var args = {
-                name: Command.LEAVE,
+                name: Command.CHMOD,
                 rid: rid,
                 tid: tid,
                 operator: operator,

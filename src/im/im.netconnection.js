@@ -307,7 +307,7 @@
             var data = new Uint8Array(size);
             var view = new DataView(data.buffer);
 
-            view.setUint32(i, new Date().getTime());
+            view.setUint32(i, Math.floor(new Date().getTime() / 1000));
             i += 4;
             view.setUint16(i, transactionId);
             i += 2;
