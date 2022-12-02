@@ -62,7 +62,8 @@
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
 
             _bind();
-            return await _connect();
+            await _connect();
+            return await _ns.attach(_nc);
         };
 
         function _bind() {
@@ -88,7 +89,7 @@
                     return Promise.reject(err);
                 }
             }
-            return await _ns.attach(_nc);
+            return Promise.resolve();
         };
 
         function _onStatus(e) {
@@ -109,7 +110,6 @@
 
         function _onClose(e) {
             _logger.log(`IM.onClose: ${e.data.reason}`);
-            _this.close(e.data.reason);
             _this.forward(e);
 
             if (_retried++ < _this.config.maxRetries || _this.config.maxRetries === -1) {
@@ -122,7 +122,7 @@
             await _connect().catch((err) => { });
         }
 
-        _this.close = function (reason) {
+        _this.destroy = function (reason) {
             _timer.reset();
             switch (_this.state()) {
                 case IM.State.CONNECTED:

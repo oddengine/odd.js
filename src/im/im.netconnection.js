@@ -246,7 +246,8 @@
 
         function _onClose(e) {
             _logger.log(`IM.onClose: ${e.code} ${e.reason || 'EOF'}`);
-            _this.close(`${e.code} ${e.reason || 'EOF'}`);
+            _this.dispatchEvent(Event.CLOSE, { reason: `${e.code} ${e.reason || 'EOF'}` });
+            _readyState = State.CLOSED;
         }
 
         _this.create = async function (ns, responder) {

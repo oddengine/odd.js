@@ -84,7 +84,7 @@
                 return Promise.reject('published');
             }
             return _this.api.publish(_this.constraints).then(function (ns) {
-                ns.addEventListener(Event.CLOSE, function (e) {
+                ns.addEventListener(Event.RELEASE, function (e) {
                     var video = e.srcElement.video;
                     video.removeEventListener('click', _onClick);
                     _playlist.removeChild(video);
@@ -128,7 +128,7 @@
                             break;
                     }
                 });
-                ns.addEventListener(Event.CLOSE, function (e) {
+                ns.addEventListener(Event.RELEASE, function (e) {
                     var video = e.srcElement.video;
                     video.removeEventListener('click', _onClick);
                     _playlist.removeChild(video);
