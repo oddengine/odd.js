@@ -209,7 +209,7 @@
             var info = m.Arguments.info;
 
             if (level && code) {
-                _logger.debug(`onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
+                _logger.debug(`IM.NetConnection.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
             }
 
             var responder = _responders[m.TransactionID];
@@ -236,7 +236,7 @@
         }
 
         function _onError(e) {
-            _logger.error(`IM.onError: ${e}`);
+            _logger.error(`IM.NetConnection.onError: ${e}`);
             if (_reject) {
                 _reject();
                 _resolve = _reject = undefined;
@@ -245,7 +245,7 @@
         }
 
         function _onClose(e) {
-            _logger.log(`IM.onClose: ${e.code} ${e.reason || 'EOF'}`);
+            _logger.log(`IM.NetConnection.onClose: ${e.code} ${e.reason || 'EOF'}`);
             _this.dispatchEvent(Event.CLOSE, { reason: `${e.code} ${e.reason || 'EOF'}` });
             _readyState = State.CLOSED;
         }

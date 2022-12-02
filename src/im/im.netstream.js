@@ -149,7 +149,7 @@
                 _logger.log(`[${cast}]${id}: ${data}`);
                 result();
             }, function (m) {
-                _logger.error(`Failed to send [${cast}]${id}: ${m.Arguments.description}`);
+                _logger.error(`Failed to send ${cast}-cast to ${id}: ${m.Arguments.description}`);
                 status(m.Arguments.description);
             }));
             return await ret;
@@ -217,7 +217,7 @@
             var code = m.Arguments.code;
             var description = m.Arguments.description;
             var info = m.Arguments.info;
-            _logger.debug(`IM.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger.debug(`IM.NetStream.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             var responder = _responders[m.TransactionID];
             if (responder != null) {

@@ -817,7 +817,7 @@
             var code = m.Arguments.code;
             var description = m.Arguments.description;
             var info = m.Arguments.info;
-            _logger.debug(`RTC.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger.debug(`RTC.NetStream.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             var responder = _responders[m.TransactionID];
             if (responder != null) {
