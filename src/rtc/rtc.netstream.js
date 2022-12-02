@@ -396,13 +396,9 @@
         };
 
         _this.publish = async function () {
-            _setCodecPreferences(_this.config.codecpreferences);
-
             try {
                 var offer = await _pc.createOffer();
-                if (Kernel.isAppleWebKit) {
-                    offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
-                }
+                offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
                 _logger.log(`createOffer success: id=${_pid}, sdp=\n${offer.sdp}`);
             } catch (err) {
                 _logger.error(`Failed to createOffer: id=${_pid}`);
@@ -428,60 +424,15 @@
             });
         };
 
-        function _setCodecPreferences(mimetypes) {
-            var audiocapabilities = RTCRtpSender.getCapabilities('audio').codecs;
-            var videocapabilities = RTCRtpSender.getCapabilities('video').codecs;
-            var audiopreferences = [];
-            var videopreferences = [];
-
-            for (var i = 0; i < audiocapabilities.length && !audiopreferences.length; i++) {
-                var codec = audiocapabilities[i];
-                for (var j = 0; j < mimetypes.length; j++) {
-                    if (codec.mimeType === mimetypes[j]) {
-                        audiopreferences.push(codec);
-                        break;
-                    }
-                }
-            }
-            for (var i = 0; i < videocapabilities.length && !videopreferences.length; i++) {
-                var codec = videocapabilities[i];
-                if (codec.mimeType === 'video/H264' && codec.sdpFmtpLine) {
-                    var arr = codec.sdpFmtpLine.match(/packetization-mode=(0|1)/);
-                    if (arr && arr[1] !== '1') {
-                        continue;
-                    }
-                    arr = codec.sdpFmtpLine.match(/profile-level-id=([a-z\d]+)/);
-                    if (arr && arr[1] !== '42e01f') {
-                        continue;
-                    }
-                }
-                for (var j = 0; j < mimetypes.length; j++) {
-                    if (codec.mimeType === mimetypes[j]) {
-                        videopreferences.push(codec);
-                        break;
-                    }
-                }
-            }
-
-            _pc.getTransceivers().forEach(function (transceiver) {
-                switch (transceiver.sender.track.kind) {
-                    case 'audio':
-                        transceiver.setCodecPreferences(audiopreferences);
-                        break;
-                    case 'video':
-                        transceiver.setCodecPreferences(videopreferences);
-                        break;
-                }
-            });
-        }
-
         function _modify(sdp, mimetypes) {
             var lines = sdp.split('\r\n');
+            var state = 'v=';
             var dst = '';
-            var state = 'v';
-            var block = [];
             var kind = '';
+            var codec = '';
+            var block = [];
             var pts = [];
+            var last = -1;
 
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i];
@@ -492,10 +443,11 @@
                     case 'dropping':
                     // fallthrough
 
-                    case 'preferred':
+                    case 'a=rtpmap':
                         var arr = line.match(/^a=rtcp-fb:(\d+)/);
                         if (arr) {
                             if (state === 'dropping') {
+                                // Drop this line.
                                 break;
                             }
                             var pt = pts[pts.length - 1];
@@ -506,40 +458,71 @@
                         arr = line.match(/^a=fmtp:(\d+)/);
                         if (arr) {
                             if (state === 'dropping') {
+                                // Drop this line.
                                 break;
                             }
                             var pt = pts[pts.length - 1];
                             line = line.replace(/^a=fmtp:(\d+)/, `a=fmtp:${pt}`);
-                            line = line.replace(/packetization-mode=(0|1)/i, 'packetization-mode=1');
-                            line = line.replace(/profile-level-id=([a-z\d]+)/i, 'profile-level-id=42e01f');
+                            switch (codec) {
+                                case 'H264':
+                                    line = line.replace(/packetization-mode=(0|1)/i, 'packetization-mode=1');
+                                    line = line.replace(/profile-level-id=([a-z\d]+)/i, 'profile-level-id=42e01f');
+                                    break;
+                                case 'VP9':
+                                    line = line.replace(/profile-id=(\d+)/i, 'profile-id=2');
+                                    break;
+                            }
                             block.push(line);
                             break;
                         }
                     // fallthrough
 
-                    case 'm':
+                    case 'm=':
                         var arr = line.match(/^a=rtpmap:(\d+) ([a-zA-Z\d\-]+)\/(\d+)(?:\/(\d))?/);
                         if (arr) {
+                            var pt = arr[1];
+                            codec = arr[2];
+                            switch (codec) {
+                                case 'opus':
+                                    pt = 111;
+                                    break;
+                                case 'VP8':
+                                    pt = 96;
+                                    break;
+                                case 'VP9':
+                                    pt = 98;
+                                    break;
+                                case 'H264':
+                                    pt = 106;
+                                    break;
+                                case 'H265':
+                                    pt = 108;
+                                    break;
+                                case 'AV1':
+                                    pt = 41;
+                                    break;
+                                case 'red':
+                                case 'rtx':
+                                case 'ulpfec':
+                                    switch (last) {
+                                        case 111:
+                                            pt = 63;
+                                            break;
+                                        default:
+                                            pt = last + 1;
+                                            break;
+                                    }
+                                    break;
+                            }
+
                             var found = false;
                             for (var j = 0; j < mimetypes.length; j++) {
-                                if (mimetypes[j] === kind + '/' + arr[2]) {
+                                if (mimetypes[j] === kind + '/' + codec) {
                                     found = true;
                                     break;
                                 }
                             }
-                            if (found) {
-                                var pt = arr[1];
-                                switch (arr[2]) {
-                                    case 'opus':
-                                        pt = 111;
-                                        break;
-                                    case 'VP8':
-                                        pt = 96;
-                                        break;
-                                    case 'H264':
-                                        pt = 106;
-                                        break;
-                                }
+                            if (found || last !== -1 && (codec === 'red' || codec === 'rtx' || codec === 'ulpfec')) {
                                 var inserted = false;
                                 for (var j = 0; j < pts.length; j++) {
                                     if (pts[j] === pt) {
@@ -549,26 +532,30 @@
                                 }
                                 if (inserted === false) {
                                     line = line.replace(/^a=rtpmap:(\d+)/, `a=rtpmap:${pt}`);
-                                    block[0] = block[0] + ` ${pt}`;
+                                    block[0] += ` ${pt}`;
                                     block.push(line);
                                     pts.push(pt);
-                                    state = 'preferred';
+                                    last = pt;
+                                    state = 'a=rtpmap';
                                     break;
                                 }
                             }
+                            // Drop this line.
+                            last = -1;
                             state = 'dropping';
                             break;
                         }
                     // fallthrough
 
-                    case 'v':
+                    case 'v=':
                         var arr = line.match(/^m=(audio|video) 9 UDP\/TLS\/RTP\/SAVPF/);
                         if (arr) {
                             dst += block.join('\r\n') + '\r\n';
-                            block = [arr[0]];
+
                             kind = arr[1];
+                            block = [arr[0]];
                             pts = [];
-                            state = 'm';
+                            state = 'm=';
                             break;
                         }
                         block.push(line);
@@ -803,6 +790,14 @@
 
         async function _processCommandCandidate(m) {
             try {
+                // candidate:foundation icegroupid protocol priority address port typ type [tcptype passive] generation 0 ufrag EkX7 network-id 1
+                // candidate:2521313038 1 udp 2122260223 8.129.32.129 35050 typ host generation 0 ufrag EkX7 network-id 1
+                // candidate:3637236734 1 tcp 1518280447 8.129.32.129 54853 typ host tcptype passive generation 0 ufrag ENBr network-id 1
+                // candidate:1522864285 1 udp 1686052607 8.129.32.129 56851 typ srflx raddr 172.18.211.206 rport 56851 generation 0 ufrag g2Hy network-id 1
+                // var arr = m.Arguments.candidate.match(/^candidate:(?<foundation>\d+) (?<icegroupid>\d+) (?<protocol>udp|tcp) (?<priority>\d+) (?<address>[\d\.]+) (?<port>\d+) typ (?<type>[a-z]+)/i);
+                // if (arr && arr.groups.type === 'host') {
+                // }
+
                 var candidate = new RTCIceCandidate({
                     candidate: m.Arguments.candidate,
                     sdpMid: m.Arguments.sdpMid || '',
