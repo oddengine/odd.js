@@ -30,6 +30,7 @@ im.setup({
 
 function onReady(e) {
     im.logger.log('onReady');
+    window.addEventListener('beforeunload', onLeaveClick);
 }
 
 function onJoinClick(e) {
@@ -285,9 +286,24 @@ function onStatus(e) {
     rtc.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
 
     switch (code) {
+        case Code.NETSTREAM_PUBLISH_START:
+            var ns = e.srcElement;
+            ns.setProperty('stream', info.stream);
+            im.send('publishing', Casting.MULTI, in_room.value, {
+                stream: info.stream,
+            });
+            break;
         case Code.NETGROUP_CONNECT_SUCCESS:
             _self = info.user;
             in_nick.value = info.user.nick;
+            utils.forEach(rtc.publishers, function (_, ns) {
+                var stream = ns.getProperty('stream');
+                if (stream) {
+                    im.send('publishing', Casting.MULTI, in_room.value, {
+                        stream: stream,
+                    });
+                }
+            });
             break;
         case Code.NETGROUP_NEIGHBOR_CONNECT:
             utils.forEach(rtc.publishers, function (_, ns) {
@@ -310,13 +326,6 @@ function onStatus(e) {
                     }
                     break;
             }
-            break;
-        case Code.NETSTREAM_PUBLISH_START:
-            var ns = e.srcElement;
-            ns.setProperty('stream', info.stream);
-            im.send('publishing', Casting.MULTI, in_room.value, {
-                stream: info.stream,
-            });
             break;
     }
 }
