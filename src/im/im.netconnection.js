@@ -91,11 +91,11 @@
                     args['name'] = Command.CONNECT;
                     args['uuid'] = _this.getProperty('@uuid');
                     _this.call(_pid, 0, args, null, new Responder(function (m) {
-                        _logger.log(`Connect success.`);
                         var info = m.Arguments.info;
 
                         var fastreconnect = _this.getProperty('@uuid') === info.uuid;
                         if (fastreconnect) {
+                            _logger.log(`Fast reconnect success.`);
                             for (/* void */; _queued.length; _queued.shift()) {
                                 try {
                                     var view = _queued[0];
@@ -106,6 +106,14 @@
                                 }
                             }
                         } else {
+                            _logger.log(`Connect success.`);
+                            for (var i in _pipes) {
+                                if (i != 0) {
+                                    var pipe = _pipes[i];
+                                    pipe.release(`lost chance to do fast-reconnecting`);
+                                }
+                            }
+                            _pipes = { 0: _this };
                             _queued = [];
                         }
                         _readyState = State.CONNECTED;
@@ -364,7 +372,6 @@
                     for (var i in _pipes) {
                         if (i != 0) {
                             var pipe = _pipes[i];
-                            pipe.onrelease = undefined;
                             pipe.release(reason);
                         }
                     }
