@@ -462,7 +462,9 @@
                                 break;
                             }
                             var pt = pts[pts.length - 1];
+                            var apt = pts[pts.length - 2];
                             line = line.replace(/^a=fmtp:(\d+)/, `a=fmtp:${pt}`);
+                            line = line.replace(/apt=(\d+)/, `apt=${apt}`);
                             switch (codec) {
                                 case 'H264':
                                     line = line.replace(/packetization-mode=(0|1)/i, 'packetization-mode=1');
