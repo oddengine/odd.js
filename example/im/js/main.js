@@ -48,7 +48,7 @@ function onStatus(e) {
     var description = e.data.description;
     var info = e.data.info;
     var method = { status: 'log', warning: 'warn', error: 'error' }[level];
-    ui.logger[method](`IM.onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+    ui.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
 
     switch (code) {
         case Code.NETGROUP_LOCALCOVERAGE_NOTIFY:
@@ -67,5 +67,5 @@ function onStatus(e) {
 }
 
 function onClose(e) {
-    ui.logger.log(`IM.onClose: ${e.data.reason}`);
+    ui.logger.log(`onClose: ${e.data.reason}`);
 }

@@ -19,12 +19,13 @@
 - [x] v2.3.38 - Be able to change track constraints.  
 - [x] v2.3.41 - Add AudioMeter.  
 - [x] v2.3.43 - Add Beauty of brightness and smoothness.  
-- [ ] Be able to change microphone while publishing.  
 - [x] v2.4.04 - Refactor im & rtc protocol.  
+- [x] v2.4.06 - Supports red/rtx/ulpfec.  
+- [ ] Be able to change microphone while publishing.  
 
 ## Solutions
 
-- [x] [WebRTC Conference](https://www.oddcancer.com/solution/rtc/index.html).  
+- [x] [Online Conference](https://www.oddcancer.com/solution/rtc/index.html)  
 
 ## Configuration
 

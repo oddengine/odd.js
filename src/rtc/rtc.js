@@ -21,7 +21,10 @@
             options: {
                 token: '',
             },
-            codecpreferences: [],
+            codecpreferences: [
+                'audio/opus',
+                'video/VP8',
+            ],
             rtcconfiguration: {},
         };
 

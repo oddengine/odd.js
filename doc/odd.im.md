@@ -22,7 +22,7 @@
 
 ## Solutions
 
-- [x] [Live Broadcast](https://www.oddcancer.com/solution/live.html).  
+- [x] [Live Broadcast](https://www.oddcancer.com/solution/live.html)  
 
 ## Example
 

@@ -21,7 +21,6 @@ im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 im.addEventListener(Event.CLOSE, onClose);
 im.setup({
     maxRetries: -1,
-    retryIn: 3000,
     url: 'wss://' + location.host + '/im',
     options: {
         token: 'xxx',
@@ -47,17 +46,11 @@ var rtc = odd.rtc.create(im.client(), { mode: 'feedback', url: 'https://fc.oddca
 rtc.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 rtc.addEventListener(Event.CLOSE, onClose);
 rtc.setup({
-    maxRetries: -1,
     profile: sl_profiles.value || '180P_1',
-    retryIn: 2000,
-    url: 'wss://' + location.host + '/im',
     codecpreferences: [
         'audio/opus',
         'video/VP8',
     ],
-    options: {
-        token: 'xxx',
-    },
 });
 
 (async function () {
