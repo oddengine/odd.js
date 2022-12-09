@@ -132,8 +132,17 @@
                     _logger.log('Component ' + config.kind + ' is disabled.');
                     return;
                 }
-                if (config.kind === 'Controlbar' && !_this.config.file) {
-                    config.sources = _this.config.sources;
+
+                switch (config.kind) {
+                    case 'Chat':
+                        config.client = _this.config.client;
+                        config.rtc = _this.config.rtc;
+                        break;
+                    case 'Controlbar':
+                        if (!_this.config.file) {
+                            config.sources = _this.config.sources;
+                        }
+                        break;
                 }
 
                 try {

@@ -21,6 +21,7 @@
             kind: 'Chat',
             client: null,
             enable: false,
+            rtc: {},
             visibility: true,
         };
 
@@ -40,7 +41,7 @@
             _this.api = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddcancer.com/rtc/log', interval: 60 });
             _this.api.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             _this.api.addEventListener(Event.CLOSE, _onClose);
-            _this.api.setup(_this.config);
+            _this.api.setup(_this.config.rtc);
 
             _container = utils.createElement('div', CLASS_CHAT);
             _content = utils.createElement('div');

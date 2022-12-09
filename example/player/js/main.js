@@ -1,18 +1,40 @@
 player.innerHTML = '';
 
 var utils = odd.utils,
+    events = odd.events,
+    Event = events.Event,
+    NetStatusEvent = events.NetStatusEvent,
+    Level = events.Level,
+    Code = events.Code,
+
     index = 0;
+
+var im = odd.im.create();
+im.addEventListener(Event.READY, onReady);
+im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
+im.addEventListener(Event.CLOSE, onClose);
+im.setup({
+    maxRetries: 0,
+    url: 'wss://oddcancer.com/im',
+    options: {
+        token: 'xxx',
+    },
+}).then(() => {
+    im.join('001').catch((err) => {
+        im.logger.error(`Failed to join 001: ${err}`);
+    });
+});
 
 var ui = odd.player.ui.create({ mode: 'file' });
 // ui.addGlobalListener(console.log);
-ui.addEventListener('ready', onReady);
+// ui.addEventListener('ready', onReady);
 ui.addEventListener('click', onClick);
 // ui.addEventListener('sei', console.log);
 ui.addEventListener('screenshot', onScreenshot);
-ui.addEventListener('close', onClose);
 ui.setup(player, {
     autoplay: false,
     bufferLength: 0.5,       // sec.
+    client: im.client(),
     // file: 'http://127.0.0.1/vod/sample.mp4',
     // file: 'http://127.0.0.1/vod/sample.flv',
     // file: 'ws://192.168.0.117/live/_definst_/abc.flv',
@@ -31,6 +53,17 @@ ui.setup(player, {
         mode: 'cors',        // cors, no-cors, same-origin
         credentials: 'omit', // omit, include, same-origin
     },
+    rtc: {
+        maxRetries: 0,
+        url: 'wss://' + location.host + '/im',
+        options: {
+            token: '',
+        },
+        codecpreferences: [
+            'audio/opus',
+            'video/VP8',
+        ],
+    },
     service: {
         script: 'js/sw.js',
         scope: 'js/',
@@ -46,7 +79,7 @@ ui.setup(player, {
         module: 'FMP4',
         label: 'ws-fmp4',
     }, {
-        file: 'wss://www.oddcancer.com/rtc/sig?name=abc',
+        file: 'rtc://www.oddcancer.com/im?name=abc',
         module: 'RTC',
         label: 'rtc',
     }, {
@@ -62,13 +95,6 @@ ui.setup(player, {
         visibility: true,
     }, {
         kind: 'Chat',
-        maxRetries: 0,
-        url: 'wss://' + location.host + '/rtc/sig',
-        codecpreferences: [
-            'audio/opus',
-            'video/VP8',
-        ],
-        client: null,
         enable: false,
         visibility: true,
     }, {
@@ -85,11 +111,48 @@ ui.setup(player, {
 });
 
 function onReady(e) {
+    im.logger.log('onReady');
+    window.addEventListener('beforeunload', function (e) {
+        ui.stop();
+        im.leave('001');
+    });
     // ui.record('fragmented.mp4').then((writer) => {
     //     setTimeout(function () {
     //         writer.close();
     //     }, 10 * 000);
     // });
+}
+
+function onStatus(e) {
+    var level = e.data.level;
+    var code = e.data.code;
+    var description = e.data.description;
+    var info = e.data.info;
+    var method = { status: 'log', warning: 'warn', error: 'error' }[level];
+    im.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+
+    switch (code) {
+        case Code.NETGROUP_SENDTO_NOTIFY:
+        case Code.NETGROUP_POSTING_NOTIFY:
+            var m = info;
+            var args = m.Arguments;
+            switch (args.type) {
+                case 'publishing':
+                    for (var i = 0; i < ui.config.sources.length; i++) {
+                        var item = ui.config.sources[i];
+                        if (item.file.match(/^rtc:\/\//)) {
+                            item.file = item.file.split('?')[0] + `?name=${args.data.stream}`;
+                            break;
+                        }
+                    }
+                    break;
+            }
+            break;
+    }
+}
+
+function onClose(e) {
+    im.logger.log(`onClose: ${e.data.reason}`);
 }
 
 function onClick(e) {
@@ -112,10 +175,6 @@ function onScreenshot(e) {
     link.href = e.data.image;
     link.download = 'screenshot-' + utils.padStart(index++, 3, '0') + '.' + ret[2];
     link.click();
-}
-
-function onClose(e) {
-    ui.logger.log(`onClose: ${e.data.reason}`);
 }
 
 function onPlayClick() {
