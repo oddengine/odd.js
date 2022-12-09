@@ -123,11 +123,11 @@ do
     cat ${item} >> ./release/odd.player.ui.js
 done
 
-uglifyjs ./release/odd.common.js -c -m --warn -o ./release/odd.common.min.js
-uglifyjs ./release/odd.im.js -c -m --warn -o ./release/odd.im.min.js
-uglifyjs ./release/odd.im.ui.js -c -m --warn -o ./release/odd.im.ui.min.js
-uglifyjs ./release/odd.rtc.js -c -m --warn -o ./release/odd.rtc.min.js
-uglifyjs ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
+terser ./release/odd.common.js -c -m --warn -o ./release/odd.common.min.js
+terser ./release/odd.im.js -c -m --warn -o ./release/odd.im.min.js
+terser ./release/odd.im.ui.js -c -m --warn -o ./release/odd.im.ui.min.js
+terser ./release/odd.rtc.js -c -m --warn -o ./release/odd.rtc.min.js
+terser ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
 
 scripts=()
 scripts[0]="./release/odd.common.min.js"
