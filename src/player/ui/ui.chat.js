@@ -20,7 +20,6 @@
         _default = {
             kind: 'Chat',
             client: null,
-            enable: false,
             rtc: {},
             visibility: true,
         };
@@ -38,10 +37,10 @@
             _this.config = config;
             _this.constraints = utils.extendz({}, Constraints[_this.config.profile || '180P_1']);
 
-            _this.api = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddcancer.com/rtc/log', interval: 60 });
-            _this.api.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
-            _this.api.addEventListener(Event.CLOSE, _onClose);
-            _this.api.setup(_this.config.rtc);
+            _this.rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddcancer.com/rtc/log', interval: 60 });
+            _this.rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+            _this.rtc.addEventListener(Event.CLOSE, _onClose);
+            _this.rtc.setup(_this.config.rtc);
 
             _container = utils.createElement('div', CLASS_CHAT);
             _content = utils.createElement('div');
@@ -53,38 +52,23 @@
         }
 
         function _bind() {
-            _this.unpublish = _this.api.unpublish;
-            _this.stop = _this.api.stop;
+            _this.unpublish = _this.rtc.unpublish;
+            _this.stop = _this.rtc.stop;
         }
 
         _this.applyConstraints = function (constraints) {
             _this.constraints = utils.extendz(_this.constraints, constraints);
-            utils.forEach(_this.api.publishers, function (_, ns) {
+            utils.forEach(_this.rtc.publishers, function (_, ns) {
                 ns.applyConstraints(_this.constraints);
             });
         };
 
-        _this.enable = function (enable) {
-            if (utils.typeOf(enable) === 'boolean') {
-                _this.config.enable = enable;
-                if (enable) {
-                    _this.publish().catch(function (err) {
-                        _logger.warn(`${err}`);
-                    });
-                } else {
-                    _this.unpublish();
-                    _this.stop();
-                }
-            }
-            return _this.config.enable;
-        };
-
         _this.publish = async function () {
-            for (var id in _this.api.publishers) {
+            for (var id in _this.rtc.publishers) {
                 _logger.error(`Already published.`);
                 return Promise.reject('published');
             }
-            return _this.api.publish(_this.constraints).then(function (ns) {
+            return _this.rtc.publish(_this.constraints).then(function (ns) {
                 ns.addEventListener(Event.RELEASE, function (e) {
                     var video = e.srcElement.video;
                     video.removeEventListener('click', _onClick);
@@ -112,10 +96,7 @@
         };
 
         _this.play = async function (name) {
-            if (_this.config.enable === false) {
-                return Promise.reject('plugin not enabled');
-            }
-            return _this.api.play(name).then(function (ns) {
+            return _this.rtc.play(name).then(function (ns) {
                 ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
                     switch (e.data.code) {
                         case Code.NETSTREAM_PLAY_START:
@@ -146,14 +127,6 @@
             var info = e.data.info;
             var method = { status: 'log', warning: 'warn', error: 'error' }[level];
             _logger[method](`RTC.onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
-
-            switch (code) {
-                case Code.NETCONNECTION_CONNECT_SUCCESS:
-                    if (_this.config.enable) {
-                        _this.publish();
-                    }
-                    break;
-            }
             _this.forward(e);
         }
 

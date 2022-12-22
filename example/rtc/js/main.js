@@ -282,7 +282,7 @@ function onStatus(e) {
         case Code.NETSTREAM_PUBLISH_START:
             var ns = e.srcElement;
             ns.setProperty('stream', info.stream);
-            im.send('publishing', Casting.MULTI, in_room.value, {
+            im.send(Sending.STREAMING, Casting.MULTI, in_room.value, {
                 stream: info.stream,
             });
             break;
@@ -292,7 +292,7 @@ function onStatus(e) {
             utils.forEach(rtc.publishers, function (_, ns) {
                 var stream = ns.getProperty('stream');
                 if (stream) {
-                    im.send('publishing', Casting.MULTI, in_room.value, {
+                    im.send(Sending.STREAMING, Casting.MULTI, in_room.value, {
                         stream: stream,
                     });
                 }
@@ -302,7 +302,7 @@ function onStatus(e) {
             utils.forEach(rtc.publishers, function (_, ns) {
                 var stream = ns.getProperty('stream');
                 if (stream) {
-                    im.send('publishing', Casting.UNI, info.user.id, {
+                    im.send(Sending.STREAMING, Casting.UNI, info.user.id, {
                         stream: stream,
                     });
                 }
@@ -313,7 +313,7 @@ function onStatus(e) {
             var m = info;
             var args = m.Arguments;
             switch (args.type) {
-                case 'publishing':
+                case Sending.STREAMING:
                     if (args.user.id !== _self.id) {
                         play(args.data.stream);
                     }

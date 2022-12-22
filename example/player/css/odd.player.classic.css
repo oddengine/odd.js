@@ -236,12 +236,23 @@
     vertical-align: middle;
 }
 
+.pe-ui-classic .pe-chat,
+.pe-ui-classic .pe-danmu,
+.pe-ui-classic .pe-display {
+    pointer-events: none;
+}
+
 .pe-ui-classic .pe-chat>div,
 .pe-ui-classic .pe-danmu>div,
 .pe-ui-classic .pe-display>div {
     width: 100%;
     height: 100%;
     position: relative;
+}
+
+.pe-ui-classic .pe-danmu>div>*,
+.pe-ui-classic .pe-display>div>* {
+    pointer-events: auto;
 }
 
 .pe-ui-classic .pe-chat .pe-playlist {

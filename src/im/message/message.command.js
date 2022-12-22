@@ -17,6 +17,9 @@
         Sending = {
             TEXT: 'text',
             FILE: 'file',
+            INVITE: 'invite',
+            APPLY: 'apply',
+            STREAMING: 'publishing',
         },
         Casting = {
             UNI: 'uni',

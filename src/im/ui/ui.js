@@ -189,9 +189,9 @@
             _this.dispatchEvent(UIEvent.RESIZE, { width: width, height: height });
         };
 
-        _this.destroy = function () {
+        _this.destroy = function (reason) {
             if (_im) {
-                _im.close();
+                _im.close(reason);
                 _im.removeEventListener(Event.BIND, _onBind);
                 _im.removeEventListener(Event.READY, _onReady);
                 _im.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
