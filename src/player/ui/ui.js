@@ -232,9 +232,13 @@
             }
             var chat = _this.plugins['Chat'];
             if (chat) {
-                return chat.enable(enable);
+                if (enable) {
+                    chat.publish().catch((err) => { });
+                } else {
+                    chat.unpublish();
+                    chat.stop();
+                }
             }
-            return false;
         };
 
         _this.danmu = function (enable) {

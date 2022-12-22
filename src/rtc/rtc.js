@@ -147,7 +147,7 @@
         _this.unpublish = function () {
             for (var pid in _this.publishers) {
                 var ns = _this.publishers[pid];
-                ns.release('unpublish');
+                ns.release('unpublishing');
             }
         };
 
@@ -184,14 +184,14 @@
                 var name = rid.split('@')[0];
                 var ns = _this.subscribers[name];
                 if (ns) {
-                    ns.stop(name);
+                    ns.release('stopping');
                 }
                 return;
             }
             for (var name in _this.subscribers) {
                 var ns = _this.subscribers[name];
                 if (ns) {
-                    ns.stop(name);
+                    ns.release('stopping');
                 }
             }
         };

@@ -6,6 +6,9 @@ var utils = odd.utils,
     NetStatusEvent = events.NetStatusEvent,
     Level = events.Level,
     Code = events.Code,
+    IM = odd.IM,
+    Sending = IM.CommandMessage.Sending,
+    Casting = IM.CommandMessage.Casting,
 
     index = 0;
 
@@ -54,11 +57,6 @@ ui.setup(player, {
         credentials: 'omit', // omit, include, same-origin
     },
     rtc: {
-        maxRetries: 0,
-        url: 'wss://' + location.host + '/im',
-        options: {
-            token: '',
-        },
         codecpreferences: [
             'audio/opus',
             'video/VP8',
@@ -137,7 +135,7 @@ function onStatus(e) {
             var m = info;
             var args = m.Arguments;
             switch (args.type) {
-                case 'publishing':
+                case Sending.STREAMING:
                     for (var i = 0; i < ui.config.sources.length; i++) {
                         var item = ui.config.sources[i];
                         if (item.file.match(/^rtc:\/\//)) {
