@@ -164,6 +164,7 @@
             }, _logger);
             ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
+            ns.setProperty('stream', name);
             _this.subscribers[name] = ns;
 
             try {
@@ -223,8 +224,9 @@
             ns.removeEventListener(Event.RELEASE, _onRelease);
 
             delete _this.publishers[ns.pid()];
-            if (ns.stream) {
-                delete _this.subscribers[ns.stream.id];
+            var stream = ns.getProperty('stream');
+            if (stream) {
+                delete _this.subscribers[stream];
             }
         }
 
