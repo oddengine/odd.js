@@ -118,7 +118,11 @@ function onPreviewClick(e) {
     rtc.preview(constraints, screenshare, withcamera).then(function (ns) {
         ns.addEventListener(Event.RELEASE, function (e) {
             var video = e.srcElement.video;
-            view.removeChild(video);
+            try {
+                view.removeChild(video);
+            } catch (err) {
+                console.warn(`${err}`);
+            }
         });
         _preview = ns;
 
@@ -173,7 +177,11 @@ function onPublishClick(e) {
     rtc.publish(constraints, screenshare, withcamera).then(function (ns) {
         ns.addEventListener(Event.RELEASE, function (e) {
             var video = e.srcElement.video;
-            view.removeChild(video);
+            try {
+                view.removeChild(video);
+            } catch (err) {
+                console.warn(`${err}`);
+            }
         });
 
         var video = ns.video;
@@ -259,7 +267,11 @@ function play(name) {
         });
         ns.addEventListener(Event.RELEASE, function (e) {
             var video = e.srcElement.video;
-            view.removeChild(video);
+            try {
+                view.removeChild(video);
+            } catch (err) {
+                console.warn(`${err}`);
+            }
         });
     }).catch(function (err) {
         console.warn(`${err}`);
