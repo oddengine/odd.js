@@ -2,7 +2,8 @@
 */.DS_Store
 release/
 src/player/av/
-src/player/module/
+src/player/module/module.flv.js
+src/player/module/module.fmp4.js
 src/player/player.controller.js
 src/player/player.js
 src/player/player.model.js
