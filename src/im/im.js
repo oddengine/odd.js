@@ -72,21 +72,6 @@
                 try {
                     await _nc.connect(_this.config.url, _this.config.options);
                     _timer.delay = _this.config.retryIn;
-
-                    if (_ns == null || _ns.state() === IM.State.CLOSING || _ns.state() === IM.State.CLOSED) {
-                        _ns = new IM.NetStream({}, _logger);
-                        _ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
-                        _ns.addEventListener(Event.RELEASE, _onRelease);
-
-                        _this.join = _ns.join;
-                        _this.leave = _ns.leave;
-                        _this.chmod = _ns.chmod;
-                        _this.send = _ns.send;
-                        _this.sendStatus = _ns.sendStatus;
-                        _this.call = _ns.call;
-
-                        await _ns.attach(_nc);
-                    }
                 } catch (err) {
                     _logger.error(`Failed to connect: ${err}`);
                     _timer.delay = Math.min(_timer.delay * 2, _this.config.maxRetryInterval);
@@ -94,6 +79,51 @@
                 }
             }
             return Promise.resolve();
+        };
+
+        _this.join = async function (rid) {
+            if (_ns == null || _ns.state() === IM.State.CLOSING || _ns.state() === IM.State.CLOSED) {
+                _ns = new IM.NetStream({}, _logger);
+                _ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+                _ns.addEventListener(Event.RELEASE, _onRelease);
+                await _ns.attach(_nc);
+            }
+            return _ns.join(rid);
+        };
+
+        _this.leave = async function (rid) {
+            if (_ns == null) {
+                return Promise.reject('should join at first');
+            }
+            return _ns.leave(rid);
+        };
+
+        _this.chmod = async function (rid, tid, operator, mask) {
+            if (_ns == null) {
+                return Promise.reject('should join at first');
+            }
+            return _ns.chmod(rid, tid, operator, mask);
+        };
+
+        _this.send = async function (type, cast, id, data) {
+            if (_ns == null) {
+                return Promise.reject('should join at first');
+            }
+            return _ns.send(type, cast, id, data);
+        };
+
+        _this.sendStatus = async function (transactionId, status) {
+            if (_ns == null) {
+                return Promise.reject('should join at first');
+            }
+            return _ns.sendStatus(transactionId, status);
+        };
+
+        _this.call = function (transactionId, args, payload, responder) {
+            if (_ns == null) {
+                return Promise.reject('should join at first');
+            }
+            return _ns.call(transactionId, args, payload, responder);
         };
 
         function _onStatus(e) {
