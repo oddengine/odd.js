@@ -10,6 +10,7 @@ var utils = odd.utils,
 var users = {};
 
 var ui = odd.im.ui.create({ mode: 'file' });
+ui.addEventListener(Event.READY, onReady);
 ui.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 ui.addEventListener(Event.CLOSE, onClose);
 ui.setup(dialog, {
@@ -41,6 +42,13 @@ ui.setup(dialog, {
         ui.logger.error(`Failed to join 001: ${err}`);
     });
 });
+
+function onReady(e) {
+    ui.logger.log('onReady');
+    window.addEventListener('beforeunload', function (e) {
+        ui.leave('001');
+    });
+}
 
 function onStatus(e) {
     var level = e.data.level;

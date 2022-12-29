@@ -667,7 +667,6 @@
             var pc = e.target;
             _logger.log(`onConnectionStateChange: id=${_pid}, state=${pc.connectionState}`);
             switch (pc.connectionState) {
-                case 'disconnected':
                 case 'failed':
                 case 'closed':
                     _this.close(pc.connectionState);
