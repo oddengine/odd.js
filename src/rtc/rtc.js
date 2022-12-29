@@ -257,11 +257,12 @@
         }
 
         function _getStats(ns) {
-            if (ns.stream) {
+            var stream = ns.stream;
+            if (stream) {
                 ns.getStats().then((stats) => {
                     _logger.append(Logger.Level.LOG, [{
                         reporter: _nc.userId() || '',
-                        stream: ns.stream.id,
+                        stream: stream.id,
                         stats: stats,
                     }]);
                 });
