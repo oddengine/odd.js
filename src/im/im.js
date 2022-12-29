@@ -54,25 +54,14 @@
                 _nc.addEventListener(Event.CLOSE, _onClose);
             }
 
-            _ns = new IM.NetStream({}, _logger);
-            _ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
-            _ns.addEventListener(Event.RELEASE, _onRelease);
-
             _timer = new utils.Timer(_this.config.retryIn, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
 
             _bind();
-            await _connect();
-            return await _ns.attach(_nc);
+            return await _connect();
         };
 
         function _bind() {
-            _this.join = _ns.join;
-            _this.leave = _ns.leave;
-            _this.chmod = _ns.chmod;
-            _this.send = _ns.send;
-            _this.sendStatus = _ns.sendStatus;
-            _this.call = _ns.call;
             _this.state = _nc.state;
             _this.dispatchEvent(Event.BIND);
             _this.dispatchEvent(Event.READY);
@@ -83,6 +72,21 @@
                 try {
                     await _nc.connect(_this.config.url, _this.config.options);
                     _timer.delay = _this.config.retryIn;
+
+                    if (_ns == null || _ns.state() === IM.State.CLOSING || _ns.state() === IM.State.CLOSED) {
+                        _ns = new IM.NetStream({}, _logger);
+                        _ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+                        _ns.addEventListener(Event.RELEASE, _onRelease);
+
+                        _this.join = _ns.join;
+                        _this.leave = _ns.leave;
+                        _this.chmod = _ns.chmod;
+                        _this.send = _ns.send;
+                        _this.sendStatus = _ns.sendStatus;
+                        _this.call = _ns.call;
+
+                        await _ns.attach(_nc);
+                    }
                 } catch (err) {
                     _logger.error(`Failed to connect: ${err}`);
                     _timer.delay = Math.min(_timer.delay * 2, _this.config.maxRetryInterval);
