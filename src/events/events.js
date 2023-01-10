@@ -87,8 +87,9 @@
         },
 
         KeyboardEvent = {
-            KEY_DOWN: 'keydown', // keyCode, altKey, ctrlKey, shiftKey, metaKey
-            KEY_UP: 'keyup',     // keyCode, altKey, ctrlKey, shiftKey, metaKey
+            KEY_DOWN: 'keydown',   // keyCode, altKey, ctrlKey, shiftKey, metaKey
+            KEY_UP: 'keyup',       // keyCode, altKey, ctrlKey, shiftKey, metaKey
+            KEY_PRESS: 'keypress', // keyCode, altKey, ctrlKey, shiftKey, metaKey
         },
 
         TimerEvent = {
