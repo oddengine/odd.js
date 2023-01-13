@@ -311,7 +311,7 @@
                         video.webkitEnterFullscreen();
                     }
                     if (OS.isIOS) {
-                        // TODO(spencer-lau): Need to double check.
+                        // TODO(spencer@lau): Need to double check.
                         return;
                     }
                 } else if (requestFullscreen) {
@@ -630,12 +630,10 @@
         }
 
         function _onWriterStart(e) {
-            // TODO(spencer-lau): Download button
             _this.forward(e);
         }
 
         function _onWriterEnd(e) {
-            // TODO(spencer-lau): Download button
             _this.forward(e);
         }
 

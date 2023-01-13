@@ -46,7 +46,7 @@
 
         function _buildComponents() {
             var layouts = _this.config.layout.split('|');
-            // TODO(spencer-lau): No limitation on chunk number
+            // TODO(spencer@lau): No limitation on chunk number.
             if (layouts.length !== 4) {
                 throw { name: 'DataError', message: 'Controlbar should have exactly 4 sections.' };
             }

@@ -81,9 +81,18 @@
 
         // alt, control, shift, command
         MouseEvent = {
+            MOUSE_DOWN: 'mousedown',     // name
+            MOUSE_UP: 'mouseup',         // name
             CLICK: 'click',              // name
             DOUBLE_CLICK: 'doubleclick', // name
             MOUSE_MOVE: 'mousemove',     // name, value
+        },
+
+        TouchEvent = {
+            TOUCH_START: 'touchstart',   // name
+            TOUCH_MOVE: 'touchmove',     // name
+            TOUCH_END: 'touchend',       // name
+            TOUCH_CANCEL: 'touchcancel', // name
         },
 
         KeyboardEvent = {
@@ -178,6 +187,7 @@
     events.UIEvent = UIEvent;
     events.GlobalEvent = GlobalEvent;
     events.MouseEvent = MouseEvent;
+    events.TouchEvent = TouchEvent;
     events.KeyboardEvent = KeyboardEvent;
     events.TimerEvent = TimerEvent;
     events.Level = Level;
