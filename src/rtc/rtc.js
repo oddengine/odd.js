@@ -209,6 +209,7 @@
                 case Code.NETSTREAM_FAILED:
                 case Code.NETSTREAM_PLAY_RESET:
                 case Code.NETSTREAM_PLAY_FAILED:
+                case Code.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
                     var ns = e.target;
                     ns.close(e.data.description);
                     break;

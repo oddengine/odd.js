@@ -25,6 +25,8 @@ im.setup({
     options: {
         token: 'xxx',
     },
+}).catch((err) => {
+    im.logger.error(`Failed to setup: ${err}`);
 });
 
 function onReady(e) {
