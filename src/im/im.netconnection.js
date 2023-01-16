@@ -121,7 +121,7 @@
                         _resolve = _reject = undefined;
                     }, function (m) {
                         _logger.error(`Failed to connect: ${m.Arguments.description}`);
-                        _reject();
+                        _reject(m.Arguments.description);
                         _resolve = _reject = undefined;
                     }));
                 }
@@ -246,7 +246,7 @@
         function _onError(e) {
             _logger.error(`IM.NetConnection.onError: ${e}`);
             if (_reject) {
-                _reject();
+                _reject(e.message);
                 _resolve = _reject = undefined;
             }
             _this.dispatchEvent(Event.ERROR, { name: e.name, message: e.message });
