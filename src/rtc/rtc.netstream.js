@@ -51,8 +51,7 @@
             _handlers,
             _responders,
             _transactionId,
-            _readyState,
-            _released;
+            _readyState;
 
         function _init() {
             _this.config = utils.extendz({}, _default, config);
@@ -85,7 +84,6 @@
             _responders = {};
             _transactionId = 0;
             _readyState = State.INITIALIZED;
-            _released = false;
 
             _handlers[Command.SET_PROPERTY] = _processCommandSetProperty;
             _handlers[Command.SDP] = _processCommandSdp;
