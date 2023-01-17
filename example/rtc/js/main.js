@@ -12,6 +12,7 @@ var utils = odd.utils,
     Constraints = RTC.Constraints,
 
     _self = {},
+    _users = {},
     _detected = false,
     _preview;
 
@@ -312,7 +313,14 @@ function onStatus(e) {
                 }
             });
             break;
+        case Code.NETGROUP_LOCALCOVERAGE_NOTIFY:
+            _users = utils.extendz(info.list, _users);
+            in_online.value = Object.keys(_users).length;
+            break;
         case Code.NETGROUP_NEIGHBOR_CONNECT:
+            _users[info.user.id] = info.user;
+            in_online.value = Object.keys(_users).length;
+
             utils.forEach(rtc.publishers, function (_, ns) {
                 var stream = ns.getProperty('stream');
                 if (stream) {
@@ -321,6 +329,10 @@ function onStatus(e) {
                     });
                 }
             });
+            break;
+        case Code.NETGROUP_NEIGHBOR_DISCONNECT:
+            delete _users[info.user.id];
+            in_online.value = Object.keys(_users).length;
             break;
         case Code.NETGROUP_SENDTO_NOTIFY:
         case Code.NETGROUP_POSTING_NOTIFY:
@@ -334,6 +346,12 @@ function onStatus(e) {
                     break;
             }
             break;
+        case Code.NETGROUP_CONNECT_CLOSED:
+        case Code.NETCONNECTION_CONNECT_CLOSED:
+            _users = {};
+            in_online.value = 0;
+            break;
+
     }
 }
 

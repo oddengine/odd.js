@@ -384,6 +384,11 @@
                         _conn.close();
                         _conn = undefined;
                     }
+                    _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+                        level: Level.STATUS,
+                        code: Code.NETCONNECTION_CONNECT_CLOSED,
+                        description: 'connect closed',
+                    });
                     _this.dispatchEvent(Event.CLOSE, { reason: reason });
                     _readyState = State.CLOSED;
                     break;
