@@ -897,7 +897,6 @@
                     // Instead, we'll fire these events based on the local methods and events.
                     return;
                 case Code.NETSTREAM_PLAY_STOP:
-                    _this.dispatchEvent(NetStatusEvent.NET_STATUS, m.Arguments);
                     for (var i = 0; i < _subscribing.length; i++) {
                         var track = _subscribing[i];
                         if (track.id === info.track) {

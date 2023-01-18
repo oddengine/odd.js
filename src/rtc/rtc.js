@@ -216,9 +216,8 @@
 
             switch (code) {
                 case Code.NETSTREAM_FAILED:
-                case Code.NETSTREAM_PLAY_RESET:
                 case Code.NETSTREAM_PLAY_FAILED:
-                case Code.NETSTREAM_PLAY_UNPUBLISHNOTIFY:
+                case Code.NETSTREAM_PLAY_RESET:
                     var ns = e.target;
                     ns.close(e.data.description);
                     break;
