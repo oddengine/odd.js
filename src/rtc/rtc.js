@@ -25,7 +25,13 @@
                 'audio/opus',
                 'video/VP8',
             ],
-            rtcconfiguration: {},
+            rtcconfiguration: {
+            },
+            service: {
+                script: 'js/sw.js',
+                scope: 'js/',
+                enable: false,
+            },
         };
 
     function RTC(id, nc, logger) {
@@ -99,6 +105,7 @@
                 profile: _this.config.profile,
                 codecpreferences: _this.config.codecpreferences,
                 rtcconfiguration: _this.config.rtcconfiguration,
+                service: _this.config.service,
             }, _logger);
             ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
@@ -120,6 +127,7 @@
                 profile: _this.config.profile,
                 codecpreferences: _this.config.codecpreferences,
                 rtcconfiguration: _this.config.rtcconfiguration,
+                service: _this.config.service,
             }, _logger);
             ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
@@ -161,6 +169,7 @@
             var ns = new RTC.NetStream({
                 codecpreferences: _this.config.codecpreferences,
                 rtcconfiguration: _this.config.rtcconfiguration,
+                service: _this.config.service,
             }, _logger);
             ns.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);

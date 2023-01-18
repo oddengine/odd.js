@@ -14,7 +14,8 @@ var utils = odd.utils,
     _self = {},
     _users = {},
     _detected = false,
-    _preview;
+    _preview,
+    _writer;
 
 var im = odd.im.create();
 im.addEventListener(Event.READY, onReady);
@@ -307,7 +308,7 @@ function onStatus(e) {
             utils.forEach(rtc.publishers, function (_, ns) {
                 var stream = ns.getProperty('stream');
                 if (stream) {
-                    im.send(Sending.STREAMING, Casting.MULTI, in_room.value, {
+                    im.send(Sending.STREAMING, Casting.MULTI, info.room.id, {
                         stream: stream,
                     });
                 }
@@ -351,12 +352,19 @@ function onStatus(e) {
             _users = {};
             in_online.value = 0;
             break;
-
     }
 }
 
 function onClose(e) {
     rtc.logger.log(`onClose: ${e.data.reason}`);
+}
+
+async function onRecordClick(e) {
+    _writer = await rtc.publishers[1].record('vod.webm');
+}
+
+function onStopRecordClick(e) {
+    _writer.close();
 }
 
 function onBrightnessChange(e) {

@@ -1,10 +1,12 @@
 (function (odd) {
     var utils = odd.utils,
-        Kernel = odd.Kernel,
+        WriterState = utils.StreamWriter.WriterState,
+        StreamSaver = utils.StreamSaver,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
         NetStatusEvent = events.NetStatusEvent,
+        SaverEvent = events.SaverEvent,
         Level = events.Level,
         Code = events.Code,
         IM = odd.IM,
@@ -46,6 +48,9 @@
             _beauty,
             _subscribing,
             _audiometer,
+            _recorder,
+            _saver,
+            _writer,
             _stats,
             _properties,
             _handlers,
@@ -84,6 +89,10 @@
             _responders = {};
             _transactionId = 0;
             _readyState = State.INITIALIZED;
+
+            _saver = new StreamSaver(_this.config.service, _logger);
+            _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
+            _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
 
             _handlers[Command.SET_PROPERTY] = _processCommandSetProperty;
             _handlers[Command.SDP] = _processCommandSdp;
@@ -609,6 +618,60 @@
             });
         };
 
+        _this.record = function (filename) {
+            function handler() {
+                if (_this.stream == null) {
+                    return Promise.reject('Failed to record stream, not found.');
+                }
+                var writer = _saver.record(filename);
+                _swapWriter(writer);
+                return Promise.resolve(_writer);
+            }
+            if (_this.config.service.enable) {
+                return handler();
+            } else {
+                return _saver.register().then(handler);
+            }
+        };
+
+        function _swapWriter(writer) {
+            if (_writer !== writer) {
+                if (_writer) {
+                    _writer.close();
+                }
+                _writer = writer;
+
+                _recorder = new MediaRecorder(_this.stream);
+                _recorder.addEventListener('dataavailable', _onDataAvailable);
+                _recorder.start(200);
+            }
+        }
+
+        function _onDataAvailable(e) {
+            if (_writer) {
+                if (_writer.readyState === WriterState.INIT) {
+                    _writer.start();
+                }
+                e.data.arrayBuffer().then((buffer) => {
+                    _writer.write(new Uint8Array(buffer));
+                });
+            }
+        }
+
+        function _onWriterStart(e) {
+            _swapWriter(e.srcElement);
+            _this.forward(e);
+        }
+
+        function _onWriterEnded(e) {
+            if (_recorder) {
+                _recorder.stop();
+                _recorder = null;
+            }
+            _writer = null;
+            _this.forward(e);
+        }
+
         _this.sendStatus = async function (transactionId, status) {
             return _this.call(transactionId, {
                 name: Command.STATUS,
@@ -923,6 +986,10 @@
                     if (_videomixer) {
                         _videomixer.stop();
                         _videomixer = undefined;
+                    }
+                    if (_writer) {
+                        _writer.close();
+                        _writer = null;
                     }
                     if (_this.stream) {
                         _this.stream.getTracks().forEach(function (track) {

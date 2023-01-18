@@ -137,6 +137,7 @@
                     case 'Chat':
                         config.client = _this.config.client;
                         config.rtc = _this.config.rtc;
+                        config.service = _this.config.service;
                         break;
                     case 'Controlbar':
                         if (!_this.config.file) {
