@@ -21,9 +21,15 @@ set scripts[17]=".\src\utils\mpd\mpd.matchers.numeric.js"
 set scripts[18]=".\src\utils\mpd\mpd.matchers.string.js"
 set scripts[19]=".\src\events\events.js"
 set scripts[20]=".\src\events\events.eventdispatcher.js"
-set scripts[21]=".\src\utils\utils.filesaver.js"
+set scripts[21]=".\src\utils\utils.streamsaver.js"
 set scripts[22]=".\src\utils\utils.timer.js"
-set length=23
+set scripts[23]=".\src\io\io.js"
+set scripts[24]=".\src\io\io.fetch.js"
+set scripts[25]=".\src\io\io.mozstream.js"
+set scripts[26]=".\src\io\io.msstream.js"
+set scripts[27]=".\src\io\io.websocket.js"
+set scripts[28]=".\src\io\io.xhr.js"
+set length=29
 
 cd.>.\release\odd.common.js
 

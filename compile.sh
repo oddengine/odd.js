@@ -24,6 +24,12 @@ scripts[19]="./src/events/events.js"
 scripts[20]="./src/events/events.eventdispatcher.js"
 scripts[21]="./src/utils/utils.streamsaver.js"
 scripts[22]="./src/utils/utils.timer.js"
+scripts[23]="./src/io/io.js"
+scripts[24]="./src/io/io.fetch.js"
+scripts[25]="./src/io/io.mozstream.js"
+scripts[26]="./src/io/io.msstream.js"
+scripts[27]="./src/io/io.websocket.js"
+scripts[28]="./src/io/io.xhr.js"
 
 :>./release/odd.common.js
 
