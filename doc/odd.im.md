@@ -1,7 +1,7 @@
 ﻿# odd.im.js
 
-> [[domain] https://www.oddcancer.com](https://www.oddcancer.com/product/im.html)  
-> [[source] https://github.com/oddcancer/odd.js](https://github.com/oddcancer/odd.js)  
+> [[domain] <https://www.oddcancer.com>](https://www.oddcancer.com/product/im.html)  
+> [[source] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
@@ -19,6 +19,7 @@
 - [x] v2.3.01 - Refactor player, im & rtc into one.  
 - [x] v2.3.33 - Resend queued messages after fast reconnecting.  
 - [x] v2.4.04 - Refactor im & rtc protocol.  
+- [x] v2.4.21 - Reset online user count.  
 
 ## Solutions
 

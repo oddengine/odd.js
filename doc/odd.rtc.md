@@ -1,7 +1,7 @@
 ﻿# odd.rtc.js
 
-> [[domain] https://www.oddcancer.com](https://www.oddcancer.com/product/rtc.html)  
-> [[source] https://github.com/oddcancer/odd.js](https://github.com/oddcancer/odd.js)  
+> [[domain] <https://www.oddcancer.com>](https://www.oddcancer.com/product/rtc.html)  
+> [[source] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
@@ -21,6 +21,7 @@
 - [x] v2.3.43 - Add Beauty of brightness and smoothness.  
 - [x] v2.4.04 - Refactor im & rtc protocol.  
 - [x] v2.4.06 - Supports red/rtx/ulpfec.  
+- [x] v2.4.22 - NetStream recordable.  
 - [ ] Be able to change microphone while publishing.  
 
 ## Solutions
