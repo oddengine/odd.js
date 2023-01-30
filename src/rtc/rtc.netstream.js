@@ -104,6 +104,11 @@
             return _pid;
         };
 
+        _this.uuid = function () {
+            var uuid = _this.getProperty('@uuid');
+            return uuid || '';
+        };
+
         _this.client = function () {
             return _client;
         };
@@ -118,7 +123,12 @@
             _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
 
             return await _client.create(_this, new Responder(function (m) {
-                _pid = m.Arguments.info.id;
+                var info = m.Arguments.info;
+
+                utils.forEach(info, function (key, value) {
+                    _this.setProperty(`@${key}`, value);
+                });
+                _pid = info.id;
                 _readyState = State.CONNECTED;
             }, function (m) {
                 _this.close(m.Arguments.description);
@@ -153,9 +163,9 @@
                 var source;
                 try {
                     source = await navigator.mediaDevices.getUserMedia(constraints);
-                    _logger.log(`Got user media: id=${source.id}, constraints=`, constraints);
+                    _logger.log(`Got user media: user=${_client.userId()}, stream=${source.id}, constraints=`, constraints);
                 } catch (err) {
-                    _logger.error(`Failed to get user media: constraints=`, constraints, `, error=${err}`);
+                    _logger.error(`Failed to get user media: user=${_client.userId()}, constraints=`, constraints, `, error=${err}`);
                     return Promise.reject(err);
                 }
 
@@ -231,9 +241,9 @@
             var stream;
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
-                _logger.log(`Got user media: id=${stream.id}, constraints=`, constraints);
+                _logger.log(`Got user media: user=${_client.userId()}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
-                _logger.error(`Failed to get user media: constraints=`, constraints, `, error=${err}`);
+                _logger.error(`Failed to get user media: user=${_client.userId()}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(stream);
@@ -243,9 +253,9 @@
             var stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-                _logger.log(`Got display media: id=${stream.id}, constraints=`, constraints);
+                _logger.log(`Got display media: user=${_client.userId()}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
-                _logger.error(`Failed to get display media: constraints=`, constraints, `, error=${err}`);
+                _logger.error(`Failed to get display media: user=${_client.userId()}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(stream);
@@ -257,9 +267,9 @@
             track.addEventListener('unmute', _onUnmute);
 
             var sender = _pc.addTrack(track, stream);
-            _logger.log(`AddTrack: kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`AddTrack: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
             if (sender.track.id !== track.id) {
-                _logger.warn(`Track id changed: ${sender.track.id} != ${track.id}`);
+                _logger.warn(`Track id changed: user=${_client.userId()}, ${sender.track.id} != ${track.id}`);
             }
             return sender;
         };
@@ -315,17 +325,17 @@
 
         function _onEnded(e) {
             var track = e.target;
-            _logger.log(`Track ended: kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track ended: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         function _onMute(e) {
             var track = e.target;
-            _logger.log(`Track muted: kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track muted: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         function _onUnmute(e) {
             var track = e.target;
-            _logger.log(`Track unmuted: kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track unmuted: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         _this.createStream = async function (screenshare, withcamera, option) {
@@ -384,6 +394,7 @@
             _screenshare = screenshare;
             _withcamera = withcamera;
             _this.stream = stream;
+            _this.setProperty('stream', stream.id);
             return Promise.resolve(stream);
         };
 
@@ -392,7 +403,7 @@
                 try {
                     await _this.createStream(screenshare, withcamera, option);
                 } catch (err) {
-                    _logger.error(`Failed to create stream on pipe ${_pid}`);
+                    _logger.error(`Failed to create stream: user=${_client.userId()}, pipe=${_pid}`);
                     return Promise.reject(err);
                 }
             }
@@ -406,16 +417,16 @@
             try {
                 var offer = await _pc.createOffer();
                 offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
-                _logger.log(`createOffer success: id=${_pid}, sdp=\n${offer.sdp}`);
+                _logger.log(`createOffer success: user=${_client.userId()}, pipe=${_pid}, sdp=\n${offer.sdp}`);
             } catch (err) {
-                _logger.error(`Failed to createOffer: id=${_pid}`);
+                _logger.error(`Failed to createOffer: user=${_client.userId()}, pipe=${_pid}`);
                 return Promise.reject(err);
             }
             try {
                 await _pc.setLocalDescription(offer);
-                _logger.log(`setLocalDescription success: id=${_pid}, type=${offer.type}`);
+                _logger.log(`setLocalDescription success: user=${_client.userId()}, pipe=${_pid}, type=${offer.type}`);
             } catch (err) {
-                _logger.error(`Failed to setLocalDescription: id=${_pid}, type=${offer.type}`);
+                _logger.error(`Failed to setLocalDescription: user=${_client.userId()}, pipe=${_pid}, type=${offer.type}`);
                 return Promise.reject(err);
             }
             _readyState = State.PUBLISHING;
@@ -425,9 +436,9 @@
                 type: offer.type,
                 sdp: offer.sdp,
             }).then(() => {
-                _logger.log(`Send offer success.`);
+                _logger.log(`Send offer success: user=${_client.userId()}`);
             }).catch((err) => {
-                _logger.error(`Failed to send offer: ${err}`);
+                _logger.error(`Failed to send offer: user=${_client.userId()}, error=${err}`);
             });
         };
 
@@ -579,14 +590,14 @@
             if (enable) {
                 _beauty.enable(_this.stream, constraints).then(function () {
                     _this.replaceTrack(_beauty.output(), false).catch(function (err) {
-                        _logger.error(`Failed to replace track: ${err}`);
+                        _logger.error(`Failed to replace track: user=${_client.userId()}, error=${err}`);
                     });
                 });
             } else {
                 var input = _beauty.input();
                 if (input) {
                     _this.replaceTrack(input, true).catch(function (err) {
-                        _logger.error(`Failed to replace track: ${err}`);
+                        _logger.error(`Failed to replace track: user=${_client.userId()}, error=${err}`);
                     });
                     _beauty.disable();
                 }
@@ -605,9 +616,9 @@
                 stream: rid,
                 mode: mode,
             }).then(() => {
-                _logger.log(`Send play success.`);
+                _logger.log(`Send play success: user=${_client.userId()}`);
             }).catch((err) => {
-                _logger.error(`Failed to send play: ${err}`);
+                _logger.error(`Failed to send play: user=${_client.userId()}, error=${err}`);
             });
         };
 
@@ -704,12 +715,12 @@
 
         function _onNegotiationNeeded(e) {
             // We don't negotiate at this moment, until user called publish manually.
-            _logger.log(`onNegotiationNeeded: id=${_pid}`);
+            _logger.log(`onNegotiationNeeded: user=${_client.userId()}, pipe=${_pid}`);
         }
 
         function _onTrack(e) {
             var stream = e.streams[0];
-            _logger.log(`onTrack: kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
+            _logger.log(`onTrack: user=${_client.userId()}, kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
             _subscribing.push(e.track);
             _audiometer.update(stream);
             _this.stream = stream;
@@ -726,7 +737,7 @@
 
         function _onConnectionStateChange(e) {
             var pc = e.target;
-            _logger.log(`onConnectionStateChange: id=${_pid}, state=${pc.connectionState}`);
+            _logger.log(`onConnectionStateChange: user=${_client.userId()}, pipe=${_pid}, state=${pc.connectionState}`);
             switch (pc.connectionState) {
                 case 'failed':
                 case 'closed':
@@ -744,7 +755,7 @@
                     sdpMLineIndex: 0,
                 };
             }
-            _logger.log(`onIceCandidate: id=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+            _logger.log(`onIceCandidate: user=${_client.userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
 
             _this.call(0, {
                 name: Command.CANDIDATE,
@@ -752,13 +763,13 @@
                 sdpMid: candidate.sdpMid,
                 sdpMLineIndex: candidate.sdpMLineIndex,
             }).catch((err) => {
-                _logger.error(`Failed to send candidate: ${err}`);
+                _logger.error(`Failed to send candidate: user=${_client.userId()}, error=${err}`);
             });
         }
 
         function _onIceConnectionStateChange(e) {
             var pc = e.target;
-            _logger.log(`onIceConnectionStateChange: id=${_pid}, state=${pc.iceConnectionState}`);
+            _logger.log(`onIceConnectionStateChange: user=${_client.userId()}, pipe=${_pid}, state=${pc.iceConnectionState}`);
         }
 
         _this.process = function (p) {
@@ -779,7 +790,7 @@
                 return handler(m);
             }
             // Should not return error, just ignore.
-            _logger.warn(`No handler found: command=${m.Arguments.name}, arguments=`, m.Arguments);
+            _logger.warn(`No handler found: user=${_client.userId()}, command=${m.Arguments.name}, arguments=`, m.Arguments);
             return Promise.resolve();
         };
 
@@ -792,15 +803,15 @@
         }
 
         async function _processCommandSdp(m) {
-            _logger.log(`onSdp: id=${_pid}, type=${m.Arguments.type}, sdp=\n${m.Arguments.sdp}`);
+            _logger.log(`onSdp: user=${_client.userId()}, pipe=${_pid}, type=${m.Arguments.type}, sdp=\n${m.Arguments.sdp}`);
             try {
                 await _pc.setRemoteDescription(new RTCSessionDescription({
                     type: m.Arguments.type,
                     sdp: m.Arguments.sdp,
                 }));
-                _logger.log(`setRemoteDescription success: id=${_pid}, type=${m.Arguments.type}`);
+                _logger.log(`setRemoteDescription success: user=${_client.userId()}, pipe=${_pid}, type=${m.Arguments.type}`);
             } catch (err) {
-                _logger.error(`Failed to setRemoteDescription: id=${_pid}, type=${m.Arguments.type}`);
+                _logger.error(`Failed to setRemoteDescription: user=${_client.userId()}, pipe=${_pid}, type=${m.Arguments.type}`);
                 return Promise.reject(err);
             }
             if (m.Arguments.type === 'answer') {
@@ -813,9 +824,9 @@
                             encoding.maxBitrate = bitrate;
                         });
                         sender.setParameters(parameters).then(function () {
-                            _logger.log(`Set max bitrate: ${bitrate}`);
+                            _logger.log(`Set max bitrate: user=${_client.userId()}, value=${bitrate}`);
                         }).catch(function (err) {
-                            _logger.warn(`Failed to set max bitrate: ${err}`);
+                            _logger.warn(`Failed to set max bitrate: user=${_client.userId()}, value=${bitrate}, error=${err}`);
                         });
                     }
                 });
@@ -826,16 +837,16 @@
                 answer.sdp = answer.sdp.replace(
                     /a=rtcp-fb:(\d+) transport-cc(\n|\r\n)/g,
                     `a=rtcp-fb:$1 transport-cc$2a=rtcp-fb:$1 rrtr$2`);
-                _logger.log(`createAnswer success: id=${_pid}, sdp=\n${answer.sdp}`);
+                _logger.log(`createAnswer success: user=${_client.userId()}, pipe=${_pid}, sdp=\n${answer.sdp}`);
             } catch (err) {
-                _logger.error(`Failed to createAnswer: id=${_pid}`);
+                _logger.error(`Failed to createAnswer: user=${_client.userId()}, pipe=${_pid}`);
                 return Promise.reject(err);
             }
             try {
                 await _pc.setLocalDescription(answer);
-                _logger.log(`setLocalDescription success: id=${_pid}, type=${answer.type}`);
+                _logger.log(`setLocalDescription success: user=${_client.userId()}, pipe=${_pid}, type=${answer.type}`);
             } catch (err) {
-                _logger.error(`Failed to setLocalDescription: id=${_pid}, type=${answer.type}`);
+                _logger.error(`Failed to setLocalDescription: user=${_client.userId()}, pipe=${_pid}, type=${answer.type}`);
                 return Promise.reject(err);
             }
 
@@ -844,9 +855,9 @@
                 type: answer.type,
                 sdp: answer.sdp,
             }).then(() => {
-                _logger.log(`Send answer success.`);
+                _logger.log(`Send answer success: user=${_client.userId()}`);
             }).catch((err) => {
-                _logger.error(`Failed to send answer: ${err}`);
+                _logger.error(`Failed to send answer: user=${_client.userId()}, error=${err}`);
             });
         }
 
@@ -866,9 +877,9 @@
                     sdpMLineIndex: m.Arguments.sdpMLineIndex || 0,
                 });
                 await _pc.addIceCandidate(candidate);
-                _logger.log(`addIceCandidate success: id=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+                _logger.log(`addIceCandidate success: user=${_client.userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
             } catch (err) {
-                _logger.error(`Failed to addIceCandidate: id=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+                _logger.error(`Failed to addIceCandidate: user=${_client.userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
                 return Promise.reject(err);
             }
             return Promise.resolve();
@@ -879,7 +890,7 @@
             var code = m.Arguments.code;
             var description = m.Arguments.description;
             var info = m.Arguments.info;
-            _logger.debug(`RTC.NetStream.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger.debug(`RTC.NetStream.onStatus: user=${_client.userId()}, pipe=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             var responder = _responders[m.TransactionID];
             if (responder != null) {
@@ -902,7 +913,7 @@
                         if (track.id === info.track) {
                             _subscribing.splice(i, 1);
                             if (_subscribing.length === 0) {
-                                _logger.log(`There's no receiver remains: ${_pid}`);
+                                _logger.log(`There's no receiver remains: user=${_client.userId()}, pipe=${_pid}`);
                                 _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
                                     level: Level.STATUS,
                                     code: Code.NETSTREAM_PLAY_RESET,
@@ -929,7 +940,7 @@
                 });
                 return Promise.resolve(_stats.report);
             }).catch((err) => {
-                _logger.warn(`Failed to getStats: ${err}`);
+                _logger.warn(`Failed to getStats: user=${_client.userId()}, error=${err}`);
             });
         };
 
@@ -942,7 +953,7 @@
                 name: Command.RELEASE,
                 id: _pid,
             }).catch((err) => {
-                _logger.error(`Failed to send release: ${err}`);
+                _logger.error(`Failed to send release: user=${_client.userId()}, error=${err}`);
             });
             _this.close(reason);
         };
@@ -992,7 +1003,7 @@
                     }
                     if (_this.stream) {
                         _this.stream.getTracks().forEach(function (track) {
-                            _logger.log(`Stopping track: kind=${track.kind}, id=${track.id}, label=${track.label}`);
+                            _logger.log(`Stopping track: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
                             track.stop();
                         });
                     }

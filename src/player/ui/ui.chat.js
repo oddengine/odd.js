@@ -65,7 +65,7 @@
 
         _this.publish = async function () {
             for (var id in _this.rtc.publishers) {
-                _logger.error(`Already published.`);
+                _logger.error(`Already published: user=${_this.rtc.client().userId()}`);
                 return Promise.reject('published');
             }
             return _this.rtc.publish(_this.constraints).then(function (ns) {
@@ -126,12 +126,12 @@
             var description = e.data.description;
             var info = e.data.info;
             var method = { status: 'log', warning: 'warn', error: 'error' }[level];
-            _logger[method](`RTC.onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger[method](`RTC.onStatus: user=${_this.rtc.client().userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
             _this.forward(e);
         }
 
         function _onClose(e) {
-            _logger.log(`RTC.onClose: ${e.data.reason}`);
+            _logger.log(`RTC.onClose: user=${_this.rtc.client().userId()}, reason=${e.data.reason}`);
             _this.forward(e);
         }
 

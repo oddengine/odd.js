@@ -28,11 +28,11 @@ im.setup({
         token: '',
     },
 }).catch((err) => {
-    im.logger.error(`Failed to setup: ${err}`);
+    im.logger.error(`Failed to setup: user=${im.client().userId()}, error=${err}`);
 });
 
 function onReady(e) {
-    im.logger.log('onReady');
+    im.logger.log(`onReady: user=${im.client().userId()}`);
     window.addEventListener('beforeunload', onLeaveClick);
 }
 
@@ -292,12 +292,10 @@ function onStatus(e) {
     var description = e.data.description;
     var info = e.data.info;
     var method = { status: 'log', warning: 'warn', error: 'error' }[level];
-    rtc.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+    rtc.logger[method](`onStatus: user=${rtc.client().userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
 
     switch (code) {
         case Code.NETSTREAM_PUBLISH_START:
-            var ns = e.srcElement;
-            ns.setProperty('stream', info.stream);
             im.send(Sending.STREAMING, Casting.MULTI, in_room.value, {
                 stream: info.stream,
             });
@@ -356,7 +354,7 @@ function onStatus(e) {
 }
 
 function onClose(e) {
-    rtc.logger.log(`onClose: ${e.data.reason}`);
+    rtc.logger.log(`onClose: user=${rtc.client().userId()}, reason=${e.data.reason}`);
 }
 
 async function onRecordClick(e) {

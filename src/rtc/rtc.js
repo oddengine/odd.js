@@ -92,7 +92,7 @@
                     await _nc.connect(_this.config.url, _this.config.parameters);
                     _timer.delay = _this.config.retryIn;
                 } catch (err) {
-                    _logger.error(`Failed to connect: ${err}`);
+                    _logger.error(`Failed to connect: user=${_nc.userId()}, error=${err}`);
                     _timer.delay = Math.min(_timer.delay * 2, _this.config.maxRetryInterval);
                     return Promise.reject(err);
                 }
@@ -116,7 +116,7 @@
                 await ns.preview(screenshare, withcamera, option);
                 _this.publishers[ns.pid()] = ns;
             } catch (err) {
-                _logger.error(`Failed to preview on pipe ${ns.pid()}`);
+                _logger.error(`Failed to preview: user=${_nc.userId()}, pipe=${ns.pid()}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(ns);
@@ -138,14 +138,14 @@
                 await ns.preview(screenshare, withcamera, option);
                 _this.publishers[ns.pid()] = ns;
             } catch (err) {
-                _logger.error(`Failed to preview on pipe ${ns.pid()}`);
+                _logger.error(`Failed to preview: user=${_nc.userId()}, pipe=${ns.pid()}`);
                 return Promise.reject(err);
             }
             try {
                 await ns.publish();
                 _this.publishers[ns.pid()] = ns;
             } catch (err) {
-                _logger.error(`Failed to publish on pipe ${ns.pid()}`);
+                _logger.error(`Failed to publish: user=${_nc.userId()}, pipe=${ns.pid()}`);
                 return Promise.reject(err);
             }
             _stats.start();
@@ -162,7 +162,7 @@
         _this.play = async function (rid) {
             var name = rid.split('@')[0];
             if (_this.subscribers.hasOwnProperty(name)) {
-                _logger.error(`Stream ${rid} is already playing.`);
+                _logger.error(`Already playing: user=${_nc.userId()}, stream=${rid}`);
                 return Promise.reject('playing');
             }
 
@@ -180,7 +180,7 @@
                 await ns.attach(_nc);
                 await ns.play(rid, "all");
             } catch (err) {
-                _logger.error(`Failed to play stream ${rid} on pipe ${ns.pid()}.`);
+                _logger.error(`Failed to play: user=${_nc.userId()}, pipe=${ns.pid()}, stream=${rid}`);
                 delete _this.subscribers[name];
                 ns.close(err);
                 return Promise.reject(err);
@@ -212,7 +212,7 @@
             var description = e.data.description;
             var info = e.data.info;
             var method = { status: 'debug', warning: 'warn', error: 'error' }[level] || 'debug';
-            _logger[method](`RTC.onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger[method](`RTC.onStatus: user=${_nc.userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             switch (code) {
                 case Code.NETSTREAM_FAILED:
@@ -227,7 +227,7 @@
 
         function _onRelease(e) {
             var ns = e.target;
-            _logger.log(`RTC.onRelease: ${e.data.reason}`);
+            _logger.log(`RTC.onRelease: user=${_nc.userId()}, reason=${e.data.reason}`);
 
             ns.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             ns.removeEventListener(Event.RELEASE, _onRelease);
@@ -240,11 +240,11 @@
         }
 
         function _onClose(e) {
-            _logger.log(`RTC.onClose: ${e.data.reason}`);
+            _logger.log(`RTC.onClose: user=${_nc.userId()}, reason=${e.data.reason}`);
             _this.forward(e);
 
             if (_retried++ < _this.config.maxRetries || _this.config.maxRetries === -1) {
-                _logger.debug(`RTC signaling about to reconnect in ${_timer.delay} ...`);
+                _logger.debug(`RTC signaling about to reconnect: user=${_nc.userId()}, in=${_timer.delay}`);
                 _timer.start();
             }
         }
@@ -270,7 +270,7 @@
             if (stream) {
                 ns.getStats().then((stats) => {
                     _logger.append(Logger.Level.LOG, [{
-                        reporter: _nc.userId() || '',
+                        reporter: _nc.userId(),
                         stream: stream.id,
                         stats: stats,
                     }]);

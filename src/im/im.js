@@ -73,7 +73,7 @@
                     await _nc.connect(_this.config.url, _this.config.parameters);
                     _timer.delay = _this.config.retryIn;
                 } catch (err) {
-                    _logger.error(`Failed to connect: ${err}`);
+                    _logger.error(`Failed to connect: user=${_nc.userId()}, error=${err}`);
                     _timer.delay = Math.min(_timer.delay * 2, _this.config.maxRetryInterval);
                     return Promise.reject(err);
                 }
@@ -132,22 +132,22 @@
             var description = e.data.description;
             var info = e.data.info;
             var method = { status: 'debug', warning: 'warn', error: 'error' }[level] || 'debug';
-            _logger[method](`IM.onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger[method](`IM.onStatus: user=${_nc.userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
             _this.forward(e);
         }
 
         function _onRelease(e) {
-            _logger.log(`IM.onRelease: ${e.data.reason}`);
+            _logger.log(`IM.onRelease: user=${_nc.userId()}, reason=${e.data.reason}`);
             _ns.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             _ns.removeEventListener(Event.RELEASE, _onRelease);
         }
 
         function _onClose(e) {
-            _logger.log(`IM.onClose: ${e.data.reason}`);
+            _logger.log(`IM.onClose: user=${_nc.userId()}, reason=${e.data.reason}`);
             _this.forward(e);
 
             if (_retried++ < _this.config.maxRetries || _this.config.maxRetries === -1) {
-                _logger.debug(`IM about to reconnect in ${_timer.delay} ...`);
+                _logger.debug(`IM about to reconnect: user=${_nc.userId()}, in=${_timer.delay}`);
                 _timer.start();
             }
         }

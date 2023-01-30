@@ -64,6 +64,11 @@
             return _pid;
         };
 
+        _this.uuid = function () {
+            var uuid = _this.getProperty('@uuid');
+            return uuid || '';
+        };
+
         _this.userId = function () {
             var user = _this.getProperty('@user');
             return user ? user.id : '';
@@ -80,10 +85,10 @@
         _this.connect = async function (url, parameters) {
             switch (_readyState) {
                 case State.CONNECTING:
-                    _logger.warn(`Still connecting.`);
+                    _logger.warn(`Still connecting: user=${_this.userId()}`);
                     return Promise.reject('still connecting');
                 case State.CONNECTED:
-                    _logger.warn(`Already connected.`);
+                    _logger.warn(`Already connected: user=${_this.userId()}`);
                     return Promise.reject('already connected');
             }
             _readyState = State.CONNECTING;
@@ -98,7 +103,7 @@
                         kernel: `${Kernel.name}/${Kernel.version}`,
                         browser: `${Browser.name}/${Browser.version}`,
                         client: `odd.js/${odd().version}`,
-                        uuid: _this.getProperty('@uuid'),
+                        uuid: _this.uuid(),
                         parameters: parameters,
                     };
                     _this.call(_pid, 0, args, null, new Responder(function (m) {
@@ -106,18 +111,18 @@
 
                         var fastreconnect = _this.getProperty('@uuid') === info.uuid;
                         if (fastreconnect) {
-                            _logger.log(`Fast reconnect success.`);
+                            _logger.log(`Fast reconnect success: user=${info.user.id}, nc=${info.uuid}`);
                             for (/* void */; _queued.length; _queued.shift()) {
                                 try {
                                     var view = _queued[0];
                                     _conn.send(view);
                                 } catch (err) {
-                                    _logger.warn(`Failed to resend: ${err}`);
+                                    _logger.warn(`Failed to resend: user=${info.user.id}, nc=${info.uuid}, error=${err}`);
                                     break;
                                 }
                             }
                         } else {
-                            _logger.log(`Connect success.`);
+                            _logger.log(`Connect success: user=${info.user.id}, nc=${info.uuid}`);
                             for (var i in _pipes) {
                                 if (i != 0) {
                                     var pipe = _pipes[i];
@@ -131,7 +136,7 @@
                         _resolve();
                         _resolve = _reject = undefined;
                     }, function (m) {
-                        _logger.error(`Failed to connect: ${m.Arguments.description}`);
+                        _logger.error(`Failed to connect: user=${_this.userId()}, error=${m.Arguments.description}`);
                         _reject(m.Arguments.description);
                         _resolve = _reject = undefined;
                     }));
@@ -148,25 +153,25 @@
         };
 
         function _onMessage(e) {
-            _logger.debug(`IM.onMessage: ${e.data}`);
+            _logger.debug(`IM.onMessage: user=${_this.userId()}, data=${e.data}`);
 
             var p = new IM.Message();
             try {
                 p.parse(e.data, 0);
             } catch (err) {
-                _logger.error(`Failed to parse im message: data=${e.data}, error=${err}`);
+                _logger.error(`Failed to parse im message: user=${_this.userId()}, data=${e.data}, error=${err}`);
                 return;
             }
 
             var pipe = _pipes[p.PipeID];
             if (pipe == null) {
-                _logger.warn(`Pipe ${p.PipeID} not found, should create at first.`);
+                _logger.warn(`Pipe ${p.PipeID} not found: user=${_this.userId()}, error=should create at first`);
                 return;
             }
             try {
                 pipe.process(p);
             } catch (err) {
-                _logger.error(`Failed to process message: type=${p.Type}, pipe=${p.PipeID}, error=${err}`);
+                _logger.error(`Failed to process message: user=${_this.userId()}, type=${p.Type}, pipe=${p.PipeID}, error=${err}`);
                 _this.close(err.message);
             }
         }
@@ -177,20 +182,20 @@
                     var m = new IM.AbortMessage(p);
                     m.parse(p.Payload.buffer, p.Payload.byteOffset);
                     delete _messages[m.Payload];
-                    _logger.log(`Abort chunk stream: ${m.Payload}`);
+                    _logger.log(`Abort chunk stream: user=${_this.userId()}, type=${m.Payload}`);
                     return Promise.resolve();
 
                 case Type.ACK_WINDOW_SIZE:
                     var m = new IM.AckWindowSizeMessage(p);
                     m.parse(p.Payload.buffer, p.Payload.byteOffset);
                     _farAckWindowSize = m.Payload;
-                    _logger.log(`Set farAckWindowSize to ${_farAckWindowSize}`);
+                    _logger.log(`Set farAckWindowSize: user=${_this.userId()}, value=${_farAckWindowSize}`);
                     return Promise.resolve();
 
                 case Type.ACK:
                     var m = new IM.AckMessage(p);
                     m.parse(p.Payload.buffer, p.Payload.byteOffset);
-                    _logger.log(`ACK sequence number: ${m.Payload}/${_lastBytesOut}`);
+                    _logger.log(`ACK sequence number: user=${_this.userId()}, value=${m.Payload}/${_lastBytesOut}`);
                     return Promise.resolve();
 
                 case Type.COMMAND:
@@ -209,7 +214,7 @@
                 return handler(m);
             }
             // Should not return error, just ignore.
-            _logger.warn(`No handler found: command=${m.Arguments.name}, arguments=`, m.Arguments);
+            _logger.warn(`No handler found: user=${_this.userId()}, command=${m.Arguments.name}, arguments=`, m.Arguments);
             return Promise.resolve();
         }
 
@@ -228,7 +233,7 @@
             var info = m.Arguments.info;
 
             if (level && code) {
-                _logger.debug(`IM.NetConnection.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
+                _logger.debug(`IM.NetConnection.onStatus: user=${_this.userId()}, pipe=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
             }
 
             var responder = _responders[m.TransactionID];
@@ -255,7 +260,7 @@
         }
 
         function _onError(e) {
-            _logger.error(`IM.NetConnection.onError: ${e}`);
+            _logger.error(`IM.NetConnection.onError: user=${_this.userId()}, error=${e}`);
             if (_reject) {
                 _reject(e.message);
                 _resolve = _reject = undefined;
@@ -264,7 +269,7 @@
         }
 
         function _onClose(e) {
-            _logger.log(`IM.NetConnection.onClose: ${e.code} ${e.reason || 'EOF'}`);
+            _logger.log(`IM.NetConnection.onClose: user=${_this.userId()}, code=${e.code}, reason=${e.reason || 'EOF'}`);
             _this.dispatchEvent(Event.CLOSE, { reason: `${e.code} ${e.reason || 'EOF'}` });
             _readyState = State.CLOSED;
         }
@@ -281,16 +286,18 @@
                 parameters: ns.config.parameters || {},
             };
             _this.call(_pid, 0, args, null, new Responder(function (m) {
-                _logger.log(`Create pipe success: id=${m.Arguments.info.id}`);
+                var info = m.Arguments.info;
+
+                _logger.log(`Create pipe success: user=${_this.userId()}, id=${info.id}`);
                 ns.addEventListener(Event.RELEASE, _onRelease);
 
-                _pipes[m.Arguments.info.id] = ns;
+                _pipes[info.id] = ns;
                 if (responder && responder.result) {
                     responder.result(m);
                 }
                 result();
             }, function (m) {
-                _logger.error(`Failed to create pipe: level=${m.Arguments.level}, code=${m.Arguments.code}, description=${m.Arguments.description}`);
+                _logger.error(`Failed to create pipe: user=${_this.userId()}, level=${m.Arguments.level}, code=${m.Arguments.code}, description=${m.Arguments.description}`);
                 if (responder && responder.status) {
                     responder.status(m);
                 }
@@ -361,7 +368,7 @@
                 _conn.send(view);
             } catch (err) {
                 _queued.push(view);
-                _logger.error(`Failed to send: type=${type}, pipe=${pipe}, error=${err}`);
+                _logger.error(`Failed to send: user=${_this.userId()}, type=${type}, pipe=${pipe}, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve();
