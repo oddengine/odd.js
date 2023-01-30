@@ -46,6 +46,11 @@
             return _pid;
         };
 
+        _this.uuid = function () {
+            var uuid = _this.getProperty('@uuid');
+            return uuid || '';
+        };
+
         _this.client = function () {
             return _client;
         };
@@ -54,7 +59,12 @@
             _client = nc;
 
             return await _client.create(_this, new Responder(function (m) {
-                _pid = m.Arguments.info.id;
+                var info = m.Arguments.info;
+
+                utils.forEach(info, function (key, value) {
+                    _this.setProperty(`@${key}`, value);
+                });
+                _pid = info.id;
                 _readyState = State.CONNECTED;
             }, function (m) {
                 _this.close(m.Arguments.description);
@@ -80,10 +90,10 @@
                 rid: rid,
             };
             _this.call(0, args, null, new Responder(function (m) {
-                _logger.log(`Join ${rid} success.`);
+                _logger.log(`Join success: user=${_client.userId()}, room=${rid}`);
                 result();
             }, function (m) {
-                _logger.error(`Failed to join ${rid}: ${m.Arguments.description}`);
+                _logger.error(`Failed to join: user=${_client.userId()}, room=${rid}, error=${m.Arguments.description}`);
                 status(m.Arguments.description);
             }));
             return await ret;
@@ -100,10 +110,10 @@
                 rid: rid,
             };
             _this.call(0, args, null, new Responder(function (m) {
-                _logger.log(`Leave ${rid} success.`);
+                _logger.log(`Leave success: user=${_client.userId()}, room=${rid}`);
                 result();
             }, function (m) {
-                _logger.error(`Failed to leave ${rid}: ${m.Arguments.description}`);
+                _logger.error(`Failed to leave: user=${_client.userId()}, room=${rid}, error=${m.Arguments.description}`);
                 status(m.Arguments.description);
             }));
             return await ret;
@@ -123,10 +133,10 @@
                 mask: mask,
             };
             _this.call(0, args, null, new Responder(function (m) {
-                _logger.log(`Chmod ${rid}/${tid} ${operator}${mask} success.`);
+                _logger.log(`Chmod success: user=${_client.userId()}, room=${rid}, target=${tid}, operator=${operator}, mask=${mask}`);
                 result();
             }, function (m) {
-                _logger.error(`Failed to chmod ${rid}/${tid} ${operator}${mask}: ${m.Arguments.description}`);
+                _logger.error(`Failed to chmod: user=${_client.userId()}, room=${rid}, target=${tid}, operator=${operator}, mask=${mask}, error=${m.Arguments.description}`);
                 status(m.Arguments.description);
             }));
             return await ret;
@@ -146,10 +156,10 @@
                 data: data,
             };
             _this.call(0, args, null, new Responder(function (m) {
-                _logger.log(`[${cast}]${id}: ${data}`);
+                _logger.log(`${data}: user=${_client.userId()}, cast=${cast}, to=${id}`);
                 result();
             }, function (m) {
-                _logger.error(`Failed to send ${cast}-cast to ${id}: ${m.Arguments.description}`);
+                _logger.error(`Failed to send: user=${_client.userId()}, cast=${cast}, to=${id}, data=${data}, error=${m.Arguments.description}`);
                 status(m.Arguments.description);
             }));
             return await ret;
@@ -191,7 +201,7 @@
                 return handler(m);
             }
             // Should not return error, just ignore.
-            _logger.warn(`No handler found: command=${m.Arguments.name}, arguments=`, m.Arguments);
+            _logger.warn(`No handler found: user=${_client.userId()}, command=${m.Arguments.name}, arguments=`, m.Arguments);
             return Promise.resolve();
         };
 
@@ -217,7 +227,7 @@
             var code = m.Arguments.code;
             var description = m.Arguments.description;
             var info = m.Arguments.info;
-            _logger.debug(`IM.NetStream.onStatus: id=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger.debug(`IM.NetStream.onStatus: user=${_client.userId()}, pipe=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             var responder = _responders[m.TransactionID];
             if (responder != null) {
@@ -255,7 +265,7 @@
                 name: Command.RELEASE,
                 id: _pid,
             }).catch((err) => {
-                _logger.error(`Failed to send release: ${err}`);
+                _logger.error(`Failed to send release: user=${_client.userId()}, error=${err}`);
             });
             _this.close(reason);
         };
