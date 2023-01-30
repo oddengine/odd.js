@@ -18,13 +18,13 @@
             profile: '540P_2',
             retryIn: 1000 + Math.random() * 2000, // ms. retrying interval
             url: 'wss://' + location.host + '/rtc/sig',
-            options: {
-                token: '',
-            },
             codecpreferences: [
                 'audio/opus',
                 'video/VP8',
             ],
+            parameters: {
+                token: '',
+            },
             rtcconfiguration: {
             },
             service: {
@@ -89,7 +89,7 @@
         async function _connect() {
             if (_nc.state() !== IM.State.CONNECTING && _nc.state() !== IM.State.CONNECTED) {
                 try {
-                    await _nc.connect(_this.config.url, _this.config.options);
+                    await _nc.connect(_this.config.url, _this.config.parameters);
                     _timer.delay = _this.config.retryIn;
                 } catch (err) {
                     _logger.error(`Failed to connect: ${err}`);

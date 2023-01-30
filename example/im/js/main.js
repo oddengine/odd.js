@@ -17,8 +17,8 @@ ui.setup(dialog, {
     maxRetries: -1,
     skin: 'classic',
     url: 'wss://' + location.host + '/im',
-    options: {
-        token: 'xxx',
+    parameters: {
+        token: '',
     },
     plugins: [{
         kind: 'Messages',

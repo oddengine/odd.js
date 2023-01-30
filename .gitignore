@@ -6,8 +6,4 @@ src/nes/
 src/player/av/
 src/player/module/module.flv.js
 src/player/module/module.fmp4.js
-src/player/player.controller.js
-src/player/player.js
-src/player/player.model.js
-src/player/player.view.js
 src/rtc/rtc.beauty.shader.js

@@ -1,5 +1,8 @@
 (function (odd) {
     var utils = odd.utils,
+        OS = odd.OS,
+        Kernel = odd.Kernel,
+        Browser = odd.Browser,
         crypt = utils.crypt,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
@@ -74,7 +77,7 @@
             return _properties[key];
         };
 
-        _this.connect = async function (url, args) {
+        _this.connect = async function (url, parameters) {
             switch (_readyState) {
                 case State.CONNECTING:
                     _logger.warn(`Still connecting.`);
@@ -86,10 +89,18 @@
             _readyState = State.CONNECTING;
 
             _conn = new WebSocket(url);
-            _conn.onopen = (function (args) {
+            _conn.onopen = (function (parameters) {
                 return function (e) {
-                    args['name'] = Command.CONNECT;
-                    args['uuid'] = _this.getProperty('@uuid');
+                    var args = {
+                        name: Command.CONNECT,
+                        device: OS.model || '',
+                        os: `${OS.name}/${OS.version}`,
+                        kernel: `${Kernel.name}/${Kernel.version}`,
+                        browser: `${Browser.name}/${Browser.version}`,
+                        client: `odd.js/${odd().version}`,
+                        uuid: _this.getProperty('@uuid'),
+                        parameters: parameters,
+                    };
                     _this.call(_pid, 0, args, null, new Responder(function (m) {
                         var info = m.Arguments.info;
 
@@ -125,7 +136,7 @@
                         _resolve = _reject = undefined;
                     }));
                 }
-            })(args || {});
+            })(parameters || {});
             _conn.onmessage = _onMessage;
             _conn.onerror = _onError;
             _conn.onclose = _onClose;
@@ -267,7 +278,7 @@
             var args = {
                 name: Command.CREATE,
                 kind: ns.kind,
-                options: ns.config.options || {},
+                parameters: ns.config.parameters || {},
             };
             _this.call(_pid, 0, args, null, new Responder(function (m) {
                 _logger.log(`Create pipe success: id=${m.Arguments.info.id}`);

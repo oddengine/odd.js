@@ -68,9 +68,11 @@
 {
     "name": "connect",
     "device": "",
-    "os": "Mac",
-    "kernel": "Chrome",
-    "client": "odd.js/v2.4.01",
+    "os": "Mac/10.15.6",
+    "kernel": "AppleWebKit/605.1.15",
+    "browser": "Safari/14.0.3",
+    "client": "odd.js/2.4.25",
+    "uuid": "",
     "parameters": {
         "token": ""
     }
@@ -83,7 +85,7 @@
 {
     "name": "create",
     "kind": "", // messaging, signaling
-    "options": {
+    "parameters": {
 
     }
 }
