@@ -18,9 +18,9 @@ im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 im.addEventListener(Event.CLOSE, onClose);
 im.setup({
     maxRetries: 0,
-    url: 'wss://oddcancer.com/im',
-    options: {
-        token: 'xxx',
+    url: 'wss://' + location.host + '/im',
+    parameters: {
+        token: '',
     },
 }).then(() => {
     im.join('001').catch((err) => {

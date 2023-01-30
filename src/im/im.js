@@ -15,7 +15,7 @@
             maxRetryInterval: 30000, // ms.
             retryIn: 1000 + Math.random() * 2000, // ms. retrying interval
             url: 'wss://' + location.host + '/im',
-            options: {
+            parameters: {
                 token: '',
             },
         };
@@ -70,7 +70,7 @@
         async function _connect() {
             if (_nc.state() !== IM.State.CONNECTING && _nc.state() !== IM.State.CONNECTED) {
                 try {
-                    await _nc.connect(_this.config.url, _this.config.options);
+                    await _nc.connect(_this.config.url, _this.config.parameters);
                     _timer.delay = _this.config.retryIn;
                 } catch (err) {
                     _logger.error(`Failed to connect: ${err}`);

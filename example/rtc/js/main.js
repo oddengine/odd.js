@@ -24,8 +24,8 @@ im.addEventListener(Event.CLOSE, onClose);
 im.setup({
     maxRetries: -1,
     url: 'wss://' + location.host + '/im',
-    options: {
-        token: 'xxx',
+    parameters: {
+        token: '',
     },
 }).catch((err) => {
     im.logger.error(`Failed to setup: ${err}`);
