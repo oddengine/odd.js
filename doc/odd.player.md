@@ -1,9 +1,9 @@
 ﻿# odd.player.js
 
-> [[domain] https://www.oddcancer.com](https://www.oddcancer.com/product/player.html)  
-> [[source] https://github.com/oddcancer/odd.js](https://github.com/oddcancer/odd.js)  
-> [[中文] https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.zh.md](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.zh.md)  
-> [[CSDN] https://blog.csdn.net/icysky1989/article/details/75094205](https://blog.csdn.net/icysky1989/article/details/75094205)  
+> [[domain] <https://www.oddcancer.com>](https://www.oddcancer.com/product/player.html)  
+> [[source] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
+> [[中文] <https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.zh.md>](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.zh.md)  
+> [[CSDN] <https://blog.csdn.net/icysky1989/article/details/75094205>](https://blog.csdn.net/icysky1989/article/details/75094205)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
@@ -27,17 +27,18 @@ If you are interested in this player, and or solutions about live media streamin
 ### Core Modules
 
 - [x] SRC (original html5 media resources, eg. Ogg, Mpeg4, WebM, and HLS on mobile, etc.)  
-- [x] FLV (http/ws)  
-- [x] FMP4 (http/ws)  
-- [ ] DASH (ll-cmaf)  
-- [ ] HLS (ll-cmaf)  
+- [x] FLV (HTTP/WS)  
+- [x] FMP4 (HTTP/WS)  
+- [ ] DASH (LL-CMAF)  
+- [ ] HLS (LL-CMAF)  
 - [x] RTC  
 - [ ] ~~Flash~~  
 
 ### UI Plugins
 
 - [x] Poster  
-- [x] v2.1.00 - Danmu  
+- [x] Chat  
+- [x] Danmu  
 - [x] Display  
 - [ ] AD  
 - [ ] Share  
@@ -71,6 +72,7 @@ If you are interested in this player, and or solutions about live media streamin
 - [x] v2.2.22 - Implemented rtc sdk.  
 - [x] v2.3.01 - Refactor im & rtc into one.  
 - [x] v2.3.17 - New module[s]: RTC.  
+- [x] v2.4.11 - Update Chat plugin.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 
@@ -232,6 +234,7 @@ function onReady(e) {
         mode: 'cors',        // cors, no-cors, same-origin
         credentials: 'omit', // omit, include, same-origin
     },
+    rtc: {},
     service: {
         script: 'js/sw.js',
         scope: 'js/',
@@ -251,6 +254,7 @@ function onReady(e) {
 ```js
 {
     aspectratio: '',         // deprecated! 16:9 etc.
+    client: null,
     skin: 'classic',
     plugins: [{
         kind: 'Poster',
@@ -260,14 +264,6 @@ function onReady(e) {
         visibility: true,
     }, {
         kind: 'Chat',
-        maxRetries: 0,
-        url: 'wss://' + location.host + '/rtc/sig',
-        codecpreferences: [
-            'audio/opus',
-            'video/VP8',
-        ],
-        client: null,
-        enable: false,
         visibility: true,
     }, {
         kind: 'Danmu',

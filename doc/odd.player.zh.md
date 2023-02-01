@@ -1,9 +1,9 @@
 ﻿# odd.player.js
 
-> [[官网] https://www.oddcancer.com](https://www.oddcancer.com/product/player.html)  
-> [[源码] https://github.com/oddcancer/odd.js](https://github.com/oddcancer/odd.js)  
-> [[English] https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md)  
-> [[CSDN] https://blog.csdn.net/icysky1989/article/details/75094205](https://blog.csdn.net/icysky1989/article/details/75094205)  
+> [[官网] <https://www.oddcancer.com>](https://www.oddcancer.com/product/player.html)  
+> [[源码] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
+> [[English] <https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md>](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md)  
+> [[CSDN] <https://blog.csdn.net/icysky1989/article/details/75094205>](https://blog.csdn.net/icysky1989/article/details/75094205)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > 邮箱: 670292548@qq.com  
@@ -37,6 +37,7 @@ UI 框架采用事件驱动和独立的构建方式，设计为可扩展的多�
 ### UI 插件
 
 - [x] Poster（直播封面）  
+- [x] Chat（连麦/一起看）  
 - [x] Danmu（弹幕）  
 - [x] Display（中央播放按钮、加载提示、错误提示、媒体和状态面板等）  
 - [ ] AD（广告）  
@@ -71,6 +72,7 @@ UI 框架采用事件驱动和独立的构建方式，设计为可扩展的多�
 - [x] v2.2.22 - Implemented rtc sdk.  
 - [x] v2.3.01 - Refactor im & rtc into one.  
 - [x] v2.3.17 - New module[s]: RTC.  
+- [x] v2.4.11 - Update Chat plugin.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 
@@ -232,6 +234,7 @@ function onReady(e) {
         mode: 'cors',        // cors, no-cors, same-origin
         credentials: 'omit', // omit, include, same-origin
     },
+    rtc: {},
     service: {
         script: 'js/sw.js',
         scope: 'js/',
@@ -251,12 +254,16 @@ function onReady(e) {
 ```js
 {
     aspectratio: '',         // deprecated! 16:9 etc.
+    client: null,
     skin: 'classic',
     plugins: [{
         kind: 'Poster',
         file: 'images/poster.png',
         cors: 'anonymous',   // anonymous, use-credentials
         objectfit: 'fill',   // fill, contain, cover, none, scale-down
+        visibility: true,
+    }, {
+        kind: 'Chat',
         visibility: true,
     }, {
         kind: 'Danmu',
