@@ -21,6 +21,7 @@
             kind: 'Chat',
             client: null,
             rtc: {},
+            service: {},
             visibility: true,
         };
 

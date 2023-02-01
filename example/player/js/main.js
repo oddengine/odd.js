@@ -93,7 +93,6 @@ ui.setup(player, {
         visibility: true,
     }, {
         kind: 'Chat',
-        enable: false,
         visibility: true,
     }, {
         kind: 'Display',

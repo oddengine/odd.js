@@ -22,6 +22,7 @@
         _instances = {},
         _default = {
             aspectratio: '',         // deprecated! 16:9 etc.
+            client: null,
             skin: 'classic',
             plugins: [],
         };
@@ -237,7 +238,6 @@
                     chat.publish().catch((err) => { });
                 } else {
                     chat.unpublish();
-                    chat.stop();
                 }
             }
         };
