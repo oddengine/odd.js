@@ -281,8 +281,8 @@
         _this.destroy = function (reason) {
             _timer.reset();
             switch (_this.state()) {
-                case RTC.State.CONNECTED:
-                case RTC.State.INITIALIZED:
+                case IM.State.CONNECTED:
+                case IM.State.INITIALIZED:
                     if (_nc) {
                         _nc.close(reason);
                         _nc.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
