@@ -281,8 +281,9 @@
         _this.destroy = function (reason) {
             _timer.reset();
             switch (_this.state()) {
-                case IM.State.CONNECTED:
                 case IM.State.INITIALIZED:
+                case IM.State.CONNECTING:
+                case IM.State.CONNECTED:
                     if (_nc) {
                         _nc.close(reason);
                         _nc.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
