@@ -318,6 +318,7 @@
 
 .im-ui-classic .im-dialog .im-content .im-message-item {
     padding: 5px 10px;
+    text-align: left;
 }
 
 .im-ui-classic .im-dialog .im-content .im-message-item>* {
