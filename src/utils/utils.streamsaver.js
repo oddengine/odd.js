@@ -27,10 +27,11 @@
             _this.filename = filename;
             _this.readyState = WriterState.INIT;
             _writer = writer;
-            _writer.closed.then(function () {
+            _writer.closed.catch(function (err) {
+            }).then(function () {
                 _logger.log('StreamWriter.closed: ' + _this.filename);
                 _this.close();
-            }).catch(function (err) { });
+            });
         }
 
         // Should be called once the first keyframe is detected.
