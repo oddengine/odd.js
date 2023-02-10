@@ -115,24 +115,32 @@
 
         _this.attach = async function (nc) {
             _client = nc;
-            _pc = new RTCPeerConnection(_this.config.rtcconfiguration);
-            _pc.addEventListener('negotiationneeded', _onNegotiationNeeded);
-            _pc.addEventListener('track', _onTrack);
-            _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
-            _pc.addEventListener('icecandidate', _onIceCandidate);
-            _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
 
-            return await _client.create(_this, new Responder(function (m) {
-                var info = m.Arguments.info;
+            switch (_readyState) {
+                case State.CONNECTED:
+                case State.PUBLISHING:
+                case State.PLAYING:
+                    return Promise.resolve();
+                default:
+                    _pc = new RTCPeerConnection(_this.config.rtcconfiguration);
+                    _pc.addEventListener('negotiationneeded', _onNegotiationNeeded);
+                    _pc.addEventListener('track', _onTrack);
+                    _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
+                    _pc.addEventListener('icecandidate', _onIceCandidate);
+                    _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
 
-                utils.forEach(info, function (key, value) {
-                    _this.setProperty(`@${key}`, value);
-                });
-                _pid = info.id;
-                _readyState = State.CONNECTED;
-            }, function (m) {
-                _this.close(m.Arguments.description);
-            }));
+                    return await _client.create(_this, new Responder(function (m) {
+                        var info = m.Arguments.info;
+
+                        utils.forEach(info, function (key, value) {
+                            _this.setProperty(`@${key}`, value);
+                        });
+                        _pid = info.id;
+                        _readyState = State.CONNECTED;
+                    }, function (m) {
+                        _this.close(m.Arguments.description);
+                    }));
+            }
         };
 
         _this.setProperty = function (key, value) {
@@ -629,12 +637,16 @@
             });
         };
 
-        _this.record = function (filename) {
+        _this.record = function (filename, ondata) {
             function handler() {
                 if (_this.stream == null) {
                     return Promise.reject('Failed to record stream, not found.');
                 }
                 var writer = _saver.record(filename);
+                if (ondata) {
+                    writer.write = ondata;
+                    writer.close = writer.abort;
+                }
                 _swapWriter(writer);
                 return Promise.resolve(_writer);
             }
