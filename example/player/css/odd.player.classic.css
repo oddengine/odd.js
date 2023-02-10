@@ -251,6 +251,10 @@
     position: relative;
 }
 
+.pe-ui-classic .pe-chat>div {
+    text-align: left;
+}
+
 .pe-ui-classic .pe-danmu>div>*,
 .pe-ui-classic .pe-display>div>* {
     pointer-events: auto;
