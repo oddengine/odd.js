@@ -36,7 +36,6 @@
             _responders,
             _sequenceNumber,
             _transactionId,
-            _queued,
             _farAckWindowSize,
             _nearAckWindowSize,
             _lastBytesIn,
@@ -53,7 +52,6 @@
             _responders = {};
             _sequenceNumber = 0;
             _transactionId = 0;
-            _queued = [];
             _readyState = State.INITIALIZED;
 
             _handlers[Command.SET_PROPERTY] = _processCommandSetProperty;
@@ -112,15 +110,6 @@
                         var fastreconnect = _this.getProperty('@uuid') === info.uuid;
                         if (fastreconnect) {
                             _logger.log(`Fast reconnect success: user=${info.user.id}, nc=${info.uuid}`);
-                            for (/* void */; _queued.length; _queued.shift()) {
-                                try {
-                                    var view = _queued[0];
-                                    _conn.send(view);
-                                } catch (err) {
-                                    _logger.warn(`Failed to resend: user=${info.user.id}, nc=${info.uuid}, error=${err}`);
-                                    break;
-                                }
-                            }
                         } else {
                             _logger.log(`Connect success: user=${info.user.id}, nc=${info.uuid}`);
                             for (var i in _pipes) {
@@ -130,7 +119,6 @@
                                 }
                             }
                             _pipes = { 0: _this };
-                            _queued = [];
                         }
                         _readyState = State.CONNECTED;
                         _resolve();
@@ -367,7 +355,6 @@
             try {
                 _conn.send(view);
             } catch (err) {
-                _queued.push(view);
                 _logger.error(`Failed to send: user=${_this.userId()}, type=${type}, pipe=${pipe}, error=${err}`);
                 return Promise.reject(err);
             }

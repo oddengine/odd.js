@@ -5,7 +5,10 @@ var utils = odd.utils,
     Event = events.Event,
     NetStatusEvent = events.NetStatusEvent,
     Level = events.Level,
-    Code = events.Code;
+    Code = events.Code,
+    IM = raw.IM,
+    Sending = IM.CommandMessage.Sending,
+    Casting = IM.CommandMessage.Casting;
 
 var users = {};
 
@@ -37,16 +40,21 @@ ui.setup(dialog, {
         kind: 'Settings',
         visibility: true,
     }],
-}).then(() => {
-    ui.join('001').catch((err) => {
+}).then(async () => {
+    await ui.join('001').catch((err) => {
         ui.logger.error(`Failed to join: user=${ui.client().userId()}, room=001, error=${err}`);
     });
+    await ui.join('002').catch((err) => {
+        ui.logger.error(`Failed to join: user=${ui.client().userId()}, room=002, error=${err}`);
+    });
 });
+
 
 function onReady(e) {
     ui.logger.log(`onReady: user=${ui.client().userId()}`);
     window.addEventListener('beforeunload', function (e) {
         ui.leave('001');
+        ui.leave('002');
     });
 }
 

@@ -3,6 +3,7 @@ var utils = odd.utils,
     events = odd.events,
     Event = events.Event,
     NetStatusEvent = events.NetStatusEvent,
+    SaverEvent = events.SaverEvent,
     Level = events.Level,
     Code = events.Code,
     IM = odd.IM,
@@ -127,6 +128,7 @@ function onPreviewClick(e) {
             } catch (err) {
                 console.warn(`${err}`);
             }
+            _preview = undefined;
         });
         _preview = ns;
 
@@ -358,11 +360,24 @@ function onClose(e) {
 }
 
 async function onRecordClick(e) {
-    _writer = await rtc.publishers[1].record('vod.webm');
+    for (var i in rtc.publishers) {
+        var ns = rtc.publishers[i];
+        _writer = await ns.record('vod.webm', onDataAvailable);
+        _writer.addEventListener(SaverEvent.WRITEREND, onWriterEnd);
+        break;
+    }
 }
 
 function onStopRecordClick(e) {
-    _writer.close();
+    _writer.abort();
+}
+
+function onDataAvailable(chunk) {
+    im.send(Sending.FILE, '', undefined, { name: _writer.filename }, chunk);
+}
+
+function onWriterEnd(e) {
+    im.send(Sending.FILE, '', undefined, { name: _writer.filename, event: 'end' });
 }
 
 function onBrightnessChange(e) {

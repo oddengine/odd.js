@@ -58,17 +58,22 @@
         _this.attach = async function (nc) {
             _client = nc;
 
-            return await _client.create(_this, new Responder(function (m) {
-                var info = m.Arguments.info;
+            switch (_readyState) {
+                case State.CONNECTED:
+                    return Promise.resolve();
+                default:
+                    return await _client.create(_this, new Responder(function (m) {
+                        var info = m.Arguments.info;
 
-                utils.forEach(info, function (key, value) {
-                    _this.setProperty(`@${key}`, value);
-                });
-                _pid = info.id;
-                _readyState = State.CONNECTED;
-            }, function (m) {
-                _this.close(m.Arguments.description);
-            }));
+                        utils.forEach(info, function (key, value) {
+                            _this.setProperty(`@${key}`, value);
+                        });
+                        _pid = info.id;
+                        _readyState = State.CONNECTED;
+                    }, function (m) {
+                        _this.close(m.Arguments.description);
+                    }));
+            }
         };
 
         _this.setProperty = function (key, value) {
@@ -142,7 +147,7 @@
             return await ret;
         };
 
-        _this.send = async function (type, cast, id, data) {
+        _this.send = async function (type, cast, id, data, payload) {
             var result, status;
             var ret = new Promise((resolve, reject) => {
                 result = resolve;
@@ -155,7 +160,7 @@
                 id: id,
                 data: data,
             };
-            _this.call(0, args, null, new Responder(function (m) {
+            _this.call(0, args, payload, new Responder(function (m) {
                 _logger.log(`${data}: user=${_client.userId()}, cast=${cast}, to=${id}`);
                 result();
             }, function (m) {

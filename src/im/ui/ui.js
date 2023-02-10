@@ -81,7 +81,6 @@
             _this.sendStatus = _im.sendStatus;
             _this.call = _im.call;
             _this.state = _im.state;
-            _this.close = _im.close;
             _this.forward(e);
         }
 
@@ -169,7 +168,6 @@
 
         function _onClose(e) {
             _logger.log(`IM.onClose: ${e.data.reason}`);
-            _this.close(e.data.reason);
             _this.forward(e);
         }
 
@@ -191,7 +189,7 @@
 
         _this.destroy = function (reason) {
             if (_im) {
-                _im.close(reason);
+                _im.destroy(reason);
                 _im.removeEventListener(Event.BIND, _onBind);
                 _im.removeEventListener(Event.READY, _onReady);
                 _im.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);

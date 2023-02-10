@@ -49,6 +49,17 @@
             }
         };
 
+        _this.abort = function () {
+            switch (_this.readyState) {
+                case WriterState.INIT:
+                case WriterState.START:
+                    _this.readyState = WriterState.END;
+                    _writer.abort();
+                    _this.dispatchEvent(SaverEvent.WRITEREND);
+                    break;
+            }
+        };
+
         _this.close = function () {
             switch (_this.readyState) {
                 case WriterState.INIT:
