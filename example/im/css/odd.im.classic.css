@@ -474,6 +474,7 @@
     }
 
     .im-ui-classic .nav>.im-tab-body {
+        overflow-y: scroll;
         order: 1;
     }
 
