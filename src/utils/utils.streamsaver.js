@@ -30,7 +30,7 @@
             _writer.closed.then(function () {
                 _logger.log('StreamWriter.closed: ' + _this.filename);
                 _this.close();
-            });
+            }).catch(function (err) { });
         }
 
         // Should be called once the first keyframe is detected.
