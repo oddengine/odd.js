@@ -133,6 +133,8 @@ function onPreviewClick(e) {
         _preview = ns;
 
         var video = ns.video;
+        video.setAttribute('controls', '');
+        video.classList[ch_enablemirror.checked ? 'add' : 'remove']('mirror');
         video.muted = true;
         video.srcObject = ns.stream;
         video.play().catch(function (err) {
@@ -191,6 +193,8 @@ function onPublishClick(e) {
         });
 
         var video = ns.video;
+        video.setAttribute('controls', '');
+        video.classList[ch_enablemirror.checked ? 'add' : 'remove']('mirror');
         video.muted = true;
         video.srcObject = ns.stream;
         video.play().catch(function (err) {
@@ -209,6 +213,17 @@ function onPublishClick(e) {
     });
 }
 
+function onAudioEnableChange(e) {
+    utils.forEach(rtc.publishers, function (_, ns) {
+        ns.getSenders().forEach((sender) => {
+            var track = sender.track;
+            if (track && track.kind === 'audio') {
+                track.enabled = ch_enableaudio.checked;
+            }
+        });
+    });
+}
+
 function onVideoEnableChange(e) {
     utils.forEach(rtc.publishers, function (_, ns) {
         ns.getSenders().forEach((sender) => {
@@ -220,14 +235,10 @@ function onVideoEnableChange(e) {
     });
 }
 
-function onAudioEnableChange(e) {
+function onMirrorEnableChange(e) {
     utils.forEach(rtc.publishers, function (_, ns) {
-        ns.getSenders().forEach((sender) => {
-            var track = sender.track;
-            if (track && track.kind === 'audio') {
-                track.enabled = ch_enableaudio.checked;
-            }
-        });
+        var video = ns.video;
+        video.classList[ch_enablemirror.checked ? 'add' : 'remove']('mirror');
     });
 }
 
@@ -263,6 +274,7 @@ function play(name) {
             switch (e.data.code) {
                 case Code.NETSTREAM_PLAY_START:
                     var video = e.srcElement.video;
+                    video.setAttribute('controls', '');
                     video.srcObject = e.data.info.streams[0];
                     video.play().catch(function (err) {
                         console.warn(`${err}`);

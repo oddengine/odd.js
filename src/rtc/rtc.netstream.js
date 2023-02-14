@@ -75,7 +75,6 @@
             _this.video = utils.createElement('video');
             _this.video.setAttribute('playsinline', '');
             _this.video.setAttribute('autoplay', '');
-            _this.video.setAttribute('controls', '');
 
             _pid = 0;
             _screenshare = false;
