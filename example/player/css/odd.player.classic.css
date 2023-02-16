@@ -248,11 +248,8 @@
 .pe-ui-classic .pe-display>div {
     width: 100%;
     height: 100%;
-    position: relative;
-}
-
-.pe-ui-classic .pe-chat>div {
     text-align: left;
+    position: relative;
 }
 
 .pe-ui-classic .pe-danmu>div>*,
@@ -896,6 +893,7 @@
 
 .pe-ui-classic .pe-contextmenu {
     white-space: nowrap;
+    text-align: left;
     position: absolute;
     display: none;
 }
