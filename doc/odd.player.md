@@ -72,7 +72,7 @@ If you are interested in this player, and or solutions about live media streamin
 - [x] v2.2.22 - Implemented rtc sdk.  
 - [x] v2.3.01 - Refactor im & rtc into one.  
 - [x] v2.3.17 - New module[s]: RTC.  
-- [x] v2.4.11 - Update Chat plugin.  
+- [x] v2.4.27 - Update Chat plugin.  
 - [ ] Breakpoint download for http-flv playback (Send a HEAD request at first).  
 - [ ] Experience statistics and analysis.  
 

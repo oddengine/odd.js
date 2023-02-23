@@ -22,11 +22,13 @@
 - [x] v2.4.04 - Refactor im & rtc protocol.  
 - [x] v2.4.06 - Supports red/rtx/ulpfec.  
 - [x] v2.4.22 - NetStream recordable.  
+- [x] v2.4.30 - Send recorded stream to server.  
 - [ ] Be able to change microphone while publishing.  
 
 ## Solutions
 
-- [x] [Online Conference](https://www.oddcancer.com/solution/rtc/index.html)  
+- [x] [WebRTC Demo](https://www.oddcancer.com/solution/interactive.html)  
+- [x] [Video Conference](https://www.oddcancer.com/solution/conference.html)  
 
 ## Configuration
 
