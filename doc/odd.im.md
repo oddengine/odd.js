@@ -1,7 +1,7 @@
 ﻿# odd.im.js
 
-> [[domain] <https://www.oddcancer.com>](https://www.oddcancer.com/product/im.html)  
-> [[source] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
+> [[domain] <https://oddengine.com>](https://oddengine.com/product/im.html)  
+> [[source] <https://github.com/oddengine/odd.js>](https://github.com/oddengine/odd.js)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
@@ -23,7 +23,7 @@
 
 ## Solutions
 
-- [x] [IM](https://www.oddcancer.com/solution/im.html)  
+- [x] [IM](https://oddengine.com/solution/im.html)  
 
 ## Example
 
@@ -292,4 +292,4 @@ The API supports Event and NetStatusEvent. All of the API events will be forward
 
 ## License
 
-BSD 3-Clause License ([NOTICE](https://github.com/oddcancer/odd.js/blob/master/NOTICE))
+BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/NOTICE))

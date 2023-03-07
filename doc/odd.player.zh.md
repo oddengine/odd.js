@@ -1,14 +1,14 @@
 ﻿# odd.player.js
 
-> [[官网] <https://www.oddcancer.com>](https://www.oddcancer.com/product/player.html)  
-> [[源码] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
-> [[English] <https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md>](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md)  
+> [[官网] <https://oddengine.com>](https://oddengine.com/product/player.html)  
+> [[源码] <https://github.com/oddengine/odd.js>](https://github.com/oddengine/odd.js)  
+> [[English] <https://github.com/oddengine/odd.js/blob/master/doc/odd.player.md>](https://github.com/oddengine/odd.js/blob/master/doc/odd.player.md)  
 > [[CSDN] <https://blog.csdn.net/icysky1989/article/details/75094205>](https://blog.csdn.net/icysky1989/article/details/75094205)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > 邮箱: 670292548@qq.com  
 
-这不仅只是一个支持 HTTP/WS-FLV 直播流的 [HTML5 FLV Player](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md#roadmap)，同时也支持 HTTP/WS-fMP4、MPEG-DASH、HLS，以及其它 HTML5 原生支持的媒体资源（如 Ogg、Mpeg4、WebM），并拥有一套独立的 UI 框架。
+这不仅只是一个支持 HTTP/WS-FLV 直播流的 [HTML5 FLV Player](https://github.com/oddengine/odd.js/blob/master/doc/odd.player.md#roadmap)，同时也支持 HTTP/WS-fMP4、MPEG-DASH、HLS，以及其它 HTML5 原生支持的媒体资源（如 Ogg、Mpeg4、WebM），并拥有一套独立的 UI 框架。
 
 注：  
 
@@ -78,8 +78,8 @@ UI 框架采用事件驱动和独立的构建方式，设计为可扩展的多�
 
 ## 解决方案
 
-- [x] [直播](https://www.oddcancer.com/solution/live.html)  
-- [x] [点播](https://www.oddcancer.com/solution/vod.html)  
+- [x] [直播](https://oddengine.com/solution/live.html)  
+- [x] [点播](https://oddengine.com/solution/vod.html)  
 
 ## 示例
 
@@ -284,8 +284,8 @@ function onReady(e) {
         visibility: true,
     }, {
         kind: 'Logo',
-        file: 'https://www.oddcancer.com/image/odd-player-logo.png',
-        link: 'https://www.oddcancer.com/product/player.html',
+        file: 'https://oddengine.com/image/odd-player-logo.png',
+        link: 'https://oddengine.com/product/player.html',
         cors: 'anonymous',   // anonymous, use-credentials
         target: '_blank',
         style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
@@ -303,7 +303,7 @@ function onReady(e) {
             icon: 'image/github.png',
             text: 'github.com',
             shortcut: '',
-            handler: function () { window.open('https://www.oddcancer.com/product/player.html'); },
+            handler: function () { window.open('https://oddengine.com/product/player.html'); },
         }],
     }]
 };
@@ -462,4 +462,4 @@ API 实例支持 Event 和 IOEvent 事件。所有 API 事件都会投递给对�
 
 ## License
 
-BSD 3-Clause License ([NOTICE](https://github.com/oddcancer/odd.js/blob/master/NOTICE))
+BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/NOTICE))

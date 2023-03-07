@@ -86,7 +86,7 @@
 
         _this.setup = function () {
             if (_ready === false) {
-                _rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddcancer.com/rtc/log', interval: 60 });
+                _rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
                 _rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
                 _rtc.addEventListener(Event.CLOSE, _onClose);
                 _rtc.setup(_this.config.rtc).then(() => {

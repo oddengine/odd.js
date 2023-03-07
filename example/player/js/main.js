@@ -43,7 +43,7 @@ ui.setup(player, {
     // file: 'ws://192.168.0.117/live/_definst_/abc.flv',
     // file: 'http://192.168.0.117/live/_definst_/abc/index.m3u8',
     // file: 'http://stream.xthktech.cn:8081/live/_definst_/abc.flv',
-    // file: 'https://www.oddcancer.com/live/_definst_/abc.flv',
+    // file: 'https://oddengine.com/live/_definst_/abc.flv',
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
     maxBufferLength: 1.5,    // sec.
     maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
@@ -68,20 +68,20 @@ ui.setup(player, {
         enable: true,
     },
     sources: [{
-        file: 'https://www.oddcancer.com/live/_definst_/abc.flv',
+        file: 'https://oddengine.com/live/_definst_/abc.flv',
         module: 'FLV',
         label: 'http-flv',
         default: true,
     }, {
-        file: 'wss://www.oddcancer.com/live/_definst_/abc',
+        file: 'wss://oddengine.com/live/_definst_/abc',
         module: 'FMP4',
         label: 'ws-fmp4',
     }, {
-        file: 'rtc://www.oddcancer.com/im?name=abc',
+        file: 'rtc://oddengine.com/im?name=abc',
         module: 'RTC',
         label: 'rtc',
     }, {
-        file: 'https://www.oddcancer.com/live/_definst_/abc/index.m3u8',
+        file: 'https://oddengine.com/live/_definst_/abc/index.m3u8',
         module: 'SRC',
         label: 'hls',
     }],

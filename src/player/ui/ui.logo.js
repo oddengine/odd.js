@@ -10,8 +10,8 @@
 
         _default = {
             kind: 'Logo',
-            file: 'https://www.oddcancer.com/image/odd-player-logo.png',
-            link: 'https://www.oddcancer.com/product/player.html',
+            file: 'https://oddengine.com/image/odd-player-logo.png',
+            link: 'https://oddengine.com/product/player.html',
             cors: 'anonymous',   // anonymous, use-credentials
             target: '_blank',
             style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',

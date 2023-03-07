@@ -38,7 +38,7 @@
             _this.config = config;
             _this.constraints = utils.extendz({}, Constraints[_this.config.profile || '180P_1']);
 
-            _this.rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddcancer.com/rtc/log', interval: 60 });
+            _this.rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
             _this.rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             _this.rtc.addEventListener(Event.CLOSE, _onClose);
             _this.rtc.setup(_this.config.rtc);

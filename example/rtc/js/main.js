@@ -47,7 +47,7 @@ function onLeaveClick(e) {
     im.leave(in_room.value);
 }
 
-var rtc = odd.rtc.create(im.client(), { mode: 'feedback', url: 'https://fc.oddcancer.com/rtc/log', interval: 60 });
+var rtc = odd.rtc.create(im.client(), { mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
 rtc.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 rtc.addEventListener(Event.CLOSE, onClose);
 rtc.setup({

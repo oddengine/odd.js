@@ -1,14 +1,14 @@
 ﻿# odd.player.js
 
-> [[domain] <https://www.oddcancer.com>](https://www.oddcancer.com/product/player.html)  
-> [[source] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
-> [[中文] <https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.zh.md>](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.zh.md)  
+> [[domain] <https://oddengine.com>](https://oddengine.com/product/player.html)  
+> [[source] <https://github.com/oddengine/odd.js>](https://github.com/oddengine/odd.js)  
+> [[中文] <https://github.com/oddengine/odd.js/blob/master/doc/odd.player.zh.md>](https://github.com/oddengine/odd.js/blob/master/doc/odd.player.zh.md)  
 > [[CSDN] <https://blog.csdn.net/icysky1989/article/details/75094205>](https://blog.csdn.net/icysky1989/article/details/75094205)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
 
-This is not only an [HTML5 FLV Player](https://github.com/oddcancer/odd.js/blob/master/doc/odd.player.md#roadmap), which supports HTTP/WS-FLV live streaming, but also supports HTTP/WS-fMP4, MPEG-DASH, HLS and other Original HTML5 Media Resources (eg. Ogg, Mpeg4, WebM), with an independent UI framework.  
+This is not only an [HTML5 FLV Player](https://github.com/oddengine/odd.js/blob/master/doc/odd.player.md#roadmap), which supports HTTP/WS-FLV live streaming, but also supports HTTP/WS-fMP4, MPEG-DASH, HLS and other Original HTML5 Media Resources (eg. Ogg, Mpeg4, WebM), with an independent UI framework.  
 
 Note:  
 
@@ -78,8 +78,8 @@ If you are interested in this player, and or solutions about live media streamin
 
 ## Solutions
 
-- [x] [Live Broadcast](https://www.oddcancer.com/solution/live.html)  
-- [x] [VoD](https://www.oddcancer.com/solution/vod.html)  
+- [x] [Live Broadcast](https://oddengine.com/solution/live.html)  
+- [x] [VoD](https://oddengine.com/solution/vod.html)  
 
 ## Example
 
@@ -284,8 +284,8 @@ function onReady(e) {
         visibility: true,
     }, {
         kind: 'Logo',
-        file: 'https://www.oddcancer.com/image/odd-player-logo.png',
-        link: 'https://www.oddcancer.com/product/player.html',
+        file: 'https://oddengine.com/image/odd-player-logo.png',
+        link: 'https://oddengine.com/product/player.html',
         cors: 'anonymous',   // anonymous, use-credentials
         target: '_blank',
         style: 'margin: 3% 5%; width: 36px; height: 36px; top: 0px; right: 0px;',
@@ -303,7 +303,7 @@ function onReady(e) {
             icon: 'image/github.png',
             text: 'github.com',
             shortcut: '',
-            handler: function () { window.open('https://www.oddcancer.com/product/player.html'); },
+            handler: function () { window.open('https://oddengine.com/product/player.html'); },
         }],
     }]
 };
@@ -462,4 +462,4 @@ The API supports Event and IOEvent. All of the API events will be forward to UI.
 
 ## License
 
-BSD 3-Clause License ([NOTICE](https://github.com/oddcancer/odd.js/blob/master/NOTICE))
+BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/NOTICE))

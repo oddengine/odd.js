@@ -1,7 +1,7 @@
 ﻿# odd.rtc.js
 
-> [[domain] <https://www.oddcancer.com>](https://www.oddcancer.com/product/rtc.html)  
-> [[source] <https://github.com/oddcancer/odd.js>](https://github.com/oddcancer/odd.js)  
+> [[domain] <https://oddengine.com>](https://oddengine.com/product/rtc.html)  
+> [[source] <https://github.com/oddengine/odd.js>](https://github.com/oddengine/odd.js)  
 > QQ群：528109813  
 > Skype: live:670292548  
 > Email: 670292548@qq.com  
@@ -27,8 +27,8 @@
 
 ## Solutions
 
-- [x] [WebRTC Demo](https://www.oddcancer.com/solution/interactive.html)  
-- [x] [Video Conference](https://www.oddcancer.com/solution/conference.html)  
+- [x] [WebRTC Demo](https://oddengine.com/solution/interactive.html)  
+- [x] [Video Conference](https://oddengine.com/solution/conference.html)  
 
 ## Configuration
 
@@ -142,4 +142,4 @@ The API supports Event and NetStatusEvent.
 
 ## License
 
-BSD 3-Clause License ([NOTICE](https://github.com/oddcancer/odd.js/blob/master/NOTICE))
+BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/NOTICE))
