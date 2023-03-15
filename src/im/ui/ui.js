@@ -77,6 +77,8 @@
             _this.join = _im.join;
             _this.leave = _im.leave;
             _this.chmod = _im.chmod;
+            _this.invoke = _im.invoke;
+            _this.quit = _im.quit;
             _this.send = _im.send;
             _this.sendStatus = _im.sendStatus;
             _this.call = _im.call;

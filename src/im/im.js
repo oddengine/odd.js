@@ -69,6 +69,8 @@
             _this.join = _ns.join;
             _this.leave = _ns.leave;
             _this.chmod = _ns.chmod;
+            _this.invoke = _ns.invoke;
+            _this.quit = _ns.quit;
             _this.send = _ns.send;
             _this.sendStatus = _ns.sendStatus;
             _this.call = _ns.call;
