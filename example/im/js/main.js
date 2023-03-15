@@ -6,7 +6,7 @@ var utils = odd.utils,
     NetStatusEvent = events.NetStatusEvent,
     Level = events.Level,
     Code = events.Code,
-    IM = raw.IM,
+    IM = odd.IM,
     Sending = IM.CommandMessage.Sending,
     Casting = IM.CommandMessage.Casting;
 

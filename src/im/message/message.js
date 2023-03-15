@@ -13,6 +13,8 @@
             JOIN: 'join',
             LEAVE: 'leave',
             CHMOD: 'chmod',
+            INVOKE: 'invoke',
+            QUIT: 'quit',
             SEND: 'send',
             PLAY: 'play',
             STOP: 'stop',

@@ -90,11 +90,10 @@
                 result = resolve;
                 status = reject;
             });
-            var args = {
+            _this.call(0, {
                 name: Command.JOIN,
                 rid: rid,
-            };
-            _this.call(0, args, null, new Responder(function (m) {
+            }, null, new Responder(function (m) {
                 _logger.log(`Join success: user=${_client.userId()}, room=${rid}`);
                 result();
             }, function (m) {
@@ -110,11 +109,10 @@
                 result = resolve;
                 status = reject;
             });
-            var args = {
+            _this.call(0, {
                 name: Command.LEAVE,
                 rid: rid,
-            };
-            _this.call(0, args, null, new Responder(function (m) {
+            }, null, new Responder(function (m) {
                 _logger.log(`Leave success: user=${_client.userId()}, room=${rid}`);
                 result();
             }, function (m) {
@@ -130,14 +128,13 @@
                 result = resolve;
                 status = reject;
             });
-            var args = {
+            _this.call(0, {
                 name: Command.CHMOD,
                 rid: rid,
                 tid: tid,
                 operator: operator,
                 mask: mask,
-            };
-            _this.call(0, args, null, new Responder(function (m) {
+            }, null, new Responder(function (m) {
                 _logger.log(`Chmod success: user=${_client.userId()}, room=${rid}, target=${tid}, operator=${operator}, mask=${mask}`);
                 result();
             }, function (m) {
@@ -147,20 +144,53 @@
             return await ret;
         };
 
+        _this.invoke = async function (path, args, env, dir, timeout) {
+            var result, status;
+            var ret = new Promise((resolve, reject) => {
+                result = resolve;
+                status = reject;
+            });
+            _this.call(0, {
+                name: Command.INVOKE,
+                path: path,
+                args: args,
+                env: env,
+                dir: dir,
+                timeout: timeout,
+            }, null, new Responder(function (m) {
+                _logger.log(`Invoke success: user=${_client.userId()}, path=${path}, args=${args}, env=${env}, dir=${dir}, timeout=${timeout}, pid=${m.Arguments.info.pid}`);
+                result();
+            }, function (m) {
+                _logger.error(`Failed to invoke: user=${_client.userId()}, path=${path}, args=${args}, env=${env}, dir=${dir}, timeout=${timeout}, error=${m.Arguments.description}`);
+                status(m.Arguments.description);
+            }));
+            return await ret;
+        };
+
+        _this.quit = async function (pid) {
+            return await _this.call(0, {
+                name: Command.QUIT,
+                pid: pid,
+            }).then(() => {
+                _logger.log(`Send quit success: user=${_client.userId()}, pid=${pid}`);
+            }).catch((err) => {
+                _logger.error(`Failed to send quit: user=${_client.userId()}, pid=${pid}, error=${err}`);
+            });
+        };
+
         _this.send = async function (type, cast, id, data, payload) {
             var result, status;
             var ret = new Promise((resolve, reject) => {
                 result = resolve;
                 status = reject;
             });
-            var args = {
+            _this.call(0, {
                 name: Command.SEND,
                 type: type,
                 cast: cast,
                 id: id,
                 data: data,
-            };
-            _this.call(0, args, payload, new Responder(function (m) {
+            }, payload, new Responder(function (m) {
                 _logger.log(`${data}: user=${_client.userId()}, cast=${cast}, to=${id}`);
                 result();
             }, function (m) {
