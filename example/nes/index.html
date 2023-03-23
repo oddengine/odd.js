@@ -1,0 +1,99 @@
+﻿<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>odd.js - NES Example</title>
+
+    <meta charset="utf-8" />
+    <meta http-equiv="Cache-Control" content="no-cache" />
+    <meta name="format-detection" content="telephone=no,email=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="x5-fullscreen" content="true" />
+    <meta name="App-Config" content="fullscreen=yes, useHistoryState=yes, transition=yes" />
+
+    <link type='text/css' rel='stylesheet' href='css/style.css' />
+    <link type='text/css' rel='stylesheet' href='css/odd.nes.classic.css' />
+    <style type='text/css'></style>
+
+    <!-- <script type='text/javascript' src='../../release/odd.common.min.js'></script> -->
+    <!-- <script type='text/javascript' src='../../release/odd.nes.min.js'></script> -->
+    <!-- <script type='text/javascript' src='../../release/odd.nes.ui.min.js'></script> -->
+    <script type='text/javascript' src='../../src/odd.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.amf.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.bitstream.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.browser.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.crypt.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.css.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.endian.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.filesaver.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.golomb.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.logger.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.url.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.xml2json.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.datetime.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.duration.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.numeric.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.string.js'></script>
+    <script type='text/javascript' src='../../src/events/events.js'></script>
+    <script type='text/javascript' src='../../src/events/events.eventdispatcher.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.streamsaver.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.timer.js'></script>
+    <script type='text/javascript' src='../../src/io/io.js'></script>
+    <script type='text/javascript' src='../../src/io/io.xhr.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.cpu.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.cpu.opdata.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.ppu.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.ppu.nametable.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.ppu.palettetable.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.ppu.tile.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.apu.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.apu.channeldm.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.apu.channelnoise.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.apu.channelsquare.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.apu.channeltriangle.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.keyboard.js'></script>
+    <script type='text/javascript' src='../../src/nes/nes.rom.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.000.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.001.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.002.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.003.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.004.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.005.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.007.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.011.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.034.js'></script>
+    <script type='text/javascript' src='../../src/nes/mapper/mapper.066.js'></script>
+    <script type='text/javascript' src='../../src/nes/ui/ui.js'></script>
+    <script type='text/javascript' src='../../src/nes/ui/components/components.js'></script>
+    <script type='text/javascript' src='../../src/nes/ui/components/components.button.js'></script>
+    <script type='text/javascript' src='../../src/nes/ui/components/components.joystick.js'></script>
+    <script type='text/javascript' src='../../src/nes/ui/components/components.label.js'></script>
+    <script type='text/javascript' src='../../src/nes/ui/ui.controlbar.js'></script>
+</head>
+
+<body ontouchstart=''>
+    <div style='width: 100%; height: 100%;'>
+        <div id='emulator' style='width: 100%; height: 100%;'>
+            <div class='nes-wrapper nes-ui-classic' tabindex='-1' state=''>
+                <div class='nes-content'>
+                    <canvas width='256' height='240'></canvas>
+                </div>
+            </div>
+        </div>
+        <div class='input-wrapper' style='width: 100%; display: none;'>
+            <input id='url' type='text' value='/odd.js/example/nes/rom/tank-1990.nes' autocapitalize='off'>
+            <a class='btn green-fill' onclick='onLoadClick();'>Load</a>
+        </div>
+    </div>
+
+    <script type='text/javascript' src='js/main.js'></script>
+</body>
+
+</html>
