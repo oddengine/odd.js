@@ -12,7 +12,7 @@
 
 注：  
 
-播放器 odd.player.js 现在已**完全开源**。
+播放器 odd.player.js 现在已**完全开源**。其中，聊天插件提供的实时音视频聊天（一起看）功能，和弹幕插件依赖的即时通信（IM）功能，需要与服务器 [OMS](https://github.com/oddengine/oms) 搭配使用。
 
 我们针对商业用途开启的新版本（v2），不仅更专业、高效、稳定，并且兼容所有支持 [MSE](https://caniuse.com/?search=mse) 接口的浏览器，包括 iPad Safari 和 Android Chrome。在这版设计中，将 UI 框架与内核 SDK（即 API 类），并且更易于理解和扩展。同时，UI 框架于 v2.1.49 开始开源，以便用户定制 UI、插件和组件。
 
