@@ -12,9 +12,9 @@ This is not only an [HTML5 FLV Player](https://github.com/oddengine/odd.js/blob/
 
 Note:  
 
-This player is now **open-sourced** completely since v2.5.02. 
+The odd.player.js is now **open-sourced** completely. 
 
-Instead, we've started a new version (v2) for business usage, which is much more professional, high-performance and stable, and compatiable with all of the browsers that supports [MSE](https://caniuse.com/?search=mse), including iPad Safari and Android Chrome. In this build, an UI framework is developed separately from the core SDK (known as API), and is much easier to understand and extend. In the meantime, the UI framework is open-sourced since v2.1.49 to help building customized UI, plugins and components.
+We've started a new version (v2) for business usage, which is much more professional, high-performance and stable, and compatiable with all of the browsers that supports [MSE](https://caniuse.com/?search=mse), including iPad Safari and Android Chrome. In this build, an UI framework is developed separately from the core SDK (known as API), and is much easier to understand and extend. In the meantime, the UI framework is open-sourced since v2.1.49 to help building customized UI, plugins and components.
 
 The new core SDK provides more professional configurations, interfaces and events. In allusion to entertainment, monitoring, education and VR scenes, it is able to run in **multi-instance** mode and destroy dynamically, detect tracks automatically, synchronize audio and video while missing frames. In addition, configurable time range collector makes it **functional 24/7**. Tying in with **reducing latency due to the cumulative ack of tcp**, the latency of live broadcast can remain low. Besides, it also supports frame capture, progressive fMP4 recording at any time, event reporting of media info, log feedback and so on.
 
