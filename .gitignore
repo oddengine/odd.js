@@ -1,9 +1,3 @@
 .DS_Store
 */.DS_Store
-example/nes/
 release/
-src/nes/
-src/player/av/
-src/player/module/module.flv.js
-src/player/module/module.fmp4.js
-src/rtc/rtc.beauty.shader.js
