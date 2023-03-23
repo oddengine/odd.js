@@ -10,9 +10,9 @@ This project includes 3 featured SDK, which are an [HTML5 FLV Player](https://od
 
 Note:  
 
-The odd.player.js is now **open-sourced** completely. 
+The odd.player.js is now **open-sourced** completely. The Chat plugin which provides Real-Time Video Communication, and the Danmu plugin which works with IM SDK, need a support of [OMS](https://github.com/oddengine/oms).
 
-播放器 odd.player.js 现在已**完全开源**。
+播放器 odd.player.js 现在已**完全开源**。其中，聊天插件提供的实时音视频聊天（一起看）功能，和弹幕插件依赖的即时通信（IM）功能，需要与服务器 [OMS](https://github.com/oddengine/oms) 搭配使用。
 
 ## License
 
