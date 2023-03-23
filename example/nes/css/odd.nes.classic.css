@@ -1,0 +1,271 @@
+.nes-flex {
+    display: flex !important;
+}
+
+.nes-wrapper {
+    width: 100%;
+    height: 100%;
+    color: white;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+    background: black;
+    position: relative;
+    overflow: hidden;
+}
+
+.nes-wrapper * {
+    margin: 0px;
+    padding: 0px;
+    /* font-family: Microsoft YaHei, Arial, sans-serif; */
+    font-size: 14px;
+    font-weight: normal;
+    box-sizing: content-box;
+}
+
+.nes-ui-classic .nes-tooltip {
+    padding: 8px 12px 6px;
+    font-size: 10px;
+    line-height: 10px;
+    border-radius: 2px;
+    background: #454545;
+    left: 0px;
+    position: absolute;
+    cursor: default;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+@media(hover:hover) {
+    .nes-ui-classic *:hover>.nes-tooltip {
+        visibility: visible;
+    }
+}
+
+.nes-ui-classic *:active>.nes-tooltip {
+    visibility: visible;
+}
+
+.nes-ui-classic .nes-button {
+    position: relative;
+    text-align: center;
+    white-space: nowrap;
+    background-repeat: no-repeat;
+    background-position: center;
+    cursor: pointer;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+}
+
+@media screen and (orientation: portrait) {
+    .nes-ui-classic .nes-content {
+        width: 100%;
+        height: 93.75vw;
+    }
+}
+
+@media screen and (orientation: landscape) {
+    .nes-ui-classic .nes-content {
+        margin: 0 auto;
+        width: 106.66vh;
+        height: 100%;
+    }
+}
+
+.nes-ui-classic .nes-content canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.nes-ui-classic .nes-controlbar {
+    width: 100%;
+    height: 60%;
+    bottom: 0px;
+    position: absolute;
+    display: block;
+}
+
+.nes-ui-classic .nes-controlbar>div {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+}
+
+.nes-ui-classic .nes-controlbar .nes-left,
+.nes-ui-classic .nes-controlbar .nes-center,
+.nes-ui-classic .nes-controlbar .nes-right {
+    align-self: flex-end;
+    display: flex;
+}
+
+.nes-ui-classic .nes-controlbar .nes-left,
+.nes-ui-classic .nes-controlbar .nes-right {
+    flex-grow: 0;
+}
+
+.nes-ui-classic .nes-controlbar .nes-left {
+    height: 100%;
+}
+
+.nes-ui-classic .nes-controlbar .nes-center,
+.nes-ui-classic .nes-controlbar .nes-right {
+    height: 60%;
+}
+
+.nes-ui-classic .nes-controlbar .nes-center {
+    justify-content: flex-end;
+    flex: 1 1;
+}
+
+.nes-ui-classic .nes-controlbar .nes-center>*,
+.nes-ui-classic .nes-controlbar .nes-right>* {
+    align-self: center;
+}
+
+.nes-ui-classic .nes-controlbar .nes-center>* {
+    height: 40px;
+}
+
+.nes-ui-classic .nes-controlbar .nes-left>*>.nes-tooltip,
+.nes-ui-classic .nes-controlbar .nes-center>*>.nes-tooltip,
+.nes-ui-classic .nes-controlbar .nes-right>*>.nes-tooltip {
+    bottom: 41px;
+}
+
+.nes-ui-classic .nes-controlbar .nes-joystick {
+    width: 60vh;
+    border: 1px solid #3cafab;
+    border-radius: 50%;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.mute,
+.nes-ui-classic[muted="true"] .nes-controlbar .nes-button.mute,
+.nes-ui-classic[muted="false"] .nes-controlbar .nes-button.unmute {
+    display: none;
+}
+
+.nes-ui-classic[muted="false"] .nes-controlbar .nes-button.mute {
+    display: block;
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.reload {
+    margin-right: 2px;
+    width: 30px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M511.674151 1024a450.164985 450.164985 0 0 1-11.516202-900.178042V0.364629l184.380771 163.809614-184.380771 163.809615V205.711573a368.305757 368.305757 0 1 0 380.30813 367.910742h82.041544A451.046172 451.046172 0 0 1 511.674151 1024z"/></svg>');
+}
+
+@media(hover:hover) {
+    .nes-ui-classic .nes-controlbar .nes-button.reload:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M511.674151 1024a450.164985 450.164985 0 0 1-11.516202-900.178042V0.364629l184.380771 163.809614-184.380771 163.809615V205.711573a368.305757 368.305757 0 1 0 380.30813 367.910742h82.041544A451.046172 451.046172 0 0 1 511.674151 1024z"/></svg>');
+    }
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.reload:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M511.674151 1024a450.164985 450.164985 0 0 1-11.516202-900.178042V0.364629l184.380771 163.809614-184.380771 163.809615V205.711573a368.305757 368.305757 0 1 0 380.30813 367.910742h82.041544A451.046172 451.046172 0 0 1 511.674151 1024z"/></svg>');
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.capture {
+    margin-right: 3px;
+    width: 30px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="%23E6E6E6" class="bi bi-camera-fill" viewBox="0 0 16 16"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"/></svg>');
+}
+
+@media(hover:hover) {
+    .nes-ui-classic .nes-controlbar .nes-button.capture:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="%2300AAEE" class="bi bi-camera-fill" viewBox="0 0 16 16"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"/></svg>');
+    }
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.capture:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="%2300AAEE" class="bi bi-camera-fill" viewBox="0 0 16 16"><path d="M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/><path d="M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z"/></svg>');
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.mute,
+.nes-ui-classic .nes-controlbar .nes-button.unmute {
+    margin-right: 20px;
+    width: 30px;
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.mute {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M719.52 831.52a48 48 0 0 1-33.952-81.92c131.008-131.008 131.008-344.16 0-475.168a48 48 0 1 1 67.872-67.872c81.6 81.6 126.528 190.08 126.528 305.472s-44.928 223.872-126.528 305.472a47.84 47.84 0 0 1-33.952 14.048z m-170.496-90.496a48 48 0 0 1-33.952-81.92 208.256 208.256 0 0 0 0-294.144 48 48 0 1 1 67.872-67.872c118.528 118.528 118.528 311.392 0 429.92a47.84 47.84 0 0 1-33.952 14.048zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+@media(hover:hover) {
+    .nes-ui-classic .nes-controlbar .nes-button.mute:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M719.52 831.52a48 48 0 0 1-33.952-81.92c131.008-131.008 131.008-344.16 0-475.168a48 48 0 1 1 67.872-67.872c81.6 81.6 126.528 190.08 126.528 305.472s-44.928 223.872-126.528 305.472a47.84 47.84 0 0 1-33.952 14.048z m-170.496-90.496a48 48 0 0 1-33.952-81.92 208.256 208.256 0 0 0 0-294.144 48 48 0 1 1 67.872-67.872c118.528 118.528 118.528 311.392 0 429.92a47.84 47.84 0 0 1-33.952 14.048zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+    }
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.mute:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M719.52 831.52a48 48 0 0 1-33.952-81.92c131.008-131.008 131.008-344.16 0-475.168a48 48 0 1 1 67.872-67.872c81.6 81.6 126.528 190.08 126.528 305.472s-44.928 223.872-126.528 305.472a47.84 47.84 0 0 1-33.952 14.048z m-170.496-90.496a48 48 0 0 1-33.952-81.92 208.256 208.256 0 0 0 0-294.144 48 48 0 1 1 67.872-67.872c118.528 118.528 118.528 311.392 0 429.92a47.84 47.84 0 0 1-33.952 14.048zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.unmute {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M960 619.136V704h-84.864L768 596.864 660.864 704H576v-84.864L683.136 512 576 404.864V320h84.864L768 427.136 875.136 320H960v84.864L852.864 512 960 619.136zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+@media(hover:hover) {
+    .nes-ui-classic .nes-controlbar .nes-button.unmute:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M960 619.136V704h-84.864L768 596.864 660.864 704H576v-84.864L683.136 512 576 404.864V320h84.864L768 427.136 875.136 320H960v84.864L852.864 512 960 619.136zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+    }
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.unmute:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M960 619.136V704h-84.864L768 596.864 660.864 704H576v-84.864L683.136 512 576 404.864V320h84.864L768 427.136 875.136 320H960v84.864L852.864 512 960 619.136zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.select,
+.nes-ui-classic .nes-controlbar .nes-button.start {
+    margin-right: 10px;
+    width: 80px;
+    height: 30px;
+    line-height: 30px;
+    font-weight: bold;
+    border: 1px solid #3cafab;
+    border-radius: 4px;
+    box-sizing: border-box;
+    display: inline-block;
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.b,
+.nes-ui-classic .nes-controlbar .nes-button.a {
+    margin-right: 10px;
+    width: 35vh;
+    height: 35vh;
+    line-height: 35vh;
+    border: 1px solid #3cafab;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.start,
+.nes-ui-classic .nes-controlbar .nes-button.a {
+    margin-right: 10px;
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.select,
+.nes-ui-classic .nes-controlbar .nes-button.start,
+.nes-ui-classic .nes-controlbar .nes-button.b,
+.nes-ui-classic .nes-controlbar .nes-button.a {
+    background-color: rgba(255, 255, 255, 0.0);
+}
+
+@media(hover:hover) {
+
+    .nes-ui-classic .nes-controlbar .nes-button.select:hover,
+    .nes-ui-classic .nes-controlbar .nes-button.start:hover,
+    .nes-ui-classic .nes-controlbar .nes-button.b:hover,
+    .nes-ui-classic .nes-controlbar .nes-button.a:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+}
+
+.nes-ui-classic .nes-controlbar .nes-button.select:active,
+.nes-ui-classic .nes-controlbar .nes-button.start:active,
+.nes-ui-classic .nes-controlbar .nes-button.b:active,
+.nes-ui-classic .nes-controlbar .nes-button.a:active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
