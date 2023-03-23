@@ -12,7 +12,7 @@ This is not only an [HTML5 FLV Player](https://github.com/oddengine/odd.js/blob/
 
 Note:  
 
-The open-sourced version (v1.2) is no longer being maintained. You can still find the source under branch "v1.2.xx". But it is outdated and not recommended to use in productions.
+This player is now **open-sourced** completely since v2.5.02. 
 
 Instead, we've started a new version (v2) for business usage, which is much more professional, high-performance and stable, and compatiable with all of the browsers that supports [MSE](https://caniuse.com/?search=mse), including iPad Safari and Android Chrome. In this build, an UI framework is developed separately from the core SDK (known as API), and is much easier to understand and extend. In the meantime, the UI framework is open-sourced since v2.1.49 to help building customized UI, plugins and components.
 
