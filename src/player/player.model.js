@@ -58,9 +58,9 @@
         };
 
         _this.duration = function (duration) {
-            if (utils.typeOf(duration) === 'number') {
-                if (duration !== _duration && !(isNaN(_duration) && isNaN(duration))) {
-                    _logger.log('Model duration change: ' + duration);
+            if (utils.typeOf(duration) === 'number' && duration !== _duration && !(isNaN(_duration) && isNaN(duration))) {
+                _logger.log('Model duration change: ' + duration);
+                if (_usermode === 'auto') {
                     // NaN -> Infinity: live
                     // NaN -> Number: vod
                     // Infinity -> NaN: live
@@ -68,15 +68,20 @@
                     // Number -> NaN: user config
                     // Number -> Infinity: live (should not happen)
                     // Number -> Number: live (Mac Safari)
+                    var mode;
                     if (isNaN(_duration) && duration !== Infinity) {
-                        _this.config.mode = 'vod';
+                        mode = 'vod';
                     } else if (_duration !== Infinity && isNaN(duration)) {
-                        _this.config.mode = _usermode;
+                        mode = _usermode;
                     } else {
-                        _this.config.mode = 'live';
+                        mode = 'live';
                     }
-                    _duration = duration;
+                    if (_this.config.mode !== mode) {
+                        _this.config.mode = mode;
+                        _logger.log('Model mode change: ' + _this.config.mode);
+                    }
                 }
+                _duration = duration;
             }
             return _duration;
         };
