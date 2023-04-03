@@ -47,7 +47,7 @@ ui.setup(player, {
     lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
     maxBufferLength: 1.5,    // sec.
     maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
-    mode: 'live',            // live, vod
+    mode: 'auto',            // auto, live, vod
     module: 'FLV',           // SRC, FLV, FMP4, DASH*, HLS*, RTC
     objectfit: 'contain',    // fill, contain, cover, none, scale-down
     retrying: 0,             // ms. retrying interval

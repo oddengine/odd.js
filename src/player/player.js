@@ -19,7 +19,7 @@
             maxBufferLength: 1.5,    // sec.
             maxPlaybackLength: 10,   // sec. for live mode only, set NaN to disable
             maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
-            mode: 'live',            // live, vod
+            mode: 'auto',            // auto, live, vod
             module: '',              // SRC, FLV, FMP4, DASH*, HLS*, RTC
             muted: false,
             objectfit: 'contain',    // fill, contain, cover, none, scale-down
