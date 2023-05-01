@@ -89,8 +89,8 @@
         }
 
         _this.destroy = function () {
-            if (_view) {
-                _view.destroy();
+            if (_controller) {
+                _controller.destroy();
                 _controller.removeGlobalListener(_this.forward);
             }
             delete _instances[_this.id];
