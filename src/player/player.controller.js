@@ -89,6 +89,49 @@
             _this.play(_file, _option);
         };
 
+        _this.destroy = function () {
+            _model.config.maxRetries = 0;
+
+            if (_view) {
+                _view.destroy();
+                _view.removeEventListener(Event.READY, _onReady);
+                _view.removeEventListener(Event.PLAY, _onStateChange);
+                _view.removeEventListener(Event.WAITING, _onStateChange);
+                _view.removeEventListener(IOEvent.LOADSTART, _onLoadStart);
+                _view.removeEventListener(IOEvent.OPEN, _this.forward);
+                _view.removeEventListener(IOEvent.PROGRESS, _this.forward);
+                _view.removeEventListener(IOEvent.SUSPEND, _this.forward);
+                _view.removeEventListener(IOEvent.STALLED, _this.forward);
+                _view.removeEventListener(IOEvent.ABORT, _this.forward);
+                _view.removeEventListener(IOEvent.TIMEOUT, _this.forward);
+                _view.removeEventListener(Event.DURATIONCHANGE, _onDurationChange);
+                _view.removeEventListener(Event.LOADEDMETADATA, _this.forward);
+                _view.removeEventListener(Event.LOADEDDATA, _this.forward);
+                _view.removeEventListener(Event.CANPLAY, _this.forward);
+                _view.removeEventListener(Event.PLAYING, _onStateChange);
+                _view.removeEventListener(Event.CANPLAYTHROUGH, _this.forward);
+                _view.removeEventListener(Event.PAUSE, _onStateChange);
+                _view.removeEventListener(Event.SEEKING, _onStateChange);
+                _view.removeEventListener(Event.SEEKED, _this.forward);
+                _view.removeEventListener(Event.SWITCHING, _onSwitching);
+                _view.removeEventListener(Event.SWITCHED, _this.forward);
+                _view.removeEventListener(Event.RATECHANGE, _onRateChange);
+                _view.removeEventListener(Event.TIMEUPDATE, _onTimeUpdate);
+                _view.removeEventListener(Event.VOLUMECHANGE, _this.forward);
+                _view.removeEventListener(IOEvent.LOAD, _this.forward);
+                _view.removeEventListener(IOEvent.LOADEND, _this.forward);
+                _view.removeEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
+                _view.removeEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+                _view.removeEventListener(MediaEvent.SEI, _this.forward);
+                _view.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
+                _view.removeEventListener(SaverEvent.WRITERSTART, _this.forward);
+                _view.removeEventListener(SaverEvent.WRITEREND, _this.forward);
+                _view.removeEventListener(Event.ENDED, _onStateChange);
+                _view.removeEventListener(Event.ERROR, _onError);
+                _view = undefined;
+            }
+        };
+
         function _onReady(e) {
             _logger.log(e.data.kind + ' module is ready.');
             _onStateChange(e);
@@ -177,12 +220,15 @@
 
         function _onStateChange(e) {
             var state = _model.state();
+
             // Don't switch from error state to ended.
             if (state === e.type || e.type === Event.ENDED && (state === Event.ERROR || _retrying)) {
                 return;
             }
+
             _retrying = false;
             _model.state(e.type);
+
             switch (e.type) {
                 case Event.WAITING:
                     _stalled++;

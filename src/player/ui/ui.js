@@ -646,15 +646,16 @@
         }
 
         function _onError(e) {
-            if (!(function () {
+            // Ignore these specific errors.
+            if ((function () {
                 switch (e.data.name) {
                     case 'SecurityError':
                         if (e.data.message.indexOf('toDataURL') !== -1) {
-                            return false;
+                            return true;
                         }
                         break;
                 }
-                return true;
+                return false;
             })()) {
                 _this.forward(e);
                 return;
