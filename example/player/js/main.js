@@ -38,16 +38,16 @@ ui.setup(player, {
     autoplay: false,
     bufferLength: 0.5,       // sec.
     client: im.client(),
-    // file: 'http://127.0.0.1/vod/sample.mp4',
-    // file: 'http://127.0.0.1/vod/sample.flv',
+    // file: 'ws://127.0.0.1/sample.mp4',
+    file: 'http://localhost/live/_definst_/abc.flv',
     // file: 'ws://192.168.0.117/live/_definst_/abc.flv',
     // file: 'http://192.168.0.117/live/_definst_/abc/index.m3u8',
     // file: 'http://stream.xthktech.cn:8081/live/_definst_/abc.flv',
     // file: 'https://oddengine.com/live/_definst_/abc.flv',
-    lowlatency: true,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
-    maxBufferLength: 1.5,    // sec.
+    lowlatency: false,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
+    maxBufferLength: NaN,    // sec.
     maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
-    mode: 'auto',            // auto, live, vod
+    mode: 'live',            // auto, live, vod
     module: 'FLV',           // SRC, FLV, FMP4, DASH*, HLS*, RTC
     objectfit: 'contain',    // fill, contain, cover, none, scale-down
     retrying: 0,             // ms. retrying interval
@@ -116,7 +116,7 @@ function onReady(e) {
     // ui.record('fragmented.mp4').then((writer) => {
     //     setTimeout(function () {
     //         writer.close();
-    //     }, 10 * 000);
+    //     }, 10000);
     // });
 }
 

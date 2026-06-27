@@ -24,7 +24,7 @@ im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 im.addEventListener(Event.CLOSE, onClose);
 im.setup({
     maxRetries: -1,
-    url: 'wss://' + location.host + '/im',
+    url: 'ws://' + location.host + '/im',
     parameters: {
         token: '',
     },

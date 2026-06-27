@@ -6,7 +6,7 @@
 > [[CSDN] <https://blog.csdn.net/icysky1989/article/details/75094205>](https://blog.csdn.net/icysky1989/article/details/75094205)  
 > QQ群：528109813  
 > Skype: live:670292548  
-> Email: 670292548@qq.com  
+> Email: <670292548@qq.com>  
 
 This is not only an [HTML5 FLV Player](https://github.com/oddengine/odd.js/blob/master/doc/odd.player.md#roadmap), which supports HTTP/WS-FLV live streaming, but also supports HTTP/WS-fMP4, MPEG-DASH, HLS and other Original HTML5 Media Resources (eg. Ogg, Mpeg4, WebM), with an independent UI framework.  
 
@@ -394,7 +394,7 @@ The API supports Event and IOEvent. All of the API events will be forward to UI.
 | SEEKED | timestamp | The seeked event occurs when the user is finished moving/skipping to a new position. |
 | SWITCHING | index | The switching event occurs when the user starts switching to a different definition. |
 | SWITCHED | index | The switching event occurs when the user is finished switching to a different definition. |
-| RATECHANGE| rate | The ratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
+| RATECHANGE | rate | The ratechange event occurs when the playing speed is changed, which is invoked by the playbackRate method. |
 | TIMEUPDATE | timestamp, buffered | The timeupdate event occurs when the playing position has changed. |
 | VOLUMECHANGE | volume | The volumechange event occurs each time the volume has been changed. |
 | ENDED |  | The ended event occurs when the media has reached the end. |
@@ -457,8 +457,8 @@ The API supports Event and IOEvent. All of the API events will be forward to UI.
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| TIMER | | The timer event occurs when the timer clock. |
-| COMPLETE | | The complete event occurs when the timer is completed. |
+| TIMER |  | The timer event occurs when the timer clock. |
+| COMPLETE |  | The complete event occurs when the timer is completed. |
 
 ## License
 

@@ -150,8 +150,8 @@
                     case sw.size3:
                         dst.length |= data[i];
                         dst.payload = new Uint8Array(dst.length);
-                        dst.payload.set([dst.length >> 24, dst.length >> 16, dst.length >> 8, dst.length], dst.position);
-                        dst.position += 4;
+                        dst.payload.set([dst.length >> 24, dst.length >> 16, dst.length >> 8, dst.length], 0);
+                        dst.position = 4;
                         dst.state = sw.type0;
                         break;
 
@@ -219,7 +219,7 @@
                                 case 'avcC':
                                     var content = new Uint8Array(dst.payload.buffer, offset);
                                     var codec = "avc1.";
-                                    utils.forEach(content.subarray(1, 4), function (j, c) {
+                                    utils.forEach(content.subarray(9, 13), function (j, c) {
                                         var hex = utils.padStart(c.toString(16), 2, '0');
                                         codec += hex;
                                     });

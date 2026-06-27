@@ -106,6 +106,7 @@
             }).then(function (registration) {
                 _logger.log('Registered ServiceWorkerRegistration: ' + registration.scope);
                 _registration = registration;
+                _registration.update();
                 _sw = registration.installing || registration.waiting || registration.active;
                 _sw.addEventListener('statechange', function (e) {
                     _logger.log('ServiceWorker.state: ' + _sw.state);

@@ -828,7 +828,7 @@
             if (m.Arguments.type === 'answer') {
                 _pc.getSenders().forEach(function (sender) {
                     var track = sender.track;
-                    if (track.kind === 'video') {
+                    if (track && track.kind === 'video') {
                         var bitrate = _this.constraints.video.maxBitrate * 1000;
                         var parameters = sender.getParameters();
                         parameters.encodings.forEach(function (encoding) {
@@ -936,6 +936,7 @@
                     }
                     return;
             }
+
             _this.dispatchEvent(NetStatusEvent.NET_STATUS, m.Arguments);
             return Promise.resolve();
         }

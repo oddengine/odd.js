@@ -190,8 +190,8 @@
             }
 
             if (_this.AudioObjectType === AOT.ALS) {
-                _gb.ShowBits(5);
-                if (_gb.ShowBitsLong(24) !== 0x00414C53) { // "\0ALS"
+                _gb.SkipBits(5);
+                if (_gb.ShowBits(24) !== 0x00414C53) { // "\0ALS"
                     _gb.SkipBits(24);
                 }
 
