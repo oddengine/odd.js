@@ -1,0 +1,136 @@
+.famicom-wrapper {
+    width: 100%;
+    height: 100%;
+    color: white;
+    background: black;
+    position: relative;
+    overflow: hidden;
+    outline: none;
+}
+
+.famicom-wrapper * {
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    font-weight: normal;
+    box-sizing: border-box;
+}
+
+.famicom-ui-classic .famicom-content {
+    width: 100%;
+    height: 100%;
+}
+
+.famicom-ui-classic .famicom-content video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+    display: block;
+}
+
+.famicom-ui-classic .famicom-controlbar {
+    width: 100%;
+    height: 56%;
+    left: 0;
+    bottom: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+.famicom-ui-classic .famicom-controlbar>div {
+    width: 100%;
+    height: 100%;
+    padding: 0 18px 18px;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+}
+
+.famicom-ui-classic .famicom-left,
+.famicom-ui-classic .famicom-center,
+.famicom-ui-classic .famicom-right {
+    display: flex;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.famicom-ui-classic .famicom-left {
+    height: 100%;
+}
+
+.famicom-ui-classic .famicom-center {
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 10px;
+}
+
+.famicom-ui-classic .famicom-right {
+    gap: 14px;
+}
+
+.famicom-ui-classic .famicom-joystick {
+    width: min(38vh, 42vw);
+    aspect-ratio: 1;
+    border: 2px solid rgba(22, 141, 116, 0.95);
+    border-radius: 50%;
+    background:
+        linear-gradient(to right, transparent 47%, rgba(255, 255, 255, 0.24) 47%, rgba(255, 255, 255, 0.24) 53%, transparent 53%),
+        linear-gradient(to bottom, transparent 47%, rgba(255, 255, 255, 0.24) 47%, rgba(255, 255, 255, 0.24) 53%, transparent 53%),
+        rgba(0, 0, 0, 0.24);
+    touch-action: none;
+}
+
+.famicom-ui-classic .famicom-button {
+    height: 34px;
+    line-height: 32px;
+    text-align: center;
+    white-space: nowrap;
+    border: 2px solid rgba(22, 141, 116, 0.95);
+    background: rgba(0, 0, 0, 0.24);
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+}
+
+.famicom-ui-classic .famicom-button.select,
+.famicom-ui-classic .famicom-button.start {
+    width: 76px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.famicom-ui-classic .famicom-button.b,
+.famicom-ui-classic .famicom-button.a {
+    width: min(20vh, 22vw);
+    height: min(20vh, 22vw);
+    line-height: calc(min(20vh, 22vw) - 4px);
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+@media(hover:hover) {
+    .famicom-ui-classic .famicom-button:hover {
+        background: rgba(255, 255, 255, 0.28);
+    }
+}
+
+.famicom-ui-classic .famicom-button:active {
+    background: rgba(255, 255, 255, 0.32);
+}
+
+@media screen and (max-width: 720px) {
+    .famicom-ui-classic .famicom-controlbar>div {
+        padding: 0 10px 10px;
+        gap: 8px;
+    }
+
+    .famicom-ui-classic .famicom-button.select,
+    .famicom-ui-classic .famicom-button.start {
+        width: 62px;
+        height: 30px;
+        line-height: 28px;
+        font-size: 12px;
+    }
+}

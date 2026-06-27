@@ -91,6 +91,32 @@ do
 done
 
 scripts=()
+scripts[0]="./src/famicom/famicom.js"
+
+:>./release/odd.famicom.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.famicom.js
+done
+
+scripts=()
+scripts[0]="./src/famicom/ui/ui.js"
+scripts[1]="./src/famicom/ui/components/components.js"
+scripts[2]="./src/famicom/ui/components/components.button.js"
+scripts[3]="./src/famicom/ui/components/components.joystick.js"
+scripts[4]="./src/famicom/ui/ui.controlbar.js"
+
+:>./release/odd.famicom.ui.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.famicom.ui.js
+done
+
+scripts=()
 scripts[0]="./src/im/im.js"
 scripts[1]="./src/im/message/message.js"
 scripts[2]="./src/im/message/message.abort.js"
@@ -212,11 +238,13 @@ scripts=()
 scripts[0]="./release/odd.common.js"
 scripts[1]="./release/odd.nes.js"
 scripts[2]="./release/odd.nes.ui.js"
-scripts[3]="./release/odd.im.js"
-scripts[4]="./release/odd.im.ui.js"
-scripts[5]="./release/odd.rtc.js"
-scripts[6]="./release/odd.player.js"
-scripts[7]="./release/odd.player.ui.js"
+scripts[3]="./release/odd.famicom.js"
+scripts[4]="./release/odd.famicom.ui.js"
+scripts[5]="./release/odd.im.js"
+scripts[6]="./release/odd.im.ui.js"
+scripts[7]="./release/odd.rtc.js"
+scripts[8]="./release/odd.player.js"
+scripts[9]="./release/odd.player.ui.js"
 
 :>./release/odd.js
 
@@ -229,6 +257,8 @@ done
 terser ./release/odd.common.js -c -m --warn -o ./release/odd.common.min.js
 terser ./release/odd.nes.js -c -m --warn -o ./release/odd.nes.min.js
 terser ./release/odd.nes.ui.js -c -m --warn -o ./release/odd.nes.ui.min.js
+terser ./release/odd.famicom.js -c -m --warn -o ./release/odd.famicom.min.js
+terser ./release/odd.famicom.ui.js -c -m --warn -o ./release/odd.famicom.ui.min.js
 terser ./release/odd.im.js -c -m --warn -o ./release/odd.im.min.js
 terser ./release/odd.im.ui.js -c -m --warn -o ./release/odd.im.ui.min.js
 terser ./release/odd.rtc.js -c -m --warn -o ./release/odd.rtc.min.js

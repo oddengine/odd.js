@@ -63,14 +63,14 @@
             _view = new Player.View(container, _model, _logger);
             _controller = new Player.Controller(_model, _view, _logger);
             _controller.addGlobalListener(_this.forward);
-            _bindInterfaces();
+            _bind();
 
             if (_this.config.autoplay) {
                 _controller.play();
             }
         };
 
-        function _bindInterfaces() {
+        function _bind() {
             _this.play = _controller.play;
             _this.pause = _view.pause;
             _this.seek = _view.seek;

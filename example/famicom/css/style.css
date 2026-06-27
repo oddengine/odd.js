@@ -1,0 +1,68 @@
+﻿@import url("global.css") screen;
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: #101010;
+    color: #e6e6e6;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+.page {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-rows: 1fr auto;
+}
+
+.game {
+    min-height: 0;
+}
+
+.panel {
+    padding: 8px;
+    display: grid;
+    grid-template-columns: 1.2fr 120px 2fr 96px;
+    gap: 8px;
+    background: #1f1f1f;
+    box-sizing: border-box;
+}
+
+.panel input {
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    color: #e6e6e6;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background: #151515;
+    box-sizing: border-box;
+}
+
+.btn {
+    height: 34px;
+    line-height: 34px;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.green-fill {
+    color: white;
+    background: #168d74;
+}
+
+@media screen and (max-width: 720px) {
+    .panel {
+        grid-template-columns: 1fr 90px;
+    }
+
+    .panel input:first-child,
+    .panel input:nth-child(3) {
+        grid-column: span 2;
+    }
+}

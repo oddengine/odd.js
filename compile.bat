@@ -111,6 +111,46 @@ set /a index=%index% + 1
 goto loop2
 :end2
 
+set scripts[0]=".\src\famicom\famicom.js"
+set length=1
+
+cd.>.\release\odd.famicom.js
+
+set index=0
+:loop9
+if %index% equ %length% goto end9
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.famicom.js
+)
+set /a index=%index% + 1
+
+goto loop9
+:end9
+
+set scripts[0]=".\src\famicom\ui\ui.js"
+set scripts[1]=".\src\famicom\ui\components\components.js"
+set scripts[2]=".\src\famicom\ui\components\components.button.js"
+set scripts[3]=".\src\famicom\ui\components\components.joystick.js"
+set scripts[4]=".\src\famicom\ui\ui.controlbar.js"
+set length=5
+
+cd.>.\release\odd.famicom.ui.js
+
+set index=0
+:loop10
+if %index% equ %length% goto end10
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.famicom.ui.js
+)
+set /a index=%index% + 1
+
+goto loop10
+:end10
+
 set scripts[0]=".\src\im\im.js"
 set scripts[1]=".\src\im\message\message.js"
 set scripts[2]=".\src\im\message\message.abort.js"
@@ -265,12 +305,16 @@ goto loop7
 :end7
 
 set scripts[0]=".\release\odd.common.js"
-set scripts[1]=".\release\odd.im.js"
-set scripts[2]=".\release\odd.im.ui.js"
-set scripts[3]=".\release\odd.rtc.js"
-set scripts[4]=".\release\odd.player.js"
-set scripts[5]=".\release\odd.player.ui.js"
-set length=6
+set scripts[1]=".\release\odd.nes.js"
+set scripts[2]=".\release\odd.nes.ui.js"
+set scripts[3]=".\release\odd.famicom.js"
+set scripts[4]=".\release\odd.famicom.ui.js"
+set scripts[5]=".\release\odd.im.js"
+set scripts[6]=".\release\odd.im.ui.js"
+set scripts[7]=".\release\odd.rtc.js"
+set scripts[8]=".\release\odd.player.js"
+set scripts[9]=".\release\odd.player.ui.js"
+set length=10
 
 cd.>.\release\odd.js
 
@@ -288,6 +332,10 @@ goto loop8
 :end8
 
 terser .\\release\\odd.common.js -c -m --warn -o .\\release\\odd.common.min.js
+terser .\\release\\odd.nes.js -c -m --warn -o .\\release\\odd.nes.min.js
+terser .\\release\\odd.nes.ui.js -c -m --warn -o .\\release\\odd.nes.ui.min.js
+terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js
+terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js
 terser .\\release\\odd.im.js -c -m --warn -o .\\release\\odd.im.min.js
 terser .\\release\\odd.im.ui.js -c -m --warn -o .\\release\\odd.im.ui.min.js
 terser .\\release\\odd.rtc.js -c -m --warn -o .\\release\\odd.rtc.min.js
