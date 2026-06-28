@@ -1,11 +1,14 @@
 (function (odd) {
     var utils = odd.utils,
+        css = utils.css,
+        OS = odd.OS,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
         TouchEvent = events.TouchEvent,
+        TimerEvent = events.TimerEvent,
         Famicom = odd.Famicom,
         Key = Famicom.Key,
 
@@ -63,7 +66,8 @@
             _keyboardKeys,
             _gamepadKeys,
             _joystickKeys,
-            _gamepadRaf;
+            _gamepadRaf,
+            _timer;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, UIEvent, MouseEvent, TouchEvent);
 
@@ -74,6 +78,8 @@
             _keyboardKeys = {};
             _gamepadKeys = {};
             _joystickKeys = {};
+            _timer = new utils.Timer(3000, 1, _logger);
+            _timer.addEventListener(TimerEvent.TIMER, _onTimer);
         }
 
         _this.setup = async function (container, config) {
@@ -145,6 +151,7 @@
                 }
 
                 switch (config.kind) {
+                    case 'Display':
                     case 'Controlbar':
                         config.joystick = _this.config.joystick;
                         break;
@@ -166,11 +173,21 @@
         function _setupPlugins() {
             _wrapper.setAttribute('tabindex', -1);
             _wrapper.setAttribute('state', '');
+            _wrapper.setAttribute('controls', _this.plugins['Controlbar'] ? 'motion' : 'never');
+            _wrapper.setAttribute('fullpage', false);
+            _wrapper.setAttribute('fullscreen', false);
             _wrapper.addEventListener('mousedown', _focus);
             _wrapper.addEventListener('touchstart', _focus);
+            _wrapper.addEventListener('mousemove', _onMotion);
+            _wrapper.addEventListener('touchstart', _onMotion);
+            _wrapper.addEventListener('touchmove', _onMotion);
             _wrapper.addEventListener('keydown', _onKeyDown);
             _wrapper.addEventListener('keyup', _onKeyUp);
             _wrapper.addEventListener('keypress', _onKeyPress);
+            document.addEventListener('fullscreenchange', _onFullscreenChange);
+            document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
+            document.addEventListener('mozfullscreenchange', _onFullscreenChange);
+            document.addEventListener('MSFullscreenChange', _onFullscreenChange);
         }
 
         function _focus(e) {
@@ -223,8 +240,8 @@
         }
 
         function _onTouchStartAndMove(e) {
-            var controlbar = _this.plugins['Controlbar'];
-            var joystick = controlbar && controlbar.components['joystick'];
+            var plugin = _controlsPlugin();
+            var joystick = plugin && plugin.components['joystick'];
             if (!joystick) {
                 return;
             }
@@ -293,6 +310,21 @@
             var key = _buttonKey(e.data.name);
             if (key) {
                 _famicom.keyDown(key);
+            } else {
+                switch (e.data.name) {
+                    case 'fullpage':
+                        _this.fullpage(true);
+                        break;
+                    case 'exitfullpage':
+                        _this.fullpage(false);
+                        break;
+                    case 'fullscreen':
+                        _this.fullscreen(true);
+                        break;
+                    case 'exitfullscreen':
+                        _this.fullscreen(false);
+                        break;
+                }
             }
             _wrapper.focus();
             _this.forward(e);
@@ -313,6 +345,147 @@
                 select: Key.SELECT,
                 start: Key.START,
             }[name];
+        }
+
+        function _controlsPlugin() {
+            return _this.plugins['Display'] || _this.plugins['Controlbar'];
+        }
+
+        _this.fullpage = function (status) {
+            if (status === undefined) {
+                return _wrapper.getAttribute('fullpage') === 'true';
+            }
+
+            var fullscreenElement = document.fullscreenElement
+                || document.webkitFullscreenElement
+                || document.mozFullScreenElement
+                || document.msFullscreenElement;
+            if (fullscreenElement) {
+                _this.fullscreen(false);
+            }
+
+            _wrapper.setAttribute('fullpage', !!status);
+            _this.resize();
+            _this.dispatchEvent(UIEvent.FULLPAGE, { status: status });
+        };
+
+        _this.fullscreen = function (status) {
+            if (status === undefined) {
+                return _wrapper.getAttribute('fullscreen') === 'true';
+            }
+
+            var video = _this.video && _this.video();
+            if (!!status) {
+                var requestFullscreen = _wrapper.requestFullscreen
+                    || _wrapper.webkitRequestFullScreen
+                    || _wrapper.mozRequestFullScreen
+                    || _wrapper.msRequestFullscreen;
+                if (requestFullscreen) {
+                    var promise = requestFullscreen.call(_wrapper);
+                    if (promise) {
+                        promise['catch'](function (err) {
+                            _logger.debug(err.name + ': ' + err.message);
+                        });
+                    }
+                } else if (OS.isMobile && video && video.webkitEnterFullscreen) {
+                    video.setAttribute('x5-video-orientation', 'landscape');
+                    video.webkitEnterFullscreen();
+                    if (OS.isIOS) {
+                        return;
+                    }
+                } else {
+                    _this.fullpage(status);
+                    return;
+                }
+            } else {
+                var exitFullscreen = document.exitFullscreen
+                    || document.webkitCancelFullScreen
+                    || document.mozCancelFullScreen
+                    || document.msExitFullscreen;
+                if (exitFullscreen) {
+                    if (video) {
+                        video.setAttribute('x5-video-orientation', 'portraint');
+                    }
+                    var exitPromise = exitFullscreen.call(document);
+                    if (exitPromise) {
+                        exitPromise['catch'](function (err) {
+                            _logger.debug(err.name + ': ' + err.message);
+                        });
+                    }
+                } else {
+                    _this.fullpage(status);
+                    return;
+                }
+            }
+
+            _wrapper.setAttribute('fullscreen', !!status);
+            _showControlbar();
+            _this.resize();
+            _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
+        };
+
+        function _onFullscreenChange(e) {
+            var fullscreenElement = document.fullscreenElement
+                || document.webkitFullscreenElement
+                || document.mozFullScreenElement
+                || document.msFullscreenElement;
+            if (!fullscreenElement && _wrapper.getAttribute('fullscreen') === 'true') {
+                _this.fullscreen(false);
+            }
+        }
+
+        function _onMotion(e) {
+            var controlbar = _this.plugins['Controlbar'];
+            if (!controlbar) {
+                return;
+            }
+
+            var video = _this.video && _this.video();
+            if (_wrapper.getAttribute('fullscreen') === 'true') {
+                _showControlbar();
+                return;
+            }
+
+            if (video && e.target !== video && e.target !== controlbar.element()) {
+                for (var node = e.target; node; node = node.parentNode) {
+                    if (node === video || node === controlbar.element()) {
+                        break;
+                    }
+                }
+                if (!node) {
+                    return;
+                }
+            }
+
+            _showControlbar();
+        }
+
+        function _showControlbar() {
+            var controlbar = _this.plugins['Controlbar'];
+            if (!controlbar) {
+                return;
+            }
+
+            css.style(controlbar.element(), {
+                'visibility': 'visible',
+            });
+
+            if (controlbar.config.autohide === false) {
+                return;
+            }
+
+            _timer.reset();
+            _timer.delay = controlbar.config.timeout || 3000;
+            _timer.start();
+        }
+
+        function _onTimer(e) {
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                css.style(controlbar.element(), {
+                    'visibility': 'hidden',
+                });
+            }
         }
 
         function _onKeyDown(e) {
@@ -437,12 +610,18 @@
         };
 
         _this.destroy = function (reason) {
+            _timer.stop();
+            _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
             if (_gamepadRaf) {
                 cancelAnimationFrame(_gamepadRaf);
             }
             window.removeEventListener('resize', _this.resize);
             window.removeEventListener('blur', _releaseAll);
             document.removeEventListener('visibilitychange', _onVisibilityChange);
+            document.removeEventListener('fullscreenchange', _onFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
             if (_famicom) {
                 _famicom.destroy(reason);
                 _famicom.removeEventListener(Event.BIND, _onBind);

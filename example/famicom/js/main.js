@@ -17,8 +17,14 @@ ui.setup(game, {
         direction: 8,
     },
     plugins: [{
+        kind: 'Display',
+        layout: '[Button:select=Select][Button:start=Start][JoyStick:joystick=]||[Button:b=B][Button:a=A]',
+        visibility: true,
+    }, {
         kind: 'Controlbar',
-        layout: '[JoyStick:joystick=]|[Button:select=Select][Button:start=Start]|[Button:b=B][Button:a=A]',
+        layout: '[Button:fullscreen=][Button:exitfullscreen=]',
+        autohide: true,
+        timeout: 3000,
         visibility: true,
     }],
 });

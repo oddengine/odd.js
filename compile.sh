@@ -106,7 +106,8 @@ scripts[0]="./src/famicom/ui/ui.js"
 scripts[1]="./src/famicom/ui/components/components.js"
 scripts[2]="./src/famicom/ui/components/components.button.js"
 scripts[3]="./src/famicom/ui/components/components.joystick.js"
-scripts[4]="./src/famicom/ui/ui.controlbar.js"
+scripts[4]="./src/famicom/ui/ui.display.js"
+scripts[5]="./src/famicom/ui/ui.controlbar.js"
 
 :>./release/odd.famicom.ui.js
 

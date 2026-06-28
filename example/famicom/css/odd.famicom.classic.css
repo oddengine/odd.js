@@ -19,6 +19,7 @@
 .famicom-ui-classic .famicom-content {
     width: 100%;
     height: 100%;
+    position: relative;
 }
 
 .famicom-ui-classic .famicom-content video {
@@ -31,14 +32,36 @@
 
 .famicom-ui-classic .famicom-controlbar {
     width: 100%;
+    height: 100%;
+    left: 0;
+    top: 0;
+    position: absolute;
+    z-index: 2;
+    visibility: hidden;
+    transition: visibility 0.18s ease;
+    pointer-events: none;
+}
+
+.famicom-ui-classic .famicom-controlbar>div {
+    width: 100%;
+    height: 100%;
+    padding: 0 16px 16px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.famicom-ui-classic .famicom-display {
+    width: 100%;
     height: 56%;
     left: 0;
     bottom: 0;
     position: absolute;
     pointer-events: none;
+    display: none;
 }
 
-.famicom-ui-classic .famicom-controlbar>div {
+.famicom-ui-classic .famicom-display>div {
     width: 100%;
     height: 100%;
     padding: 0 18px 18px;
@@ -57,19 +80,34 @@
 
 .famicom-ui-classic .famicom-left {
     height: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: flex-start;
+    align-content: flex-end;
+    justify-items: center;
+    justify-content: center;
+    gap: 18px 12px;
 }
 
-.famicom-ui-classic .famicom-center {
+.famicom-ui-classic .famicom-display .famicom-center {
     flex: 1 1 auto;
     justify-content: center;
     gap: 10px;
 }
 
+.famicom-ui-classic .famicom-controlbar .famicom-center {
+    flex: 0 0 auto;
+    justify-content: center;
+    gap: 10px;
+}
+
 .famicom-ui-classic .famicom-right {
+    align-self: flex-end;
     gap: 14px;
 }
 
 .famicom-ui-classic .famicom-joystick {
+    grid-column: 1 / span 3;
     width: min(38vh, 42vw);
     aspect-ratio: 1;
     border: 2px solid rgba(22, 141, 116, 0.95);
@@ -93,11 +131,73 @@
     touch-action: none;
 }
 
+.famicom-ui-classic .famicom-controlbar .famicom-button.fullscreen,
+.famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen {
+    margin-right: 8px;
+    width: 24px;
+    height: 40px;
+    border: 0;
+    background-color: transparent;
+    background-position: center;
+    background-repeat: no-repeat;
+    font-size: 0;
+    line-height: 40px;
+    pointer-events: auto;
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen,
+.famicom-ui-classic[fullscreen="true"] .famicom-controlbar .famicom-button.fullscreen,
+.famicom-ui-classic[fullscreen="false"] .famicom-controlbar .famicom-button.exitfullscreen {
+    display: none;
+}
+
+.famicom-ui-classic[fullscreen="true"] .famicom-controlbar .famicom-button.exitfullscreen {
+    display: block;
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.fullscreen {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M235.8322669 622.46683433h-110.46812886v276.16902763h276.16902763v-110.46812886h-165.70089877v-165.70089877z m-110.46812886-220.93366866h110.46812886v-165.70089877h165.70089877v-110.46812886H125.36413804v276.16902763z m662.80359506 386.63456743h-165.70089877v110.46812886h276.16902763V622.46683433h-110.46812886v165.70089877z m-165.70089877-662.80359506v110.46812886h165.70089877v165.70089877h110.46812886V125.36413804H622.46683433z"/></svg>');
+}
+
+@media(hover:hover) {
+    .famicom-ui-classic .famicom-controlbar .famicom-button.fullscreen:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M235.8322669 622.46683433h-110.46812886v276.16902763h276.16902763v-110.46812886h-165.70089877v-165.70089877z m-110.46812886-220.93366866h110.46812886v-165.70089877h165.70089877v-110.46812886H125.36413804v276.16902763z m662.80359506 386.63456743h-165.70089877v110.46812886h276.16902763V622.46683433h-110.46812886v165.70089877z m-165.70089877-662.80359506v110.46812886h165.70089877v165.70089877h110.46812886V125.36413804H622.46683433z"/></svg>');
+    }
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.fullscreen:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M235.8322669 622.46683433h-110.46812886v276.16902763h276.16902763v-110.46812886h-165.70089877v-165.70089877z m-110.46812886-220.93366866h110.46812886v-165.70089877h165.70089877v-110.46812886H125.36413804v276.16902763z m662.80359506 386.63456743h-165.70089877v110.46812886h276.16902763V622.46683433h-110.46812886v165.70089877z m-165.70089877-662.80359506v110.46812886h165.70089877v165.70089877h110.46812886V125.36413804H622.46683433z"/></svg>');
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M125.36413804 732.9349632h165.70089876v165.70089876h110.46812887V622.46683433H125.36413804v110.46812887z m165.70089876-441.8699264h-165.70089876v110.46812887h276.16902763V125.36413804h-110.46812887v165.70089876z m331.40179753 607.57082516h110.46812887v-165.70089876h165.70089876v-110.46812887H622.46683433v276.16902763z m110.46812887-607.57082516v-165.70089876h-110.46812887v276.16902763h276.16902763v-110.46812887h-165.70089876z"/></svg>');
+}
+
+@media(hover:hover) {
+    .famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M125.36413804 732.9349632h165.70089876v165.70089876h110.46812887V622.46683433H125.36413804v110.46812887z m165.70089876-441.8699264h-165.70089876v110.46812887h276.16902763V125.36413804h-110.46812887v165.70089876z m331.40179753 607.57082516h110.46812887v-165.70089876h165.70089876v-110.46812887H622.46683433v276.16902763z m110.46812887-607.57082516v-165.70089876h-110.46812887v276.16902763h276.16902763v-110.46812887h-165.70089876z"/></svg>');
+    }
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M125.36413804 732.9349632h165.70089876v165.70089876h110.46812887V622.46683433H125.36413804v110.46812887z m165.70089876-441.8699264h-165.70089876v110.46812887h276.16902763V125.36413804h-110.46812887v165.70089876z m331.40179753 607.57082516h110.46812887v-165.70089876h165.70089876v-110.46812887H622.46683433v276.16902763z m110.46812887-607.57082516v-165.70089876h-110.46812887v276.16902763h276.16902763v-110.46812887h-165.70089876z"/></svg>');
+}
+
 .famicom-ui-classic .famicom-button.select,
 .famicom-ui-classic .famicom-button.start {
     width: 76px;
     border-radius: 4px;
     font-weight: bold;
+}
+
+.famicom-ui-classic .famicom-button.select {
+    grid-column: 1;
+    justify-self: end;
+}
+
+.famicom-ui-classic .famicom-button.start {
+    grid-column: 3;
+    justify-self: start;
 }
 
 .famicom-ui-classic .famicom-button.b,
@@ -111,17 +211,63 @@
 }
 
 @media(hover:hover) {
-    .famicom-ui-classic .famicom-button:hover {
+    .famicom-ui-classic .famicom-display .famicom-button:hover {
         background: rgba(255, 255, 255, 0.28);
     }
 }
 
-.famicom-ui-classic .famicom-button:active {
+.famicom-ui-classic .famicom-display .famicom-button:active {
     background: rgba(255, 255, 255, 0.32);
 }
 
+@media (hover: hover) and (pointer: fine) {
+    .famicom-ui-classic .famicom-display {
+        display: none;
+    }
+
+    .famicom-ui-classic[fullscreen="true"] .famicom-content,
+    .famicom-ui-classic[fullscreen="true"] .famicom-controlbar {
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    .famicom-ui-classic .famicom-display {
+        display: block;
+        height: 100%;
+        top: 0;
+        bottom: auto;
+    }
+
+    .famicom-ui-classic .famicom-display>div {
+        padding: 0;
+        position: relative;
+    }
+
+    .famicom-ui-classic .famicom-display .famicom-left {
+        height: auto;
+        left: 18px;
+        bottom: 20%;
+        position: absolute;
+    }
+
+    .famicom-ui-classic .famicom-display .famicom-right {
+        right: 18px;
+        bottom: 30%;
+        margin-left: 0;
+        position: absolute;
+    }
+
+    .famicom-ui-classic .famicom-display .famicom-center {
+        display: none;
+    }
+}
+
 @media screen and (max-width: 720px) {
-    .famicom-ui-classic .famicom-controlbar>div {
+    .famicom-ui-classic .famicom-display>div {
         padding: 0 10px 10px;
         gap: 8px;
     }
@@ -132,5 +278,60 @@
         height: 30px;
         line-height: 28px;
         font-size: 12px;
+    }
+}
+
+@media screen and (orientation: portrait) {
+    .famicom-ui-classic .famicom-content {
+        width: 100%;
+        height: calc(100vw * 240 / 256);
+        aspect-ratio: 256 / 240;
+        top: calc(env(safe-area-inset-top, 0px) + 18px);
+        left: 0;
+        position: absolute;
+    }
+
+    .famicom-ui-classic .famicom-controlbar {
+        height: calc(100vw * 240 / 256);
+        aspect-ratio: 256 / 240;
+        top: calc(env(safe-area-inset-top, 0px) + 18px);
+    }
+
+    .famicom-ui-classic .famicom-display {
+        height: calc(100% - env(safe-area-inset-top, 0px) - 18px - 100vw * 240 / 256);
+        top: auto;
+        bottom: 0;
+    }
+
+    .famicom-ui-classic .famicom-display>div {
+        align-items: flex-end;
+    }
+
+    .famicom-ui-classic .famicom-left {
+        flex: 0 0 auto;
+        height: auto;
+    }
+
+    .famicom-ui-classic .famicom-display .famicom-left {
+        gap: 26px 12px;
+    }
+
+    .famicom-ui-classic .famicom-display .famicom-center {
+        display: none;
+    }
+
+    .famicom-ui-classic .famicom-right {
+        margin-left: auto;
+    }
+
+    .famicom-ui-classic .famicom-joystick {
+        width: min(28vh, 42vw);
+    }
+
+    .famicom-ui-classic .famicom-button.b,
+    .famicom-ui-classic .famicom-button.a {
+        width: min(12vh, 18vw);
+        height: min(12vh, 18vw);
+        line-height: calc(min(12vh, 18vw) - 4px);
     }
 }

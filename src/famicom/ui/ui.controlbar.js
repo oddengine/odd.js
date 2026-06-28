@@ -3,25 +3,24 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         MouseEvent = events.MouseEvent,
-        TouchEvent = events.TouchEvent,
         Famicom = odd.Famicom,
         UI = Famicom.UI,
         components = UI.components,
 
         CLASS_CONTROLBAR = 'famicom-controlbar',
-        CLASS_LEFT = 'famicom-left',
         CLASS_CENTER = 'famicom-center',
-        CLASS_RIGHT = 'famicom-right',
 
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
             kind: 'Controlbar',
-            layout: '[JoyStick:joystick=]|[Button:select=Select][Button:start=Start]|[Button:b=B][Button:a=A]',
+            layout: '[Button:fullscreen=][Button:exitfullscreen=]',
+            autohide: true,
+            timeout: 3000,
             visibility: true,
         };
 
     function Controlbar(config, logger) {
-        EventDispatcher.call(this, 'Controlbar', { logger: logger }, MouseEvent, TouchEvent);
+        EventDispatcher.call(this, 'Controlbar', { logger: logger }, MouseEvent);
 
         var _this = this,
             _logger = logger,
@@ -38,25 +37,14 @@
         }
 
         function _buildComponents() {
-            var layouts = _this.config.layout.split('|');
-            if (layouts.length !== 3) {
-                throw { name: 'DataError', message: 'Controlbar should have exactly 3 sections.' };
+            var center = utils.createElement('div', CLASS_CENTER);
+            var arr;
+            _regi.lastIndex = 0;
+            while ((arr = _regi.exec(_this.config.layout)) !== null) {
+                _buildComponent(center, arr[1], arr[2], arr[3]);
             }
 
-            var left = utils.createElement('div', CLASS_LEFT);
-            var center = utils.createElement('div', CLASS_CENTER);
-            var right = utils.createElement('div', CLASS_RIGHT);
-
-            utils.forEach([left, center, right], function (i, container) {
-                var arr;
-                while ((arr = _regi.exec(layouts[i])) !== null) {
-                    _buildComponent(container, arr[1], arr[2], arr[3]);
-                }
-            });
-
-            _content.appendChild(left);
             _content.appendChild(center);
-            _content.appendChild(right);
         }
 
         function _buildComponent(container, type, name, kind) {
@@ -68,9 +56,7 @@
             container.appendChild(element);
             _this.components[name] = component;
 
-            if (name === 'joystick') {
-                component.config = utils.extendz(component.config, _this.config.joystick);
-            } else if (kind !== undefined) {
+            if (kind !== undefined) {
                 element.innerHTML = kind;
             }
         }

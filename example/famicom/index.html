@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache" />
     <meta name="format-detection" content="telephone=no,email=no" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-touch-fullscreen" content="yes" />
     <meta name="x5-fullscreen" content="true" />
     <meta name="App-Config" content="fullscreen=yes, useHistoryState=yes, transition=yes" />
@@ -32,13 +32,22 @@
     <script type='text/javascript' src='../../src/utils/utils.logger.js'></script>
     <script type='text/javascript' src='../../src/utils/utils.url.js'></script>
     <script type='text/javascript' src='../../src/utils/utils.xml2json.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.datetime.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.duration.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.numeric.js'></script>
+    <script type='text/javascript' src='../../src/utils/mpd/mpd.matchers.string.js'></script>
     <script type='text/javascript' src='../../src/events/events.js'></script>
     <script type='text/javascript' src='../../src/events/events.eventdispatcher.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.streamsaver.js'></script>
+    <script type='text/javascript' src='../../src/utils/utils.timer.js'></script>
     <script type='text/javascript' src='../../src/famicom/famicom.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/ui.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/components/components.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/components/components.button.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/components/components.joystick.js'></script>
+    <script type='text/javascript' src='../../src/famicom/ui/ui.display.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/ui.controlbar.js'></script>
 </head>
 
@@ -46,7 +55,7 @@
     <div class='page'>
         <div id='game' class='game'></div>
         <div class='panel'>
-            <input id='server' type='text' value='http://127.0.0.1/game/' autocapitalize='off'>
+            <input id='server' type='text' value='https://localhost/game/' autocapitalize='off'>
             <input id='msid' type='text' value='1943' autocapitalize='off'>
             <input id='gameName' type='text' value='1943' autocapitalize='off'>
             <a class='btn green-fill' onclick='onStartClick();'>Start</a>

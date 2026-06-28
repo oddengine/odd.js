@@ -133,8 +133,9 @@ set scripts[0]=".\src\famicom\ui\ui.js"
 set scripts[1]=".\src\famicom\ui\components\components.js"
 set scripts[2]=".\src\famicom\ui\components\components.button.js"
 set scripts[3]=".\src\famicom\ui\components\components.joystick.js"
-set scripts[4]=".\src\famicom\ui\ui.controlbar.js"
-set length=5
+set scripts[4]=".\src\famicom\ui\ui.display.js"
+set scripts[5]=".\src\famicom\ui\ui.controlbar.js"
+set length=6
 
 cd.>.\release\odd.famicom.ui.js
 
