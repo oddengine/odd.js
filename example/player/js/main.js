@@ -57,9 +57,11 @@ ui.setup(player, {
         credentials: 'omit', // omit, include, same-origin
     },
     rtc: {
+        whip: location.protocol + '//' + location.host + '/whip/live',
+        whep: location.protocol + '//' + location.host + '/whep/live',
         codecpreferences: [
             'audio/opus',
-            'video/VP8',
+            'video/H264',
         ],
     },
     service: {
@@ -77,7 +79,7 @@ ui.setup(player, {
         module: 'FMP4',
         label: 'ws-fmp4',
     }, {
-        file: 'rtc://oddengine.com/im?name=abc',
+        file: location.protocol + '//' + location.host + '/whep/live/abc',
         module: 'RTC',
         label: 'rtc',
     }, {
@@ -137,8 +139,8 @@ function onStatus(e) {
                 case Sending.STREAMING:
                     for (var i = 0; i < ui.config.sources.length; i++) {
                         var item = ui.config.sources[i];
-                        if (item.file.match(/^rtc:\/\//)) {
-                            item.file = item.file.split('?')[0] + `?name=${args.data.stream}`;
+                        if (item.module === 'RTC') {
+                            item.file = item.file.replace(/\/[^\/?#]+([?#].*)?$/, '') + `/${args.data.stream}`;
                             break;
                         }
                     }

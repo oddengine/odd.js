@@ -83,7 +83,7 @@ function _setupIM(room) {
     im.addEventListener(Event.CLOSE, onClose);
     im.setup({
         maxRetries: 0,
-        url: 'ws://' + location.host + '/im',
+        url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/im',
         parameters: {
             token: '',
         },

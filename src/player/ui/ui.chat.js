@@ -38,7 +38,7 @@
             _this.config = config;
             _this.constraints = utils.extendz({}, Constraints[_this.config.profile || '180P_1']);
 
-            _this.rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
+            _this.rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
             _this.rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             _this.rtc.addEventListener(Event.CLOSE, _onClose);
             _this.rtc.setup(_this.config.rtc);
@@ -66,14 +66,14 @@
 
         _this.publish = async function () {
             for (var id in _this.rtc.publishers) {
-                _logger.error(`Already published: user=${_this.rtc.client().userId()}`);
+                _logger.error(`Already published: user=${_userId()}`);
                 return Promise.reject('published');
             }
             return _this.rtc.publish(_this.constraints).then(function (ns) {
                 ns.addEventListener(Event.RELEASE, function (e) {
                     var video = e.srcElement.video;
                     video.removeEventListener('click', _onClick);
-                    _playlist.removeChild(video);
+                    _detachVideo(video);
                 });
 
                 var video = ns.video;
@@ -97,25 +97,24 @@
         };
 
         _this.play = async function (name) {
+            if (name === '') {
+                _logger.warn('Stream id is empty.');
+                return Promise.resolve();
+            }
             return _this.rtc.play(name).then(function (ns) {
                 ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
                     switch (e.data.code) {
                         case Code.NETSTREAM_PLAY_START:
-                            var video = e.srcElement.video;
-                            video.addEventListener('click', _onClick);
-                            video.srcObject = e.data.info.streams[0];
-                            video.play().catch(function (err) {
-                                _logger.warn(`${err}`);
-                            });
-                            _playlist.appendChild(video);
+                            _attachVideo(e.srcElement, e.data.info.streams[0]);
                             break;
                     }
                 });
                 ns.addEventListener(Event.RELEASE, function (e) {
-                    var video = e.srcElement.video;
-                    video.removeEventListener('click', _onClick);
-                    _playlist.removeChild(video);
+                    _detachVideo(e.srcElement.video);
                 });
+                if (ns.stream) {
+                    _attachVideo(ns, ns.stream);
+                }
             }).catch(function (err) {
                 _logger.warn(`${err}`);
             });
@@ -127,13 +126,42 @@
             var description = e.data.description;
             var info = e.data.info;
             var method = { status: 'log', warning: 'warn', error: 'error' }[level];
-            _logger[method](`RTC.onStatus: user=${_this.rtc.client().userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger[method](`RTC.onStatus: user=${_userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
             _this.forward(e);
         }
 
         function _onClose(e) {
-            _logger.log(`RTC.onClose: user=${_this.rtc.client().userId()}, reason=${e.data.reason}`);
+            _logger.log(`RTC.onClose: user=${_userId()}, reason=${e.data.reason}`);
             _this.forward(e);
+        }
+
+        function _userId() {
+            var client = _this.rtc.client();
+            if (client && client.userId) {
+                return client.userId();
+            }
+            return '';
+        }
+
+        function _attachVideo(ns, stream) {
+            var video = ns.video;
+            video.addEventListener('click', _onClick);
+            video.srcObject = stream;
+            video.play().catch(function (err) {
+                _logger.warn(`${err}`);
+            });
+            if (video.parentNode !== _playlist) {
+                _playlist.appendChild(video);
+            }
+        }
+
+        function _detachVideo(video) {
+            if (video) {
+                video.removeEventListener('click', _onClick);
+                if (video.parentNode) {
+                    video.parentNode.removeChild(video);
+                }
+            }
         }
 
         function _onClick(e) {
@@ -159,4 +187,3 @@
 
     UI.register(Chat);
 })(odd);
-

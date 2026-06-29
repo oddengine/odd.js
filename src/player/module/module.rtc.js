@@ -20,6 +20,7 @@
             _logger = logger,
             _ready,
             _url,
+            _video,
             _rtc,
             _loadStartAt,
             _firstAudioFrameReceivedIn,
@@ -86,7 +87,7 @@
 
         _this.setup = function () {
             if (_ready === false) {
-                _rtc = odd.rtc.create(_this.config.client, { mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
+                _rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
                 _rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
                 _rtc.addEventListener(Event.CLOSE, _onClose);
                 _rtc.setup(_this.config.rtc).then(() => {
@@ -124,21 +125,26 @@
                     var item = arr[i].split('=');
                     args[item[0]] = item[1];
                 }
-                _rtc.play(args.name).then(function (ns) {
+                var whep = _parseWHEP(args);
+                if (whep.name === '') {
+                    _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Stream id is empty.' });
+                    return;
+                }
+                _rtc.config.whep = whep.url;
+                _rtc.play(whep.name).then(function (ns) {
                     ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
                         switch (e.data.code) {
                             case Code.NETSTREAM_PLAY_START:
-                                _video.srcObject = e.data.info.streams[0];
-                                _video.play().catch(function (err) {
-                                    _logger.warn(`${err}`);
-                                });
-                                _video.controls = false;
+                                _attachStream(e.data.info.streams[0]);
                                 break;
                         }
                     });
                     ns.addEventListener(Event.RELEASE, function (e) {
                         _this.stop();
                     });
+                    if (ns.stream) {
+                        _attachStream(ns.stream);
+                    }
                 }).catch(function (err) {
                     _logger.warn(`${err}`);
                 });
@@ -176,6 +182,31 @@
             }
             _video.controls = false;
         };
+
+        function _parseWHEP(args) {
+            var name = decodeURIComponent(args.name || '');
+            var pathname = _url.pathname.replace(/\/$/, '');
+            var url = _url.origin + pathname;
+            if (name === '') {
+                var index = pathname.lastIndexOf('/');
+                if (index !== -1) {
+                    name = decodeURIComponent(pathname.substr(index + 1));
+                    url = _url.origin + pathname.substr(0, index);
+                }
+            }
+            return {
+                name: name,
+                url: args.whep ? decodeURIComponent(args.whep) : url,
+            };
+        }
+
+        function _attachStream(stream) {
+            _video.srcObject = stream;
+            _video.play().catch(function (err) {
+                _logger.warn(`${err}`);
+            });
+            _video.controls = false;
+        }
 
         _this.pause = function () {
             _video.pause();
@@ -302,7 +333,7 @@
             return false;
         }
         var url = new utils.URL(file);
-        if (url.protocol !== 'rtc:') {
+        if (!/^(https?:|rtc:)$/.test(url.protocol)) {
             return false;
         }
         return true;
@@ -310,4 +341,3 @@
 
     Module.register(RTC);
 })(odd);
-
