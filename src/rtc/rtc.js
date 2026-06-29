@@ -8,19 +8,25 @@
         TimerEvent = events.TimerEvent,
         Level = events.Level,
         Code = events.Code,
-        IM = odd.IM,
 
         _id = 0,
         _instances = {},
+        _State = {
+            INITIALIZED: 'initialized',
+            CONNECTED: 'connected',
+            PUBLISHING: 'publishing',
+            PLAYING: 'playing',
+            CLOSING: 'closing',
+            CLOSED: 'closed',
+        },
         _default = {
-            maxRetries: 0, // maximum number of retries while some types of error occurs. -1 means always
-            maxRetryInterval: 30000, // ms.
             profile: '540P_2',
-            retryIn: 1000 + Math.random() * 2000, // ms. retrying interval
-            url: 'wss://' + location.host + '/rtc/sig',
+            whip: location.protocol + '//' + location.host + '/whip/live',
+            whep: location.protocol + '//' + location.host + '/whep/live',
+            trickle: false,
             codecpreferences: [
                 'audio/opus',
-                'video/VP8',
+                'video/H264',
             ],
             parameters: {
                 token: '',
@@ -39,9 +45,7 @@
             _id = id,
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _nc,
-            _stats,
-            _timer,
-            _retried;
+            _stats;
 
         EventDispatcher.call(this, 'RTC', { id: id, logger: _logger }, [Event.BIND, Event.READY, Event.ERROR, Event.RELEASE, Event.CLOSE], NetStatusEvent);
 
@@ -50,7 +54,6 @@
             _this.publishers = {};
             _this.subscribers = {};
             _nc = nc;
-            _retried = 0;
         }
 
         _this.id = function () {
@@ -64,45 +67,28 @@
         _this.setup = async function (config) {
             _this.config = utils.extendz({ id: _id }, _default, config);
 
-            if (_nc == null) {
-                _nc = new IM.NetConnection({}, _logger);
-                _nc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
-                _nc.addEventListener(Event.CLOSE, _onClose);
-            }
-
             _stats = new utils.Timer(1000, 0, _logger);
             _stats.addEventListener(TimerEvent.TIMER, _onStats);
 
-            _timer = new utils.Timer(_this.config.retryIn, 1, _logger);
-            _timer.addEventListener(TimerEvent.TIMER, _onTimer);
-
             _bind();
-            return await _connect();
+            return Promise.resolve();
         };
 
         function _bind() {
-            _this.state = _nc.state;
+            _this.state = function () {
+                return _State.CONNECTED;
+            };
             _this.dispatchEvent(Event.BIND);
             _this.dispatchEvent(Event.READY);
         }
 
-        async function _connect() {
-            if (_nc.state() !== IM.State.CONNECTING && _nc.state() !== IM.State.CONNECTED) {
-                try {
-                    await _nc.connect(_this.config.url, _this.config.parameters);
-                    _timer.delay = _this.config.retryIn;
-                } catch (err) {
-                    _logger.error(`Failed to connect: user=${_nc.userId()}, error=${err}`);
-                    _timer.delay = Math.min(_timer.delay * 2, _this.config.maxRetryInterval);
-                    return Promise.reject(err);
-                }
-            }
-            return Promise.resolve();
-        };
-
         _this.preview = async function (constraints, screenshare, withcamera, option) {
             var ns = new RTC.NetStream({
+                id: _id,
                 profile: _this.config.profile,
+                whip: _this.config.whip,
+                whep: _this.config.whep,
+                trickle: _this.config.trickle,
                 codecpreferences: _this.config.codecpreferences,
                 rtcconfiguration: _this.config.rtcconfiguration,
                 service: _this.config.service,
@@ -116,7 +102,7 @@
                 await ns.preview(screenshare, withcamera, option);
                 _this.publishers[ns.pid()] = ns;
             } catch (err) {
-                _logger.error(`Failed to preview: user=${_nc.userId()}, pipe=${ns.pid()}`);
+                _logger.error(`Failed to preview: user=${_userId()}, pipe=${ns.pid()}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(ns);
@@ -124,7 +110,11 @@
 
         _this.publish = async function (constraints, screenshare, withcamera, option) {
             var ns = new RTC.NetStream({
+                id: _id,
                 profile: _this.config.profile,
+                whip: _this.config.whip,
+                whep: _this.config.whep,
+                trickle: _this.config.trickle,
                 codecpreferences: _this.config.codecpreferences,
                 rtcconfiguration: _this.config.rtcconfiguration,
                 service: _this.config.service,
@@ -138,14 +128,14 @@
                 await ns.preview(screenshare, withcamera, option);
                 _this.publishers[ns.pid()] = ns;
             } catch (err) {
-                _logger.error(`Failed to preview: user=${_nc.userId()}, pipe=${ns.pid()}`);
+                _logger.error(`Failed to preview: user=${_userId()}, pipe=${ns.pid()}`);
                 return Promise.reject(err);
             }
             try {
                 await ns.publish();
                 _this.publishers[ns.pid()] = ns;
             } catch (err) {
-                _logger.error(`Failed to publish: user=${_nc.userId()}, pipe=${ns.pid()}`);
+                _logger.error(`Failed to publish: user=${_userId()}, pipe=${ns.pid()}`);
                 return Promise.reject(err);
             }
             _stats.start();
@@ -162,11 +152,15 @@
         _this.play = async function (rid) {
             var name = rid.split('@')[0];
             if (_this.subscribers.hasOwnProperty(name)) {
-                _logger.error(`Already playing: user=${_nc.userId()}, stream=${rid}`);
+                _logger.error(`Already playing: user=${_userId()}, stream=${rid}`);
                 return Promise.reject('playing');
             }
 
             var ns = new RTC.NetStream({
+                id: _id,
+                whip: _this.config.whip,
+                whep: _this.config.whep,
+                trickle: _this.config.trickle,
                 codecpreferences: _this.config.codecpreferences,
                 rtcconfiguration: _this.config.rtcconfiguration,
                 service: _this.config.service,
@@ -180,7 +174,7 @@
                 await ns.attach(_nc);
                 await ns.play(rid, "all");
             } catch (err) {
-                _logger.error(`Failed to play: user=${_nc.userId()}, pipe=${ns.pid()}, stream=${rid}`);
+                _logger.error(`Failed to play: user=${_userId()}, pipe=${ns.pid()}, stream=${rid}`);
                 delete _this.subscribers[name];
                 ns.close(err);
                 return Promise.reject(err);
@@ -212,7 +206,7 @@
             var description = e.data.description;
             var info = e.data.info;
             var method = { status: 'debug', warning: 'warn', error: 'error' }[level] || 'debug';
-            _logger[method](`RTC.onStatus: user=${_nc.userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger[method](`RTC.onStatus: user=${_userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             switch (code) {
                 case Code.NETSTREAM_FAILED:
@@ -227,7 +221,7 @@
 
         function _onRelease(e) {
             var ns = e.target;
-            _logger.log(`RTC.onRelease: user=${_nc.userId()}, reason=${e.data.reason}`);
+            _logger.log(`RTC.onRelease: user=${_userId()}, reason=${e.data.reason}`);
 
             ns.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
             ns.removeEventListener(Event.RELEASE, _onRelease);
@@ -240,17 +234,8 @@
         }
 
         function _onClose(e) {
-            _logger.log(`RTC.onClose: user=${_nc.userId()}, reason=${e.data.reason}`);
+            _logger.log(`RTC.onClose: user=${_userId()}, reason=${e.data.reason}`);
             _this.forward(e);
-
-            if (_retried++ < _this.config.maxRetries || _this.config.maxRetries === -1) {
-                _logger.debug(`RTC signaling about to reconnect: user=${_nc.userId()}, in=${_timer.delay}`);
-                _timer.start();
-            }
-        }
-
-        async function _onTimer(e) {
-            await _connect().catch((err) => { });
         }
 
         function _onStats(e) {
@@ -270,7 +255,7 @@
             if (stream) {
                 ns.getStats().then((stats) => {
                     _logger.append(Logger.Level.LOG, [{
-                        reporter: _nc.userId(),
+                        reporter: _userId(),
                         stream: stream.id,
                         stats: stats,
                     }]);
@@ -279,20 +264,18 @@
         }
 
         _this.destroy = function (reason) {
-            _timer.reset();
-            switch (_this.state()) {
-                case IM.State.INITIALIZED:
-                case IM.State.CONNECTING:
-                case IM.State.CONNECTED:
-                    if (_nc) {
-                        _nc.close(reason);
-                        _nc.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
-                        _nc.removeEventListener(Event.CLOSE, _onClose);
-                    }
-                    delete _instances[_id];
-                    break;
-            }
+            _stats.reset();
+            _this.unpublish();
+            _this.stop();
+            delete _instances[_id];
         };
+
+        function _userId() {
+            if (_nc && _nc.userId) {
+                return _nc.userId();
+            }
+            return _id;
+        }
 
         _init();
     }
@@ -379,11 +362,15 @@
     };
 
     RTC.create = function (nc, logger) {
+        if (nc && nc.userId == null && logger == null) {
+            logger = nc;
+            nc = null;
+        }
         return RTC.get(_id++, nc, logger);
     };
 
     odd.rtc = RTC.get;
     odd.rtc.create = RTC.create;
     odd.RTC = RTC;
+    RTC.State = _State;
 })(odd);
-

@@ -7,61 +7,94 @@ var utils = odd.utils,
     Level = events.Level,
     Code = events.Code,
     IM = odd.IM,
-    Sending = IM.CommandMessage.Sending,
-    Casting = IM.CommandMessage.Casting,
+    Sending = IM && IM.CommandMessage ? IM.CommandMessage.Sending : {},
+    Casting = IM && IM.CommandMessage ? IM.CommandMessage.Casting : {},
     RTC = odd.RTC,
     Constraints = RTC.Constraints,
 
     _self = {},
     _users = {},
+    _hasIM = IM && odd.im && IM.CommandMessage,
+    _imReady = false,
+    _pendingJoin,
     _detected = false,
     _preview,
     _writer;
 
-var im = odd.im.create();
-im.addEventListener(Event.READY, onReady);
-im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
-im.addEventListener(Event.CLOSE, onClose);
-im.setup({
-    maxRetries: -1,
-    url: 'ws://' + location.host + '/im',
-    parameters: {
-        token: '',
-    },
-}).catch((err) => {
-    im.logger.error(`Failed to setup: user=${im.client().userId()}, error=${err}`);
-});
+var im;
 
 function onReady(e) {
+    _imReady = true;
     im.logger.log(`onReady: user=${im.client().userId()}`);
-    window.addEventListener('beforeunload', onLeaveClick);
+    if (_pendingJoin) {
+        im.join(_pendingJoin);
+        _pendingJoin = undefined;
+    }
 }
 
 function onJoinClick(e) {
-    im.join(in_room.value);
+    var room = _value('in_room', '');
+    if (_setupIM(room) && _imReady) {
+        im.join(room);
+    }
 }
 
 function onLeaveClick(e) {
     rtc.unpublish();
     rtc.stop();
-    im.leave(in_room.value);
+    if (_imReady) {
+        im.leave(_value('in_room', ''));
+    }
 }
 
-var rtc = odd.rtc.create(im.client(), { mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
+var rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
 rtc.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 rtc.addEventListener(Event.CLOSE, onClose);
 rtc.setup({
     profile: sl_profiles.value || '180P_1',
+    whip: location.protocol + '//' + location.host + '/whip/live',
+    whep: location.protocol + '//' + location.host + '/whep/live',
     codecpreferences: [
         'audio/opus',
-        'video/VP8',
+        'video/H264',
     ],
 });
 
 (async function () {
+    window.addEventListener('beforeunload', onLeaveClick);
     getProfiles();
     await getDevices();
 })();
+
+function _setupIM(room) {
+    if (_hasIM === false) {
+        rtc.logger.warn('IM is not available.');
+        return false;
+    }
+    if (im) {
+        _pendingJoin = room;
+        return true;
+    }
+
+    _pendingJoin = room;
+    im = odd.im.create();
+    im.addEventListener(Event.READY, onReady);
+    im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
+    im.addEventListener(Event.CLOSE, onClose);
+    im.setup({
+        maxRetries: 0,
+        url: 'ws://' + location.host + '/im',
+        parameters: {
+            token: '',
+        },
+    }).catch((err) => {
+        _imReady = false;
+        _pendingJoin = undefined;
+        im = undefined;
+        rtc.logger.warn(`Failed to setup IM, fallback to WHIP/WHEP only: error=${err}`);
+    });
+    return true;
+}
 
 function getProfiles() {
     var labels = ['1080P_1', '720P_1', '540P_1', '360P_1', '180P_1'];
@@ -134,7 +167,7 @@ function onPreviewClick(e) {
 
         var video = ns.video;
         video.setAttribute('controls', '');
-        video.classList[ch_enablemirror.checked ? 'add' : 'remove']('mirror');
+        video.classList[_checked('ch_enablemirror', false) ? 'add' : 'remove']('mirror');
         video.muted = true;
         video.srcObject = ns.stream;
         video.play().catch(function (err) {
@@ -142,10 +175,10 @@ function onPreviewClick(e) {
         });
         view.appendChild(video);
 
-        if (ch_enablevideo.checked && !Kernel.isAppleWebKit) {
+        if (_checked('ch_enablevideo', true) && !Kernel.isAppleWebKit) {
             ns.beauty(true, {
-                brightness: rg_brightness.value,
-                smoothness: rg_smoothness.value,
+                brightness: _value('rg_brightness', 0.5),
+                smoothness: _value('rg_smoothness', 1.0),
             });
         }
     }).catch(function (err) {
@@ -194,7 +227,7 @@ function onPublishClick(e) {
 
         var video = ns.video;
         video.setAttribute('controls', '');
-        video.classList[ch_enablemirror.checked ? 'add' : 'remove']('mirror');
+        video.classList[_checked('ch_enablemirror', false) ? 'add' : 'remove']('mirror');
         video.muted = true;
         video.srcObject = ns.stream;
         video.play().catch(function (err) {
@@ -238,7 +271,7 @@ function onVideoEnableChange(e) {
 function onMirrorEnableChange(e) {
     utils.forEach(rtc.publishers, function (_, ns) {
         var video = ns.video;
-        video.classList[ch_enablemirror.checked ? 'add' : 'remove']('mirror');
+        video.classList[_checked('ch_enablemirror', false) ? 'add' : 'remove']('mirror');
     });
 }
 
@@ -269,28 +302,24 @@ function onPlayClick(e) {
 }
 
 function play(name) {
+    if (name === '') {
+        rtc.logger.warn('Stream id is empty.');
+        return;
+    }
     rtc.play(name).then(function (ns) {
         ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
             switch (e.data.code) {
                 case Code.NETSTREAM_PLAY_START:
-                    var video = e.srcElement.video;
-                    video.setAttribute('controls', '');
-                    video.srcObject = e.data.info.streams[0];
-                    video.play().catch(function (err) {
-                        console.warn(`${err}`);
-                    });
-                    view.appendChild(video);
+                    _attachVideo(e.srcElement, e.data.info.streams[0]);
                     break;
             }
         });
         ns.addEventListener(Event.RELEASE, function (e) {
-            var video = e.srcElement.video;
-            try {
-                view.removeChild(video);
-            } catch (err) {
-                console.warn(`${err}`);
-            }
+            _detachVideo(e.srcElement.video);
         });
+        if (ns.stream) {
+            _attachVideo(ns, ns.stream);
+        }
     }).catch(function (err) {
         console.warn(`${err}`);
     });
@@ -306,19 +335,26 @@ function onStatus(e) {
     var description = e.data.description;
     var info = e.data.info;
     var method = { status: 'log', warning: 'warn', error: 'error' }[level];
-    rtc.logger[method](`onStatus: user=${rtc.client().userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
+    rtc.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
 
     switch (code) {
         case Code.NETSTREAM_PUBLISH_START:
-            im.send(Sending.STREAMING, Casting.MULTI, in_room.value, {
+            _setValue('in_data', info.stream);
+            if (_imReady === false) {
+                break;
+            }
+            im.send(Sending.STREAMING, Casting.MULTI, _value('in_room', ''), {
                 stream: info.stream,
             });
             break;
         case Code.NETGROUP_CONNECT_SUCCESS:
+            if (_imReady === false) {
+                break;
+            }
             _self = info.user;
-            in_nick.value = info.user.nick;
+            _setValue('in_nick', info.user.nick);
             utils.forEach(rtc.publishers, function (_, ns) {
-                var stream = ns.getProperty('stream');
+                var stream = ns.getProperty('@id') || ns.getProperty('stream');
                 if (stream) {
                     im.send(Sending.STREAMING, Casting.MULTI, info.room.id, {
                         stream: stream,
@@ -327,15 +363,21 @@ function onStatus(e) {
             });
             break;
         case Code.NETGROUP_LOCALCOVERAGE_NOTIFY:
+            if (_imReady === false) {
+                break;
+            }
             _users = utils.extendz(info.list, _users);
-            in_online.value = Object.keys(_users).length;
+            _setValue('in_online', Object.keys(_users).length);
             break;
         case Code.NETGROUP_NEIGHBOR_CONNECT:
+            if (_imReady === false) {
+                break;
+            }
             _users[info.user.id] = info.user;
-            in_online.value = Object.keys(_users).length;
+            _setValue('in_online', Object.keys(_users).length);
 
             utils.forEach(rtc.publishers, function (_, ns) {
-                var stream = ns.getProperty('stream');
+                var stream = ns.getProperty('@id') || ns.getProperty('stream');
                 if (stream) {
                     im.send(Sending.STREAMING, Casting.UNI, info.user.id, {
                         stream: stream,
@@ -344,11 +386,17 @@ function onStatus(e) {
             });
             break;
         case Code.NETGROUP_NEIGHBOR_DISCONNECT:
+            if (_imReady === false) {
+                break;
+            }
             delete _users[info.user.id];
-            in_online.value = Object.keys(_users).length;
+            _setValue('in_online', Object.keys(_users).length);
             break;
         case Code.NETGROUP_SENDTO_NOTIFY:
         case Code.NETGROUP_POSTING_NOTIFY:
+            if (_imReady === false) {
+                break;
+            }
             var m = info;
             var args = m.Arguments;
             switch (args.type) {
@@ -361,14 +409,16 @@ function onStatus(e) {
             break;
         case Code.NETGROUP_CONNECT_CLOSED:
         case Code.NETCONNECTION_CONNECT_CLOSED:
+            _imReady = false;
             _users = {};
-            in_online.value = 0;
+            _setValue('in_online', 0);
             break;
     }
 }
 
 function onClose(e) {
-    rtc.logger.log(`onClose: user=${rtc.client().userId()}, reason=${e.data.reason}`);
+    _imReady = false;
+    rtc.logger.log(`onClose: reason=${e.data.reason}`);
 }
 
 async function onRecordClick(e) {
@@ -385,18 +435,22 @@ function onStopRecordClick(e) {
 }
 
 function onDataAvailable(chunk) {
-    im.send(Sending.FILE, '', undefined, { name: _writer.filename }, chunk);
+    if (_imReady) {
+        im.send(Sending.FILE, '', undefined, { name: _writer.filename }, chunk);
+    }
 }
 
 function onWriterEnd(e) {
-    im.send(Sending.FILE, '', undefined, { name: _writer.filename, event: 'end' });
+    if (_imReady) {
+        im.send(Sending.FILE, '', undefined, { name: _writer.filename, event: 'end' });
+    }
 }
 
 function onBrightnessChange(e) {
     utils.forEach(rtc.publishers, function (_, ns) {
         if (ns.constraints.video && ns.beautyEnabled()) {
             ns.beauty(true, {
-                brightness: rg_brightness.value,
+                brightness: _value('rg_brightness', 0.5),
             });
         }
     });
@@ -406,10 +460,49 @@ function onSmoothnessChange(e) {
     utils.forEach(rtc.publishers, function (_, ns) {
         if (ns.constraints.video && ns.beautyEnabled()) {
             ns.beauty(true, {
-                smoothness: rg_smoothness.value,
+                smoothness: _value('rg_smoothness', 1.0),
             });
         }
     });
+}
+
+function _el(id) {
+    return document.getElementById(id);
+}
+
+function _value(id, value) {
+    var element = _el(id);
+    return element ? element.value : value;
+}
+
+function _checked(id, value) {
+    var element = _el(id);
+    return element ? element.checked : value;
+}
+
+function _setValue(id, value) {
+    var element = _el(id);
+    if (element) {
+        element.value = value;
+    }
+}
+
+function _attachVideo(ns, stream) {
+    var video = ns.video;
+    video.setAttribute('controls', '');
+    video.srcObject = stream;
+    video.play().catch(function (err) {
+        console.warn(`${err}`);
+    });
+    if (video.parentNode !== view) {
+        view.appendChild(video);
+    }
+}
+
+function _detachVideo(video) {
+    if (video && video.parentNode) {
+        video.parentNode.removeChild(video);
+    }
 }
 
 // setInterval(function () {

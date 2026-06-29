@@ -9,22 +9,22 @@
         SaverEvent = events.SaverEvent,
         Level = events.Level,
         Code = events.Code,
-        IM = odd.IM,
-        Responder = IM.Responder,
-        State = IM.State,
-        Type = IM.Message.Type,
-        Command = IM.Message.Command,
         RTC = odd.RTC,
+        State = RTC.State,
         Constraints = RTC.Constraints,
         Mixer = RTC.Mixer,
         Beauty = RTC.Beauty,
         AudioMeter = RTC.AudioMeter,
 
+        _id = 0,
         _default = {
             profile: '540P_2',
+            whip: location.protocol + '//' + location.host + '/whip/live',
+            whep: location.protocol + '//' + location.host + '/whep/live',
+            trickle: false,
             codecpreferences: [
                 'audio/opus',
-                'video/VP8',
+                'video/H264',
             ],
             rtcconfiguration: {
                 iceServers: [{
@@ -49,13 +49,11 @@
             _subscribing,
             _audiometer,
             _recorder,
+            _location,
             _saver,
             _writer,
             _stats,
             _properties,
-            _handlers,
-            _responders,
-            _transactionId,
             _readyState;
 
         function _init() {
@@ -76,7 +74,7 @@
             _this.video.setAttribute('playsinline', '');
             _this.video.setAttribute('autoplay', '');
 
-            _pid = 0;
+            _pid = ++_id;
             _screenshare = false;
             _withcamera = false;
             _beauty = new Beauty(_logger);
@@ -84,19 +82,11 @@
             _audiometer = new AudioMeter(_logger);
             _stats = new RTC.Stats(_logger);
             _properties = {};
-            _handlers = {};
-            _responders = {};
-            _transactionId = 0;
             _readyState = State.INITIALIZED;
 
             _saver = new StreamSaver(_this.config.service, _logger);
             _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
-
-            _handlers[Command.SET_PROPERTY] = _processCommandSetProperty;
-            _handlers[Command.SDP] = _processCommandSdp;
-            _handlers[Command.CANDIDATE] = _processCommandCandidate;
-            _handlers[Command.STATUS] = _processCommandStatus;
         }
 
         _this.pid = function () {
@@ -112,6 +102,13 @@
             return _client;
         };
 
+        function _userId() {
+            if (_client && _client.userId) {
+                return _client.userId();
+            }
+            return _this.config.id || 0;
+        }
+
         _this.attach = async function (nc) {
             _client = nc;
 
@@ -125,20 +122,11 @@
                     _pc.addEventListener('negotiationneeded', _onNegotiationNeeded);
                     _pc.addEventListener('track', _onTrack);
                     _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
-                    _pc.addEventListener('icecandidate', _onIceCandidate);
+                    // _pc.addEventListener('icecandidate', _onIceCandidate);
                     _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
 
-                    return await _client.create(_this, new Responder(function (m) {
-                        var info = m.Arguments.info;
-
-                        utils.forEach(info, function (key, value) {
-                            _this.setProperty(`@${key}`, value);
-                        });
-                        _pid = info.id;
-                        _readyState = State.CONNECTED;
-                    }, function (m) {
-                        _this.close(m.Arguments.description);
-                    }));
+                    _readyState = State.CONNECTED;
+                    return Promise.resolve();
             }
         };
 
@@ -170,9 +158,9 @@
                 var source;
                 try {
                     source = await navigator.mediaDevices.getUserMedia(constraints);
-                    _logger.log(`Got user media: user=${_client.userId()}, stream=${source.id}, constraints=`, constraints);
+                    _logger.log(`Got user media: user=${_userId()}, stream=${source.id}, constraints=`, constraints);
                 } catch (err) {
-                    _logger.error(`Failed to get user media: user=${_client.userId()}, constraints=`, constraints, `, error=${err}`);
+                    _logger.error(`Failed to get user media: user=${_userId()}, constraints=`, constraints, `, error=${err}`);
                     return Promise.reject(err);
                 }
 
@@ -248,9 +236,9 @@
             var stream;
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
-                _logger.log(`Got user media: user=${_client.userId()}, stream=${stream.id}, constraints=`, constraints);
+                _logger.log(`Got user media: user=${_userId()}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
-                _logger.error(`Failed to get user media: user=${_client.userId()}, constraints=`, constraints, `, error=${err}`);
+                _logger.error(`Failed to get user media: user=${_userId()}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(stream);
@@ -260,9 +248,9 @@
             var stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-                _logger.log(`Got display media: user=${_client.userId()}, stream=${stream.id}, constraints=`, constraints);
+                _logger.log(`Got display media: user=${_userId()}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
-                _logger.error(`Failed to get display media: user=${_client.userId()}, constraints=`, constraints, `, error=${err}`);
+                _logger.error(`Failed to get display media: user=${_userId()}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(stream);
@@ -274,9 +262,9 @@
             track.addEventListener('unmute', _onUnmute);
 
             var sender = _pc.addTrack(track, stream);
-            _logger.log(`AddTrack: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`AddTrack: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
             if (sender.track.id !== track.id) {
-                _logger.warn(`Track id changed: user=${_client.userId()}, ${sender.track.id} != ${track.id}`);
+                _logger.warn(`Track id changed: user=${_userId()}, ${sender.track.id} != ${track.id}`);
             }
             return sender;
         };
@@ -332,17 +320,17 @@
 
         function _onEnded(e) {
             var track = e.target;
-            _logger.log(`Track ended: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track ended: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         function _onMute(e) {
             var track = e.target;
-            _logger.log(`Track muted: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track muted: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         function _onUnmute(e) {
             var track = e.target;
-            _logger.log(`Track unmuted: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track unmuted: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         _this.createStream = async function (screenshare, withcamera, option) {
@@ -410,7 +398,7 @@
                 try {
                     await _this.createStream(screenshare, withcamera, option);
                 } catch (err) {
-                    _logger.error(`Failed to create stream: user=${_client.userId()}, pipe=${_pid}`);
+                    _logger.error(`Failed to create stream: user=${_userId()}, pipe=${_pid}`);
                     return Promise.reject(err);
                 }
             }
@@ -421,35 +409,48 @@
         };
 
         _this.publish = async function () {
+            _setCodecPreferences('send');
             try {
                 var offer = await _pc.createOffer();
                 offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
-                _logger.log(`createOffer success: user=${_client.userId()}, pipe=${_pid}, sdp=\n${offer.sdp}`);
+                _logger.log(`createOffer success: user=${_userId()}, pipe=${_pid}, sdp=\n${offer.sdp}`);
             } catch (err) {
-                _logger.error(`Failed to createOffer: user=${_client.userId()}, pipe=${_pid}`);
+                _logger.error(`Failed to createOffer: user=${_userId()}, pipe=${_pid}`);
                 return Promise.reject(err);
             }
             try {
                 await _pc.setLocalDescription(offer);
-                _logger.log(`setLocalDescription success: user=${_client.userId()}, pipe=${_pid}, type=${offer.type}`);
+                _logger.log(`setLocalDescription success: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
             } catch (err) {
-                _logger.error(`Failed to setLocalDescription: user=${_client.userId()}, pipe=${_pid}, type=${offer.type}`);
+                _logger.error(`Failed to setLocalDescription: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
                 return Promise.reject(err);
             }
             _readyState = State.PUBLISHING;
 
-            return await _this.call(0, {
-                name: Command.SDP,
-                type: offer.type,
-                sdp: offer.sdp,
-            }).then(() => {
-                _logger.log(`Send offer success: user=${_client.userId()}`);
-            }).catch((err) => {
-                _logger.error(`Failed to send offer: user=${_client.userId()}, error=${err}`);
-            });
+            try {
+                var answer = await _post(_this.config.whip, offer.sdp);
+                await _setAnswer(answer);
+                _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+                    level: Level.STATUS,
+                    code: Code.NETSTREAM_PUBLISH_START,
+                    description: 'publish start',
+                    info: {
+                        stream: _this.getProperty('@id') || _this.getProperty('stream'),
+                        id: _this.getProperty('@id'),
+                        location: _location,
+                    },
+                });
+            } catch (err) {
+                _logger.error(`Failed to publish: user=${_userId()}, pipe=${_pid}, error=${err}`);
+                return Promise.reject(err);
+            }
+            return Promise.resolve();
         };
 
         function _modify(sdp, mimetypes) {
+            sdp = sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
+            sdp = sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+
             var lines = sdp.split('\r\n');
             var state = 'v=';
             var dst = '';
@@ -593,18 +594,193 @@
             return dst;
         }
 
+        function _setCodecPreferences(type) {
+            var audio = _codecs(type === 'send' ? RTCRtpSender : RTCRtpReceiver, 'audio');
+            var video = _codecs(type === 'send' ? RTCRtpSender : RTCRtpReceiver, 'video');
+            _pc.getTransceivers().forEach(function (transceiver) {
+                switch (_kind(transceiver, type)) {
+                    case 'audio':
+                        if (audio.length) {
+                            transceiver.setCodecPreferences(audio);
+                        }
+                        break;
+                    case 'video':
+                        if (video.length) {
+                            transceiver.setCodecPreferences(video);
+                        } else {
+                            _logger.warn(`No preferred video codec found: user=${_userId()}, codecpreferences=`, _this.config.codecpreferences);
+                        }
+                        break;
+                }
+            });
+        }
+
+        function _kind(transceiver, type) {
+            var track = type === 'send' ? transceiver.sender.track : transceiver.receiver.track;
+            return track ? track.kind : '';
+        }
+
+        function _codecs(factory, kind) {
+            var items = [];
+            if (factory.getCapabilities == null) {
+                return items;
+            }
+            var capabilities = factory.getCapabilities(kind);
+            if (capabilities == null) {
+                return items;
+            }
+            capabilities.codecs.forEach(function (codec) {
+                for (var i = 0; i < _this.config.codecpreferences.length; i++) {
+                    if (_matchCodec(codec, _this.config.codecpreferences[i])) {
+                        items.push(codec);
+                        break;
+                    }
+                }
+            });
+            return items;
+        }
+
+        function _matchCodec(codec, mimetype) {
+            if (mimetype.toLowerCase() !== codec.mimeType.toLowerCase()) {
+                return false;
+            }
+            switch (mimetype.toLowerCase()) {
+                case 'video/h264':
+                    var fmtp = codec.sdpFmtpLine || '';
+                    fmtp = fmtp.toLowerCase();
+                    return fmtp.indexOf('packetization-mode=1') !== -1 &&
+                        fmtp.indexOf('profile-level-id=42e01f') !== -1;
+            }
+            return true;
+        }
+
+        function _post(url, sdp) {
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.setRequestHeader('Content-Type', 'application/sdp');
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        _location = xhr.getResponseHeader('Location') || url;
+                        _this.setProperty('@id', _location.split('/').pop() || _pid);
+                        _this.setProperty('@location', _location);
+                        resolve(xhr.responseText);
+                        return;
+                    }
+                    reject(`status=${xhr.status}, response=${xhr.responseText}`);
+                };
+                xhr.onerror = function () {
+                    reject('network error');
+                };
+                xhr.send(sdp);
+            });
+        }
+
+        async function _patch(candidate) {
+            if (_this.config.trickle !== true || _location == null) {
+                return Promise.resolve();
+            }
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('PATCH', _location, true);
+                xhr.setRequestHeader('Content-Type', 'application/trickle-ice-sdpfrag');
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                        return;
+                    }
+                    reject(`status=${xhr.status}, response=${xhr.responseText}`);
+                };
+                xhr.onerror = function () {
+                    reject('network error');
+                };
+                if (candidate.candidate) {
+                    xhr.send(`a=${candidate.candidate}\na=end-of-candidates`);
+                } else {
+                    xhr.send('a=end-of-candidates');
+                }
+            });
+        }
+
+        function _delete() {
+            if (_location == null) {
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('DELETE', _location, true);
+            xhr.send();
+            _location = undefined;
+        }
+
+        function _join(prefix, name) {
+            return prefix.replace(/\/$/, '') + '/' + encodeURIComponent(name);
+        }
+
+        async function _setAnswer(sdp) {
+            var answer = new RTCSessionDescription({
+                type: 'answer',
+                sdp: sdp,
+            });
+            _logger.log(`onRemoteAnswer: user=${_userId()}, pipe=${_pid}, sdp=\n${answer.sdp}`);
+            try {
+                await _pc.setRemoteDescription(answer);
+                _logger.log(`setRemoteDescription success: user=${_userId()}, pipe=${_pid}, type=${answer.type}`);
+            } catch (err) {
+                _logger.error(`Failed to setRemoteDescription: user=${_userId()}, pipe=${_pid}, type=${answer.type}`);
+                return Promise.reject(err);
+            }
+            _setMaxBitrate();
+            _setJitterBufferTarget();
+            return Promise.resolve();
+        }
+
+        function _setMaxBitrate() {
+            _pc.getSenders().forEach(function (sender) {
+                var track = sender.track;
+                if (track && track.kind === 'video' && _this.constraints.video && _this.constraints.video.maxBitrate) {
+                    var bitrate = _this.constraints.video.maxBitrate * 1000;
+                    var parameters = sender.getParameters();
+                    if (parameters.encodings == null) {
+                        parameters.encodings = [{}];
+                    }
+                    parameters.encodings.forEach(function (encoding) {
+                        encoding.maxBitrate = bitrate;
+                    });
+                    sender.setParameters(parameters).then(function () {
+                        _logger.log(`Set max bitrate: user=${_userId()}, value=${bitrate}`);
+                    }).catch(function (err) {
+                        _logger.warn(`Failed to set max bitrate: user=${_userId()}, value=${bitrate}, error=${err}`);
+                    });
+                }
+            });
+        }
+
+        function _setJitterBufferTarget() {
+            _pc.getReceivers().forEach(function (receiver) {
+                if (receiver.track && receiver.track.kind === 'video' && 'jitterBufferTarget' in receiver) {
+                    receiver.jitterBufferTarget = 300;
+                }
+            });
+        }
+
         _this.beauty = function (enable, constraints) {
             if (enable) {
                 _beauty.enable(_this.stream, constraints).then(function () {
                     _this.replaceTrack(_beauty.output(), false).catch(function (err) {
-                        _logger.error(`Failed to replace track: user=${_client.userId()}, error=${err}`);
+                        _logger.error(`Failed to replace track: user=${_userId()}, error=${err}`);
                     });
                 });
             } else {
                 var input = _beauty.input();
                 if (input) {
                     _this.replaceTrack(input, true).catch(function (err) {
-                        _logger.error(`Failed to replace track: user=${_client.userId()}, error=${err}`);
+                        _logger.error(`Failed to replace track: user=${_userId()}, error=${err}`);
                     });
                     _beauty.disable();
                 }
@@ -616,24 +792,46 @@
         };
 
         _this.play = async function (rid, mode) {
+            _this.setProperty('stream', rid.split('@')[0]);
+
+            _pc.addTransceiver('audio', {
+                direction: 'recvonly',
+            });
+            _pc.addTransceiver('video', {
+                direction: 'recvonly',
+            });
+            _setCodecPreferences('recv');
+
+            try {
+                var offer = await _pc.createOffer();
+                offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
+                _logger.log(`createOffer success: user=${_userId()}, pipe=${_pid}, sdp=\n${offer.sdp}`);
+            } catch (err) {
+                _logger.error(`Failed to createOffer: user=${_userId()}, pipe=${_pid}`);
+                return Promise.reject(err);
+            }
+            try {
+                await _pc.setLocalDescription(offer);
+                _logger.log(`setLocalDescription success: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
+            } catch (err) {
+                _logger.error(`Failed to setLocalDescription: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
+                return Promise.reject(err);
+            }
             _readyState = State.PLAYING;
 
-            return await _this.call(0, {
-                name: Command.PLAY,
-                stream: rid,
-                mode: mode,
-            }).then(() => {
-                _logger.log(`Send play success: user=${_client.userId()}`);
-            }).catch((err) => {
-                _logger.error(`Failed to send play: user=${_client.userId()}, error=${err}`);
-            });
+            try {
+                var answer = await _post(_join(_this.config.whep, rid), offer.sdp);
+                await _setAnswer(answer);
+            } catch (err) {
+                _logger.error(`Failed to play: user=${_userId()}, pipe=${_pid}, stream=${rid}, error=${err}`);
+                return Promise.reject(err);
+            }
+            return Promise.resolve();
         };
 
         _this.stop = function (name) {
-            return _this.call(0, {
-                name: Command.STOP,
-                stream: name,
-            });
+            _this.release('stopping');
+            return Promise.resolve();
         };
 
         _this.record = function (filename, ondata) {
@@ -694,24 +892,6 @@
             _this.forward(e);
         }
 
-        _this.sendStatus = async function (transactionId, status) {
-            return _this.call(transactionId, {
-                name: Command.STATUS,
-                level: status.level,
-                code: status.code,
-                description: status.description,
-                info: status.info,
-            });
-        };
-
-        _this.call = function (transactionId, args, payload, responder) {
-            if (responder) {
-                transactionId = ++_transactionId;
-                _responders[transactionId] = responder;
-            }
-            return _client.call(_pid, transactionId, args, payload);
-        };
-
         _this.getTransceivers = function () {
             return _pc.getTransceivers();
         };
@@ -726,12 +906,12 @@
 
         function _onNegotiationNeeded(e) {
             // We don't negotiate at this moment, until user called publish manually.
-            _logger.log(`onNegotiationNeeded: user=${_client.userId()}, pipe=${_pid}`);
+            _logger.log(`onNegotiationNeeded: user=${_userId()}, pipe=${_pid}`);
         }
 
         function _onTrack(e) {
             var stream = e.streams[0];
-            _logger.log(`onTrack: user=${_client.userId()}, kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
+            _logger.log(`onTrack: user=${_userId()}, kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
             _subscribing.push(e.track);
             _audiometer.update(stream);
             _this.stream = stream;
@@ -748,7 +928,7 @@
 
         function _onConnectionStateChange(e) {
             var pc = e.target;
-            _logger.log(`onConnectionStateChange: user=${_client.userId()}, pipe=${_pid}, state=${pc.connectionState}`);
+            _logger.log(`onConnectionStateChange: user=${_userId()}, pipe=${_pid}, state=${pc.connectionState}`);
             switch (pc.connectionState) {
                 case 'failed':
                 case 'closed':
@@ -766,179 +946,16 @@
                     sdpMLineIndex: 0,
                 };
             }
-            _logger.log(`onIceCandidate: user=${_client.userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+            _logger.log(`onIceCandidate: user=${_userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
 
-            _this.call(0, {
-                name: Command.CANDIDATE,
-                candidate: candidate.candidate,
-                sdpMid: candidate.sdpMid,
-                sdpMLineIndex: candidate.sdpMLineIndex,
-            }).catch((err) => {
-                _logger.error(`Failed to send candidate: user=${_client.userId()}, error=${err}`);
+            _patch(candidate).catch((err) => {
+                _logger.error(`Failed to send candidate: user=${_userId()}, error=${err}`);
             });
         }
 
         function _onIceConnectionStateChange(e) {
             var pc = e.target;
-            _logger.log(`onIceConnectionStateChange: user=${_client.userId()}, pipe=${_pid}, state=${pc.iceConnectionState}`);
-        }
-
-        _this.process = function (p) {
-            switch (p.Type) {
-                case Type.COMMAND:
-                    var m = new IM.CommandMessage(p);
-                    m.parse(p.Payload.buffer, p.Payload.byteOffset);
-                    return _processCommand(m);
-
-                default:
-                    return Promise.reject(`unrecognized message type ${p.Type}`);
-            }
-        };
-
-        function _processCommand(m) {
-            var handler = _handlers[m.Arguments.name];
-            if (handler) {
-                return handler(m);
-            }
-            // Should not return error, just ignore.
-            _logger.warn(`No handler found: user=${_client.userId()}, command=${m.Arguments.name}, arguments=`, m.Arguments);
-            return Promise.resolve();
-        };
-
-        function _processCommandSetProperty(m) {
-            var info = m.Arguments.info;
-            utils.forEach(info, function (key, value) {
-                _this.setProperty(key, value);
-            });
-            return Promise.resolve();
-        }
-
-        async function _processCommandSdp(m) {
-            _logger.log(`onSdp: user=${_client.userId()}, pipe=${_pid}, type=${m.Arguments.type}, sdp=\n${m.Arguments.sdp}`);
-            try {
-                await _pc.setRemoteDescription(new RTCSessionDescription({
-                    type: m.Arguments.type,
-                    sdp: m.Arguments.sdp,
-                }));
-                _logger.log(`setRemoteDescription success: user=${_client.userId()}, pipe=${_pid}, type=${m.Arguments.type}`);
-            } catch (err) {
-                _logger.error(`Failed to setRemoteDescription: user=${_client.userId()}, pipe=${_pid}, type=${m.Arguments.type}`);
-                return Promise.reject(err);
-            }
-            if (m.Arguments.type === 'answer') {
-                _pc.getSenders().forEach(function (sender) {
-                    var track = sender.track;
-                    if (track && track.kind === 'video') {
-                        var bitrate = _this.constraints.video.maxBitrate * 1000;
-                        var parameters = sender.getParameters();
-                        parameters.encodings.forEach(function (encoding) {
-                            encoding.maxBitrate = bitrate;
-                        });
-                        sender.setParameters(parameters).then(function () {
-                            _logger.log(`Set max bitrate: user=${_client.userId()}, value=${bitrate}`);
-                        }).catch(function (err) {
-                            _logger.warn(`Failed to set max bitrate: user=${_client.userId()}, value=${bitrate}, error=${err}`);
-                        });
-                    }
-                });
-                return Promise.resolve();
-            }
-            try {
-                var answer = await _pc.createAnswer();
-                answer.sdp = answer.sdp.replace(
-                    /a=rtcp-fb:(\d+) transport-cc(\n|\r\n)/g,
-                    `a=rtcp-fb:$1 transport-cc$2a=rtcp-fb:$1 rrtr$2`);
-                _logger.log(`createAnswer success: user=${_client.userId()}, pipe=${_pid}, sdp=\n${answer.sdp}`);
-            } catch (err) {
-                _logger.error(`Failed to createAnswer: user=${_client.userId()}, pipe=${_pid}`);
-                return Promise.reject(err);
-            }
-            try {
-                await _pc.setLocalDescription(answer);
-                _logger.log(`setLocalDescription success: user=${_client.userId()}, pipe=${_pid}, type=${answer.type}`);
-            } catch (err) {
-                _logger.error(`Failed to setLocalDescription: user=${_client.userId()}, pipe=${_pid}, type=${answer.type}`);
-                return Promise.reject(err);
-            }
-
-            return await _this.call(0, {
-                name: Command.SDP,
-                type: answer.type,
-                sdp: answer.sdp,
-            }).then(() => {
-                _logger.log(`Send answer success: user=${_client.userId()}`);
-            }).catch((err) => {
-                _logger.error(`Failed to send answer: user=${_client.userId()}, error=${err}`);
-            });
-        }
-
-        async function _processCommandCandidate(m) {
-            try {
-                // candidate:foundation icegroupid protocol priority address port typ type [tcptype passive] generation 0 ufrag EkX7 network-id 1
-                // candidate:2521313038 1 udp 2122260223 8.129.32.129 35050 typ host generation 0 ufrag EkX7 network-id 1
-                // candidate:3637236734 1 tcp 1518280447 8.129.32.129 54853 typ host tcptype passive generation 0 ufrag ENBr network-id 1
-                // candidate:1522864285 1 udp 1686052607 8.129.32.129 56851 typ srflx raddr 172.18.211.206 rport 56851 generation 0 ufrag g2Hy network-id 1
-                // var arr = m.Arguments.candidate.match(/^candidate:(?<foundation>\d+) (?<icegroupid>\d+) (?<protocol>udp|tcp) (?<priority>\d+) (?<address>[\d\.]+) (?<port>\d+) typ (?<type>[a-z]+)/i);
-                // if (arr && arr.groups.type === 'host') {
-                // }
-
-                var candidate = new RTCIceCandidate({
-                    candidate: m.Arguments.candidate,
-                    sdpMid: m.Arguments.sdpMid || '',
-                    sdpMLineIndex: m.Arguments.sdpMLineIndex || 0,
-                });
-                await _pc.addIceCandidate(candidate);
-                _logger.log(`addIceCandidate success: user=${_client.userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
-            } catch (err) {
-                _logger.error(`Failed to addIceCandidate: user=${_client.userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
-                return Promise.reject(err);
-            }
-            return Promise.resolve();
-        }
-
-        function _processCommandStatus(m) {
-            var level = m.Arguments.level;
-            var code = m.Arguments.code;
-            var description = m.Arguments.description;
-            var info = m.Arguments.info;
-            _logger.debug(`RTC.NetStream.onStatus: user=${_client.userId()}, pipe=${_pid}, level=${level}, code=${code}, description=${description}, info=`, info);
-
-            var responder = _responders[m.TransactionID];
-            if (responder != null) {
-                var callback = level === Level.ERROR ? responder.status : responder.result;
-                if (callback != null) {
-                    callback(m);
-                }
-            }
-            delete _responders[m.TransactionID];
-
-            switch (code) {
-                case Code.NETSTREAM_UNPUBLISH_SUCCESS:
-                case Code.NETSTREAM_PLAY_START:
-                    // Ignore these status, because we can not trust them, while they may be lost.
-                    // Instead, we'll fire these events based on the local methods and events.
-                    return;
-                case Code.NETSTREAM_PLAY_STOP:
-                    for (var i = 0; i < _subscribing.length; i++) {
-                        var track = _subscribing[i];
-                        if (track.id === info.track) {
-                            _subscribing.splice(i, 1);
-                            if (_subscribing.length === 0) {
-                                _logger.log(`There's no receiver remains: user=${_client.userId()}, pipe=${_pid}`);
-                                _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-                                    level: Level.STATUS,
-                                    code: Code.NETSTREAM_PLAY_RESET,
-                                    description: 'play reset',
-                                });
-                            }
-                            break;
-                        }
-                    }
-                    return;
-            }
-
-            _this.dispatchEvent(NetStatusEvent.NET_STATUS, m.Arguments);
-            return Promise.resolve();
+            _logger.log(`onIceConnectionStateChange: user=${_userId()}, pipe=${_pid}, state=${pc.iceConnectionState}`);
         }
 
         _this.volume = function () {
@@ -952,7 +969,7 @@
                 });
                 return Promise.resolve(_stats.report);
             }).catch((err) => {
-                _logger.warn(`Failed to getStats: user=${_client.userId()}, error=${err}`);
+                _logger.warn(`Failed to getStats: user=${_userId()}, error=${err}`);
             });
         };
 
@@ -961,12 +978,7 @@
         };
 
         _this.release = function (reason) {
-            _client.call(0, 0, {
-                name: Command.RELEASE,
-                id: _pid,
-            }).catch((err) => {
-                _logger.error(`Failed to send release: user=${_client.userId()}, error=${err}`);
-            });
+            _delete();
             _this.close(reason);
         };
 
@@ -1015,7 +1027,7 @@
                     }
                     if (_this.stream) {
                         _this.stream.getTracks().forEach(function (track) {
-                            _logger.log(`Stopping track: user=${_client.userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+                            _logger.log(`Stopping track: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
                             track.stop();
                         });
                     }
@@ -1042,4 +1054,3 @@
 
     RTC.NetStream = NetStream;
 })(odd);
-
