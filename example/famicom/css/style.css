@@ -25,7 +25,7 @@ body {
 .panel {
     padding: 8px;
     display: grid;
-    grid-template-columns: 1.2fr 120px 2fr 96px;
+    grid-template-columns: 1.2fr 120px 152px 2fr 96px;
     gap: 8px;
     background: #1f1f1f;
     box-sizing: border-box;
@@ -56,13 +56,24 @@ body {
     background: #168d74;
 }
 
+.players {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.players .btn[data-active="true"] {
+    background: #24b99a;
+}
+
 @media screen and (max-width: 720px) {
     .panel {
         grid-template-columns: 1fr 90px;
     }
 
     .panel input:first-child,
-    .panel input:nth-child(3) {
+    .panel input:nth-child(4),
+    .players {
         grid-column: span 2;
     }
 }

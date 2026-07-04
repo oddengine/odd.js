@@ -56,9 +56,18 @@
         <div id='game' class='game'></div>
         <div class='panel'>
             <input id='server' type='text' value='https://localhost/game/' autocapitalize='off'>
-            <input id='msid' type='text' value='1943' autocapitalize='off'>
+            <input id='instance' type='text' placeholder='instance' autocapitalize='off'>
+            <div class='players'>
+                <a id='player0' class='btn green-fill' onclick='onPlayerClick(0);'>P1</a>
+                <a id='player1' class='btn green-fill' onclick='onPlayerClick(1);'>P2</a>
+                <a id='player2' class='btn green-fill' onclick='onPlayerClick(2);'>P3</a>
+                <a id='player3' class='btn green-fill' onclick='onPlayerClick(3);'>P4</a>
+            </div>
             <input id='gameName' type='text' value='1943' autocapitalize='off'>
-            <a class='btn green-fill' onclick='onStartClick();'>Start</a>
+            <a class='btn green-fill' onclick='onInitClick();'>Init</a>
+            <a class='btn green-fill' onclick='onJoinClick();'>Join</a>
+            <a class='btn green-fill' onclick='onLeaveClick();'>Leave</a>
+            <a class='btn green-fill' onclick='onDestroyClick();'>Destroy</a>
         </div>
     </div>
 

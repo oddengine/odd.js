@@ -41,9 +41,13 @@
         _id = 0,
         _instances = {},
         _default = {
-            url: 'http://' + location.host + '/game/',
+            url: location.protocol + '//' + location.host + '/game/',
             msid: '',
             game: '',
+            instance: '',
+            player: '',
+            playerSlot: '0',
+            rememberPlayer: true,
             autoplay: true,
             controls: false,
             muted: false,
@@ -91,6 +95,7 @@
 
         _this.setup = async function (container, config) {
             _this.config = utils.extendz({ id: _id }, _default, config);
+            _this.config.playerSlot = _normalizePlayerSlot(_this.config.playerSlot);
             _container = container;
             _video = utils.createElement('video');
             _video.autoplay = _this.config.autoplay;
@@ -110,6 +115,21 @@
         }
 
         _this.load = async function (game, msid) {
+            return _this.init(game, msid);
+        };
+
+        _this.selectPlayer = function (playerSlot) {
+            if (playerSlot !== undefined) {
+                var next = _normalizePlayerSlot(playerSlot);
+                if (next !== _this.config.playerSlot) {
+                    _this.config.player = '';
+                }
+                _this.config.playerSlot = next;
+            }
+            return _this.config.playerSlot;
+        };
+
+        _this.init = async function (game, msid) {
             if (game !== undefined) {
                 _this.config.game = game;
             }
@@ -119,22 +139,86 @@
             if (!_this.config.msid) {
                 _this.config.msid = _this.config.id;
             }
+            _clearPlayerCookie(_this.config.instance, _this.config.playerSlot);
+            _this.config.instance = '';
+            _this.config.player = '';
 
+            return _connect('init');
+        };
+
+        _this.join = async function (instance, player) {
+            if (instance !== undefined && instance !== _this.config.instance) {
+                _this.config.instance = instance;
+                _this.config.player = '';
+            }
+            if (!_this.config.instance) {
+                _this.config.instance = _instanceFromLocation();
+            }
+            if (!_this.config.instance) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'Instance is required.' });
+            }
+            if (player !== undefined) {
+                _this.config.player = player;
+            } else if (!_this.config.player) {
+                _this.config.player = _getPlayerCookie(_this.config.instance, _this.config.playerSlot);
+            }
+
+            return _connect('join');
+        };
+
+        _this.leave = async function () {
+            if (!_this.config.instance || !_this.config.player) {
+                _cleanupPeerConnection();
+                _state = State.INITIALIZED;
+                return Promise.resolve();
+            }
+
+            var instance = _this.config.instance;
+            var player = _this.config.player;
+            try {
+                await _request('GET', _baseUrl() + '/leave?instance=' + encodeURIComponent(instance) + '&player=' + encodeURIComponent(player), {});
+            } finally {
+                _clearPlayerCookie(instance, _this.config.playerSlot);
+                _this.config.player = '';
+                _cleanupPeerConnection();
+                _state = State.INITIALIZED;
+            }
+        };
+
+        _this.destroy = async function (reason) {
+            _state = State.CLOSING;
+            var instance = _this.config.instance;
+            try {
+                if (instance) {
+                    await _request('GET', _baseUrl() + '/destroy?instance=' + encodeURIComponent(instance), {});
+                }
+            } catch (err) {
+                _logger.warn(`Failed to destroy game instance: ${err.message || err}`);
+            }
+            _destroyClient(reason);
+        };
+
+        async function _connect(action) {
             _cleanupPeerConnection();
             _setupPeerConnection();
             _state = State.CONNECTING;
 
             try {
                 var offer = await _createOffer();
-                var answer = await _postOffer(offer.sdp);
+                var answer = await _postOffer(action, offer.sdp);
                 await _pc.setRemoteDescription(answer);
-                await _startGame();
                 _state = State.CONNECTED;
                 _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
                     level: Level.STATUS,
                     code: Code.NETCONNECTION_CONNECT_SUCCESS,
                     description: 'Famicom connected.',
-                    info: { msid: _this.config.msid, game: _this.config.game },
+                    info: {
+                        action: action,
+                        instance: _this.config.instance,
+                        player: _this.config.player,
+                        playerSlot: _this.config.playerSlot,
+                        game: _this.config.game,
+                    },
                 });
             } catch (err) {
                 _state = State.INITIALIZED;
@@ -142,7 +226,7 @@
                 _this.dispatchEvent(Event.ERROR, { name: err.name || 'AbortError', message: err.message || err.toString() });
                 return Promise.reject(err);
             }
-        };
+        }
 
         function _setupPeerConnection() {
             _pc = new RTCPeerConnection({
@@ -222,21 +306,105 @@
             return offer;
         }
 
-        async function _postOffer(sdp) {
-            var xhr = await _request('POST', _gameUrl(), { 'Content-Type': 'application/sdp' }, sdp);
-            return new RTCSessionDescription({ type: 'answer', sdp: xhr.responseText || xhr.response });
-        }
-
-        async function _startGame() {
-            var url = _gameUrl() + '?action=start';
-            if (_this.config.game) {
-                url += '&game=' + _this.config.game;
+        async function _postOffer(action, sdp) {
+            var xhr = await _request('POST', _signalUrl(action), { 'Content-Type': 'application/sdp' }, sdp);
+            var location = xhr.getResponseHeader('Location');
+            if (location) {
+                _this.config.instance = location.split('/').pop();
             }
-            await _request('GET', url, {});
+
+            var answerSdp = xhr.responseText || xhr.response;
+            var player = _extractPlayerId(answerSdp);
+            if (player) {
+                _this.config.player = player;
+            }
+            if (_this.config.rememberPlayer) {
+                _setPlayerCookie(_this.config.instance, _this.config.playerSlot, _this.config.player);
+            }
+            return new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
         }
 
-        function _gameUrl() {
-            return _this.config.url.replace(/\/?$/, '/') + _this.config.msid;
+        function _signalUrl(action) {
+            var base = _baseUrl();
+            switch (action) {
+                case 'init':
+                    return base + '/init?name=' + encodeURIComponent(_this.config.game || _this.config.msid || _this.config.id);
+                case 'join': {
+                    var url = base + '/join?instance=' + encodeURIComponent(_this.config.instance);
+                    return _appendPlayer(url);
+                }
+            }
+            throw { name: 'NotSupportedError', message: 'Unsupported action: ' + action };
+        }
+
+        function _appendPlayer(url) {
+            if (_this.config.player) {
+                url += '&player=' + encodeURIComponent(_this.config.player);
+            }
+            return url;
+        }
+
+        function _baseUrl() {
+            return _this.config.url.replace(/\/?$/, '');
+        }
+
+        function _extractPlayerId(sdp) {
+            var match = /a=msid-semantic:\s*WMS\s+([^\s\r\n]+)/i.exec(sdp);
+            if (match) {
+                return match[1];
+            }
+            match = /a=ssrc:\d+\s+msid:([^\s\r\n]+)/i.exec(sdp);
+            return match ? match[1] : '';
+        }
+
+        function _instanceFromLocation() {
+            try {
+                return new URLSearchParams(location.search).get('instance') || '';
+            } catch (err) {
+                return '';
+            }
+        }
+
+        function _normalizePlayerSlot(playerSlot) {
+            if (playerSlot === undefined || playerSlot === null) {
+                return '0';
+            }
+            var value = String(playerSlot);
+            return /^[0-3]$/.test(value) ? value : '0';
+        }
+
+        function _playerCookieName(instance, playerSlot) {
+            return 'odd_famicom_player_' + encodeURIComponent(instance) + '_' + encodeURIComponent(_normalizePlayerSlot(playerSlot));
+        }
+
+        function _getPlayerCookie(instance, playerSlot) {
+            if (!instance || !_this.config.rememberPlayer) {
+                return '';
+            }
+
+            var name = _playerCookieName(instance, playerSlot) + '=';
+            var items = document.cookie.split(';');
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i].trim();
+                if (item.indexOf(name) === 0) {
+                    return decodeURIComponent(item.substring(name.length));
+                }
+            }
+            return '';
+        }
+
+        function _setPlayerCookie(instance, playerSlot, player) {
+            if (!instance || !player || !_this.config.rememberPlayer) {
+                return;
+            }
+            document.cookie = _playerCookieName(instance, playerSlot) + '=' + encodeURIComponent(player) + '; Max-Age=604800; Path=/; SameSite=Lax';
+        }
+
+        function _clearPlayerCookie(instance, playerSlot) {
+            if (!instance) {
+                return;
+            }
+            document.cookie = _playerCookieName(instance, playerSlot) + '=; Max-Age=0; Path=/; SameSite=Lax';
         }
 
         function _request(method, url, headers, body) {
@@ -362,8 +530,11 @@
             }
         }
 
-        _this.destroy = function (reason) {
-            _state = State.CLOSING;
+        function _destroyClient(reason) {
+            var instance = _this.config.instance;
+            _clearPlayerCookie(instance, _this.config.playerSlot);
+            _this.config.instance = '';
+            _this.config.player = '';
             _cleanupPeerConnection();
             if (_container && _video && _video.parentNode === _container) {
                 _container.removeChild(_video);
@@ -371,7 +542,7 @@
             _state = State.CLOSED;
             _this.dispatchEvent(Event.CLOSE, { reason: reason });
             delete _instances[_id];
-        };
+        }
 
         _init();
     }

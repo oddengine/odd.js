@@ -197,6 +197,11 @@
         function _onBind(e) {
             _this.config = _famicom.config;
             _this.load = _famicom.load;
+            _this.selectPlayer = _famicom.selectPlayer;
+            _this.init = _famicom.init;
+            _this.join = _famicom.join;
+            _this.leave = _famicom.leave;
+            _this.destroyGame = _famicom.destroy;
             _this.keyDown = _famicom.keyDown;
             _this.keyUp = _famicom.keyUp;
             _this.key = _famicom.key;

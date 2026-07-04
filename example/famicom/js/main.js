@@ -5,6 +5,8 @@ var events = odd.events,
     UI = Famicom.UI;
 
 var ui = odd.famicom.ui.create({ level: 'debug' });
+var params = new URLSearchParams(location.search);
+
 ui.addEventListener(Event.READY, onReady);
 ui.addEventListener(Event.ERROR, onError);
 ui.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
@@ -12,6 +14,8 @@ ui.setup(game, {
     skin: 'classic',
     controls: false,
     url: server.value,
+    instance: params.get('instance') || '',
+    playerSlot: params.get('slot') || '0',
     joystick: {
         center: 0.0,
         direction: 8,
@@ -41,7 +45,54 @@ function onStatus(e) {
     ui.logger.log(`onStatus: code=${e.data.code}, description=${e.data.description}`);
 }
 
-function onStartClick(e) {
+function syncInstance() {
+    instance.value = ui.config.instance || '';
+    var url = new URL(window.location.href);
+    if (ui.config.instance) {
+        url.searchParams.set('instance', ui.config.instance);
+    } else {
+        url.searchParams.delete('instance');
+    }
+    url.searchParams.delete('player');
+    url.searchParams.set('slot', ui.config.playerSlot || '0');
+    history.replaceState(null, '', url.toString());
+    syncPlayer();
+}
+
+function syncPlayer() {
+    var player = ui.config.playerSlot || '0';
+    for (var i = 0; i < 4; i++) {
+        var item = document.getElementById('player' + i);
+        item.setAttribute('data-active', String(i) === player);
+    }
+}
+
+function onPlayerClick(index) {
+    ui.selectPlayer(index);
+    syncInstance();
+}
+
+function onInitClick(e) {
     ui.config.url = server.value;
-    ui.load(gameName.value, msid.value);
+    ui.init(gameName.value).then(syncInstance).catch(onActionError);
+}
+
+function onJoinClick(e) {
+    ui.config.url = server.value;
+    ui.join(instance.value).then(syncInstance).catch(onActionError);
+}
+
+function onLeaveClick(e) {
+    ui.leave().then(syncInstance).catch(onActionError);
+}
+
+function onDestroyClick(e) {
+    ui.destroyGame().then(syncInstance).catch(onActionError);
+}
+
+instance.value = ui.config.instance || '';
+syncPlayer();
+
+function onActionError(err) {
+    ui.logger.error(`Action failed: name=${err.name || 'Error'}, message=${err.message || err}`);
 }
