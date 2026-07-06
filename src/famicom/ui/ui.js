@@ -208,6 +208,7 @@
             _this.keys = _famicom.keys;
             _this.state = _famicom.state;
             _this.video = _famicom.video;
+            _this.getStats = _famicom.getStats;
             _this.forward(e);
         }
 

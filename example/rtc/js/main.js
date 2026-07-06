@@ -57,6 +57,7 @@ rtc.setup({
     codecpreferences: [
         'audio/opus',
         'video/H264',
+        'video/rtx',
     ],
 });
 

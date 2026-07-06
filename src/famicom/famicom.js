@@ -270,8 +270,8 @@
             var vc = RTCRtpReceiver.getCapabilities && RTCRtpReceiver.getCapabilities('video');
             if (vc && vc.codecs) {
                 vc.codecs.forEach(function (codec) {
-                    if (codec.mimeType === 'video/H264' &&
-                        codec.sdpFmtpLine &&
+                    if (codec.mimeType === 'video/rtx' ||
+                        codec.mimeType === 'video/H264' && codec.sdpFmtpLine &&
                         codec.sdpFmtpLine.indexOf('packetization-mode=1') !== -1 &&
                         codec.sdpFmtpLine.indexOf('profile-level-id=42e01f') !== -1) {
                         videocodecs.push(codec);
@@ -301,7 +301,8 @@
         async function _createOffer() {
             var offer = await _pc.createOffer();
             offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
-            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
             await _pc.setLocalDescription(offer);
             return offer;
         }
@@ -503,6 +504,13 @@
 
         _this.state = function () {
             return _state;
+        };
+
+        _this.getStats = async function (selector) {
+            if (!_pc) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'PeerConnection is not available.' });
+            }
+            return _pc.getStats(selector);
         };
 
         function _cleanupPeerConnection() {

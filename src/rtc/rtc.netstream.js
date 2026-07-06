@@ -25,6 +25,7 @@
             codecpreferences: [
                 'audio/opus',
                 'video/H264',
+                'video/rtx',
             ],
             rtcconfiguration: {
                 iceServers: [{
@@ -449,7 +450,8 @@
 
         function _modify(sdp, mimetypes) {
             sdp = sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
-            sdp = sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
 
             var lines = sdp.split('\r\n');
             var state = 'v=';
