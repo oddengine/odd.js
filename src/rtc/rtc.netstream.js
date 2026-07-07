@@ -450,8 +450,8 @@
 
         function _modify(sdp, mimetypes) {
             sdp = sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
-            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
-            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+            sdp = sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+            sdp = sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
 
             var lines = sdp.split('\r\n');
             var state = 'v=';
@@ -631,14 +631,25 @@
             if (capabilities == null) {
                 return items;
             }
+            var hasPreferredVideo = false;
             capabilities.codecs.forEach(function (codec) {
+                if (kind === 'video' && codec.mimeType.toLowerCase() === 'video/rtx') {
+                    items.push(codec);
+                    return;
+                }
                 for (var i = 0; i < _this.config.codecpreferences.length; i++) {
                     if (_matchCodec(codec, _this.config.codecpreferences[i])) {
                         items.push(codec);
+                        if (kind === 'video') {
+                            hasPreferredVideo = true;
+                        }
                         break;
                     }
                 }
             });
+            if (kind === 'video' && hasPreferredVideo === false) {
+                items = [];
+            }
             return items;
         }
 

@@ -76,7 +76,6 @@
             _this.call = _ns.call;
             _this.state = _nc.state;
             _this.dispatchEvent(Event.BIND);
-            _this.dispatchEvent(Event.READY);
         }
 
         async function _connect() {
@@ -91,6 +90,7 @@
                 }
             }
             await _ns.attach(_nc);
+            _this.dispatchEvent(Event.READY);
             return Promise.resolve();
         };
 
