@@ -13,7 +13,7 @@
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
             kind: 'Controlbar',
-            layout: '[Button:fullscreen=][Button:exitfullscreen=]',
+            layout: '[Button:mute=][Button:unmute=][Button:fullscreen=][Button:exitfullscreen=]',
             autohide: true,
             timeout: 3000,
             visibility: true,

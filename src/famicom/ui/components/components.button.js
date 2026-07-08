@@ -10,7 +10,7 @@
         CLASS_BUTTON = 'famicom-button';
 
     function Button(name, kind, logger) {
-        EventDispatcher.call(this, 'Button', { logger: logger }, MouseEvent);
+        EventDispatcher.call(this, 'Button', { logger: logger }, [MouseEvent.CLICK, MouseEvent.MOUSE_DOWN, MouseEvent.MOUSE_UP]);
 
         var _this = this,
             _name = name,
@@ -21,6 +21,7 @@
             _container.addEventListener('mousedown', _onMouseDown);
             _container.addEventListener('mouseup', _onMouseUp);
             _container.addEventListener('mouseleave', _onMouseUp);
+            _container.addEventListener('click', _onClick);
             _container.addEventListener('touchstart', _onMouseDown);
             _container.addEventListener('touchend', _onMouseUp);
             _container.addEventListener('touchcancel', _onMouseUp);
@@ -33,6 +34,11 @@
 
         function _onMouseUp(e) {
             _this.dispatchEvent(MouseEvent.MOUSE_UP, { name: _name });
+            e.preventDefault();
+        }
+
+        function _onClick(e) {
+            _this.dispatchEvent(MouseEvent.CLICK, { name: _name });
             e.preventDefault();
         }
 

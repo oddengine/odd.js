@@ -94,6 +94,7 @@
             _famicom = Famicom.get(_this.id, _logger);
             _famicom.addEventListener(Event.BIND, _onBind);
             _famicom.addEventListener(Event.READY, _onReady);
+            _famicom.addEventListener(Event.VOLUMECHANGE, _onVolumeChange);
             _famicom.addEventListener(Event.ERROR, _onError);
 
             _buildPlugins();
@@ -176,6 +177,7 @@
             _wrapper.setAttribute('controls', _this.plugins['Controlbar'] ? 'motion' : 'never');
             _wrapper.setAttribute('fullpage', false);
             _wrapper.setAttribute('fullscreen', false);
+            _wrapper.setAttribute('muted', _this.config.muted);
             _wrapper.addEventListener('mousedown', _focus);
             _wrapper.addEventListener('touchstart', _focus);
             _wrapper.addEventListener('mousemove', _onMotion);
@@ -204,6 +206,7 @@
             _this.destroyGame = _famicom.destroy;
             _this.keyDown = _famicom.keyDown;
             _this.keyUp = _famicom.keyUp;
+            _this.muted = _famicom.muted;
             _this.key = _famicom.key;
             _this.keys = _famicom.keys;
             _this.state = _famicom.state;
@@ -238,6 +241,9 @@
                     break;
                 case MouseEvent.MOUSE_UP:
                     _onMouseUp(e);
+                    break;
+                case MouseEvent.CLICK:
+                    _onClick(e);
                     break;
                 default:
                     _this.forward(e);
@@ -318,6 +324,12 @@
                 _famicom.keyDown(key);
             } else {
                 switch (e.data.name) {
+                    case 'mute':
+                        _this.muted(true);
+                        break;
+                    case 'unmute':
+                        _this.muted(false);
+                        break;
                     case 'fullpage':
                         _this.fullpage(true);
                         break;
@@ -380,7 +392,14 @@
                 return _wrapper.getAttribute('fullscreen') === 'true';
             }
 
-            var video = _this.video && _this.video();
+            if (OS.isMobile) {
+                _this.fullpage(status);
+                _wrapper.setAttribute('fullscreen', !!status);
+                _showControlbar();
+                _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
+                return;
+            }
+
             if (!!status) {
                 var requestFullscreen = _wrapper.requestFullscreen
                     || _wrapper.webkitRequestFullScreen
@@ -393,12 +412,6 @@
                             _logger.debug(err.name + ': ' + err.message);
                         });
                     }
-                } else if (OS.isMobile && video && video.webkitEnterFullscreen) {
-                    video.setAttribute('x5-video-orientation', 'landscape');
-                    video.webkitEnterFullscreen();
-                    if (OS.isIOS) {
-                        return;
-                    }
                 } else {
                     _this.fullpage(status);
                     return;
@@ -409,9 +422,6 @@
                     || document.mozCancelFullScreen
                     || document.msExitFullscreen;
                 if (exitFullscreen) {
-                    if (video) {
-                        video.setAttribute('x5-video-orientation', 'portraint');
-                    }
                     var exitPromise = exitFullscreen.call(document);
                     if (exitPromise) {
                         exitPromise['catch'](function (err) {
@@ -606,6 +616,23 @@
             }
         }
 
+        function _onClick(e) {
+            var h = {
+                'mute': function () { _this.muted(true); },
+                'unmute': function () { _this.muted(false); },
+            }[e.data.name];
+            if (h) {
+                h();
+            } else {
+                _this.forward(e);
+            }
+        }
+
+        function _onVolumeChange(e) {
+            _wrapper.setAttribute('muted', e.data.muted || !e.data.volume);
+            _this.forward(e);
+        }
+
         _this.resize = function () {
             var width = _wrapper.clientWidth;
             var height = _wrapper.clientHeight;
@@ -632,6 +659,7 @@
                 _famicom.destroy(reason);
                 _famicom.removeEventListener(Event.BIND, _onBind);
                 _famicom.removeEventListener(Event.READY, _onReady);
+                _famicom.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
                 _famicom.removeEventListener(Event.ERROR, _onError);
             }
             if (_container) {

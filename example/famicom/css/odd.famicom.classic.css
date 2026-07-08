@@ -131,6 +131,8 @@
     touch-action: none;
 }
 
+.famicom-ui-classic .famicom-controlbar .famicom-button.mute,
+.famicom-ui-classic .famicom-controlbar .famicom-button.unmute,
 .famicom-ui-classic .famicom-controlbar .famicom-button.fullscreen,
 .famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen {
     margin-right: 8px;
@@ -145,14 +147,47 @@
     pointer-events: auto;
 }
 
+.famicom-ui-classic .famicom-controlbar .famicom-button.unmute,
 .famicom-ui-classic .famicom-controlbar .famicom-button.exitfullscreen,
+.famicom-ui-classic[muted="true"] .famicom-controlbar .famicom-button.mute,
+.famicom-ui-classic[muted="false"] .famicom-controlbar .famicom-button.unmute,
 .famicom-ui-classic[fullscreen="true"] .famicom-controlbar .famicom-button.fullscreen,
 .famicom-ui-classic[fullscreen="false"] .famicom-controlbar .famicom-button.exitfullscreen {
     display: none;
 }
 
+.famicom-ui-classic[muted="true"] .famicom-controlbar .famicom-button.unmute,
 .famicom-ui-classic[fullscreen="true"] .famicom-controlbar .famicom-button.exitfullscreen {
     display: block;
+}
+
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.mute {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M719.52 831.52a48 48 0 0 1-33.952-81.92c131.008-131.008 131.008-344.16 0-475.168a48 48 0 1 1 67.872-67.872c81.6 81.6 126.528 190.08 126.528 305.472s-44.928 223.872-126.528 305.472a47.84 47.84 0 0 1-33.952 14.048z m-170.496-90.496a48 48 0 0 1-33.952-81.92 208.256 208.256 0 0 0 0-294.144 48 48 0 1 1 67.872-67.872c118.528 118.528 118.528 311.392 0 429.92a47.84 47.84 0 0 1-33.952 14.048zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+@media(hover:hover) {
+    .famicom-ui-classic .famicom-controlbar .famicom-button.mute:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M719.52 831.52a48 48 0 0 1-33.952-81.92c131.008-131.008 131.008-344.16 0-475.168a48 48 0 1 1 67.872-67.872c81.6 81.6 126.528 190.08 126.528 305.472s-44.928 223.872-126.528 305.472a47.84 47.84 0 0 1-33.952 14.048z m-170.496-90.496a48 48 0 0 1-33.952-81.92 208.256 208.256 0 0 0 0-294.144 48 48 0 1 1 67.872-67.872c118.528 118.528 118.528 311.392 0 429.92a47.84 47.84 0 0 1-33.952 14.048zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+    }
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.mute:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M719.52 831.52a48 48 0 0 1-33.952-81.92c131.008-131.008 131.008-344.16 0-475.168a48 48 0 1 1 67.872-67.872c81.6 81.6 126.528 190.08 126.528 305.472s-44.928 223.872-126.528 305.472a47.84 47.84 0 0 1-33.952 14.048z m-170.496-90.496a48 48 0 0 1-33.952-81.92 208.256 208.256 0 0 0 0-294.144 48 48 0 1 1 67.872-67.872c118.528 118.528 118.528 311.392 0 429.92a47.84 47.84 0 0 1-33.952 14.048zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.unmute {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M960 619.136V704h-84.864L768 596.864 660.864 704H576v-84.864L683.136 512 576 404.864V320h84.864L768 427.136 875.136 320H960v84.864L852.864 512 960 619.136zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+}
+
+@media(hover:hover) {
+    .famicom-ui-classic .famicom-controlbar .famicom-button.unmute:hover {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M960 619.136V704h-84.864L768 596.864 660.864 704H576v-84.864L683.136 512 576 404.864V320h84.864L768 427.136 875.136 320H960v84.864L852.864 512 960 619.136zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
+    }
+}
+
+.famicom-ui-classic .famicom-controlbar .famicom-button.unmute:active {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M960 619.136V704h-84.864L768 596.864 660.864 704H576v-84.864L683.136 512 576 404.864V320h84.864L768 427.136 875.136 320H960v84.864L852.864 512 960 619.136zM416 960a32 32 0 0 1-22.624-9.376L146.752 704H32a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32h114.752l246.624-246.624A32 32 0 0 1 448 96v832a32.064 32.064 0 0 1-32 32z"/></svg>');
 }
 
 .famicom-ui-classic .famicom-controlbar .famicom-button.fullscreen {
@@ -218,6 +253,24 @@
 
 .famicom-ui-classic .famicom-display .famicom-button:active {
     background: rgba(255, 255, 255, 0.32);
+}
+
+.famicom-ui-classic[fullpage="true"] {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    left: 0;
+    top: 0;
+    position: fixed;
+    z-index: 9999;
+}
+
+.famicom-ui-classic[fullpage="true"] .famicom-content,
+.famicom-ui-classic[fullpage="true"] .famicom-controlbar {
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -103,6 +103,8 @@
             _video.muted = _this.config.muted;
             _video.playsInline = _this.config.playsinline;
             _video.setAttribute('playsinline', '');
+            _video.setAttribute('webkit-playsinline', '');
+            _video.addEventListener('volumechange', _onVolumeChange);
             _container.appendChild(_video);
             _bind();
             return Promise.resolve();
@@ -435,9 +437,35 @@
                 _stream = stream;
                 _video.srcObject = _stream;
             }
-            _video.play().catch(function (err) {
+            _playVideo();
+        }
+
+        function _playVideo() {
+            var promise = _video.play();
+            if (promise === undefined) {
+                return;
+            }
+
+            promise.catch(function (err) {
                 _logger.warn(`${err}`);
+                if (!err || err.name !== 'NotAllowedError' || _video.muted) {
+                    return;
+                }
+
+                _logger.warn('Failed to play due to the autoplay policy, trying to play in mute.');
+                _video.muted = true;
+                promise = _video.play();
+                if (promise) {
+                    promise.catch(function (retryErr) {
+                        _logger.warn(`${retryErr}`);
+                    });
+                }
             });
+        }
+
+        function _onVolumeChange(e) {
+            _this.config.muted = _video.muted;
+            _this.dispatchEvent(Event.VOLUMECHANGE, { muted: _video.muted, volume: _video.volume });
         }
 
         function _onIceConnectionStateChange(e) {
@@ -492,6 +520,14 @@
             return _keyState;
         };
 
+        _this.muted = function (status) {
+            if (status !== undefined && _video) {
+                _video.muted = status;
+                _this.config.muted = _video.muted;
+            }
+            return _video ? _video.muted : _this.config.muted;
+        };
+
         function _sendKeyState() {
             if (_input && _input.readyState === 'open') {
                 try {
@@ -534,6 +570,7 @@
                 _stream = null;
             }
             if (_video) {
+                _video.pause();
                 _video.srcObject = null;
             }
         }
@@ -544,6 +581,9 @@
             _this.config.instance = '';
             _this.config.player = '';
             _cleanupPeerConnection();
+            if (_video) {
+                _video.removeEventListener('volumechange', _onVolumeChange);
+            }
             if (_container && _video && _video.parentNode === _container) {
                 _container.removeChild(_video);
             }
