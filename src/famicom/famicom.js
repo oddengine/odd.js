@@ -38,6 +38,8 @@
             btn_a: 0x80,
         },
 
+        InputSyncInterval = 40,
+
         _id = 0,
         _instances = {},
         _default = {
@@ -78,7 +80,9 @@
             _stream,
             _state,
             _keyRefs,
-            _keyState;
+            _keyState,
+            _inputSequence,
+            _inputSyncTimer;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, NetStatusEvent);
 
@@ -87,6 +91,8 @@
             _state = State.INITIALIZED;
             _keyRefs = {};
             _keyState = 0x00;
+            _inputSequence = 0;
+            _inputSyncTimer = null;
         }
 
         _this.id = function () {
@@ -239,7 +245,10 @@
             _pc.addEventListener('track', _onTrack);
             _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
 
-            _input = _pc.createDataChannel(_this.config.dataChannel, { ordered: true });
+            _input = _pc.createDataChannel(_this.config.dataChannel, {
+                ordered: false,
+                maxPacketLifeTime: 40,
+            });
             _input.addEventListener('open', _onDataChannelOpen);
             _input.addEventListener('close', _onDataChannelClose);
             _input.addEventListener('error', _onDataChannelError);
@@ -473,10 +482,11 @@
         }
 
         function _onDataChannelOpen(e) {
-            _sendKeyState();
+            _startInputSync();
         }
 
         function _onDataChannelClose(e) {
+            _stopInputSync();
             _logger.debug(`DataChannel closed: ${_this.config.dataChannel}`);
         }
 
@@ -531,10 +541,29 @@
         function _sendKeyState() {
             if (_input && _input.readyState === 'open') {
                 try {
-                    _input.send(new Uint8Array([_keyState]));
+                    var payload = new Uint8Array(3);
+                    var view = new DataView(payload.buffer);
+                    view.setUint16(0, _inputSequence);
+                    payload[2] = _keyState;
+                    _input.send(payload);
+                    _inputSequence = (_inputSequence + 1) & 0xFFFF;
                 } catch (err) {
                     _logger.warn(`Failed to send input: state=${_keyState}, error=${err}`);
                 }
+            }
+        }
+
+        function _startInputSync() {
+            _stopInputSync();
+            _inputSequence = 0;
+            _sendKeyState();
+            _inputSyncTimer = setInterval(_sendKeyState, InputSyncInterval);
+        }
+
+        function _stopInputSync() {
+            if (_inputSyncTimer !== null) {
+                clearInterval(_inputSyncTimer);
+                _inputSyncTimer = null;
             }
         }
 
@@ -550,6 +579,7 @@
         };
 
         function _cleanupPeerConnection() {
+            _stopInputSync();
             if (_input) {
                 _input.removeEventListener('open', _onDataChannelOpen);
                 _input.removeEventListener('close', _onDataChannelClose);
