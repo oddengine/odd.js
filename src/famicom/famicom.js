@@ -81,7 +81,6 @@
             _state,
             _keyRefs,
             _keyState,
-            _inputSequence,
             _inputSyncTimer;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, NetStatusEvent);
@@ -91,7 +90,6 @@
             _state = State.INITIALIZED;
             _keyRefs = {};
             _keyState = 0x00;
-            _inputSequence = 0;
             _inputSyncTimer = null;
         }
 
@@ -541,12 +539,8 @@
         function _sendKeyState() {
             if (_input && _input.readyState === 'open') {
                 try {
-                    var payload = new Uint8Array(3);
-                    var view = new DataView(payload.buffer);
-                    view.setUint16(0, _inputSequence);
-                    payload[2] = _keyState;
+                    var payload = new Uint8Array([_keyState]);
                     _input.send(payload);
-                    _inputSequence = (_inputSequence + 1) & 0xFFFF;
                 } catch (err) {
                     _logger.warn(`Failed to send input: state=${_keyState}, error=${err}`);
                 }
@@ -555,7 +549,6 @@
 
         function _startInputSync() {
             _stopInputSync();
-            _inputSequence = 0;
             _sendKeyState();
             _inputSyncTimer = setInterval(_sendKeyState, InputSyncInterval);
         }

@@ -23,8 +23,8 @@
             _container.addEventListener('mouseleave', _onMouseUp);
             _container.addEventListener('click', _onClick);
             _container.addEventListener('touchstart', _onMouseDown);
-            _container.addEventListener('touchend', _onMouseUp);
-            _container.addEventListener('touchcancel', _onMouseUp);
+            _container.addEventListener('touchend', _onTouchEnd);
+            _container.addEventListener('touchcancel', _onTouchCancel);
         }
 
         function _onMouseDown(e) {
@@ -39,6 +39,17 @@
 
         function _onClick(e) {
             _this.dispatchEvent(MouseEvent.CLICK, { name: _name });
+            e.preventDefault();
+        }
+
+        function _onTouchEnd(e) {
+            _this.dispatchEvent(MouseEvent.MOUSE_UP, { name: _name });
+            _this.dispatchEvent(MouseEvent.CLICK, { name: _name });
+            e.preventDefault();
+        }
+
+        function _onTouchCancel(e) {
+            _this.dispatchEvent(MouseEvent.MOUSE_UP, { name: _name });
             e.preventDefault();
         }
 

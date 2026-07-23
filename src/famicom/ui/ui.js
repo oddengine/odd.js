@@ -1,6 +1,5 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         OS = odd.OS,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
@@ -174,15 +173,12 @@
         function _setupPlugins() {
             _wrapper.setAttribute('tabindex', -1);
             _wrapper.setAttribute('state', '');
-            _wrapper.setAttribute('controls', _this.plugins['Controlbar'] ? 'motion' : 'never');
+            _wrapper.setAttribute('controls', _this.plugins['Controlbar'] ? 'always' : 'never');
             _wrapper.setAttribute('fullpage', false);
             _wrapper.setAttribute('fullscreen', false);
             _wrapper.setAttribute('muted', _this.config.muted);
             _wrapper.addEventListener('mousedown', _focus);
             _wrapper.addEventListener('touchstart', _focus);
-            _wrapper.addEventListener('mousemove', _onMotion);
-            _wrapper.addEventListener('touchstart', _onMotion);
-            _wrapper.addEventListener('touchmove', _onMotion);
             _wrapper.addEventListener('keydown', _onKeyDown);
             _wrapper.addEventListener('keyup', _onKeyUp);
             _wrapper.addEventListener('keypress', _onKeyPress);
@@ -366,7 +362,7 @@
         }
 
         function _controlsPlugin() {
-            return _this.plugins['Display'] || _this.plugins['Controlbar'];
+            return _this.plugins['Controlbar'] || _this.plugins['Display'];
         }
 
         _this.fullpage = function (status) {
@@ -395,7 +391,6 @@
             if (OS.isMobile) {
                 _this.fullpage(status);
                 _wrapper.setAttribute('fullscreen', !!status);
-                _showControlbar();
                 _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
                 return;
             }
@@ -435,7 +430,6 @@
             }
 
             _wrapper.setAttribute('fullscreen', !!status);
-            _showControlbar();
             _this.resize();
             _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
         };
@@ -450,57 +444,27 @@
             }
         }
 
-        function _onMotion(e) {
-            var controlbar = _this.plugins['Controlbar'];
-            if (!controlbar) {
+        function _openDisplay(status) {
+            var display = _this.plugins['Display'];
+            if (!display || !display.open) {
                 return;
             }
 
-            var video = _this.video && _this.video();
-            if (_wrapper.getAttribute('fullscreen') === 'true') {
-                _showControlbar();
-                return;
-            }
-
-            if (video && e.target !== video && e.target !== controlbar.element()) {
-                for (var node = e.target; node; node = node.parentNode) {
-                    if (node === video || node === controlbar.element()) {
-                        break;
-                    }
-                }
-                if (!node) {
-                    return;
-                }
-            }
-
-            _showControlbar();
-        }
-
-        function _showControlbar() {
-            var controlbar = _this.plugins['Controlbar'];
-            if (!controlbar) {
-                return;
-            }
-
-            css.style(controlbar.element(), {
-                'visibility': 'visible',
-            });
-
-            if (controlbar.config.autohide === false) {
+            display.open(status);
+            _timer.stop();
+            if (!status || display.config.autohide === false) {
                 return;
             }
 
             _timer.reset();
-            _timer.delay = controlbar.config.timeout || 3000;
+            _timer.delay = display.config.timeout || 5000;
             _timer.start();
         }
 
         function _onTimer(e) {
-            var controlbar = _this.plugins['Controlbar'];
-            if (controlbar) {
-                css.style(controlbar.element(), {
-                    'visibility': 'hidden',
-                });
+            var display = _this.plugins['Display'];
+            if (display && display.open) {
+                display.open(false);
             }
         }
 
@@ -620,12 +584,95 @@
             var h = {
                 'mute': function () { _this.muted(true); },
                 'unmute': function () { _this.muted(false); },
+                'display': function () {
+                    var display = _this.plugins['Display'];
+                    if (display) {
+                        _openDisplay(!display.open());
+                    }
+                },
+                'closedisplay': function () { _openDisplay(false); },
+                'share': function () {
+                    var display = _this.plugins['Display'];
+                    if (display) {
+                        display.sharing(!display.sharing());
+                        _openDisplay(true);
+                    }
+                },
+                'share2': function () { _sharePlayer(1); },
+                'share3': function () { _sharePlayer(2); },
+                'share4': function () { _sharePlayer(3); },
             }[e.data.name];
             if (h) {
                 h();
             } else {
                 _this.forward(e);
             }
+        }
+
+        function _sharePlayer(playerSlot) {
+            var display = _this.plugins['Display'];
+            var config = _famicom && _famicom.config ? _famicom.config : _this.config;
+            var instance = config.instance || '';
+            var playerName = 'P' + (playerSlot + 1);
+            if (!instance) {
+                display.message('Start or join a game before sharing.');
+                _openDisplay(true);
+                return;
+            }
+
+            var url = new URL(window.location.href);
+            url.searchParams.set('instance', instance);
+            url.searchParams.set('slot', playerSlot);
+            url.searchParams.delete('player');
+            var data = {
+                title: document.title,
+                text: 'Join this game as ' + playerName,
+                url: url.toString(),
+            };
+
+            var promise;
+            if (navigator.share) {
+                promise = navigator.share(data);
+            } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                promise = navigator.clipboard.writeText(data.url);
+            } else {
+                promise = _copyText(data.url);
+            }
+
+            Promise.resolve(promise).then(function () {
+                display.sharing(false);
+                display.message(navigator.share ? playerName + ' shared.' : playerName + ' link copied.');
+                _openDisplay(true);
+            }).catch(function (err) {
+                if (!err || err.name !== 'AbortError') {
+                    display.message('Unable to share ' + playerName + '.');
+                    _logger.warn('Failed to share ' + playerName + ': ' + err);
+                }
+                _openDisplay(true);
+            });
+        }
+
+        function _copyText(value) {
+            return new Promise(function (resolve, reject) {
+                var input = document.createElement('textarea');
+                input.value = value;
+                input.setAttribute('readonly', '');
+                input.style.position = 'fixed';
+                input.style.opacity = 0;
+                document.body.appendChild(input);
+                input.select();
+                try {
+                    if (!document.execCommand('copy')) {
+                        throw new Error('Copy command failed.');
+                    }
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                } finally {
+                    document.body.removeChild(input);
+                    _wrapper.focus();
+                }
+            });
         }
 
         function _onVolumeChange(e) {

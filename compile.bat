@@ -332,14 +332,26 @@ set /a index=%index% + 1
 goto loop8
 :end8
 
-terser .\\release\\odd.common.js -c -m --warn -o .\\release\\odd.common.min.js
-terser .\\release\\odd.nes.js -c -m --warn -o .\\release\\odd.nes.min.js
-terser .\\release\\odd.nes.ui.js -c -m --warn -o .\\release\\odd.nes.ui.min.js
-terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js
-terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js
-terser .\\release\\odd.im.js -c -m --warn -o .\\release\\odd.im.min.js
-terser .\\release\\odd.im.ui.js -c -m --warn -o .\\release\\odd.im.ui.min.js
-terser .\\release\\odd.rtc.js -c -m --warn -o .\\release\\odd.rtc.min.js
-terser .\\release\\odd.player.js -c -m --warn -o .\\release\\odd.player.min.js
-terser .\\release\\odd.player.ui.js -c -m --warn -o .\\release\\odd.player.ui.min.js
-terser .\\release\\odd.js -c -m --warn -o .\\release\\odd.min.js
+terser .\\release\\odd.common.js -c -m --warn -o .\\release\\odd.common.min.js || exit /b 1
+terser .\\release\\odd.nes.js -c -m --warn -o .\\release\\odd.nes.min.js || exit /b 1
+terser .\\release\\odd.nes.ui.js -c -m --warn -o .\\release\\odd.nes.ui.min.js || exit /b 1
+terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js || exit /b 1
+terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js || exit /b 1
+terser .\\release\\odd.im.js -c -m --warn -o .\\release\\odd.im.min.js || exit /b 1
+terser .\\release\\odd.im.ui.js -c -m --warn -o .\\release\\odd.im.ui.min.js || exit /b 1
+terser .\\release\\odd.rtc.js -c -m --warn -o .\\release\\odd.rtc.min.js || exit /b 1
+terser .\\release\\odd.player.js -c -m --warn -o .\\release\\odd.player.min.js || exit /b 1
+terser .\\release\\odd.player.ui.js -c -m --warn -o .\\release\\odd.player.ui.min.js || exit /b 1
+terser .\\release\\odd.js -c -m --warn -o .\\release\\odd.min.js || exit /b 1
+
+del /q .\\release\\odd.common.js
+del /q .\\release\\odd.nes.js
+del /q .\\release\\odd.nes.ui.js
+del /q .\\release\\odd.famicom.js
+del /q .\\release\\odd.famicom.ui.js
+del /q .\\release\\odd.im.js
+del /q .\\release\\odd.im.ui.js
+del /q .\\release\\odd.rtc.js
+del /q .\\release\\odd.player.js
+del /q .\\release\\odd.player.ui.js
+del /q .\\release\\odd.js

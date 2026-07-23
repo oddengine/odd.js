@@ -21,14 +21,14 @@ ui.setup(game, {
         direction: 8,
     },
     plugins: [{
-        kind: 'Display',
+        kind: 'Controlbar',
         layout: '[Button:select=Select][Button:start=Start][JoyStick:joystick=]||[Button:b=B][Button:a=A]',
         visibility: true,
     }, {
-        kind: 'Controlbar',
-        layout: '[Button:fullscreen=][Button:exitfullscreen=]',
-        autohide: true,
-        timeout: 3000,
+        kind: 'Display',
+        layout: '[Button:mute=][Button:unmute=][Button:share=Share][Button:fullscreen=][Button:exitfullscreen=]',
+        open: false,
+        autohide: false,
         visibility: true,
     }],
 });

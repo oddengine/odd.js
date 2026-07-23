@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 scripts=()
 scripts[0]="./src/odd.js"
 scripts[1]="./src/utils/utils.js"
@@ -266,3 +268,15 @@ terser ./release/odd.rtc.js -c -m --warn -o ./release/odd.rtc.min.js
 terser ./release/odd.player.js -c -m --warn -o ./release/odd.player.min.js
 terser ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
 terser ./release/odd.js -c -m --warn -o ./release/odd.min.js
+
+rm ./release/odd.common.js \
+   ./release/odd.nes.js \
+   ./release/odd.nes.ui.js \
+   ./release/odd.famicom.js \
+   ./release/odd.famicom.ui.js \
+   ./release/odd.im.js \
+   ./release/odd.im.ui.js \
+   ./release/odd.rtc.js \
+   ./release/odd.player.js \
+   ./release/odd.player.ui.js \
+   ./release/odd.js
