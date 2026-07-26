@@ -244,7 +244,7 @@
 
             _input = _pc.createDataChannel(_this.config.dataChannel, {
                 ordered: false,
-                maxPacketLifeTime: 40,
+                maxPacketLifeTime: 20,
             });
             _input.addEventListener('open', _onDataChannelOpen);
             _input.addEventListener('close', _onDataChannelClose);
