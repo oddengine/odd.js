@@ -49,7 +49,6 @@
             instance: '',
             player: '',
             playerSlot: '0',
-            rememberPlayer: true,
             autoplay: true,
             controls: false,
             muted: false,
@@ -317,20 +316,18 @@
         }
 
         async function _postOffer(action, sdp) {
-            var xhr = await _request('POST', _signalUrl(action), { 'Content-Type': 'application/sdp' }, sdp);
-            var location = xhr.getResponseHeader('Location');
+            var response = await _request('POST', _signalUrl(action), { 'Content-Type': 'application/sdp' }, sdp);
+            var location = response.headers.get('Location');
             if (location) {
                 _this.config.instance = location.split('/').pop();
             }
 
-            var answerSdp = xhr.responseText || xhr.response;
+            var answerSdp = await response.text();
             var player = _extractPlayerId(answerSdp);
             if (player) {
                 _this.config.player = player;
             }
-            if (_this.config.rememberPlayer) {
-                _setPlayerCookie(_this.config.instance, _this.config.playerSlot, _this.config.player);
-            }
+            _setPlayerCookie(_this.config.instance, _this.config.playerSlot, _this.config.player);
             return new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
         }
 
@@ -359,11 +356,15 @@
         }
 
         function _extractPlayerId(sdp) {
-            var match = /a=msid-semantic:\s*WMS\s+([^\s\r\n]+)/i.exec(sdp);
+            var match = /^a=msid:[ \t]*([^\s\r\n]+)[ \t]+[^\s\r\n]+[ \t]*$/im.exec(sdp);
             if (match) {
                 return match[1];
             }
-            match = /a=ssrc:\d+\s+msid:([^\s\r\n]+)/i.exec(sdp);
+            match = /^a=ssrc:\d+[ \t]+msid:[ \t]*([^\s\r\n]+)[ \t]+[^\s\r\n]+[ \t]*$/im.exec(sdp);
+            if (match) {
+                return match[1];
+            }
+            match = /^a=msid-semantic:[ \t]*WMS[ \t]+([^\s\r\n]+)[ \t]*$/im.exec(sdp);
             return match ? match[1] : '';
         }
 
@@ -384,11 +385,11 @@
         }
 
         function _playerCookieName(instance, playerSlot) {
-            return 'odd_famicom_player_' + encodeURIComponent(instance) + '_' + encodeURIComponent(_normalizePlayerSlot(playerSlot));
+            return 'famicom_' + instance + '_' + _normalizePlayerSlot(playerSlot);
         }
 
         function _getPlayerCookie(instance, playerSlot) {
-            if (!instance || !_this.config.rememberPlayer) {
+            if (!instance) {
                 return '';
             }
 
@@ -404,10 +405,11 @@
         }
 
         function _setPlayerCookie(instance, playerSlot, player) {
-            if (!instance || !player || !_this.config.rememberPlayer) {
+            if (!instance || !player) {
                 return;
             }
-            document.cookie = _playerCookieName(instance, playerSlot) + '=' + encodeURIComponent(player) + '; Max-Age=604800; Path=/; SameSite=Lax';
+            var expires = new Date(Date.now() + 12 * 60 * 60 * 1000).toUTCString();
+            document.cookie = _playerCookieName(instance, playerSlot) + '=' + encodeURIComponent(player) + '; Max-Age=43200; Expires=' + expires + '; Path=/; SameSite=Lax';
         }
 
         function _clearPlayerCookie(instance, playerSlot) {
@@ -418,23 +420,22 @@
         }
 
         function _request(method, url, headers, body) {
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open(method, url, true);
-                utils.forEach(headers || {}, function (key, value) {
-                    xhr.setRequestHeader(key, value);
-                });
-                xhr.onload = function () {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve(xhr);
-                        return;
-                    }
-                    reject({ name: 'NetworkError', message: method + ' ' + url + ' failed: status=' + xhr.status });
-                };
-                xhr.onerror = function () {
-                    reject({ name: 'NetworkError', message: method + ' ' + url + ' failed.' });
-                };
-                xhr.send(body);
+            return fetch(url, {
+                method: method,
+                headers: headers || {},
+                body: body,
+                mode: _this.config.loader.mode,
+                credentials: 'omit',
+            }).then(function (response) {
+                if (response.ok) {
+                    return response;
+                }
+                throw { name: 'NetworkError', message: method + ' ' + url + ' failed: status=' + response.status };
+            }).catch(function (err) {
+                if (err && err.name === 'NetworkError') {
+                    throw err;
+                }
+                throw { name: 'NetworkError', message: method + ' ' + url + ' failed: ' + (err.message || err) };
             });
         }
 

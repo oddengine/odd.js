@@ -16,6 +16,10 @@ ui.setup(game, {
     url: server.value,
     instance: params.get('instance') || '',
     playerSlot: params.get('slot') || '0',
+    loader: {
+        mode: 'cors',
+        credentials: 'omit',
+    },
     joystick: {
         center: 0.0,
         direction: 8,
