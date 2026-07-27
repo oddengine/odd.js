@@ -4,6 +4,7 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
+        MediaEvent = events.MediaEvent,
         NetStatusEvent = events.NetStatusEvent,
         Level = events.Level,
         Code = events.Code,
@@ -39,6 +40,7 @@
         },
 
         InputSyncInterval = 40,
+        StatsInterval = 1000,
 
         _id = 0,
         _instances = {},
@@ -80,9 +82,12 @@
             _state,
             _keyRefs,
             _keyState,
-            _inputSyncTimer;
+            _inputSyncTimer,
+            _statsTimer,
+            _statsSnapshot,
+            _statsPending;
 
-        EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, NetStatusEvent);
+        EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, MediaEvent, NetStatusEvent);
 
         function _init() {
             _this.logger = _logger;
@@ -90,6 +95,9 @@
             _keyRefs = {};
             _keyState = 0x00;
             _inputSyncTimer = null;
+            _statsTimer = null;
+            _statsSnapshot = null;
+            _statsPending = false;
         }
 
         _this.id = function () {
@@ -445,6 +453,9 @@
                 _stream = stream;
                 _video.srcObject = _stream;
             }
+            if (e.track && e.track.kind === 'video') {
+                _startStats();
+            }
             _playVideo();
         }
 
@@ -572,8 +583,109 @@
             return _pc.getStats(selector);
         };
 
+        function _startStats() {
+            _stopStats();
+            _collectStats(false);
+            _statsTimer = setInterval(function () {
+                _collectStats(true);
+            }, StatsInterval);
+        }
+
+        function _stopStats() {
+            if (_statsTimer !== null) {
+                clearInterval(_statsTimer);
+                _statsTimer = null;
+            }
+            _statsSnapshot = null;
+            _statsPending = false;
+        }
+
+        async function _collectStats(dispatch) {
+            if (!_pc || _statsPending) {
+                return;
+            }
+
+            var pc = _pc;
+            _statsPending = true;
+            try {
+                var report = await pc.getStats();
+                if (pc !== _pc) {
+                    return;
+                }
+
+                var current = {
+                    timestamp: Date.now(),
+                    framesDecoded: null,
+                    framesPerSecond: null,
+                    nackCount: null,
+                    pliCount: null,
+                    framesDropped: null,
+                    freezeCount: null,
+                };
+                report.forEach(function (stats) {
+                    if (stats.type !== 'inbound-rtp' || (stats.kind || stats.mediaType) !== 'video' || stats.isRemote) {
+                        return;
+                    }
+                    _addStat(current, 'framesDecoded', stats.framesDecoded);
+                    _addStat(current, 'framesPerSecond', stats.framesPerSecond);
+                    _addStat(current, 'nackCount', stats.nackCount);
+                    _addStat(current, 'pliCount', stats.pliCount);
+                    _addStat(current, 'framesDropped', stats.framesDropped);
+                    _addStat(current, 'freezeCount', stats.freezeCount);
+                });
+
+                var previous = _statsSnapshot;
+                _statsSnapshot = current;
+                if (!dispatch || !previous) {
+                    return;
+                }
+
+                var elapsed = Math.max((current.timestamp - previous.timestamp) / 1000, 0.001);
+                var fps = current.framesDecoded !== null && previous.framesDecoded !== null
+                    ? _delta(current.framesDecoded, previous.framesDecoded) / elapsed
+                    : current.framesPerSecond;
+                _this.dispatchEvent(MediaEvent.STATSUPDATE, {
+                    stats: {
+                        fps: fps === null ? null : Math.round(fps * 10) / 10,
+                        nack: _statDelta(current, previous, 'nackCount'),
+                        pli: _statDelta(current, previous, 'pliCount'),
+                        droppedFrames: _statDelta(current, previous, 'framesDropped'),
+                        freezes: _statDelta(current, previous, 'freezeCount'),
+                        interval: current.timestamp - previous.timestamp,
+                    },
+                });
+            } catch (err) {
+                if (pc === _pc) {
+                    _logger.warn(`Failed to collect Famicom stats: ${err.message || err}`);
+                }
+            } finally {
+                if (pc === _pc) {
+                    _statsPending = false;
+                }
+            }
+        }
+
+        function _addStat(snapshot, key, value) {
+            if (typeof value !== 'number' || !isFinite(value)) {
+                return;
+            }
+            snapshot[key] = (snapshot[key] || 0) + value;
+        }
+
+        function _statDelta(current, previous, key) {
+            if (current[key] === null || previous[key] === null) {
+                return null;
+            }
+            return _delta(current[key], previous[key]);
+        }
+
+        function _delta(current, previous) {
+            return current >= previous ? current - previous : 0;
+        }
+
         function _cleanupPeerConnection() {
             _stopInputSync();
+            _stopStats();
             if (_input) {
                 _input.removeEventListener('open', _onDataChannelOpen);
                 _input.removeEventListener('close', _onDataChannelClose);

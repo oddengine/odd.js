@@ -4,6 +4,7 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
+        MediaEvent = events.MediaEvent,
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
         TouchEvent = events.TouchEvent,
@@ -68,7 +69,7 @@
             _gamepadRaf,
             _timer;
 
-        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, UIEvent, MouseEvent, TouchEvent);
+        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, MediaEvent, UIEvent, MouseEvent, TouchEvent);
 
         function _init() {
             _this.id = id;
@@ -95,6 +96,7 @@
             _famicom.addEventListener(Event.READY, _onReady);
             _famicom.addEventListener(Event.VOLUMECHANGE, _onVolumeChange);
             _famicom.addEventListener(Event.ERROR, _onError);
+            _famicom.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
 
             _buildPlugins();
             _setupPlugins();
@@ -219,6 +221,14 @@
 
         function _onError(e) {
             _wrapper.setAttribute('state', e.type);
+            _this.forward(e);
+        }
+
+        function _onStatsUpdate(e) {
+            var display = _this.plugins['Display'];
+            if (display && display.updateStats) {
+                display.updateStats(e.data.stats);
+            }
             _this.forward(e);
         }
 
@@ -601,6 +611,13 @@
                 'share2': function () { _sharePlayer(1); },
                 'share3': function () { _sharePlayer(2); },
                 'share4': function () { _sharePlayer(3); },
+                'stats': function () {
+                    var display = _this.plugins['Display'];
+                    if (display) {
+                        display.stats(!display.stats());
+                        _openDisplay(true);
+                    }
+                },
             }[e.data.name];
             if (h) {
                 h();
@@ -708,6 +725,7 @@
                 _famicom.removeEventListener(Event.READY, _onReady);
                 _famicom.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
                 _famicom.removeEventListener(Event.ERROR, _onError);
+                _famicom.removeEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
             }
             if (_container) {
                 _container.innerHTML = '';

@@ -17,6 +17,14 @@
         CLASS_SHARE_TITLE = 'famicom-share-title',
         CLASS_SHARE_PLAYERS = 'famicom-share-players',
         CLASS_STATUS = 'famicom-display-status',
+        CLASS_STATS_OPTION = 'famicom-stats-option',
+        CLASS_STATS_LABEL = 'famicom-stats-label',
+        CLASS_STATS_PANEL = 'famicom-stats-panel',
+        CLASS_STATS_LIVE = 'famicom-stats-live',
+        CLASS_STATS_GRID = 'famicom-stats-grid',
+        CLASS_STATS_ITEM = 'famicom-stats-item',
+        CLASS_STATS_NAME = 'famicom-stats-name',
+        CLASS_STATS_VALUE = 'famicom-stats-value',
 
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
@@ -25,6 +33,7 @@
             open: false,
             autohide: false,
             timeout: 5000,
+            stats: false,
             visibility: true,
         };
 
@@ -37,7 +46,10 @@
             _toggle,
             _panel,
             _share,
-            _status;
+            _status,
+            _statsToggle,
+            _statsPanel,
+            _statsValues;
 
         function _init() {
             _this.config = config;
@@ -45,6 +57,7 @@
             _container = utils.createElement('div', CLASS_DISPLAY);
             _container.setAttribute('data-open', 'false');
             _container.setAttribute('data-sharing', 'false');
+            _container.setAttribute('data-stats', 'false');
 
             _toggle = _buildComponent(_container, 'Button', 'display', '');
             _toggle.element().className += ' ' + CLASS_TOGGLE;
@@ -57,12 +70,15 @@
             _panel.setAttribute('aria-label', 'Game menu');
             _buildHeader();
             _buildActions();
+            _buildStatsOption();
             _buildShare();
 
             _status = utils.createElement('div', CLASS_STATUS);
             _status.setAttribute('aria-live', 'polite');
             _panel.appendChild(_status);
             _container.appendChild(_panel);
+            _buildStatsPanel();
+            _this.stats(_this.config.stats === true);
             _this.open(_this.config.open === true);
         }
 
@@ -102,6 +118,51 @@
             _panel.appendChild(_share);
         }
 
+        function _buildStatsOption() {
+            var option = utils.createElement('div', CLASS_STATS_OPTION);
+            var label = utils.createElement('span', CLASS_STATS_LABEL);
+            label.innerHTML = 'Realtime stats';
+            option.appendChild(label);
+
+            _statsToggle = _buildComponent(option, 'Button', 'stats', '');
+            _statsToggle.element().setAttribute('role', 'switch');
+            _statsToggle.element().setAttribute('aria-label', 'Show realtime stats');
+            _panel.appendChild(option);
+        }
+
+        function _buildStatsPanel() {
+            _statsValues = {};
+            _statsPanel = utils.createElement('div', CLASS_STATS_PANEL);
+            _statsPanel.setAttribute('aria-label', 'Realtime stream statistics');
+
+            var live = utils.createElement('div', CLASS_STATS_LIVE);
+            live.innerHTML = 'LIVE <span>LAST 1S</span>';
+            _statsPanel.appendChild(live);
+
+            var grid = utils.createElement('div', CLASS_STATS_GRID);
+            var metrics = [
+                { key: 'fps', label: 'FPS', title: 'Decoded frames per second' },
+                { key: 'nack', label: 'NACK', title: 'NACK requests in the last second' },
+                { key: 'pli', label: 'PLI', title: 'PLI requests in the last second' },
+                { key: 'droppedFrames', label: 'DROP', title: 'Dropped frames in the last second' },
+                { key: 'freezes', label: 'FREEZE', title: 'Freezes in the last second' },
+            ];
+            utils.forEach(metrics, function (i, metric) {
+                var item = utils.createElement('div', CLASS_STATS_ITEM);
+                item.setAttribute('title', metric.title);
+                var value = utils.createElement('span', CLASS_STATS_VALUE);
+                value.innerHTML = '--';
+                var name = utils.createElement('span', CLASS_STATS_NAME);
+                name.innerHTML = metric.label;
+                item.appendChild(value);
+                item.appendChild(name);
+                grid.appendChild(item);
+                _statsValues[metric.key] = value;
+            });
+            _statsPanel.appendChild(grid);
+            _container.appendChild(_statsPanel);
+        }
+
         function _buildComponent(container, type, name, kind) {
             var component = new components[type](name, kind, _logger);
             if (utils.typeOf(component.addGlobalListener) === 'function') {
@@ -136,6 +197,27 @@
             }
             _container.setAttribute('data-sharing', !!status);
             return !!status;
+        };
+
+        _this.stats = function (status) {
+            if (status === undefined) {
+                return _container.getAttribute('data-stats') === 'true';
+            }
+            status = !!status;
+            _container.setAttribute('data-stats', status);
+            _statsToggle.element().setAttribute('aria-checked', status);
+            _statsToggle.element().setAttribute('aria-label', status ? 'Hide realtime stats' : 'Show realtime stats');
+            return status;
+        };
+
+        _this.updateStats = function (stats) {
+            if (!stats) {
+                return;
+            }
+            utils.forEach(_statsValues, function (key, element) {
+                var value = stats[key];
+                element.innerHTML = typeof value === 'number' && isFinite(value) ? value : '--';
+            });
         };
 
         _this.message = function (message) {

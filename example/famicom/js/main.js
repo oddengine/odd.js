@@ -33,6 +33,7 @@ ui.setup(game, {
         layout: '[Button:mute=][Button:unmute=][Button:share=Share][Button:fullscreen=][Button:exitfullscreen=]',
         open: false,
         autohide: false,
+        stats: params.get('stats') === '1',
         visibility: true,
     }],
 });
