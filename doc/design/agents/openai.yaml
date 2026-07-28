@@ -1,0 +1,5 @@
+interface:
+  display_name: "odd.js Design Knowledge Base"
+  short_description: "Navigate odd.js product goals to SDK implementation and source"
+  default_prompt: "Use $design to trace an odd.js product goal through its owning SDK, public surface, and source implementation."
+

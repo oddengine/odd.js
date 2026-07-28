@@ -1,0 +1,35 @@
+# odd.js 设计知识库
+
+英文是主版本，每份参考文档都有一个 `*.zh.md` 中文对照稿。
+
+## 由浅入深
+
+1. **产品意图：**先打开可点击的[产品目标树](references/product-map.zh.md)。即使暂未实现，目标也继续保留。
+2. **SDK 归属：**打开 [SDK 实现树](references/sdk-map.zh.md)，再选择 [Common](references/common.zh.md)（[接口/事件](references/common-api.zh.md)）、[Player](references/player.zh.md)（[接口/事件](references/player-api.zh.md)）、[RTC](references/rtc.zh.md)（[接口/事件](references/rtc-api.zh.md)）、[IM](references/im.zh.md)（[接口/事件](references/im-api.zh.md)）、[NES](references/nes.zh.md)（[接口/事件](references/nes-api.zh.md)）或 [Famicom](references/famicom.zh.md)（[接口/事件](references/famicom-api.zh.md)）。
+3. **实现细节：**在每个 SDK 内继续查看模块、插件、配置、接口、事件和源码地图。
+4. **跨 SDK 设计：**查看[架构](references/architecture.zh.md)。
+
+导航模型为：
+
+```text
+产品目标 → SDK → 模块／插件 → 公共接口／事件／配置 → 源码
+```
+
+## 证据
+
+优先级为：`src/` 实现、`compile.sh`、`example/`、现有 `doc/`、产品路线图。没有可达运行路径时，不能仅凭声明或老文档推断已经支持。
+
+| 状态 | 含义 |
+| --- | --- |
+| **已验证** | 存在可达实现。 |
+| **部分实现** | 有可用实现，但目标／模块不完整。 |
+| **骨架** | 有结构但没有端到端路径。 |
+| **待实现** | 未找到可运行路径。 |
+| **风险** | 可见明确缺陷或不安全假设。 |
+
+## 维护
+
+1. 沿产品目标 → SDK 门面 → 运行模块／插件 → 浏览器／网络边界取证。
+2. 先更新英文；在 `.zh.md` 中同步事实、链接、表格、锚点和状态。
+3. 保留未完成目标，只更新状态，不删除。
+4. 校验本地链接、锚点、双语配对和 `compile.sh` 归属。

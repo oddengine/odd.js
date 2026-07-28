@@ -1,18 +1,18 @@
-﻿# odd.js
+# odd.js
 
-> [[domain] <https://oddengine.com>](https://oddengine.com)  
-> [[source] <https://github.com/oddengine/odd.js>](https://github.com/oddengine/odd.js)  
-> QQ群：528109813  
-> Skype: live:670292548  
-> Email: 670292548@qq.com  
+- [Website](https://oddengine.com)
+- [English knowledge base](doc/design/SKILL.md)
+- [中文知识库](doc/design/SKILL.zh.md)
 
-This project includes 3 featured SDK, which are an [HTML5 FLV Player](https://oddengine.com/document/player.html), a WebSocket based [IM](https://oddengine.com/document/rtc-sdk.html), and a [WebRTC SDK](https://oddengine.com/document/im-sdk.html).
+odd.js is a modular Web SDK family for media playback, real-time communication, instant messaging, and cloud gaming. It provides a shared browser foundation together with Player, RTC, IM, NES, and Famicom SDKs; keeps protocol and runtime logic separate from optional UI plugins; and supports multiple independently managed instances. The corresponding server-side runtime for communication, signaling, media routing, and cloud gaming is [odd.d](https://github.com/oddengine/odd.d).
 
-Note:  
+odd.js 是面向媒体播放、实时通信、即时消息与云游戏的模块化 Web SDK 系列。它以共享浏览器基础库为底座，提供 Player、RTC、IM、NES 与 Famicom SDK，并将协议及运行时逻辑与可选 UI 插件分离，支持多个实例独立运行。通信、信令、媒体路由及云游戏所需的配套服务器为 [odd.d](https://github.com/oddengine/odd.d)。
 
-The odd.player.js is now **open-sourced** completely. The Chat plugin which provides Real-Time Video Communication, and the Danmu plugin which works with IM SDK, need a support of [OMS](https://github.com/oddengine/oms).
+## Community
 
-播放器 odd.player.js 现在已**完全开源**。其中，聊天插件提供的实时音视频聊天（一起看）功能，和弹幕插件依赖的即时通信（IM）功能，需要与服务器 [OMS](https://github.com/oddengine/oms) 搭配使用。
+- QQ 群：528109813
+- Skype: live:670292548
+- Email: <670292548@qq.com>
 
 ## License
 
