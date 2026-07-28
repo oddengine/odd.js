@@ -1,7 +1,36 @@
 <a id="player-sdk"></a>
 # Player SDK
 
-[中文](player.zh.md) · [Product goals](product-map.md) · [SDK map](sdk-map.md)
+[中文](player.zh.md) · [Product goals](architecture.md#target-tree) · [Architecture](architecture.md)
+
+<!-- TOC -->
+## Contents
+
+- [Core](#core)
+- [Playback modules](#playback-modules)
+- [Features](#features)
+- [Plugins](#plugins)
+- [Configuration](#configuration)
+  - [Core](#core-1)
+  - [UI](#ui)
+- [Interfaces](#interfaces)
+  - [Core static interfaces](#core-static-interfaces)
+  - [Core instance interfaces](#core-instance-interfaces)
+  - [UI static interfaces](#ui-static-interfaces)
+  - [UI instance interfaces](#ui-instance-interfaces)
+- [Events](#events)
+  - [Event](#event)
+  - [IOEvent](#ioevent)
+  - [MediaEvent](#mediaevent)
+  - [SaverEvent](#saverevent)
+  - [UIEvent](#uievent)
+  - [GlobalEvent](#globalevent)
+  - [MouseEvent](#mouseevent)
+- [Audit evidence](#audit-evidence)
+- [Product capability notes](#product-capability-notes)
+- [Source map](#source-map)
+- [Known boundaries](#known-boundaries)
+<!-- /TOC -->
 
 Bundles: `odd.player`, optional `odd.player.ui`. Online: [Live](https://oddengine.com/en/solution/live.html), [VoD](https://oddengine.com/en/solution/vod.html).
 
@@ -25,14 +54,6 @@ Bundles: `odd.player`, optional `odd.player.ui`. Online: [Live](https://oddengin
 
 Module selection is an ordered registry. `Module.get(file, option)` tests the requested module and then registered `isSupported` predicates.
 
-<a id="av-pipeline"></a>
-## AV pipeline
-
-- Codec registry: `AAC` and `AVC`.
-- Format registry: incremental `FLV` parser and `FMP4` parser/remux structures.
-- FLV and FMP4 modules own MediaSource/SourceBuffer lifecycle, buffering, stats, and saving.
-- <a id="cap-codecs"></a>H264/AAC parsing and remuxing are **Verified**. H265 and Opus are browser/RTC negotiation concerns here, not Player encoders.
-
 ## Features
 
 - **Multi-instance and dynamic lifecycle:** independent Player and UI registries provide stable `get(id)` pairing, auto-id `create()`, and explicit `destroy()`.
@@ -50,25 +71,22 @@ Module selection is an ordered registry. `Module.get(file, option)` tests the re
 <a id="plugins"></a>
 ## Plugins
 
-| Plugin | Status | Main role / configuration |
+Rows follow the defined product layering order: the farther down a row appears, the higher its conceptual UI layer.
+
+| Target / current mapping | Status | Main role / configuration |
 | --- | --- | --- |
+| <a id="cap-content"></a>`Content` abstraction; current `Chat` mapping | **Planned abstraction / Partial mapping** | Live/WatchParty/RTC/IM target is not registered; `Chat` provides an RTC-dependent local/remote video list with `client`, `rtc`, `service`, `visibility` |
+| <a id="cap-subtitle-plugin"></a>`Subtitle` | **Planned** | No parser, renderer, or plugin |
 | <a id="cap-poster"></a>`Poster` | **Verified** | `file`, `cors`, `objectfit`, `visibility` |
-| `Chat` | **Verified**, RTC-dependent | local/remote video list; `client`, `rtc`, `service`, `visibility` |
-| <a id="cap-comment"></a>`Danmu` | **Verified** current implementation | comment motion; `speed`, `lineHeight`, `enable`, `visibility` |
-| <a id="cap-dashboard"></a>`Display` | **Verified** | state/error, metadata and stats panels; `layout`, `ondoubleclick`, `visibility` |
-| `AD` | **Verified primitive** | inserts/removes caller-provided DOM; `visibility` |
-| `Share` | **Verified primitive** | inserts caller-provided DOM; `visibility` |
+| <a id="cap-comment"></a>`Comment`; current `Danmu` | **Verified implementation / Naming mismatch** | Comment motion; `speed`, `lineHeight`, `enable`, `visibility` |
+| <a id="cap-dashboard"></a>`Dashboard`; current `Display` | **Partial target mapping** | State/error, metadata, and statistics panels; `layout`, `ondoubleclick`, `visibility` |
+| `AD` | **Verified primitive** | Inserts/removes caller-provided DOM; `visibility` |
+| `Share` | **Verified primitive** | Inserts caller-provided DOM; `visibility` |
 | <a id="cap-logo"></a>`Logo` | **Verified** | `file`, `link`, `cors`, `target`, `style`, `visibility` |
-| <a id="cap-controlbar"></a>`Controlbar` | **Verified** | layout-driven controls; `layout`, `autohide`, `visibility` |
-| <a id="cap-contextmenu"></a>`ContextMenu` | **Verified** | configurable items plus media info/stats; `items`, `visibility` |
-| <a id="cap-content"></a>`Content` abstraction | **Planned** | Live/WatchParty/RTC/IM target is not a registered plugin |
-| <a id="cap-subtitle-plugin"></a>`Subtitle` | **Planned** | no parser, renderer, or plugin |
+| <a id="cap-controlbar"></a>`Controlbar` | **Verified core / Partial target controls** | Layout-driven controls; `layout`, `autohide`, `visibility` |
+| <a id="cap-contextmenu"></a>`ContextMenu` | **Verified** | Configurable items plus media information/statistics; `items`, `visibility` |
 | <a id="cap-sidebar"></a>`Sidebar` | **Planned** | Userlist/Playlist/Tools/Settings/Layout target is not registered |
-| <a id="cap-dialog"></a>`Dialog` Notify/Alert/Confirm | **Planned** | IM's conversation Dialog is a different component |
-
-### Controlbar components
-
-Timebar; play/pause/reload/stop; live quote and time; report; capture/download; dial/hangup; mute/unmute and volume; definition; danmu; fullpage/fullscreen. Controls are omitted when platform support or configuration makes them unavailable.
+| <a id="cap-dialog"></a>`Dialog` | **Planned** | Notify/Alert/Confirm target is not registered |
 
 ## Configuration
 
@@ -94,19 +112,159 @@ Timebar; play/pause/reload/stop; live quote and time; report; capture/download; 
 
 <a id="cap-instances"></a>
 
-| Reference | Coverage |
-| --- | --- |
-| [Audited interface table](player-api.md#interfaces) | Factories, registries, Player/UI instances, playback modules, plugins, AV stream extension surface |
-
 Both core and UI expose same-id `get/create` registries: multi-instance use is **Verified**.
+
+This page audits the public Core and UI facades against `src/player`, including methods attached only after `setup()`. Internal extension surfaces are intentionally excluded.
+
+Only the public Core and UI facades are listed here. Playback-module, codec, format, plugin, component, and other registration contracts are implementation details rather than Player SDK instance APIs.
+
+### Core static interfaces
+
+| Method | Arguments | Description |
+| --- | --- | --- |
+| `get` | id?: number, logger?: Logger \| LoggerConfig | Returns the stable Core instance for `id`, creating it when absent. Implemented by `Player.get` and exposed as `odd.player`. |
+| `create` | logger?: Logger \| LoggerConfig | Creates a Core instance using the next numeric id. |
+
+### Core instance interfaces
+
+Methods from `play` through `state` are attached after `setup()` binds the Core.
+
+| Method | Arguments | Description |
+| --- | --- | --- |
+| `setup` | container: HTMLElement, config?: PlayerConfig | Creates and binds the playback model, view, and controller. |
+| `play` | file?: string, option?: PlaybackOptions | Selects a source/module or resumes paused playback. |
+| `pause` | — | Pauses the active playback module. |
+| `seek` | offset: number | Seeks the active playback module. |
+| `stop` | — | Stops playback and clears the active source state. |
+| `reload` | — | Reloads the current source. |
+| `muted` | status?: boolean | Reads or sets mute state. |
+| `volume` | value?: number | Reads or sets output volume. |
+| `definition` | index?: number | Reads or changes the selected definition. |
+| `capture` | width?: number, height?: number, mime?: string | Captures the current frame and emits `screenshot`. |
+| `record` | filename: string | Starts recording when the active playback module supports it. |
+| `element` | — | Returns the active rendering element. |
+| `getProperty` | key: string | Returns metadata/model data stored under `key`. |
+| `duration` | — | Returns media duration in seconds. |
+| `state` | — | Returns the current playback state. |
+| `destroy` | — | Destroys playback resources and removes the Core instance. |
+
+### UI static interfaces
+
+| Method | Arguments | Description |
+| --- | --- | --- |
+| `get` | id?: number, logger?: Logger \| LoggerConfig | Returns the stable UI instance paired with the same-id Core. Implemented by `Player.UI.get` and exposed as `odd.player.ui`. |
+| `create` | logger?: Logger \| LoggerConfig | Creates a UI instance using the next numeric id. |
+
+### UI instance interfaces
+
+After Core binding, the UI also forwards the Core instance interfaces above. They are intentionally not duplicated in this table.
+
+| Method | Arguments | Description |
+| --- | --- | --- |
+| `setup` | container: HTMLElement, config: PlayerUIConfig | Builds the UI and initializes the paired Core. |
+| `chat` | enable: boolean | Enables or disables the chat UI when the plugin is installed. |
+| `danmu` | enable: boolean | Enables or disables danmu rendering. |
+| `shoot` | text: string, data?: unknown | Sends a comment to the Danmu plugin. |
+| `displayAD` | element: HTMLElement | Displays content through the AD plugin. |
+| `removeAD` | — | Removes the content displayed by the AD plugin. |
+| `fullpage` | status?: boolean | Reads or sets page-filling mode. |
+| `fullscreen` | status?: boolean | Reads or requests browser fullscreen. |
+| `resize` | — | Resizes the active playback view and UI plugins. |
+| `destroy` | — | Removes UI resources, destroys the paired Core, and unregisters the UI. |
 
 ## Events
 
 <a id="cap-events"></a>
 
-| Reference | Coverage |
-| --- | --- |
-| [Audited event table](player-api.md#events) | Player, transport, media, saving, UI and declared-but-unreached events with payloads |
+All callbacks receive `{ type, data, target, srcElement, ... }`. The Properties column names fields inside `event.data`; listeners use `on<type>` or the listener interfaces documented in [Common](common.md#event-listener-contract). Core events are forwarded to UI.
+
+### Event
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| BIND | — | The Core or UI facade has finished attaching its runtime interfaces. |
+| READY | kind: string | The active playback module is ready. |
+| PLAY | — | Playback started or resumed. |
+| WAITING | — | Playback is waiting for more media data. |
+| DURATIONCHANGE | duration: number | Media duration changed. |
+| LOADEDMETADATA | metadata: unknown | Media metadata was loaded. |
+| LOADEDDATA | — | Data for the current frame was loaded. |
+| CANPLAY | — | Enough data is available to begin playback. |
+| PLAYING | — | Playback is progressing after pause or buffering. |
+| CANPLAYTHROUGH | — | The browser estimates that playback can continue without buffering. |
+| PAUSE | timestamp: number | Playback paused. |
+| SEEKING | timestamp: number | A seek operation started. |
+| SEEKED | timestamp: number | A seek operation completed. |
+| SWITCHING | index: number | A manual definition switch started. |
+| SWITCHED | index: number | **Reserved:** declared and forwarded, but no current dispatch was found. |
+| RATECHANGE | rate: number | Playback rate changed, including low-latency catch-up. |
+| TIMEUPDATE | start: number, time: number, buffered: number, duration: number | Playback position or buffered range changed; fields depend on the module. |
+| VOLUMECHANGE | muted: boolean, volume: number | Mute or output volume changed. |
+| ENDED | — | The media reached its end. |
+| ERROR | name: string, message: string | Playback, selection, parsing, MSE, or capture failed. |
+
+### IOEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| LOADSTART | — | Resource loading started. |
+| OPEN | — | The underlying transport opened. |
+| PROGRESS | buffer: ArrayBuffer, loaded: number, total: number | Incremental resource data arrived. |
+| SUSPEND | — | Resource loading was suspended. |
+| STALLED | — | Resource loading stalled. |
+| ABORT | — | Resource loading was aborted. |
+| TIMEOUT | — | Resource loading timed out. |
+| LOAD | — | The resource loaded successfully. |
+| LOADEND | — | The loading lifecycle ended. |
+
+### MediaEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| INFOCHANGE | info: MediaInfo | Media or container information changed. |
+| STATSUPDATE | stats: MediaStats | Runtime media statistics changed. |
+| SEI | packet: Packet, nalu: NALUnit | An H264 supplemental enhancement information unit was detected. |
+| SCREENSHOT | image: string | `capture` produced an image data URL. |
+
+### SaverEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| WRITERSTART | writer: StreamWriter | The recording writer opened. |
+| WRITEREND | writer: StreamWriter | The recording writer ended. |
+
+### UIEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| SHOOTING | text: string, data?: unknown | A danmu message was submitted. |
+| FULLPAGE | status: boolean | Full-page mode changed. |
+| FULLSCREEN | status: boolean | Browser fullscreen state changed. |
+| RESIZE | width: number, height: number | The Player UI was resized. |
+
+### GlobalEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| CHANGE | name: string, value: unknown | A named UI value changed. |
+| VISIBILITYCHANGE | name: string, state: 'visible' \| 'hidden' | A named panel became `visible` or `hidden`. |
+
+### MouseEvent
+
+| Type | Properties | Meaning |
+| :--- | :--- | :--- |
+| CLICK | name: string, value?: unknown | A named UI target was clicked. |
+| DOUBLE_CLICK | name: string | A named UI target was double-clicked. |
+| MOUSE_MOVE | name: string, value?: unknown | The pointer moved over a named UI target. |
+
+`KeyboardEvent` is defined by Common but is not bound by the current Player UI.
+
+## Audit evidence
+
+- Facade: [`player.js`](../../../src/player/player.js)
+- View interface and capture: [`player.view.js`](../../../src/player/player.view.js)
+- UI forwarding: [`ui.js`](../../../src/player/ui/ui.js)
+- Event dispatches: [`src/player`](../../../src/player)
 
 ## Product capability notes
 
