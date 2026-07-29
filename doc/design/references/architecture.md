@@ -30,7 +30,6 @@
   - [Player SDK](player.md#player-sdk)
   - [RTC SDK](rtc.md#rtc-sdk)
   - [IM SDK](im.md#im-sdk)
-- [Browser-local NES emulator](nes.md#nes-sdk) — **Verified**
 - [Famicom cloud-gaming client](famicom.md#famicom-sdk) — **Verified**
 
 ## Target tree
@@ -81,13 +80,13 @@ This tree describes what the product intends to provide. Status describes the cu
   - [3.1.3 RTC](player.md#cap-content) — Player Chat + RTC mapping — **Partial**
   - [3.1.4 IM](player.md#cap-content) — IM bundle mapping — **Partial**
 - [3.2 Subtitle](player.md#cap-subtitle-plugin) — **Planned**
-- [3.3 Poster](player.md#cap-poster) — `Poster` — **Verified**
+- [3.3 Poster](player.md#cap-poster) — **Verified**
 - [3.4 Comment](player.md#cap-comment) — current `Danmu` — **Verified implementation / naming mismatch**
 - [3.5 Dashboard](player.md#cap-dashboard) — current `Display` — **Partial target mapping**
   - [3.5.1 Metadata](player.md#cap-dashboard) — **Verified**
   - [3.5.2 Stats: first frame, rate, dropped frames](player.md#cap-dashboard) — **Verified**
 - [3.6 Logo](player.md#cap-logo) — **Verified**
-- [3.7 ControlBar](player.md#cap-controlbar) — **Verified core / partial target controls**
+- [3.7 Controlbar](player.md#cap-controlbar) — **Verified core / partial target controls**
 - [3.8 ContextMenu](player.md#cap-contextmenu) — **Verified**
 - [3.9 Sidebar](player.md#cap-sidebar) — **Planned**
   - [3.9.1 Userlist: call, mute, enlarge](player.md#cap-sidebar) — **Planned**
@@ -108,7 +107,6 @@ odd.js
 ├── odd.im ───────── odd.im.ui
 ├── odd.rtc
 ├── odd.player ───── odd.player.ui
-├── odd.nes ──────── odd.nes.ui
 └── odd.famicom ──── odd.famicom.ui
 ```
 
@@ -116,7 +114,7 @@ odd.js
 
 ### Multi-instance products
 
-Player, RTC, IM, NES, and Famicom use per-SDK `get(id)` and `create()` registries. Player, IM, NES, and Famicom UI bundles pair with core by the same id, while explicit destruction releases instance ownership.
+Player, RTC, IM, and Famicom use per-SDK `get(id)` and `create()` registries. Player, IM, and Famicom UI bundles pair with core by the same id, while explicit destruction releases instance ownership.
 
 ### 24/7 low-latency Player
 
@@ -124,15 +122,15 @@ FLV and FMP4 bound the retained live buffer with periodic SourceBuffer eviction.
 
 ### Core and UI are separately deployable
 
-Player, IM, NES, and Famicom expose headless core bundles and optional UI bundles. The UI obtains the core instance with the same numeric id, forwards core events, and binds facade methods after `Event.BIND`. This keeps protocol/media logic usable without DOM policy while allowing a default UI.
+Player, IM, and Famicom expose headless core bundles and optional UI bundles. The UI obtains the core instance with the same numeric id, forwards core events, and binds facade methods after `Event.BIND`. This keeps protocol/media logic usable without DOM policy while allowing a default UI.
 
 ### Ordered registries provide extension points
 
-IO loaders, Player modules, codecs, formats, NES mappers, and UI plugins register constructors by `prototype.kind`. Selection is data-driven instead of a central switch. New implementations can join the pipeline without changing the facade.
+IO loaders, Player modules, codecs, formats, and UI plugins register constructors by `prototype.kind`. Selection is data-driven instead of a central switch. New implementations can join the pipeline without changing the facade.
 
 ### Facades keep object graphs private
 
-`odd.player()`, `odd.rtc()`, `odd.im()`, `odd.nes()`, and `odd.famicom()` return stable facades from per-SDK instance registries. Internal controllers, peer connections, streams, parsers, and DOM plugins remain behind the facade.
+`odd.player()`, `odd.rtc()`, `odd.im()`, and `odd.famicom()` return stable facades from per-SDK instance registries. Internal controllers, peer connections, streams, parsers, and DOM plugins remain behind the facade.
 
 ### Events decouple layers
 
@@ -144,17 +142,17 @@ IM separates WebSocket framing (`NetConnection`), logical pipes (`NetStream`), m
 
 ### Inputs converge before domain logic
 
-NES and Famicom UI layers translate keyboard, pointer, touch, joystick, and gamepad input into a small core key API. Famicom reference-counts key presses, preventing one input source from releasing a key still held by another.
+The Famicom UI layer translates keyboard, pointer, touch, joystick, and gamepad input into a small core key API. It reference-counts key presses, preventing one input source from releasing a key still held by another.
 
 ## Repeated patterns
 
 | Pattern | SDKs | Benefit |
 | --- | --- | --- |
-| `get(id)` + `create()` instance registry | Player, RTC, IM, NES, Famicom and their UIs | Multi-instance use and stable core/UI pairing |
+| `get(id)` + `create()` instance registry | Player, RTC, IM, Famicom and their UIs | Multi-instance use and stable core/UI pairing |
 | `prototype.CONF` defaults | All product SDKs and plugins | Inspectable configuration composition |
-| `prototype.kind` registry | Common, Player, NES, all UIs | Extensibility |
-| Explicit state enum | RTC, IM, NES, Famicom | Lifecycle vocabulary |
-| Core events forwarded by UI | Player, IM, NES, Famicom | UI stays an adapter |
+| `prototype.kind` registry | Common, Player, all UIs | Extensibility |
+| Explicit state enum | RTC, IM, Famicom | Lifecycle vocabulary |
+| Core events forwarded by UI | Player, IM, Famicom | UI stays an adapter |
 
 ## Architectural boundaries
 

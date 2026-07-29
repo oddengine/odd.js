@@ -46,71 +46,6 @@ set /a index=%index% + 1
 goto loop0
 :end0
 
-set scripts[0]=".\src\nes\nes.js"
-set scripts[1]=".\src\nes\nes.cpu.js"
-set scripts[2]=".\src\nes\nes.cpu.opdata.js"
-set scripts[3]=".\src\nes\nes.ppu.js"
-set scripts[4]=".\src\nes\nes.ppu.nametable.js"
-set scripts[5]=".\src\nes\nes.ppu.palettetable.js"
-set scripts[6]=".\src\nes\nes.ppu.tile.js"
-set scripts[7]=".\src\nes\nes.apu.js"
-set scripts[8]=".\src\nes\nes.apu.channeldm.js"
-set scripts[9]=".\src\nes\nes.apu.channelnoise.js"
-set scripts[10]=".\src\nes\nes.apu.channelsquare.js"
-set scripts[11]=".\src\nes\nes.apu.channeltriangle.js"
-set scripts[12]=".\src\nes\nes.keyboard.js"
-set scripts[13]=".\src\nes\nes.rom.js"
-set scripts[14]=".\src\nes\mapper\mapper.js"
-set scripts[15]=".\src\nes\mapper\mapper.000.js"
-set scripts[16]=".\src\nes\mapper\mapper.001.js"
-set scripts[17]=".\src\nes\mapper\mapper.002.js"
-set scripts[18]=".\src\nes\mapper\mapper.003.js"
-set scripts[19]=".\src\nes\mapper\mapper.004.js"
-set scripts[20]=".\src\nes\mapper\mapper.005.js"
-set scripts[21]=".\src\nes\mapper\mapper.007.js"
-set scripts[22]=".\src\nes\mapper\mapper.011.js"
-set scripts[23]=".\src\nes\mapper\mapper.034.js"
-set scripts[24]=".\src\nes\mapper\mapper.066.js"
-set length=25
-
-cd.>.\release\odd.nes.js
-
-set index=0
-:loop1
-if %index% equ %length% goto end1
-
-for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
-    echo %%j
-    type %%j >> .\release\odd.nes.js
-)
-set /a index=%index% + 1
-
-goto loop1
-:end1
-
-set scripts[0]=".\src\nes\ui\ui.js"
-set scripts[1]=".\src\nes\ui\components\components.js"
-set scripts[2]=".\src\nes\ui\components\components.button.js"
-set scripts[3]=".\src\nes\ui\components\components.joystick.js"
-set scripts[4]=".\src\nes\ui\components\components.label.js"
-set scripts[5]=".\src\nes\ui\ui.controlbar.js"
-set length=6
-
-cd.>.\release\odd.nes.ui.js
-
-set index=0
-:loop2
-if %index% equ %length% goto end2
-
-for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
-    echo %%j
-    type %%j >> .\release\odd.nes.ui.js
-)
-set /a index=%index% + 1
-
-goto loop2
-:end2
-
 set scripts[0]=".\src\famicom\famicom.js"
 set length=1
 
@@ -306,16 +241,14 @@ goto loop7
 :end7
 
 set scripts[0]=".\release\odd.common.js"
-set scripts[1]=".\release\odd.nes.js"
-set scripts[2]=".\release\odd.nes.ui.js"
-set scripts[3]=".\release\odd.famicom.js"
-set scripts[4]=".\release\odd.famicom.ui.js"
-set scripts[5]=".\release\odd.im.js"
-set scripts[6]=".\release\odd.im.ui.js"
-set scripts[7]=".\release\odd.rtc.js"
-set scripts[8]=".\release\odd.player.js"
-set scripts[9]=".\release\odd.player.ui.js"
-set length=10
+set scripts[1]=".\release\odd.famicom.js"
+set scripts[2]=".\release\odd.famicom.ui.js"
+set scripts[3]=".\release\odd.im.js"
+set scripts[4]=".\release\odd.im.ui.js"
+set scripts[5]=".\release\odd.rtc.js"
+set scripts[6]=".\release\odd.player.js"
+set scripts[7]=".\release\odd.player.ui.js"
+set length=8
 
 cd.>.\release\odd.js
 
@@ -333,8 +266,6 @@ goto loop8
 :end8
 
 terser .\\release\\odd.common.js -c -m --warn -o .\\release\\odd.common.min.js || exit /b 1
-terser .\\release\\odd.nes.js -c -m --warn -o .\\release\\odd.nes.min.js || exit /b 1
-terser .\\release\\odd.nes.ui.js -c -m --warn -o .\\release\\odd.nes.ui.min.js || exit /b 1
 terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js || exit /b 1
 terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js || exit /b 1
 terser .\\release\\odd.im.js -c -m --warn -o .\\release\\odd.im.min.js || exit /b 1
@@ -345,8 +276,6 @@ terser .\\release\\odd.player.ui.js -c -m --warn -o .\\release\\odd.player.ui.mi
 terser .\\release\\odd.js -c -m --warn -o .\\release\\odd.min.js || exit /b 1
 
 del /q .\\release\\odd.common.js
-del /q .\\release\\odd.nes.js
-del /q .\\release\\odd.nes.ui.js
 del /q .\\release\\odd.famicom.js
 del /q .\\release\\odd.famicom.ui.js
 del /q .\\release\\odd.im.js

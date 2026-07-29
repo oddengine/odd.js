@@ -63,7 +63,7 @@
 - 请求—响应关联被隔离在 Responder map 中。
 - 门面提供小型领域 API，同时保留底层传输接口。
 - 重连属于门面，不污染包解析器。
-- core/UI 分离与同 id 配对方式和 Player、NES、Famicom 一致。
+- core/UI 分离与同 id 配对方式和 Player、Famicom 一致。
 
 <a id="plugins"></a>
 ## 插件

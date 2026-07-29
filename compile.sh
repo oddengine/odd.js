@@ -42,57 +42,6 @@ do
 done
 
 scripts=()
-scripts[0]="./src/nes/nes.js"
-scripts[1]="./src/nes/nes.cpu.js"
-scripts[2]="./src/nes/nes.cpu.opdata.js"
-scripts[3]="./src/nes/nes.ppu.js"
-scripts[4]="./src/nes/nes.ppu.nametable.js"
-scripts[5]="./src/nes/nes.ppu.palettetable.js"
-scripts[6]="./src/nes/nes.ppu.tile.js"
-scripts[7]="./src/nes/nes.apu.js"
-scripts[8]="./src/nes/nes.apu.channeldm.js"
-scripts[9]="./src/nes/nes.apu.channelnoise.js"
-scripts[10]="./src/nes/nes.apu.channelsquare.js"
-scripts[11]="./src/nes/nes.apu.channeltriangle.js"
-scripts[12]="./src/nes/nes.keyboard.js"
-scripts[13]="./src/nes/nes.rom.js"
-scripts[14]="./src/nes/mapper/mapper.js"
-scripts[15]="./src/nes/mapper/mapper.000.js"
-scripts[16]="./src/nes/mapper/mapper.001.js"
-scripts[17]="./src/nes/mapper/mapper.002.js"
-scripts[18]="./src/nes/mapper/mapper.003.js"
-scripts[19]="./src/nes/mapper/mapper.004.js"
-scripts[20]="./src/nes/mapper/mapper.005.js"
-scripts[21]="./src/nes/mapper/mapper.007.js"
-scripts[22]="./src/nes/mapper/mapper.011.js"
-scripts[23]="./src/nes/mapper/mapper.034.js"
-scripts[24]="./src/nes/mapper/mapper.066.js"
-
-:>./release/odd.nes.js
-
-for item in ${scripts[@]};
-do
-    echo ${item}
-    cat ${item} >> ./release/odd.nes.js
-done
-
-scripts=()
-scripts[0]="./src/nes/ui/ui.js"
-scripts[1]="./src/nes/ui/components/components.js"
-scripts[2]="./src/nes/ui/components/components.button.js"
-scripts[3]="./src/nes/ui/components/components.joystick.js"
-scripts[4]="./src/nes/ui/components/components.label.js"
-scripts[5]="./src/nes/ui/ui.controlbar.js"
-
-:>./release/odd.nes.ui.js
-
-for item in ${scripts[@]};
-do
-    echo ${item}
-    cat ${item} >> ./release/odd.nes.ui.js
-done
-
-scripts=()
 scripts[0]="./src/famicom/famicom.js"
 
 :>./release/odd.famicom.js
@@ -239,15 +188,13 @@ done
 
 scripts=()
 scripts[0]="./release/odd.common.js"
-scripts[1]="./release/odd.nes.js"
-scripts[2]="./release/odd.nes.ui.js"
-scripts[3]="./release/odd.famicom.js"
-scripts[4]="./release/odd.famicom.ui.js"
-scripts[5]="./release/odd.im.js"
-scripts[6]="./release/odd.im.ui.js"
-scripts[7]="./release/odd.rtc.js"
-scripts[8]="./release/odd.player.js"
-scripts[9]="./release/odd.player.ui.js"
+scripts[1]="./release/odd.famicom.js"
+scripts[2]="./release/odd.famicom.ui.js"
+scripts[3]="./release/odd.im.js"
+scripts[4]="./release/odd.im.ui.js"
+scripts[5]="./release/odd.rtc.js"
+scripts[6]="./release/odd.player.js"
+scripts[7]="./release/odd.player.ui.js"
 
 :>./release/odd.js
 
@@ -258,8 +205,6 @@ do
 done
 
 terser ./release/odd.common.js -c -m --warn -o ./release/odd.common.min.js
-terser ./release/odd.nes.js -c -m --warn -o ./release/odd.nes.min.js
-terser ./release/odd.nes.ui.js -c -m --warn -o ./release/odd.nes.ui.min.js
 terser ./release/odd.famicom.js -c -m --warn -o ./release/odd.famicom.min.js
 terser ./release/odd.famicom.ui.js -c -m --warn -o ./release/odd.famicom.ui.min.js
 terser ./release/odd.im.js -c -m --warn -o ./release/odd.im.min.js
@@ -270,8 +215,6 @@ terser ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
 terser ./release/odd.js -c -m --warn -o ./release/odd.min.js
 
 rm ./release/odd.common.js \
-   ./release/odd.nes.js \
-   ./release/odd.nes.ui.js \
    ./release/odd.famicom.js \
    ./release/odd.famicom.ui.js \
    ./release/odd.im.js \

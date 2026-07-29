@@ -30,7 +30,6 @@
   - [Player SDK](player.zh.md#player-sdk)
   - [RTC SDK](rtc.zh.md#rtc-sdk)
   - [IM SDK](im.zh.md#im-sdk)
-- [浏览器本地 NES 模拟器](nes.zh.md#nes-sdk) — **已验证**
 - [Famicom 云游戏客户端](famicom.zh.md#famicom-sdk) — **已验证**
 
 ## 目标树
@@ -81,13 +80,13 @@
   - [3.1.3 RTC](player.zh.md#cap-content) — Player Chat + RTC 映射 — **部分具备**
   - [3.1.4 IM](player.zh.md#cap-content) — IM 构建包映射 — **部分具备**
 - [3.2 Subtitle](player.zh.md#cap-subtitle-plugin) — **待实现**
-- [3.3 Poster](player.zh.md#cap-poster) — `Poster` — **已验证**
+- [3.3 Poster](player.zh.md#cap-poster) — **已验证**
 - [3.4 Comment](player.zh.md#cap-comment) — 当前 `Danmu` — **实现已验证／名称不同**
 - [3.5 Dashboard](player.zh.md#cap-dashboard) — 当前 `Display` — **目标映射部分具备**
   - [3.5.1 Metadata](player.zh.md#cap-dashboard) — **已验证**
   - [3.5.2 Stats：首帧、速率、丢帧](player.zh.md#cap-dashboard) — **已验证**
 - [3.6 Logo](player.zh.md#cap-logo) — **已验证**
-- [3.7 ControlBar](player.zh.md#cap-controlbar) — **核心已验证／目标控件部分具备**
+- [3.7 Controlbar](player.zh.md#cap-controlbar) — **核心已验证／目标控件部分具备**
 - [3.8 ContextMenu](player.zh.md#cap-contextmenu) — **已验证**
 - [3.9 Sidebar](player.zh.md#cap-sidebar) — **待实现**
   - [3.9.1 Userlist：呼叫、闭麦、放大](player.zh.md#cap-sidebar) — **待实现**
@@ -108,7 +107,6 @@ odd.js
 ├── odd.im ───────── odd.im.ui
 ├── odd.rtc
 ├── odd.player ───── odd.player.ui
-├── odd.nes ──────── odd.nes.ui
 └── odd.famicom ──── odd.famicom.ui
 ```
 
@@ -116,7 +114,7 @@ odd.js
 
 ### 多实例产品
 
-Player、RTC、IM、NES、Famicom 都使用各自的 `get(id)` 和 `create()` 实例表。Player、IM、NES、Famicom UI 通过相同 id 与内核配对，显式销毁负责释放实例所有权。
+Player、RTC、IM、Famicom 都使用各自的 `get(id)` 和 `create()` 实例表。Player、IM、Famicom UI 通过相同 id 与内核配对，显式销毁负责释放实例所有权。
 
 ### Player 7×24 低延迟运行
 
@@ -124,15 +122,15 @@ FLV 和 FMP4 通过周期性清理 SourceBuffer 限制直播缓冲窗口。低�
 
 ### 内核和 UI 可独立部署
 
-Player、IM、NES 和 Famicom 都提供无界面内核包与可选 UI 包。UI 用相同数字 id 获取内核实例，转发内核事件，并在 `Event.BIND` 后绑定门面方法。协议和媒体逻辑因此可以脱离 DOM 策略使用，同时又有默认 UI。
+Player、IM 和 Famicom 都提供无界面内核包与可选 UI 包。UI 用相同数字 id 获取内核实例，转发内核事件，并在 `Event.BIND` 后绑定门面方法。协议和媒体逻辑因此可以脱离 DOM 策略使用，同时又有默认 UI。
 
 ### 有序注册表提供扩展点
 
-IO 加载器、Player 模块、编解码器、格式、NES Mapper 和 UI 插件都通过 `prototype.kind` 注册构造函数。选择逻辑由数据驱动，不依赖一个中央分支；新增实现无需修改公共门面。
+IO 加载器、Player 模块、编解码器、格式和 UI 插件都通过 `prototype.kind` 注册构造函数。选择逻辑由数据驱动，不依赖一个中央分支；新增实现无需修改公共门面。
 
 ### 门面隐藏对象图
 
-`odd.player()`、`odd.rtc()`、`odd.im()`、`odd.nes()`、`odd.famicom()` 从各自实例表返回稳定门面。Controller、PeerConnection、Stream、解析器和 DOM 插件等内部对象不会泄漏到顶层。
+`odd.player()`、`odd.rtc()`、`odd.im()`、`odd.famicom()` 从各自实例表返回稳定门面。Controller、PeerConnection、Stream、解析器和 DOM 插件等内部对象不会泄漏到顶层。
 
 ### 事件解耦各层
 
@@ -144,17 +142,17 @@ IM 将 WebSocket 帧（`NetConnection`）、逻辑管道（`NetStream`）、消�
 
 ### 多种输入先收敛再进入领域逻辑
 
-NES 和 Famicom UI 将键盘、鼠标、触摸、摇杆和手柄统一转换为很小的内核按键接口。Famicom 对按键做引用计数，避免一个输入源松开仍被另一个输入源按住的键。
+Famicom UI 将键盘、鼠标、触摸、摇杆和手柄统一转换为很小的内核按键接口，并对按键做引用计数，避免一个输入源松开仍被另一个输入源按住的键。
 
 ## 重复模式
 
 | 模式 | SDK | 收益 |
 | --- | --- | --- |
-| `get(id)` + `create()` 实例表 | Player、RTC、IM、NES、Famicom 及其 UI | 多实例和稳定的 core/UI 配对 |
+| `get(id)` + `create()` 实例表 | Player、RTC、IM、Famicom 及其 UI | 多实例和稳定的 core/UI 配对 |
 | `prototype.CONF` 默认值 | 全部产品 SDK 和插件 | 配置组合可检查 |
-| `prototype.kind` 注册表 | Common、Player、NES、全部 UI | 可扩展 |
-| 显式状态枚举 | RTC、IM、NES、Famicom | 统一生命周期词汇 |
-| UI 转发内核事件 | Player、IM、NES、Famicom | UI 保持适配层定位 |
+| `prototype.kind` 注册表 | Common、Player、全部 UI | 可扩展 |
+| 显式状态枚举 | RTC、IM、Famicom | 统一生命周期词汇 |
+| UI 转发内核事件 | Player、IM、Famicom | UI 保持适配层定位 |
 
 ## 架构边界
 

@@ -63,7 +63,7 @@ The protocol design allows one connection to host multiple logical pipes. RTC ca
 - Request-response correlation is isolated in `Responder` maps.
 - The facade exposes a small domain API while transport methods remain available for lower-level integration.
 - Reconnection belongs to the facade, not to the packet parser.
-- Core/UI separation and same-id pairing match Player, NES, and Famicom.
+- Core/UI separation and same-id pairing match Player and Famicom.
 
 <a id="plugins"></a>
 ## Plugins
