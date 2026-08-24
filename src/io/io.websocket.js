@@ -109,11 +109,8 @@
     Websocket.prototype.CONF = _default;
 
     // Not supported by IE9 and or below.
-    Websocket.prototype.isSupported = function (url, mode) {
-        if (mode && mode !== 'live') {
-            return false;
-        }
-        return !!(window.WebSocket || window.MozWebSocket) && (url.protocol === 'ws:' || url.protocol === 'wss:');
+    Websocket.prototype.isSupported = function (url, vod) {
+        return (url.protocol === 'ws:' || url.protocol === 'wss:') && !!(window.WebSocket || window.MozWebSocket);
     };
 
     IO.register(Websocket);

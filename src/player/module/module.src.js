@@ -1,6 +1,5 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         OS = odd.OS,
         Browser = odd.Browser,
         events = odd.events,
@@ -14,12 +13,13 @@
 
         var _this = this,
             _logger = logger,
-            _ready,
             _video,
+            _ready,
             _file;
 
         function _init() {
             _this.config = config;
+
             _ready = false;
 
             _video = utils.createElement('video');
@@ -46,11 +46,6 @@
             _video.addEventListener('load', _this.forward);
             _video.addEventListener('ended', _this.forward);
             _video.addEventListener('error', _onError);
-            if (_this.config.objectfit) {
-                css.style(_video, {
-                    'object-fit': _this.config.objectfit,
-                });
-            }
             if (_this.config.airplay) {
                 _video.setAttribute('x-webkit-airplay', 'allow');
             }
@@ -79,44 +74,35 @@
             }
         };
 
-        _this.play = function (file, option) {
-            if (utils.typeOf(file) === 'string' && file !== _file && file !== _video.src) {
+        _this.play = function (program) {
+            if (program && program.sources[_definition].url !== _file) {
+                var file = program.sources[_definition].url;
                 _logger.log('URL: ' + file);
+
                 _file = file;
                 _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
                 _video.src = file;
             }
 
-            var promise = _video.play();
-            if (promise) {
-                promise['catch'](function (err) {
-                    switch (err.name) {
-                        case 'AbortError':
-                            _logger.debug(err.name + ': ' + err.message);
-                            break;
-                        case 'NotAllowedError':
-                            // Chrome: play() failed because the user didn’t interact with the document first.
-                            // Safari: The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.
-                            _logger.warn('Failed to play due to the autoplay policy, trying to play in mute.');
-                            if (OS.isMobile) {
-                                return;
-                            }
+            _video.play().catch(function (err) {
+                switch (err.name) {
+                    case 'AbortError':
+                        _logger.debug(err.name + ': ' + err.message);
+                        break;
+                    case 'NotAllowedError':
+                        if (_video.muted == false) {
                             _video.muted = true;
-
-                            promise = _video.play();
-                            if (promise) {
-                                promise['catch'](function (err) {
-                                    _video.muted = _this.config.muted;
-                                });
-                            }
+                            _video.play().catch(function (err) {
+                                _logger.warn(`${err}`);
+                            });
                             break;
-                        default:
-                            _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
-                            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                            break;
-                    }
-                });
-            }
+                        }
+                    default:
+                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        break;
+                }
+            });
             _video.controls = false;
         };
 
@@ -201,38 +187,31 @@
     SRC.prototype.constructor = SRC;
     SRC.prototype.kind = 'SRC';
 
-    SRC.prototype.isSupported = function (file, mode) {
+    SRC.prototype.isSupported = function (program) {
         if (Browser.isMSIE && Browser.major < 9) {
             return false;
         }
-        var url = new utils.URL(file);
-        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-            return false;
-        }
-        var mobile = [
-            'm3u8', 'm3u', 'hls',
-            'mp4', 'f4v', 'm4v', 'mov',
-            'm4a', 'f4a', 'aac',
-            'ogv', 'ogg',
-            'mp3',
-            'oga',
-            'webm',
-        ];
-        var html5 = [
-            'mp4', 'f4v', 'm4v', 'mov',
-            'm4a', 'f4a', 'aac',
-            'ogv', 'ogg',
-            'mp3',
-            'oga',
-            'webm',
-        ];
-        var map = OS.isMobile || OS.isMac && Browser.isSafari && OS.major > 10 ? mobile : html5;
-        for (var i = 0; i < map.length; i++) {
-            if (url.filetype === map[i]) {
-                return true;
+        for (var source of program.sources) {
+            var url = new utils.URL(file);
+            if (!url.protocol.match(/^(http|https)\:$/gi)) {
+                return false;
+            }
+            var arr = [
+                'mp4', 'f4v', 'm4v', 'mov',
+                'm4a', 'f4a', 'aac',
+                'ogv', 'ogg',
+                'mp3',
+                'oga',
+                'webm',
+            ];
+            if (OS.isMobile || OS.isMac && Browser.isSafari && OS.major > 10) {
+                arr = arr.concat(['m3u8', 'm3u', 'hls']);
+            }
+            if (arr.indexOf(url.filetype) === -1) {
+                return false;
             }
         }
-        return false;
+        return !!program.sources.length;
     };
 
     Module.register(SRC);

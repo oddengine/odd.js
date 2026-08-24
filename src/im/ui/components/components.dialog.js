@@ -148,27 +148,35 @@
             utils.forEach(containers, function (i, container) {
                 var arr;
                 while ((arr = _regi.exec(layouts[i])) !== null) {
-                    _buildComponent(container, arr[1], arr[2], arr[3]);
+                    try {
+                        _buildComponent(_content, arr[1], arr[2], arr[3]);
+                    } catch (err) {
+                        _logger.error('Failed to build component: type=' + arr[1] + ', name=' + arr[2] + ', Error=' + err.message);
+                    }
                 }
             });
         }
 
-        function _buildComponent(container, type, name, kind) {
-            var component,
-                element;
-
-            try {
-                component = new components[type](name, kind, _logger);
-                if (utils.typeOf(component.addGlobalListener) === 'function') {
-                    component.addGlobalListener(_this.forward);
-                }
-                element = component.element();
-                container.appendChild(element);
-                _this.components[name] = component;
-            } catch (err) {
-                _logger.error('Failed to initialize component: type=' + type + ', name=' + name + ', Error=' + err.message);
-                return;
+        function _buildComponent(container, type, name, value) {
+            var component = new components[type](name, value, _logger);
+            if (utils.typeOf(component.addGlobalListener) === 'function') {
+                component.addGlobalListener(_this.forward);
             }
+            var element = component.element();
+            if (value !== undefined) {
+                var tooltip;
+                if (utils.typeOf(components[value]) === 'function') {
+                    tooltip = new components[value](name, value, _logger);
+                    element.insertAdjacentElement('afterbegin', tooltip.element());
+                } else {
+                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
+                    tooltip.innerHTML = value;
+                    element.insertAdjacentElement('afterbegin', tooltip);
+                }
+                component.tooltip = tooltip;
+            }
+            container.appendChild(element);
+            _this.components[name] = component;
         }
 
         function _setupComponents() {

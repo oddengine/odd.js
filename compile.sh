@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 scripts=()
 scripts[0]="./src/odd.js"
@@ -42,40 +42,12 @@ do
 done
 
 scripts=()
-scripts[0]="./src/famicom/famicom.js"
-
-:>./release/odd.famicom.js
-
-for item in ${scripts[@]};
-do
-    echo ${item}
-    cat ${item} >> ./release/odd.famicom.js
-done
-
-scripts=()
-scripts[0]="./src/famicom/ui/ui.js"
-scripts[1]="./src/famicom/ui/components/components.js"
-scripts[2]="./src/famicom/ui/components/components.button.js"
-scripts[3]="./src/famicom/ui/components/components.joystick.js"
-scripts[4]="./src/famicom/ui/ui.display.js"
-scripts[5]="./src/famicom/ui/ui.controlbar.js"
-
-:>./release/odd.famicom.ui.js
-
-for item in ${scripts[@]};
-do
-    echo ${item}
-    cat ${item} >> ./release/odd.famicom.ui.js
-done
-
-scripts=()
 scripts[0]="./src/im/im.js"
 scripts[1]="./src/im/message/message.js"
 scripts[2]="./src/im/message/message.abort.js"
 scripts[3]="./src/im/message/message.ackwindowsize.js"
 scripts[4]="./src/im/message/message.ack.js"
 scripts[5]="./src/im/message/message.command.js"
-scripts[6]="./src/im/im.state.js"
 scripts[7]="./src/im/im.responder.js"
 scripts[8]="./src/im/im.netconnection.js"
 scripts[9]="./src/im/im.netstream.js"
@@ -101,6 +73,7 @@ scripts[8]="./src/im/ui/components/components.tab.js"
 scripts[9]="./src/im/ui/ui.messages.js"
 scripts[10]="./src/im/ui/ui.contacts.js"
 scripts[11]="./src/im/ui/ui.settings.js"
+scripts[12]="./src/im/ui/ui.workspace.js"
 
 :>./release/odd.im.ui.js
 
@@ -128,6 +101,51 @@ for item in ${scripts[@]};
 do
     echo ${item}
     cat ${item} >> ./release/odd.rtc.js
+done
+
+scripts=()
+scripts[0]="./src/rtc/ui/ui.js"
+scripts[1]="./src/rtc/ui/components/components.js"
+scripts[2]="./src/rtc/ui/components/components.button.js"
+scripts[3]="./src/rtc/ui/components/components.toggle.js"
+scripts[4]="./src/rtc/ui/ui.controlbar.js"
+
+:>./release/odd.rtc.ui.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.rtc.ui.js
+done
+
+scripts=()
+scripts[0]="./src/famicom/famicom.js"
+
+:>./release/odd.famicom.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.famicom.js
+done
+
+scripts=()
+scripts[0]="./src/famicom/ui/ui.js"
+scripts[1]="./src/famicom/ui/components/components.js"
+scripts[2]="./src/famicom/ui/components/components.button.js"
+scripts[3]="./src/famicom/ui/components/components.joystick.js"
+scripts[4]="./src/famicom/ui/components/components.toggle.js"
+scripts[5]="./src/famicom/ui/components/components.slider.js"
+scripts[6]="./src/famicom/ui/components/components.label.js"
+scripts[7]="./src/famicom/ui/ui.display.js"
+scripts[8]="./src/famicom/ui/ui.controlbar.js"
+
+:>./release/odd.famicom.ui.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.famicom.ui.js
 done
 
 scripts=()
@@ -162,21 +180,23 @@ scripts=()
 scripts[0]="./src/player/ui/ui.js"
 scripts[1]="./src/player/ui/components/components.js"
 scripts[2]="./src/player/ui/components/components.button.js"
-scripts[3]="./src/player/ui/components/components.label.js"
-scripts[4]="./src/player/ui/components/components.preview.js"
-scripts[5]="./src/player/ui/components/components.select.js"
-scripts[6]="./src/player/ui/components/components.slider.js"
-scripts[7]="./src/player/ui/components/components.panel.js"
-scripts[8]="./src/player/ui/components/components.settings.js"
-scripts[9]="./src/player/ui/ui.poster.js"
-scripts[10]="./src/player/ui/ui.chat.js"
-scripts[11]="./src/player/ui/ui.danmu.js"
-scripts[12]="./src/player/ui/ui.display.js"
-scripts[13]="./src/player/ui/ui.ad.js"
-scripts[14]="./src/player/ui/ui.share.js"
-scripts[15]="./src/player/ui/ui.logo.js"
-scripts[16]="./src/player/ui/ui.controlbar.js"
-scripts[17]="./src/player/ui/ui.contextmenu.js"
+scripts[3]="./src/player/ui/components/components.toggle.js"
+scripts[4]="./src/player/ui/components/components.label.js"
+scripts[5]="./src/player/ui/components/components.preview.js"
+scripts[6]="./src/player/ui/components/components.select.js"
+scripts[7]="./src/player/ui/components/components.slider.js"
+scripts[8]="./src/player/ui/components/components.panel.js"
+scripts[9]="./src/player/ui/components/components.settings.js"
+scripts[10]="./src/player/ui/ui.poster.js"
+scripts[11]="./src/player/ui/ui.chat.js"
+scripts[12]="./src/player/ui/ui.comments.js"
+scripts[13]="./src/player/ui/ui.display.js"
+scripts[14]="./src/player/ui/ui.ad.js"
+scripts[15]="./src/player/ui/ui.share.js"
+scripts[16]="./src/player/ui/ui.logo.js"
+scripts[17]="./src/player/ui/ui.controlbar.js"
+scripts[18]="./src/player/ui/ui.contextmenu.js"
+scripts[19]="./src/player/ui/ui.playlist.js"
 
 :>./release/odd.player.ui.js
 
@@ -187,14 +207,43 @@ do
 done
 
 scripts=()
+scripts[0]="./src/app/app.js"
+
+:>./release/odd.app.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.app.js
+done
+
+scripts=()
+scripts[0]="./src/app/ui/ui.js"
+scripts[1]="./src/app/ui/components/components.js"
+scripts[2]="./src/app/ui/components/components.tabs.js"
+scripts[3]="./src/app/ui/components/components.composer.js"
+scripts[4]="./src/app/ui/components/components.controlbar.js"
+
+:>./release/odd.app.ui.js
+
+for item in ${scripts[@]};
+do
+    echo ${item}
+    cat ${item} >> ./release/odd.app.ui.js
+done
+
+scripts=()
 scripts[0]="./release/odd.common.js"
-scripts[1]="./release/odd.famicom.js"
-scripts[2]="./release/odd.famicom.ui.js"
-scripts[3]="./release/odd.im.js"
-scripts[4]="./release/odd.im.ui.js"
-scripts[5]="./release/odd.rtc.js"
-scripts[6]="./release/odd.player.js"
-scripts[7]="./release/odd.player.ui.js"
+scripts[1]="./release/odd.im.js"
+scripts[2]="./release/odd.im.ui.js"
+scripts[3]="./release/odd.rtc.js"
+scripts[4]="./release/odd.rtc.ui.js"
+scripts[5]="./release/odd.famicom.js"
+scripts[6]="./release/odd.famicom.ui.js"
+scripts[7]="./release/odd.player.js"
+scripts[8]="./release/odd.player.ui.js"
+scripts[9]="./release/odd.app.js"
+scripts[10]="./release/odd.app.ui.js"
 
 :>./release/odd.js
 
@@ -205,21 +254,27 @@ do
 done
 
 terser ./release/odd.common.js -c -m --warn -o ./release/odd.common.min.js
-terser ./release/odd.famicom.js -c -m --warn -o ./release/odd.famicom.min.js
-terser ./release/odd.famicom.ui.js -c -m --warn -o ./release/odd.famicom.ui.min.js
 terser ./release/odd.im.js -c -m --warn -o ./release/odd.im.min.js
 terser ./release/odd.im.ui.js -c -m --warn -o ./release/odd.im.ui.min.js
 terser ./release/odd.rtc.js -c -m --warn -o ./release/odd.rtc.min.js
+terser ./release/odd.rtc.ui.js -c -m --warn -o ./release/odd.rtc.ui.min.js
+terser ./release/odd.famicom.js -c -m --warn -o ./release/odd.famicom.min.js
+terser ./release/odd.famicom.ui.js -c -m --warn -o ./release/odd.famicom.ui.min.js
 terser ./release/odd.player.js -c -m --warn -o ./release/odd.player.min.js
 terser ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
+terser ./release/odd.app.js -c -m --warn -o ./release/odd.app.min.js
+terser ./release/odd.app.ui.js -c -m --warn -o ./release/odd.app.ui.min.js
 terser ./release/odd.js -c -m --warn -o ./release/odd.min.js
 
 rm ./release/odd.common.js \
-   ./release/odd.famicom.js \
-   ./release/odd.famicom.ui.js \
    ./release/odd.im.js \
    ./release/odd.im.ui.js \
    ./release/odd.rtc.js \
+   ./release/odd.rtc.ui.js \
+   ./release/odd.famicom.js \
+   ./release/odd.famicom.ui.js \
    ./release/odd.player.js \
    ./release/odd.player.ui.js \
+   ./release/odd.app.js \
+   ./release/odd.app.ui.js \
    ./release/odd.js

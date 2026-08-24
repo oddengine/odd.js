@@ -1,6 +1,5 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         OS = odd.OS,
         Browser = odd.Browser,
         events = odd.events,
@@ -18,9 +17,9 @@
 
         var _this = this,
             _logger = logger,
+            _video,
             _ready,
             _url,
-            _video,
             _rtc,
             _loadStartAt,
             _firstAudioFrameReceivedIn,
@@ -33,10 +32,9 @@
 
         function _init() {
             _this.config = config;
+
             _ready = false;
             _url = new utils.URL();
-            _statsTimer = new utils.Timer(1000, 0, _logger);
-            _statsTimer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
 
             _video = utils.createElement('video');
             _video.addEventListener('play', _this.forward);
@@ -62,11 +60,6 @@
             _video.addEventListener('load', _this.forward);
             _video.addEventListener('ended', _this.forward);
             _video.addEventListener('error', _onError);
-            if (_this.config.objectfit) {
-                css.style(_video, {
-                    'object-fit': _this.config.objectfit,
-                });
-            }
             if (_this.config.airplay) {
                 _video.setAttribute('x-webkit-airplay', 'allow');
             }
@@ -83,13 +76,17 @@
             }
             _video.muted = _this.config.muted;
             _video.volume = _this.config.volume;
+
+            _rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
+            _rtc.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            _rtc.addEventListener(Event.CLOSE, _onClose);
+
+            _statsTimer = new utils.Timer(1000, 0, _logger);
+            _statsTimer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
         }
 
         _this.setup = function () {
             if (_ready === false) {
-                _rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
-                _rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
-                _rtc.addEventListener(Event.CLOSE, _onClose);
                 _rtc.setup(_this.config.rtc).then(() => {
                     _ready = true;
                     _this.dispatchEvent(Event.READY, { kind: _this.kind });
@@ -97,18 +94,18 @@
             }
         };
 
-        _this.play = async function (file, option) {
-            if (utils.typeOf(file) === 'string' && new utils.URL(file).href !== _url.href) {
+        _this.play = async function (program) {
+            if (program && program.sources[_definition].url !== _url.href) {
+                var file = program.sources[_definition].url;
+                _logger.log('URL: ' + file);
+
                 try {
-                    _logger.log('URL: ' + file);
                     _url.parse(file);
                 } catch (err) {
                     _logger.error('Failed to parse url \"' + file + '\".');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     return;
                 }
-                _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
-                _video.srcObject = undefined;
 
                 _loadStartAt = new Date();
                 _firstAudioFrameReceivedIn = NaN;
@@ -119,94 +116,52 @@
                 _videoPacketsReceivedPerSecond = 0;
                 _statsTimer.start();
 
-                var args = {};
-                var arr = _url.search.substr(1).split('&');
-                for (var i = 0; i < arr.length; i++) {
-                    var item = arr[i].split('=');
-                    args[item[0]] = item[1];
-                }
-                var whep = _parseWHEP(args);
-                if (whep.name === '') {
-                    _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Stream id is empty.' });
-                    return;
-                }
-                _rtc.config.whep = whep.url;
-                _rtc.play(whep.name).then(function (ns) {
-                    ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
+                _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
+                _video.srcObject = undefined;
+
+                _rtc.config.whep = _url.href.substring(0, _url.href.lastIndexOf('/'));
+                _rtc.play(_url.filename + _url.filetype).then(function (ns) {
+                    ns.addEventListener(NetStatusEvent.NETSTATUS, function (e) {
                         switch (e.data.code) {
                             case Code.NETSTREAM_PLAY_START:
-                                _attachStream(e.data.info.streams[0]);
+                                var stream = e.data.info.streams[0];
+                                _video.srcObject = stream;
+                                _video.play().catch(function (err) {
+                                    _logger.warn(`${err}`);
+                                });
+                                _video.controls = false;
                                 break;
                         }
                     });
                     ns.addEventListener(Event.RELEASE, function (e) {
                         _this.stop();
                     });
-                    if (ns.stream) {
-                        _attachStream(ns.stream);
-                    }
                 }).catch(function (err) {
                     _logger.warn(`${err}`);
                 });
             }
 
-            var promise = _video.play();
-            if (promise) {
-                promise['catch'](function (err) {
-                    switch (err.name) {
-                        case 'AbortError':
-                            _logger.debug(err.name + ': ' + err.message);
-                            break;
-                        case 'NotAllowedError':
-                            // Chrome: play() failed because the user didn’t interact with the document first.
-                            // Safari: The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.
-                            _logger.warn('Failed to play due to the autoplay policy, trying to play in mute.');
-                            if (OS.isMobile) {
-                                return;
-                            }
-                            _video.muted = true;
-
-                            promise = _video.play();
-                            if (promise) {
-                                promise['catch'](function (err) {
-                                    _video.muted = _this.config.muted;
-                                });
-                            }
-                            break;
-                        default:
-                            _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
-                            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                            break;
-                    }
-                });
-            }
-            _video.controls = false;
-        };
-
-        function _parseWHEP(args) {
-            var name = decodeURIComponent(args.name || '');
-            var pathname = _url.pathname.replace(/\/$/, '');
-            var url = _url.origin + pathname;
-            if (name === '') {
-                var index = pathname.lastIndexOf('/');
-                if (index !== -1) {
-                    name = decodeURIComponent(pathname.substr(index + 1));
-                    url = _url.origin + pathname.substr(0, index);
-                }
-            }
-            return {
-                name: name,
-                url: args.whep ? decodeURIComponent(args.whep) : url,
-            };
-        }
-
-        function _attachStream(stream) {
-            _video.srcObject = stream;
             _video.play().catch(function (err) {
-                _logger.warn(`${err}`);
+                switch (err.name) {
+                    case 'AbortError':
+                        _logger.debug(err.name + ': ' + err.message);
+                        break;
+                    case 'NotAllowedError':
+                        if (_video.muted == false) {
+                            _video.muted = true;
+                            _video.play().catch(function (err) {
+                                _logger.warn(`${err}`);
+                            });
+                            break;
+                        }
+                    default:
+                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        break;
+                }
             });
             _video.controls = false;
-        }
+        };
 
         _this.pause = function () {
             _video.pause();
@@ -255,10 +210,12 @@
             _this.stop();
             _ready = false;
             _statsTimer.removeEventListener(TimerEvent.TIMER, _onStatsTimer);
-            _sourceTimer.removeEventListener(TimerEvent.TIMER, _onSourceTimer);
+
             if (_rtc) {
-                _rtc.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+                _rtc.destroy()
+                _rtc.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
                 _rtc.removeEventListener(Event.CLOSE, _onClose);
+                _rtc = undefined;
             }
         };
 
@@ -287,7 +244,7 @@
                 stats.DroppedVideoFrames = quality.droppedVideoFrames;
                 stats.TotalVideoFrames = quality.totalVideoFrames;
             }
-            _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: stats });
+            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: stats });
             _bytesReceivedPerSecond = 0;
             _audioPacketsReceivedPerSecond = 0;
             _videoPacketsReceivedPerSecond = 0;
@@ -328,16 +285,19 @@
     RTC.prototype.constructor = RTC;
     RTC.prototype.kind = 'RTC';
 
-    RTC.prototype.isSupported = function (file, mode) {
+    RTC.prototype.isSupported = function (program) {
         if (!window.RTCPeerConnection) {
             return false;
         }
-        var url = new utils.URL(file);
-        if (!/^(https?:|rtc:)$/.test(url.protocol)) {
-            return false;
+        for (var source of program.sources) {
+            var url = new utils.URL(source.url);
+            if (!url.protocol.match(/^(http|https)\:$/gi)) {
+                return false;
+            }
         }
-        return true;
+        return !!program.sources.length;
     };
 
     Module.register(RTC);
 })(odd);
+

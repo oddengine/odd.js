@@ -6,6 +6,7 @@
         Event = events.Event,
         MediaEvent = events.MediaEvent,
         NetStatusEvent = events.NetStatusEvent,
+        TimerEvent = events.TimerEvent,
         Level = events.Level,
         Code = events.Code,
 
@@ -16,57 +17,41 @@
             CLOSING: 'closing',
             CLOSED: 'closed',
         },
-
+        Port = {
+            P1: 0,
+            P2: 1,
+            P3: 2,
+            P4: 3,
+        },
         Key = {
-            UP: 'up',
-            DOWN: 'down',
-            LEFT: 'left',
-            RIGHT: 'right',
-            START: 'start',
-            SELECT: 'select',
-            B: 'btn_b',
-            A: 'btn_a',
+            UP: 0x01,
+            DOWN: 0x02,
+            LEFT: 0x04,
+            RIGHT: 0x08,
+            START: 0x10,
+            SELECT: 0x20,
+            B: 0x40,
+            A: 0x80,
         },
-
-        KeyMask = {
-            up: 0x01,
-            down: 0x02,
-            left: 0x04,
-            right: 0x08,
-            start: 0x10,
-            select: 0x20,
-            btn_b: 0x40,
-            btn_a: 0x80,
-        },
-
-        InputSyncInterval = 40,
-        StatsInterval = 1000,
 
         _id = 0,
         _instances = {},
         _default = {
-            url: location.protocol + '//' + location.host + '/game/',
-            msid: '',
-            game: '',
-            instance: '',
-            player: '',
-            playerSlot: '0',
-            autoplay: true,
-            controls: false,
-            muted: false,
+            airplay: 'allow',
+            autoplay: false,
             playsinline: true,
-            audio: true,
-            video: true,
-            dataChannel: 'game-input',
-            iceServers: [{
-                urls: ['stun:stun.l.google.com:19302'],
-            }],
-            iceTransportPolicy: 'all',
-            bundlePolicy: 'max-bundle',
+            muted: false,
+            volume: 0.8,
+            base: `${location.protocol}//${location.host}/game`,
+            channel: 'game-input',
             loader: {
-                name: 'auto',
                 mode: 'cors',        // cors, no-cors, same-origin
                 credentials: 'omit', // omit, include, same-origin
+            },
+            configuration: {
+                iceServers: [{
+                    urls: ["stun:stun.l.google.com:19302"],
+                }],
             },
         };
 
@@ -76,28 +61,40 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _video,
+            _location,
+            _params,
+            _port,
             _pc,
-            _input,
+            _channel,
             _stream,
-            _state,
-            _keyRefs,
-            _keyState,
-            _inputSyncTimer,
-            _statsTimer,
-            _statsSnapshot,
-            _statsPending;
+            _xhr,
+            _keys,
+            _timer,
+            _stats,
+            _state;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, MediaEvent, NetStatusEvent);
 
         function _init() {
             _this.logger = _logger;
+
+            _location = _getCookie() || new URL();
+            _params = new URLSearchParams(_location.search);
+            _port = Number(_params.get('port') || 0);
+            _keys = [0x00, 0x00, 0x00, 0x00];
+            _stats = {
+                timestamp: 0,
+                framesPerSecond: 0,
+                framesDecoded: 0,
+                framesDropped: 0,
+                nackCount: 0,
+                pliCount: 0,
+                freezeCount: 0,
+            };
             _state = State.INITIALIZED;
-            _keyRefs = {};
-            _keyState = 0x00;
-            _inputSyncTimer = null;
-            _statsTimer = null;
-            _statsSnapshot = null;
-            _statsPending = false;
+
+            _timer = new utils.Timer(1000, 0, _logger);
+            _timer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
         }
 
         _this.id = function () {
@@ -105,176 +102,98 @@
         };
 
         _this.setup = async function (container, config) {
-            _this.config = utils.extendz({ id: _id }, _default, config);
-            _this.config.playerSlot = _normalizePlayerSlot(_this.config.playerSlot);
             _container = container;
+            _this.config = utils.extendz({ id: _id }, _default, config);
+
             _video = utils.createElement('video');
-            _video.autoplay = _this.config.autoplay;
-            _video.controls = _this.config.controls;
-            _video.muted = _this.config.muted;
-            _video.playsInline = _this.config.playsinline;
-            _video.setAttribute('playsinline', '');
-            _video.setAttribute('webkit-playsinline', '');
             _video.addEventListener('volumechange', _onVolumeChange);
+            _video.setAttribute('x-webkit-airplay', 'allow');
+            _video.setAttribute('autoplay', '');
+            _video.setAttribute('playsinline', '');
+            _video.setAttribute('webkit-playsinline', 'isiPhoneShowPlaysinline');
+            _video.setAttribute('x5-playsinline', '');
+            _video.setAttribute('x5-video-player-type', 'h5-page');
+            _video.setAttribute('x5-video-player-fullscreen', true);
+            _video.setAttribute('t7-video-player-type', 'inline');
+            _video.muted = _this.config.muted;
+            _video.volume = _this.config.volume;
             _container.appendChild(_video);
+
             _bind();
             return Promise.resolve();
         };
 
         function _bind() {
-            _this.video = function () { return _video; };
             _this.dispatchEvent(Event.BIND);
             _this.dispatchEvent(Event.READY);
         }
 
-        _this.load = async function (game, msid) {
-            return _this.init(game, msid);
+        _this.load = async function (game) {
+            return _this.play(`${_this.config.base}/play?game=${game}`);
         };
 
-        _this.selectPlayer = function (playerSlot) {
-            if (playerSlot !== undefined) {
-                var next = _normalizePlayerSlot(playerSlot);
-                if (next !== _this.config.playerSlot) {
-                    _this.config.player = '';
+        _this.play = async function (url) {
+            if (url) {
+                var location = new URL(url);
+                var params = new URLSearchParams(location.search);
+                if (params.get('instance') !== _params.get('instance')) {
+                    await _this.stop();
                 }
-                _this.config.playerSlot = next;
-            }
-            return _this.config.playerSlot;
-        };
-
-        _this.init = async function (game, msid) {
-            if (game !== undefined) {
-                _this.config.game = game;
-            }
-            if (msid !== undefined) {
-                _this.config.msid = msid;
-            }
-            if (!_this.config.msid) {
-                _this.config.msid = _this.config.id;
-            }
-            _clearPlayerCookie(_this.config.instance, _this.config.playerSlot);
-            _this.config.instance = '';
-            _this.config.player = '';
-
-            return _connect('init');
-        };
-
-        _this.join = async function (instance, player) {
-            if (instance !== undefined && instance !== _this.config.instance) {
-                _this.config.instance = instance;
-                _this.config.player = '';
-            }
-            if (!_this.config.instance) {
-                _this.config.instance = _instanceFromLocation();
-            }
-            if (!_this.config.instance) {
-                return Promise.reject({ name: 'InvalidStateError', message: 'Instance is required.' });
-            }
-            if (player !== undefined) {
-                _this.config.player = player;
-            } else if (!_this.config.player) {
-                _this.config.player = _getPlayerCookie(_this.config.instance, _this.config.playerSlot);
+                _location = location;
+                _params = params;
             }
 
-            return _connect('join');
-        };
-
-        _this.leave = async function () {
-            if (!_this.config.instance || !_this.config.player) {
-                _cleanupPeerConnection();
-                _state = State.INITIALIZED;
-                return Promise.resolve();
-            }
-
-            var instance = _this.config.instance;
-            var player = _this.config.player;
-            try {
-                await _request('GET', _baseUrl() + '/leave?instance=' + encodeURIComponent(instance) + '&player=' + encodeURIComponent(player), {});
-            } finally {
-                _clearPlayerCookie(instance, _this.config.playerSlot);
-                _this.config.player = '';
-                _cleanupPeerConnection();
-                _state = State.INITIALIZED;
-            }
-        };
-
-        _this.destroy = async function (reason) {
-            _state = State.CLOSING;
-            var instance = _this.config.instance;
-            try {
-                if (instance) {
-                    await _request('GET', _baseUrl() + '/destroy?instance=' + encodeURIComponent(instance), {});
-                }
-            } catch (err) {
-                _logger.warn(`Failed to destroy game instance: ${err.message || err}`);
-            }
-            _destroyClient(reason);
-        };
-
-        async function _connect(action) {
-            _cleanupPeerConnection();
-            _setupPeerConnection();
-            _state = State.CONNECTING;
+            var game = _params.get('game');
+            _initPeerConnection();
 
             try {
-                var offer = await _createOffer();
-                var answer = await _postOffer(action, offer.sdp);
+                var offer = await _pc.createOffer();
+                offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
+                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+                _logger.log(`createOffer success: id=${_id}, game=${game}, sdp=\n${offer.sdp}`);
+                
+                await _pc.setLocalDescription(offer);
+
+                var response = await _post(`${_this.config.base}/play?${_params.toString()}`, offer.sdp);
+                var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
                 await _pc.setRemoteDescription(answer);
-                _state = State.CONNECTED;
-                _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-                    level: Level.STATUS,
-                    code: Code.NETCONNECTION_CONNECT_SUCCESS,
-                    description: 'Famicom connected.',
-                    info: {
-                        action: action,
-                        instance: _this.config.instance,
-                        player: _this.config.player,
-                        playerSlot: _this.config.playerSlot,
-                        game: _this.config.game,
-                    },
-                });
             } catch (err) {
-                _state = State.INITIALIZED;
-                _logger.error(`Failed to load game: ${err}`);
-                _this.dispatchEvent(Event.ERROR, { name: err.name || 'AbortError', message: err.message || err.toString() });
+                _logger.error(`Failed to play: id=${_id}, game=${game}, error=${err}`);
                 return Promise.reject(err);
             }
-        }
 
-        function _setupPeerConnection() {
-            _pc = new RTCPeerConnection({
-                iceServers: _this.config.iceServers,
-                iceTransportPolicy: _this.config.iceTransportPolicy,
-                bundlePolicy: _this.config.bundlePolicy,
-            });
+            _setJitterBufferTarget();
+            _state = State.PLAYING;
+            return Promise.resolve();
+        };
+
+        function _initPeerConnection() {
+            _pc = new RTCPeerConnection(_this.config.configuration);
             _pc.addEventListener('track', _onTrack);
+            _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
             _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
+            // _pc.addEventListener('icecandidate', _onIceCandidate);
 
-            _input = _pc.createDataChannel(_this.config.dataChannel, {
+            _pc.addTransceiver('audio', { direction: 'recvonly' });
+            _pc.addTransceiver('video', { direction: 'recvonly' });
+
+            _channel = _pc.createDataChannel(_this.config.channel, {
                 ordered: false,
                 maxPacketLifeTime: 20,
             });
-            _input.addEventListener('open', _onDataChannelOpen);
-            _input.addEventListener('close', _onDataChannelClose);
-            _input.addEventListener('error', _onDataChannelError);
+            _channel.addEventListener('open', _onDataChannelOpen);
+            _channel.addEventListener('error', _onDataChannelError);
+            _channel.addEventListener('close', _onDataChannelClose);
 
-            if (_this.config.audio) {
-                _pc.addTransceiver('audio', { direction: 'recvonly' });
-            }
-            if (_this.config.video) {
-                _pc.addTransceiver('video', { direction: 'recvonly' });
-            }
             _setCodecPreferences();
         }
 
         function _setCodecPreferences() {
-            if (!window.RTCRtpSender || !window.RTCRtpReceiver) {
-                return;
-            }
-
             var audiocodecs = [];
             var videocodecs = [];
-            var ac = RTCRtpSender.getCapabilities && RTCRtpSender.getCapabilities('audio');
+
+            var ac = RTCRtpReceiver.getCapabilities('audio');
             if (ac && ac.codecs) {
                 ac.codecs.forEach(function (codec) {
                     if (codec.mimeType === 'audio/opus') {
@@ -282,8 +201,7 @@
                     }
                 });
             }
-
-            var vc = RTCRtpReceiver.getCapabilities && RTCRtpReceiver.getCapabilities('video');
+            var vc = RTCRtpReceiver.getCapabilities('video');
             if (vc && vc.codecs) {
                 vc.codecs.forEach(function (codec) {
                     if (codec.mimeType === 'video/rtx' ||
@@ -294,157 +212,155 @@
                     }
                 });
             }
-
             _pc.getTransceivers().forEach(function (transceiver) {
-                if (!transceiver.setCodecPreferences || !transceiver.receiver || !transceiver.receiver.track) {
-                    return;
-                }
                 switch (transceiver.receiver.track.kind) {
                     case 'audio':
-                        if (audiocodecs.length) {
-                            transceiver.setCodecPreferences(audiocodecs);
-                        }
+                        transceiver.setCodecPreferences(audiocodecs);
                         break;
                     case 'video':
-                        if (videocodecs.length) {
-                            transceiver.setCodecPreferences(videocodecs);
-                        }
+                        transceiver.setCodecPreferences(videocodecs);
                         break;
                 }
             });
         }
 
-        async function _createOffer() {
-            var offer = await _pc.createOffer();
-            offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
-            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
-            offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
-            await _pc.setLocalDescription(offer);
-            return offer;
-        }
-
-        async function _postOffer(action, sdp) {
-            var response = await _request('POST', _signalUrl(action), { 'Content-Type': 'application/sdp' }, sdp);
-            var location = response.headers.get('Location');
-            if (location) {
-                _this.config.instance = location.split('/').pop();
-            }
-
-            var answerSdp = await response.text();
-            var player = _extractPlayerId(answerSdp);
-            if (player) {
-                _this.config.player = player;
-            }
-            _setPlayerCookie(_this.config.instance, _this.config.playerSlot, _this.config.player);
-            return new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
-        }
-
-        function _signalUrl(action) {
-            var base = _baseUrl();
-            switch (action) {
-                case 'init':
-                    return base + '/init?name=' + encodeURIComponent(_this.config.game || _this.config.msid || _this.config.id);
-                case 'join': {
-                    var url = base + '/join?instance=' + encodeURIComponent(_this.config.instance);
-                    return _appendPlayer(url);
+        function _setJitterBufferTarget() {
+            _pc.getReceivers().forEach(function (receiver) {
+                if (receiver.track && receiver.track.kind === 'video') {
+                    receiver.jitterBufferTarget = 40;
                 }
-            }
-            throw { name: 'NotSupportedError', message: 'Unsupported action: ' + action };
-        }
-
-        function _appendPlayer(url) {
-            if (_this.config.player) {
-                url += '&player=' + encodeURIComponent(_this.config.player);
-            }
-            return url;
-        }
-
-        function _baseUrl() {
-            return _this.config.url.replace(/\/?$/, '');
-        }
-
-        function _extractPlayerId(sdp) {
-            var match = /^a=msid:[ \t]*([^\s\r\n]+)[ \t]+[^\s\r\n]+[ \t]*$/im.exec(sdp);
-            if (match) {
-                return match[1];
-            }
-            match = /^a=ssrc:\d+[ \t]+msid:[ \t]*([^\s\r\n]+)[ \t]+[^\s\r\n]+[ \t]*$/im.exec(sdp);
-            if (match) {
-                return match[1];
-            }
-            match = /^a=msid-semantic:[ \t]*WMS[ \t]+([^\s\r\n]+)[ \t]*$/im.exec(sdp);
-            return match ? match[1] : '';
-        }
-
-        function _instanceFromLocation() {
-            try {
-                return new URLSearchParams(location.search).get('instance') || '';
-            } catch (err) {
-                return '';
-            }
-        }
-
-        function _normalizePlayerSlot(playerSlot) {
-            if (playerSlot === undefined || playerSlot === null) {
-                return '0';
-            }
-            var value = String(playerSlot);
-            return /^[0-3]$/.test(value) ? value : '0';
-        }
-
-        function _playerCookieName(instance, playerSlot) {
-            return 'famicom_' + instance + '_' + _normalizePlayerSlot(playerSlot);
-        }
-
-        function _getPlayerCookie(instance, playerSlot) {
-            if (!instance) {
-                return '';
-            }
-
-            var name = _playerCookieName(instance, playerSlot) + '=';
-            var items = document.cookie.split(';');
-            for (var i = 0; i < items.length; i++) {
-                var item = items[i].trim();
-                if (item.indexOf(name) === 0) {
-                    return decodeURIComponent(item.substring(name.length));
-                }
-            }
-            return '';
-        }
-
-        function _setPlayerCookie(instance, playerSlot, player) {
-            if (!instance || !player) {
-                return;
-            }
-            var expires = new Date(Date.now() + 12 * 60 * 60 * 1000).toUTCString();
-            document.cookie = _playerCookieName(instance, playerSlot) + '=' + encodeURIComponent(player) + '; Max-Age=43200; Expires=' + expires + '; Path=/; SameSite=Lax';
-        }
-
-        function _clearPlayerCookie(instance, playerSlot) {
-            if (!instance) {
-                return;
-            }
-            document.cookie = _playerCookieName(instance, playerSlot) + '=; Max-Age=0; Path=/; SameSite=Lax';
-        }
-
-        function _request(method, url, headers, body) {
-            return fetch(url, {
-                method: method,
-                headers: headers || {},
-                body: body,
-                mode: _this.config.loader.mode,
-                credentials: 'omit',
-            }).then(function (response) {
-                if (response.ok) {
-                    return response;
-                }
-                throw { name: 'NetworkError', message: method + ' ' + url + ' failed: status=' + response.status };
-            }).catch(function (err) {
-                if (err && err.name === 'NetworkError') {
-                    throw err;
-                }
-                throw { name: 'NetworkError', message: method + ' ' + url + ' failed: ' + (err.message || err) };
             });
+        }
+
+        async function _post(url, sdp) {
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.setRequestHeader('Content-Type', 'application/sdp');
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
+                    }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        var location = xhr.getResponseHeader('Location')
+                        if (location) {
+                            _logger.log(`Location: ${location}`);
+                            _location = new URL(location);
+                            _params = new URLSearchParams(_location.search);
+                            _port = Number(_params.get('port'));
+                            _setCookie(location, Date.now() + 30000);
+                        }
+                        resolve(xhr.responseText);
+                        return;
+                    }
+                };
+                xhr.onerror = function (err) {
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
+                };
+                xhr.send(sdp);
+            });
+        }
+
+        async function _patch(candidate) {
+            if (_this.config.trickle !== true || _location == null) {
+                return Promise.resolve();
+            }
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('PATCH', _location.href, true);
+                xhr.setRequestHeader('Content-Type', 'application/trickle-ice-sdpfrag');
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
+                    }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                        return;
+                    }
+                };
+                xhr.onerror = function () {
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
+                };
+                if (candidate.candidate) {
+                    xhr.send(`a=${candidate.candidate}\na=end-of-candidates`);
+                } else {
+                    xhr.send('a=end-of-candidates');
+                }
+            });
+        }
+
+        async function _stop() {
+            if (!_params.get('instance') || !_params.get('player')) {
+                return Promise.resolve();
+            }
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', `${_this.config.base}/stop?${_params.toString()}`, true);
+                xhr.send();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
+                    }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                        return;
+                    }
+                };
+                xhr.onerror = function () {
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
+                };
+            });
+        }
+
+        async function _delete() {
+            if (_location == null) {
+                return Promise.resolve();
+            }
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('DELETE', _location.href, true);
+                xhr.send();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
+                    }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                        return;
+                    }
+                };
+                xhr.onerror = function () {
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
+                };
+            });
+        }
+
+        function _onVolumeChange(e) {
+            _this.dispatchEvent(Event.VOLUMECHANGE, { muted: _video.muted, volume: _video.volume });
         }
 
         function _onTrack(e) {
@@ -452,281 +368,224 @@
             if (_video.srcObject !== stream) {
                 _stream = stream;
                 _video.srcObject = _stream;
+                _timer.start();
             }
-            if (e.track && e.track.kind === 'video') {
-                _startStats();
-            }
-            _playVideo();
-        }
-
-        function _playVideo() {
-            var promise = _video.play();
-            if (promise === undefined) {
-                return;
-            }
-
-            promise.catch(function (err) {
-                _logger.warn(`${err}`);
-                if (!err || err.name !== 'NotAllowedError' || _video.muted) {
-                    return;
-                }
-
-                _logger.warn('Failed to play due to the autoplay policy, trying to play in mute.');
-                _video.muted = true;
-                promise = _video.play();
-                if (promise) {
-                    promise.catch(function (retryErr) {
-                        _logger.warn(`${retryErr}`);
-                    });
+            _video.play().catch(function (err) {
+                switch (err.name) {
+                    case 'AbortError':
+                        _logger.debug(err.name + ': ' + err.message);
+                        break;
+                    case 'NotAllowedError':
+                        if (_video.muted == false) {
+                            _video.muted = true;
+                            _video.play().catch(function (err) {
+                                _logger.warn(`${err}`);
+                            });
+                            break;
+                        }
+                    default:
+                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        break;
                 }
             });
+            _video.controls = false;
         }
 
-        function _onVolumeChange(e) {
-            _this.config.muted = _video.muted;
-            _this.dispatchEvent(Event.VOLUMECHANGE, { muted: _video.muted, volume: _video.volume });
+        function _onConnectionStateChange(e) {
+            var pc = e.target;
+            _logger.log(`onConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.connectionState}`);
+
+            switch (pc.connectionState) {
+                case 'failed':
+                case 'closed':
+                    _this.close(pc.connectionState);
+                    break;
+            }
         }
 
         function _onIceConnectionStateChange(e) {
-            _logger.debug(`Famicom.onIceConnectionStateChange: ${e.target.iceConnectionState}`);
+            var pc = e.target;
+            _logger.log(`onIceConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.iceConnectionState}`);
+        }
+
+        function _onIceCandidate(e) {
+            var candidate = e.candidate;
+            if (candidate == null) {
+                candidate = {
+                    candidate: '',
+                    sdpMid: '',
+                    sdpMLineIndex: 0,
+                };
+            }
+            _logger.log(`onIceCandidate: id=${_this.config.id}, stream=${_name}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+
+            _patch(candidate).catch((err) => {
+                _logger.error(`Failed to send candidate: id=${_this.config.id}, stream=${_name}, error=${err}`);
+            });
         }
 
         function _onDataChannelOpen(e) {
-            _startInputSync();
-        }
-
-        function _onDataChannelClose(e) {
-            _stopInputSync();
-            _logger.debug(`DataChannel closed: ${_this.config.dataChannel}`);
+            _logger.debug(`onDataChannelOpen: ${e.target.label}`);
         }
 
         function _onDataChannelError(e) {
-            _logger.warn(`DataChannel error: ${e && e.error ? e.error.message : 'unknown'}`);
+            _logger.warn(`onDataChannelError: ${e.error}`);
         }
 
-        _this.keyDown = function (key) {
-            var count = _keyRefs[key] || 0;
-            _keyRefs[key] = count + 1;
-            if (count === 0) {
-                _keyState |= KeyMask[key] || 0;
-                _sendKeyState();
-            }
-        };
-
-        _this.keyUp = function (key) {
-            var count = _keyRefs[key] || 0;
-            if (count <= 0) {
-                return;
-            }
-            if (count === 1) {
-                delete _keyRefs[key];
-                _keyState &= ~(KeyMask[key] || 0);
-                _sendKeyState();
-                return;
-            }
-            _keyRefs[key] = count - 1;
-        };
-
-        _this.key = function (key, pressed) {
-            return pressed ? _this.keyDown(key) : _this.keyUp(key);
-        };
-
-        _this.keys = function (state) {
-            if (state !== undefined) {
-                _keyState = state & 0xFF;
-                _keyRefs = {};
-                _sendKeyState();
-            }
-            return _keyState;
-        };
-
-        _this.muted = function (status) {
-            if (status !== undefined && _video) {
-                _video.muted = status;
-                _this.config.muted = _video.muted;
-            }
-            return _video ? _video.muted : _this.config.muted;
-        };
-
-        function _sendKeyState() {
-            if (_input && _input.readyState === 'open') {
-                try {
-                    var payload = new Uint8Array([_keyState]);
-                    _input.send(payload);
-                } catch (err) {
-                    _logger.warn(`Failed to send input: state=${_keyState}, error=${err}`);
-                }
-            }
+        function _onDataChannelClose(e) {
+            _logger.log(`onDataChannelClose: ${e.target.label}`);
         }
 
-        function _startInputSync() {
-            _stopInputSync();
-            _sendKeyState();
-            _inputSyncTimer = setInterval(_sendKeyState, InputSyncInterval);
-        }
-
-        function _stopInputSync() {
-            if (_inputSyncTimer !== null) {
-                clearInterval(_inputSyncTimer);
-                _inputSyncTimer = null;
+        _this.stop = async function () {
+            if (_timer) {
+                _timer.reset();
             }
-        }
-
-        _this.state = function () {
-            return _state;
-        };
-
-        _this.getStats = async function (selector) {
-            if (!_pc) {
-                return Promise.reject({ name: 'InvalidStateError', message: 'PeerConnection is not available.' });
+            if (_xhr) {
+                _xhr.abort();
             }
-            return _pc.getStats(selector);
-        };
-
-        function _startStats() {
-            _stopStats();
-            _collectStats(false);
-            _statsTimer = setInterval(function () {
-                _collectStats(true);
-            }, StatsInterval);
-        }
-
-        function _stopStats() {
-            if (_statsTimer !== null) {
-                clearInterval(_statsTimer);
-                _statsTimer = null;
+            if (_stream) {
+                _stream = null;
             }
-            _statsSnapshot = null;
-            _statsPending = false;
-        }
-
-        async function _collectStats(dispatch) {
-            if (!_pc || _statsPending) {
-                return;
-            }
-
-            var pc = _pc;
-            _statsPending = true;
-            try {
-                var report = await pc.getStats();
-                if (pc !== _pc) {
-                    return;
-                }
-
-                var current = {
-                    timestamp: Date.now(),
-                    framesDecoded: null,
-                    framesPerSecond: null,
-                    nackCount: null,
-                    pliCount: null,
-                    framesDropped: null,
-                    freezeCount: null,
-                };
-                report.forEach(function (stats) {
-                    if (stats.type !== 'inbound-rtp' || (stats.kind || stats.mediaType) !== 'video' || stats.isRemote) {
-                        return;
-                    }
-                    _addStat(current, 'framesDecoded', stats.framesDecoded);
-                    _addStat(current, 'framesPerSecond', stats.framesPerSecond);
-                    _addStat(current, 'nackCount', stats.nackCount);
-                    _addStat(current, 'pliCount', stats.pliCount);
-                    _addStat(current, 'framesDropped', stats.framesDropped);
-                    _addStat(current, 'freezeCount', stats.freezeCount);
-                });
-
-                var previous = _statsSnapshot;
-                _statsSnapshot = current;
-                if (!dispatch || !previous) {
-                    return;
-                }
-
-                var elapsed = Math.max((current.timestamp - previous.timestamp) / 1000, 0.001);
-                var fps = current.framesDecoded !== null && previous.framesDecoded !== null
-                    ? _delta(current.framesDecoded, previous.framesDecoded) / elapsed
-                    : current.framesPerSecond;
-                _this.dispatchEvent(MediaEvent.STATSUPDATE, {
-                    stats: {
-                        fps: fps === null ? null : Math.round(fps * 10) / 10,
-                        nack: _statDelta(current, previous, 'nackCount'),
-                        pli: _statDelta(current, previous, 'pliCount'),
-                        droppedFrames: _statDelta(current, previous, 'framesDropped'),
-                        freezes: _statDelta(current, previous, 'freezeCount'),
-                        interval: current.timestamp - previous.timestamp,
-                    },
-                });
-            } catch (err) {
-                if (pc === _pc) {
-                    _logger.warn(`Failed to collect Famicom stats: ${err.message || err}`);
-                }
-            } finally {
-                if (pc === _pc) {
-                    _statsPending = false;
-                }
-            }
-        }
-
-        function _addStat(snapshot, key, value) {
-            if (typeof value !== 'number' || !isFinite(value)) {
-                return;
-            }
-            snapshot[key] = (snapshot[key] || 0) + value;
-        }
-
-        function _statDelta(current, previous, key) {
-            if (current[key] === null || previous[key] === null) {
-                return null;
-            }
-            return _delta(current[key], previous[key]);
-        }
-
-        function _delta(current, previous) {
-            return current >= previous ? current - previous : 0;
-        }
-
-        function _cleanupPeerConnection() {
-            _stopInputSync();
-            _stopStats();
-            if (_input) {
-                _input.removeEventListener('open', _onDataChannelOpen);
-                _input.removeEventListener('close', _onDataChannelClose);
-                _input.removeEventListener('error', _onDataChannelError);
-                _input.close();
-                _input = null;
+            if (_channel) {
+                _channel.removeEventListener('open', _onDataChannelOpen);
+                _channel.removeEventListener('error', _onDataChannelError);
+                _channel.removeEventListener('close', _onDataChannelClose);
+                _channel.close();
+                _channel = null;
             }
             if (_pc) {
                 _pc.removeEventListener('track', _onTrack);
+                _pc.removeEventListener('connectionstatechange', _onConnectionStateChange);
                 _pc.removeEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
+                _pc.removeEventListener('icecandidate', _onIceCandidate);
                 _pc.close();
                 _pc = null;
-            }
-            if (_stream) {
-                _stream.getTracks().forEach(function (track) {
-                    track.stop();
-                });
-                _stream = null;
             }
             if (_video) {
                 _video.pause();
                 _video.srcObject = null;
             }
+
+            await _stop();
+            return Promise.resolve();
+        };
+
+        _this.keyDown = function (port, key) {
+            _keys[port] |= key;
+            _sendKeyState();
+        };
+
+        _this.keyUp = function (port, key) {
+            _keys[port] &= ~key;
+            _sendKeyState();
+        };
+
+        function _sendKeyState(port) {
+            if (_channel && _channel.readyState === 'open') {
+                try {
+                    var payload = new Uint8Array([port, _keys[port]]);
+                    _channel.send(payload);
+                } catch (err) {
+                    _logger.warn(`Failed to send input: port=${port}, keys=${_keys[port]}, error=${err}`);
+                }
+            }
         }
 
-        function _destroyClient(reason) {
-            var instance = _this.config.instance;
-            _clearPlayerCookie(instance, _this.config.playerSlot);
-            _this.config.instance = '';
-            _this.config.player = '';
-            _cleanupPeerConnection();
-            if (_video) {
-                _video.removeEventListener('volumechange', _onVolumeChange);
-            }
-            if (_container && _video && _video.parentNode === _container) {
-                _container.removeChild(_video);
-            }
-            _state = State.CLOSED;
-            _this.dispatchEvent(Event.CLOSE, { reason: reason });
-            delete _instances[_id];
+        async function _onStatsTimer() {
+            var pc = _pc;
+            var report = await pc.getStats();
+
+            var current = {
+                timestamp: 0,
+                framesPerSecond: 0,
+                framesDecoded: 0,
+                framesDropped: 0,
+                nackCount: 0,
+                pliCount: 0,
+                freezeCount: 0,
+            };
+            report.forEach(function (stats) {
+                if (stats.kind === 'video' && stats.type === 'inbound-rtp') {
+                    current.timestamp = stats.timestamp;
+                    current.framesPerSecond = stats.framesPerSecond;
+                    current.framesDecoded = stats.framesDecoded;
+                    current.framesDropped = stats.framesDropped;
+                    current.nackCount = stats.nackCount;
+                    current.pliCount = stats.pliCount;
+                    current.freezeCount = stats.freezeCount;
+                }
+            });
+
+            var elapsed = Math.max((current.timestamp - _stats.timestamp) / 1000, 1);
+            _this.dispatchEvent(MediaEvent.STATSCHANGE, {
+                stats: {
+                    fps: current.framesPerSecond,
+                    decoded: (current.framesDecoded - stats.framesDecoded) / elapsed,
+                    dropped: (current.framesDropped - stats.framesDropped) / elapsed,
+                    nack: (current.nackCount - stats.nackCount) / elapsed,
+                    pli: (pliCount - stats.pliCount) / elapsed,
+                    freeze: (current.freezeCount - stats.freezeCount) / elapsed,
+                },
+            });
         }
+
+        function _setCookie(value, age) {
+            var expires = new Date(age).toUTCString();
+            document.cookie = `famicom=${value}; expires=${expires}`;
+        }
+
+        function _getCookie() {
+            var cookies = document.cookie.split('; ');
+            for (var cookie of cookies) {
+                var i = cookie.indexOf('=');
+                if (cookie.substring(0, i) === 'famicom') {
+                    return new URL(cookie.substring(i + 1));
+                }
+            }
+            return null;
+        }
+
+        _this.muted = function (status) {
+            if (_video && status !== undefined) {
+                _video.muted = status;
+            }
+            return _video ? _video.muted : _this.config.muted;
+        };
+
+        _this.state = function () {
+            return _state;
+        };
+
+        _this.element = function () {
+            return _video;
+        };
+
+        _this.resize = function (width, height) {
+
+        };
+
+        _this.destroy = async function (reason) {
+            switch (_state) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.CONNECTED:
+                    _state = State.CLOSING;
+                    _this.stop();
+
+                    if (_video) {
+                        _video.removeEventListener('volumechange', _onVolumeChange);
+                    }
+                    if (_container) {
+                        _container.innerHTML = '';
+                    }
+                    delete _instances[_id];
+
+                    _this.dispatchEvent(Event.CLOSE, { reason: reason });
+                    _state = State.CLOSED;
+                    break;
+            }
+        };
 
         _init();
     }
@@ -736,15 +595,12 @@
     Famicom.prototype.CONF = _default;
 
     Famicom.State = State;
+    Famicom.Port = Port;
     Famicom.Key = Key;
-    Famicom.KeyMask = KeyMask;
 
-    Famicom.get = function (id, nc, logger) {
+    Famicom.get = function (id, logger) {
         if (id == null) {
             id = 0;
-        }
-        if (logger === undefined) {
-            logger = nc;
         }
         var fc = _instances[id];
         if (fc === undefined) {
@@ -754,10 +610,7 @@
         return fc;
     };
 
-    Famicom.create = function (nc, logger) {
-        if (logger === undefined) {
-            logger = nc;
-        }
+    Famicom.create = function (logger) {
         return Famicom.get(_id++, logger);
     };
 
@@ -765,3 +618,4 @@
     odd.famicom.create = Famicom.create;
     odd.Famicom = Famicom;
 })(odd);
+

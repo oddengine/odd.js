@@ -3,29 +3,30 @@
         css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        GlobalEvent = events.GlobalEvent,
-        Player = odd.Player,
-        UI = Player.UI,
-        components = UI.components,
+        Event = events.Event,
+        components = odd.Player.UI.components,
 
+        CLASS_TOOLTIP = 'pe-tooltip',
         CLASS_PANEL = 'pe-panel';
 
-    function Panel(name, kind, logger) {
+    function Panel(name, value, logger) {
         var args = Array.prototype.slice.call(arguments, 3);
-        EventDispatcher.apply(this, [kind || 'Panel', { logger: logger }].concat(args).concat([[GlobalEvent.VISIBILITYCHANGE]]));
+        EventDispatcher.apply(this, [value || 'Panel', { logger: logger }].concat(args).concat([[Event.VISIBILITYCHANGE]]));
 
         var _this = this,
-            _name,
+            _name = name,
             _logger = logger,
             _container,
+            _tooltip,
             _content,
-            _data;
-
-        function _init() {
-            _name = name;
             _data = {};
 
+        function _init() {
             _container = utils.createElement('div', CLASS_PANEL + ' ' + _name);
+
+            _tooltip = utils.createElement('span', CLASS_TOOLTIP);
+            _container.appendChild(_tooltip);
+
             _content = utils.createElement('div');
             _container.appendChild(_content);
         }
@@ -52,26 +53,22 @@
         };
 
         _this.clear = function () {
-            _data = {};
             _content.innerHTML = '';
+            _data = {};
         };
 
         _this.show = function () {
-            if (_container.style.display === 'inline-block') {
-                _this.hide();
-                return;
-            }
             css.style(_container, {
                 display: 'inline-block',
             });
-            _this.dispatchEvent(GlobalEvent.VISIBILITYCHANGE, { name: _name, state: 'visible' });
+            _this.dispatchEvent(Event.VISIBILITYCHANGE, { name: _name, state: 'visible' });
         };
 
         _this.hide = function () {
             css.style(_container, {
                 display: 'none',
             });
-            _this.dispatchEvent(GlobalEvent.VISIBILITYCHANGE, { name: _name, state: 'hidden' });
+            _this.dispatchEvent(Event.VISIBILITYCHANGE, { name: _name, state: 'hidden' });
         };
 
         _this.element = function () {

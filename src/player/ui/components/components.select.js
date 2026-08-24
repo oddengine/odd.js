@@ -3,101 +3,89 @@
         css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        GlobalEvent = events.GlobalEvent,
-        Player = odd.Player,
-        UI = Player.UI,
-        components = UI.components,
+        Event = events.Event,
+        components = odd.Player.UI.components,
 
         CLASS_SELECT = 'pe-select',
-        CLASS_SELECT_TEXT = 'pe-select-text',
-        CLASS_SELECT_MENU = 'pe-select-menu',
-        CLASS_SELECT_MENU_OPTION = 'pe-select-menu-option';
+        CLASS_SELECT_LABEL = 'pe-select-label',
+        CLASS_SELECT_LIST = 'pe-select-list',
+        CLASS_SELECT_OPTION = 'pe-select-option';
 
-    function Select(name, kind, logger) {
-        EventDispatcher.call(this, 'Select', { logger: logger }, [GlobalEvent.CHANGE]);
+    function Select(name, value, logger) {
+        EventDispatcher.call(this, 'Select', { logger: logger }, [Event.CHANGE]);
 
         var _this = this,
-            _name,
+            _name = name,
             _logger = logger,
-            _value,
-            _options,
             _container,
-            _text,
-            _menu;
+            _label,
+            _list,
+            _index = NaN;
 
         function _init() {
-            _name = name;
-            _value = NaN;
-            _options = [];
-
             _container = utils.createElement('div', CLASS_SELECT + ' ' + _name);
-            _text = utils.createElement('span', CLASS_SELECT_TEXT);
-            _menu = utils.createElement('div', CLASS_SELECT_MENU);
-            _menu.style.visibility = 'hidden';
-            _container.appendChild(_text);
-            _container.appendChild(_menu);
 
-            _text.addEventListener('click', function (e) {
-                _menu.style.visibility = _menu.style.visibility === 'hidden' ? 'visible' : 'hidden';
-            });
+            _label = utils.createElement('span', CLASS_SELECT_LABEL);
+            _label.addEventListener('click', _onClick);
+            _container.appendChild(_label);
+
+            _list = utils.createElement('div', CLASS_SELECT_LIST);
+            _list.style.visibility = 'hidden';
+            _container.appendChild(_list);
+        }
+
+        function _onClick(e) {
+            _list.style.visibility = _list.style.visibility === 'hidden' ? 'visible' : 'hidden';
+            _this.dispatchEvent(MouseEvent.CLICK, { name: _name, visibility: _list.style.visibility });
         }
 
         _this.append = function (label, value) {
-            var option = utils.createElement('span', CLASS_SELECT_MENU_OPTION);
-            option.addEventListener('click', _onClick);
-            option.setAttribute('value', value || _options.length);
+            var option = utils.createElement('span', CLASS_SELECT_OPTION);
+            option.addEventListener('click', _onItemClick);
             option.innerHTML = label;
-            _options.push(option);
-            _menu.appendChild(option);
+            _list.appendChild(option);
 
-            if (_options.length === 1) {
-                _this.value(option.getAttribute('value'));
+            if (isNaN(_index)) {
+                _this.select(0);
             }
+            _this.resize();
         };
 
-        function _onClick(e) {
-            var value = e.target.getAttribute('value');
-            if (value !== _value) {
-                _this.dispatchEvent(GlobalEvent.CHANGE, { name: _name, value: value });
+        function _onItemClick(e) {
+            var index = indexOf(_list.children, e.target);
+            if (index !== _this.index()) {
+                _this.dispatchEvent(Event.CHANGE, { name: _name, index: index });
             }
-            _menu.style.visibility = 'hidden';
+            _list.style.visibility = 'hidden';
+            _this.dispatchEvent(MouseEvent.CLICK, { name: _name, visibility: _list.style.visibility });
         }
 
-        _this.remove = function (value) {
-            for (var i = 0; i < _options.length; i++) {
-                var option = _options[i];
-                if (option.getAttribute('value') === value) {
-                    option.removeEventListener('click', _onClick);
-                    _menu.removeChild(option);
-                    _options.splice(i, 1);
+        _this.remove = function (index) {
+            if (index >= 0 && index < _list.children.length) {
+                var option = _list.children[index];
+                option.removeEventListener('click', _onItemClick);
+                _label.innerHTML = '';
+                _list.removeChild(option);
 
-                    if (_value === value) {
-                        _value = _options.length || NaN;
-                        _text.innerHTML = _options.length ? _options[0].innerHTML : _placeholder;
-                    }
-                    break;
+                if (_index >= index) {
+                    _this.select(0);
                 }
+                _this.resize();
             }
         };
 
-        _this.value = function (value) {
-            switch (typeof value) {
-                case 'number':
-                case 'string':
-                    for (var i = 0; i < _options.length; i++) {
-                        var option = _options[i];
-                        if (option.getAttribute('value') == value) {
-                            _value = value;
-                            _text.innerHTML = option.innerHTML;
-                            _container.setAttribute('value', value);
-                            _this.resize();
-                            break;
-                        }
-                    }
-                    break;
-            }
+        _this.select = function (index) {
+            if (_index !== index && index >= 0 && index < _list.children.length) {
+                _index = index;
 
-            return _value;
+                var option = _list.children[_index];
+                _label.innerHTML = option.innerHTML;
+                _this.dispatchEvent(Event.CHANGE, { name: _name, index: index });
+            }
+        };
+
+        _this.index = function () {
+            return _index;
         };
 
         _this.element = function () {
@@ -105,8 +93,8 @@
         };
 
         _this.resize = function (width, height) {
-            css.style(_menu, {
-                'left': (_container.clientWidth - _menu.clientWidth) / 2 + 'px',
+            css.style(_list, {
+                'left': (_container.clientWidth - _list.clientWidth) / 2 + 'px',
             });
         };
 

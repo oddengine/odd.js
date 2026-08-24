@@ -188,10 +188,7 @@
     MSStream.prototype.CONF = _default;
 
     // Only supported by IE10, IE11 and Edge.
-    MSStream.prototype.isSupported = function (url, mode) {
-        if (mode && mode !== 'live') {
-            return false;
-        }
+    MSStream.prototype.isSupported = function (url, vod) {
         if (!Browser.isIE10 && !Browser.isIE11 && !Browser.isEdge) {
             return false;
         }

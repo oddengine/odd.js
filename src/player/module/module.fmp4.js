@@ -1,6 +1,5 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         WriterState = utils.StreamWriter.WriterState,
         StreamSaver = utils.StreamSaver,
         OS = odd.OS,
@@ -22,14 +21,16 @@
 
         var _this = this,
             _logger = logger,
-            _ready,
-            _escaped,
-            _buffering,
-            _ended,
             _video,
+            _ready,
+            _program,
+            _definition,
             _url,
             _ms,
             _sb,
+            _escaped,
+            _buffering,
+            _ended,
             _loader,
             _demuxer,
             _ftyp,
@@ -51,28 +52,19 @@
 
         function _init() {
             _this.config = config;
+
             _ready = false;
+            _definition = 0;
+            _url = new utils.URL();
             _escaped = false;
             _buffering = false;
             _ended = false;
-            _url = new utils.URL();
             _sb = [];
             _ftyp = null; // Packet
             _moov = null; // Packet
             _segments = [];
             _writer = null;
             _need2remove = 0;
-            _saver = new StreamSaver(_this.config.service, _logger);
-            _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
-            _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
-            _removingTimer = new utils.Timer(_this.config.maxPlaybackLength * 500, 0, _logger);
-            _removingTimer.addEventListener(TimerEvent.TIMER, _onRemovingTimer);
-            _statsTimer = new utils.Timer(1000, 0, _logger);
-            _statsTimer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
-            _sourceTimer = new utils.Timer(1000, 1, _logger);
-            _sourceTimer.addEventListener(TimerEvent.TIMER, _onSourceTimer);
-            _initMSE();
-            _initMuxer();
 
             _video = utils.createElement('video');
             _video.addEventListener('play', _onPlay);
@@ -98,11 +90,6 @@
             _video.addEventListener('load', _this.forward);
             _video.addEventListener('ended', _this.forward);
             _video.addEventListener('error', _onError);
-            if (_this.config.objectfit) {
-                css.style(_video, {
-                    'object-fit': _this.config.objectfit,
-                });
-            }
             if (_this.config.airplay) {
                 _video.setAttribute('x-webkit-airplay', 'allow');
             }
@@ -119,6 +106,22 @@
             }
             _video.muted = _this.config.muted;
             _video.volume = _this.config.volume;
+
+            _saver = new StreamSaver(_this.config.service, _logger);
+            _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
+            _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
+
+            _removingTimer = new utils.Timer(_this.config.maxPlaybackLength * 500, 0, _logger);
+            _removingTimer.addEventListener(TimerEvent.TIMER, _onRemovingTimer);
+
+            _statsTimer = new utils.Timer(1000, 0, _logger);
+            _statsTimer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
+
+            _sourceTimer = new utils.Timer(1000, 1, _logger);
+            _sourceTimer.addEventListener(TimerEvent.TIMER, _onSourceTimer);
+
+            _initMSE();
+            _initMuxer();
         }
 
         function _initMSE() {
@@ -175,57 +178,51 @@
             }
         };
 
-        _this.play = function (file, option) {
+        _this.play = function (program) {
             if (_ready === false) {
                 _this.setup();
                 return;
             }
-            if (utils.typeOf(file) === 'string' && new utils.URL(file).href !== _url.href) {
+
+            if (program && program.sources[_definition].url !== _url.href) {
+                var file = program.sources[_definition].url;
+                _logger.log('URL: ' + file);
+
                 try {
-                    _logger.log('URL: ' + file);
                     _url.parse(file);
                 } catch (err) {
                     _logger.error('Failed to parse url \"' + file + '\".');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     return;
                 }
+                _program = program;
                 _ended = false;
-                _initLoader(option || {});
+                _initLoader(_this.config.loader || {});
+
                 _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
                 _video.src = URL.createObjectURL(_ms);
                 _video.load();
             }
 
-            var promise = _video.play();
-            if (promise) {
-                promise['catch'](function (err) {
-                    switch (err.name) {
-                        case 'AbortError':
-                            _logger.debug(err.name + ': ' + err.message);
-                            break;
-                        case 'NotAllowedError':
-                            // Chrome: play() failed because the user didn’t interact with the document first.
-                            // Safari: The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.
-                            _logger.warn('Failed to play due to the autoplay policy, trying to play in mute.');
-                            if (OS.isMobile) {
-                                return;
-                            }
+            _video.play().catch(function (err) {
+                switch (err.name) {
+                    case 'AbortError':
+                        _logger.debug(err.name + ': ' + err.message);
+                        break;
+                    case 'NotAllowedError':
+                        if (_video.muted == false) {
                             _video.muted = true;
-
-                            promise = _video.play();
-                            if (promise) {
-                                promise['catch'](function (err) {
-                                    _video.muted = _this.config.muted;
-                                });
-                            }
+                            _video.play().catch(function (err) {
+                                _logger.warn(`${err}`);
+                            });
                             break;
-                        default:
-                            _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
-                            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                            break;
-                    }
-                });
-            }
+                        }
+                    default:
+                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        break;
+                }
+            });
             _video.controls = false;
         };
 
@@ -382,9 +379,9 @@
             _loader.addEventListener(IOEvent.LOADSTART, _this.forward);
             _loader.addEventListener(IOEvent.OPEN, _this.forward);
             _loader.addEventListener(IOEvent.STALLED, _this.forward);
-            _loader.addEventListener(IOEvent.ABORT, _onIOAbort);
+            _loader.addEventListener(IOEvent.ABORT, _onAbort);
             _loader.addEventListener(IOEvent.TIMEOUT, _this.forward);
-            _loader.addEventListener(IOEvent.PROGRESS, _onIOProgress);
+            _loader.addEventListener(IOEvent.PROGRESS, _onProgress);
             _loader.addEventListener(IOEvent.SUSPEND, _this.forward);
             _loader.addEventListener(IOEvent.LOAD, _this.forward);
             _loader.addEventListener(IOEvent.LOADEND, _onLoadEnd);
@@ -397,9 +394,9 @@
                 _loader.removeEventListener(IOEvent.LOADSTART, _this.forward);
                 _loader.removeEventListener(IOEvent.OPEN, _this.forward);
                 _loader.removeEventListener(IOEvent.STALLED, _this.forward);
-                _loader.removeEventListener(IOEvent.ABORT, _onIOAbort);
+                _loader.removeEventListener(IOEvent.ABORT, _onAbort);
                 _loader.removeEventListener(IOEvent.TIMEOUT, _this.forward);
-                _loader.removeEventListener(IOEvent.PROGRESS, _onIOProgress);
+                _loader.removeEventListener(IOEvent.PROGRESS, _onProgress);
                 _loader.removeEventListener(IOEvent.SUSPEND, _this.forward);
                 _loader.removeEventListener(IOEvent.LOAD, _this.forward);
                 _loader.removeEventListener(IOEvent.LOADEND, _onLoadEnd);
@@ -408,11 +405,16 @@
             }
         }
 
-        function _onIOProgress(e) {
+        function _onAbort(e) {
+            e.type = Event.ENDED;
+            _this.forward(e);
+        }
+
+        function _onProgress(e) {
             _logger.debug('progress: ' + e.data.loaded + '/' + e.data.total);
             _bytesReceived += e.data.loaded;
             _bytesReceivedPerSecond += e.data.loaded;
-            _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: { BytesReceived: _bytesReceived } });
+            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { BytesReceived: _bytesReceived } });
             _demuxer.append(e.data.buffer);
         }
 
@@ -433,15 +435,10 @@
                 stats.DroppedVideoFrames = quality.droppedVideoFrames;
                 stats.TotalVideoFrames = quality.totalVideoFrames;
             }
-            _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: stats });
+            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: stats });
             _bytesReceivedPerSecond = 0;
             _audioPacketsReceivedPerSecond = 0;
             _videoPacketsReceivedPerSecond = 0;
-        }
-
-        function _onIOAbort(e) {
-            e.type = Event.ENDED;
-            _this.forward(e);
         }
 
         function _onFMP4Packet(e) {
@@ -714,23 +711,21 @@
     FMP4.prototype.constructor = FMP4;
     FMP4.prototype.kind = 'FMP4';
 
-    FMP4.prototype.isSupported = function (file, mode) {
+    FMP4.prototype.isSupported = function (program) {
         if (Browser.isMSIE && Browser.major < 9 || !(window.MediaSource || window.WebKitMediaSource)) {
             return false;
         }
-        var url = new utils.URL(file);
-        if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.protocol !== 'ws:' && url.protocol !== 'wss:') {
-            return false;
-        }
-        var map = [
-            'mp4', 'm4s', 'm4v', '', undefined,
-        ];
-        for (var i = 0; i < map.length; i++) {
-            if (url.filetype === map[i]) {
-                return true;
+        for (var source of program.sources) {
+            var url = new utils.URL(source.url);
+            if (!url.protocol.match(/^(http|https|ws|wss)\:$/gi)) {
+                return false;
+            }
+            var arr = ['.mp4', '.m4s', '.m4v', ''];
+            if (arr.indexOf(url.filetype) === -1) {
+                return false;
             }
         }
-        return false;
+        return !!program.sources.length;
     };
 
     Module.register(FMP4);

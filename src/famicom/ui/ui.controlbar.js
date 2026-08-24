@@ -8,16 +8,31 @@
         UI = Famicom.UI,
         components = UI.components,
 
-        CLASS_CONTROLBAR = 'famicom-controlbar',
-        CLASS_LEFT = 'famicom-left',
-        CLASS_CENTER = 'famicom-center',
-        CLASS_RIGHT = 'famicom-right',
+        CLASS_CONTROLBAR = 'pe-controlbar',
+        CLASS_TOOLTIP = 'pe-tooltip',
 
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
             kind: 'Controlbar',
-            layout: '[Button:select=Select][Button:start=Start][JoyStick:joystick=]||[Button:b=B][Button:a=A]',
-            mobileonly: true,
+            layout: '[Label:player=P1]' +
+                    '|' +
+                    '[Label:left=Left(A)]' +
+                    '[Label:up=Up(W)]' +
+                    '[Label:down=Down(S)]' +
+                    '[Label:right=Right(D)]' +
+                    '|' +
+                    '[Label:select=Select(G)]' +
+                    '[Label:start=Start(H)]' +
+                    '[Label:b=B(J)]' +
+                    '[Label:a=A(K)]' +
+                    '|' +
+                    '[Button:capture=Capture]' +
+                    '[Toggle:muted=off off=Mute;on=Unmute]' +
+                    '[Slider:volume=80]' +
+                    '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
+                    '[Button:settings=Settings]' +
+                    '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
+                    '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
             visibility: true,
         };
 
@@ -32,50 +47,78 @@
         function _init() {
             _this.config = config;
             _this.components = {};
+
             _container = utils.createElement('div', CLASS_CONTROLBAR);
             _content = utils.createElement('div');
             _container.appendChild(_content);
+
             _buildComponents();
         }
 
         function _buildComponents() {
             var layouts = _this.config.layout.split('|');
-            if (layouts.length !== 3) {
-                throw { name: 'DataError', message: 'Controlbar should have exactly 3 sections.' };
+            if (layouts.length !== 4) {
+                throw { name: 'DataError', message: 'Controlbar should have exactly 4 sections.' };
             }
 
-            var left = utils.createElement('div', CLASS_LEFT);
-            var center = utils.createElement('div', CLASS_CENTER);
-            var right = utils.createElement('div', CLASS_RIGHT);
-
-            utils.forEach([left, center, right], function (i, container) {
+            var sections = ['left', 'center', 'right'];
+            for (var i = 0; i < layouts.length; i++) {
+                var section = utils.createElement('div', 'pe-' + sections[i]);
                 var arr;
-                _regi.lastIndex = 0;
                 while ((arr = _regi.exec(layouts[i])) !== null) {
-                    _buildComponent(container, arr[1], arr[2], arr[3]);
+                    _buildComponent(section, arr[1], arr[2], arr[3]);
                 }
-            });
-
-            _content.appendChild(left);
-            _content.appendChild(center);
-            _content.appendChild(right);
+                _content.appendChild(section);
+            }
         }
 
-        function _buildComponent(container, type, name, kind) {
-            var component = new components[type](name, kind, _logger);
+        function _buildComponent(container, type, name, value) {
+            switch (name) {
+                case 'capture':
+                    if (OS.isIOS && !Browser.isSafari) {
+                        return;
+                    }
+                    break;
+                case 'muted':
+                case 'volume':
+                    if (OS.isMobile) {
+                        return;
+                    }
+                    break;
+            }
+
+            var component = new components[type](name, value, _logger);
             if (utils.typeOf(component.addGlobalListener) === 'function') {
                 component.addGlobalListener(_this.forward);
             }
             var element = component.element();
+            if (value !== undefined) {
+                var tooltip;
+                if (utils.typeOf(components[value]) === 'function') {
+                    tooltip = new components[value](name, value, _logger);
+                    element.insertAdjacentElement('afterbegin', tooltip.element());
+                } else {
+                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
+                    tooltip.innerHTML = value;
+                    element.insertAdjacentElement('afterbegin', tooltip);
+                }
+                component.tooltip = tooltip;
+            }
             container.appendChild(element);
             _this.components[name] = component;
-
-            if (name === 'joystick') {
-                component.config = utils.extendz(component.config, _this.config.joystick);
-            } else if (kind !== undefined) {
-                element.innerHTML = kind;
-            }
         }
+
+        _this.state = function (name, value) {
+            var component = _this.components[name];
+            if (component && component.value) {
+                component.value(value);
+            }
+        };
+
+        _this.value = function (name, value) {
+            var component = _this.components[name];
+            return component && component.value ? component.value(value) : undefined;
+        };
 
         _this.element = function () {
             return _container;

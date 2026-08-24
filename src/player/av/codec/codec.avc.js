@@ -82,7 +82,7 @@
                     break;
                 case DataTypes.END_OF_SEQUENCE:
                     _logger.debug('AVC sequence end.');
-                    _this.dispatchEvent(MediaEvent.END_OF_STREAM, { packet: pkt });
+                    _this.dispatchEvent(MediaEvent.ENDOFSTREAM, { packet: pkt });
                     break;
                 default:
                     _this.dispatchEvent(Event.ERROR, { name: 'TypeError', message: 'Unrecognized AVC packet type: ' + pkt.get('DataType') });
@@ -160,7 +160,7 @@
 
             _this.Codec = _this.SPS.Codec;
             _info.Codecs.push(_this.Codec);
-            _this.dispatchEvent(MediaEvent.AVC_CONFIG_RECORD, { packet: pkt });
+            _this.dispatchEvent(MediaEvent.AVCCONFIGRECORD, { packet: pkt });
         }
 
         function _parseNalUnits(pkt) {
@@ -219,7 +219,7 @@
                 i += naluSize;
             }
 
-            _this.dispatchEvent(MediaEvent.AVC_SAMPLE, { packet: pkt });
+            _this.dispatchEvent(MediaEvent.AVCSAMPLE, { packet: pkt });
         }
 
         _init();

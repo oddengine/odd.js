@@ -12,22 +12,15 @@
         EventDispatcher.call(this, 'Controller', { logger: logger }, Event, IOEvent);
 
         var _this = this,
+            _model = model,
+            _view = view,
             _logger = logger,
-            _model,
-            _view,
-            _file,
-            _option,
-            _stalled,
-            _retries,
-            _retrying;
-
-        function _init() {
-            _model = model;
-            _view = view;
-            _stalled = 0;
-            _retries = 0;
+            _program,
+            _stalled = 0,
+            _retries = 0,
             _retrying = false;
 
+        function _init() {
             _view.addEventListener(Event.READY, _onReady);
             _view.addEventListener(Event.PLAY, _onStateChange);
             _view.addEventListener(Event.WAITING, _onStateChange);
@@ -55,7 +48,7 @@
             _view.addEventListener(IOEvent.LOAD, _this.forward);
             _view.addEventListener(IOEvent.LOADEND, _this.forward);
             _view.addEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
-            _view.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+            _view.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
             _view.addEventListener(MediaEvent.SEI, _this.forward);
             _view.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
             _view.addEventListener(SaverEvent.WRITERSTART, _this.forward);
@@ -64,29 +57,26 @@
             _view.addEventListener(Event.ERROR, _onError);
         }
 
-        _this.play = function (file, option) {
-            if (file === undefined) {
+        _this.play = function (program) {
+            if (program === undefined) {
                 if (_model.state() === 'pause') {
                     _view.play();
                     return;
                 }
 
-                var current = _model.definition();
-                if (current == null || !current.file) {
+                program = _model.program();
+                if (program == null || utils.typeOf(program.sources) !== 'array') {
                     _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'No supported source url found.' });
                     return;
                 }
-                file = current.file;
-                option = current;
             }
-            _file = file;
-            _option = option;
-            _view.play(_file, _option);
+            _program = program;
+            _view.play(_program);
         };
 
         _this.reload = function () {
             _view.stop();
-            _this.play(_file, _option);
+            _this.play(_program);
         };
 
         _this.destroy = function () {
@@ -121,7 +111,7 @@
                 _view.removeEventListener(IOEvent.LOAD, _this.forward);
                 _view.removeEventListener(IOEvent.LOADEND, _this.forward);
                 _view.removeEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
-                _view.removeEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+                _view.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
                 _view.removeEventListener(MediaEvent.SEI, _this.forward);
                 _view.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
                 _view.removeEventListener(SaverEvent.WRITERSTART, _this.forward);
@@ -135,7 +125,7 @@
         function _onReady(e) {
             _logger.log(e.data.kind + ' module is ready.');
             _onStateChange(e);
-            _this.play(_file, _option);
+            _this.play(_program);
         }
 
         function _onLoadStart(e) {
@@ -185,7 +175,7 @@
             _this.forward(e);
         }
 
-        function _onStatsUpdate(e) {
+        function _onStatsChange(e) {
             _model.setProperty('stats', e.data.stats);
             _this.forward(e);
         }
@@ -233,7 +223,7 @@
                 case Event.WAITING:
                     _stalled++;
                     _model.setProperty('stats', { StalledTimes: _stalled });
-                    _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: { StalledTimes: _stalled } });
+                    _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { StalledTimes: _stalled } });
                     break;
                 case Event.ENDED:
                     _view.stop();

@@ -30,75 +30,56 @@
         function _init() {
             _this.config = config;
             _this.config.items = [{
-                id: 0,
-                mode: 'featured', // '', featured, disable
+                name: '',
+                type: 'featured', // '', featured, disabled
                 icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAMAAAC6V+0/AAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAA2UExURebm5ubm5ubm5ubm5ubm5ubm5ubm5kxpcebm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5rnvS8UAAAASdFJOU/9GGpAEVa0AOw0vovB5tnDaudiwhIIAAACiSURBVBjTXZHbAsQQDERDkQS97P//7GaibLfzgJxgIoiHVHIWvQPysRZylbpg2mhpSwOmgx46kkPf10KMoflewGqLLsNBugXVIDxuZhRuTGrJZmHIXhBuUEIuMC7pJ3I4R9nGyHzCY2eONmWHesMyoQyI3BXncRgZ1M+16zJCSbMRqyT4LriKt2calP9nWkMM7q+GcEo/OFvnGrDIo/Ov7/gCDPoHpWEsixcAAAAASUVORK5CYII=',
                 text: 'odd.js/' + odd().version,
                 shortcut: '',
                 handler: function () { window.open('https://oddengine.com/product/player.html'); },
             }].concat(utils.typeOf(config.items) === 'array' ? config.items : []);
 
-            if (Browser.flash) {
-                _this.config.items.push({
-                    mode: '',
-                    icon: '',
-                    text: 'Flash Version ' + Browser.flash,
-                    shortcut: '',
-                    handler: function () { window.open('https://get.adobe.com/cn/flashplayer/about/'); },
-                });
-            }
-
-            _this.config.items.push({
-                mode: '',
-                icon: '',
-                text: 'Show Media Info',
-                shortcut: '',
-                handler: function () { _this.dispatchEvent(MouseEvent.CLICK, { name: 'info' }); },
-            });
-            _this.config.items.push({
-                mode: '',
-                icon: '',
-                text: 'Show Media Stats',
-                shortcut: '',
-                handler: function () { _this.dispatchEvent(MouseEvent.CLICK, { name: 'stats' }); },
-            });
-
             _container = utils.createElement('div', CLASS_CONTEXTMENU);
+
             _table = utils.createElement('table');
             _container.appendChild(_table);
 
             for (var i = 0; i < _this.config.items.length; i++) {
                 var item = _this.config.items[i];
-                var tr = utils.createElement('tr', CLASS_CONTEXTMENU_ITEM + (item.mode ? ' ' + item.mode : ''));
-                tr.onmousedown = item.handler;
-
-                var icon = utils.createElement('td');
-                if (item.icon) {
-                    var span = utils.createElement('span', CLASS_CONTEXTMENU_ITEM_ICON);
-                    span.innerHTML = '<a style="background-image: url(' + item.icon + ');"></a>';
-                    icon.appendChild(span);
-                }
-
-                var text = utils.createElement('td');
-                if (item.text) {
-                    var span = utils.createElement('span', CLASS_CONTEXTMENU_ITEM_TEXT);
-                    span.innerHTML = item.text;
-                    text.appendChild(span);
-                }
-
-                var shortcut = utils.createElement('td');
-                if (item.shortcut) {
-                    var span = utils.createElement('span', CLASS_CONTEXTMENU_ITEM_SHORTCUT);
-                    span.innerHTML = item.shortcut;
-                    shortcut.appendChild(span);
-                }
-
-                tr.appendChild(icon);
-                tr.appendChild(text);
-                tr.appendChild(shortcut);
-                _table.appendChild(tr);
+                _this.append(item);
             }
         }
+
+        _this.append = function (item) {
+            var tr = utils.createElement('tr', CLASS_CONTEXTMENU_ITEM + (item.type ? ' ' + item.type : ''));
+            tr.onclick = item.handler;
+
+            var icon = utils.createElement('td');
+            if (item.icon) {
+                var span = utils.createElement('span', CLASS_CONTEXTMENU_ITEM_ICON);
+                span.innerHTML = '<a style="background-image: url(' + item.icon + ');"></a>';
+                icon.appendChild(span);
+            }
+            tr.appendChild(icon);
+
+            var text = utils.createElement('td');
+            if (item.text) {
+                var span = utils.createElement('span', CLASS_CONTEXTMENU_ITEM_TEXT);
+                span.innerHTML = item.text;
+                text.appendChild(span);
+            }
+            tr.appendChild(text);
+
+            var shortcut = utils.createElement('td');
+            if (item.shortcut) {
+                var span = utils.createElement('span', CLASS_CONTEXTMENU_ITEM_SHORTCUT);
+                span.innerHTML = item.shortcut;
+                shortcut.appendChild(span);
+            }
+            tr.appendChild(shortcut);
+
+            _table.appendChild(tr);
+            _this.config.items.push(item);
+        };
 
         _this.element = function () {
             return _container;

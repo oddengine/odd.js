@@ -3,54 +3,30 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         MouseEvent = events.MouseEvent,
-        Famicom = odd.Famicom,
-        UI = Famicom.UI,
-        components = UI.components,
+        components = odd.Famicom.UI.components,
 
-        CLASS_BUTTON = 'famicom-button';
+        CLASS_TOOLTIP = 'pe-tooltip',
+        CLASS_BUTTON = 'pe-button';
 
-    function Button(name, kind, logger) {
-        EventDispatcher.call(this, 'Button', { logger: logger }, [MouseEvent.CLICK, MouseEvent.MOUSE_DOWN, MouseEvent.MOUSE_UP]);
+    function Button(name, value, logger) {
+        EventDispatcher.call(this, 'Button', { logger: logger }, [MouseEvent.CLICK]);
 
         var _this = this,
             _name = name,
-            _container;
+            _logger = logger,
+            _container,
+            _tooltip;
 
         function _init() {
             _container = utils.createElement('span', CLASS_BUTTON + ' ' + name);
-            _container.addEventListener('mousedown', _onMouseDown);
-            _container.addEventListener('mouseup', _onMouseUp);
-            _container.addEventListener('mouseleave', _onMouseUp);
             _container.addEventListener('click', _onClick);
-            _container.addEventListener('touchstart', _onMouseDown);
-            _container.addEventListener('touchend', _onTouchEnd);
-            _container.addEventListener('touchcancel', _onTouchCancel);
-        }
 
-        function _onMouseDown(e) {
-            _this.dispatchEvent(MouseEvent.MOUSE_DOWN, { name: _name });
-            e.preventDefault();
-        }
-
-        function _onMouseUp(e) {
-            _this.dispatchEvent(MouseEvent.MOUSE_UP, { name: _name });
-            e.preventDefault();
+            _tooltip = utils.createElement('span', CLASS_TOOLTIP);
+            _container.appendChild(_tooltip);
         }
 
         function _onClick(e) {
             _this.dispatchEvent(MouseEvent.CLICK, { name: _name });
-            e.preventDefault();
-        }
-
-        function _onTouchEnd(e) {
-            _this.dispatchEvent(MouseEvent.MOUSE_UP, { name: _name });
-            _this.dispatchEvent(MouseEvent.CLICK, { name: _name });
-            e.preventDefault();
-        }
-
-        function _onTouchCancel(e) {
-            _this.dispatchEvent(MouseEvent.MOUSE_UP, { name: _name });
-            e.preventDefault();
         }
 
         _this.element = function () {
@@ -70,3 +46,4 @@
 
     components.Button = Button;
 })(odd);
+

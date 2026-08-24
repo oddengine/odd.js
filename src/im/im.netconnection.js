@@ -242,7 +242,7 @@
             }
 
             if (level && code) {
-                _this.dispatchEvent(NetStatusEvent.NET_STATUS, m.Arguments);
+                _this.dispatchEvent(NetStatusEvent.NETSTATUS, m.Arguments);
             }
             return Promise.resolve();
         }
@@ -389,7 +389,7 @@
                         _conn.close();
                         _conn = undefined;
                     }
-                    _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+                    _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                         level: Level.STATUS,
                         code: Code.NETCONNECTION_CONNECT_CLOSED,
                         description: 'connect closed',

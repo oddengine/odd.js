@@ -1,6 +1,5 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         WriterState = utils.StreamWriter.WriterState,
         StreamSaver = utils.StreamSaver,
         OS = odd.OS,
@@ -29,14 +28,16 @@
 
         var _this = this,
             _logger = logger,
-            _ready,
-            _escaped,
-            _buffering,
-            _ended,
             _video,
+            _ready,
+            _program,
+            _definition,
             _url,
             _ms,
             _sb,
+            _escaped,
+            _buffering,
+            _ended,
             _loader,
             _demuxer,
             _remuxer,
@@ -57,26 +58,17 @@
 
         function _init() {
             _this.config = config;
+
             _ready = false;
+            _definition = 0;
+            _url = new utils.URL();
             _escaped = false;
             _buffering = false;
             _ended = false;
-            _url = new utils.URL();
             _sb = {};
             _segments = [];
             _writer = null;
             _need2remove = 0;
-            _saver = new StreamSaver(_this.config.service, _logger);
-            _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
-            _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
-            _removingTimer = new utils.Timer(_this.config.maxPlaybackLength * 500, 0, _logger);
-            _removingTimer.addEventListener(TimerEvent.TIMER, _onRemovingTimer);
-            _statsTimer = new utils.Timer(1000, 0, _logger);
-            _statsTimer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
-            _sourceTimer = new utils.Timer(1000, 1, _logger);
-            _sourceTimer.addEventListener(TimerEvent.TIMER, _onSourceTimer);
-            _initMSE();
-            _initMuxer();
 
             _video = utils.createElement('video');
             _video.addEventListener('play', _onPlay);
@@ -102,11 +94,6 @@
             _video.addEventListener('load', _this.forward);
             _video.addEventListener('ended', _this.forward);
             _video.addEventListener('error', _onError);
-            if (_this.config.objectfit) {
-                css.style(_video, {
-                    'object-fit': _this.config.objectfit,
-                });
-            }
             if (_this.config.airplay) {
                 _video.setAttribute('x-webkit-airplay', 'allow');
             }
@@ -123,6 +110,22 @@
             }
             _video.muted = _this.config.muted;
             _video.volume = _this.config.volume;
+
+            _saver = new StreamSaver(_this.config.service, _logger);
+            _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
+            _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
+
+            _removingTimer = new utils.Timer(_this.config.maxPlaybackLength * 500, 0, _logger);
+            _removingTimer.addEventListener(TimerEvent.TIMER, _onRemovingTimer);
+
+            _statsTimer = new utils.Timer(1000, 0, _logger);
+            _statsTimer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
+
+            _sourceTimer = new utils.Timer(1000, 1, _logger);
+            _sourceTimer.addEventListener(TimerEvent.TIMER, _onSourceTimer);
+
+            _initMSE();
+            _initMuxer();
         }
 
         function _initMSE() {
@@ -153,7 +156,7 @@
 
         function _initMuxer() {
             _demuxer = new Format.FLV(_logger);
-            _demuxer.addEventListener(MediaEvent.PACKET, _onFLVPacket);
+            _demuxer.addEventListener(MediaEvent.PACKET, _onFlvPacket);
             _demuxer.addEventListener(MediaStreamTrackEvent.ADDTRACK, _onAddTrack);
             _demuxer.addEventListener(MediaStreamTrackEvent.REMOVETRACK, _onRemoveTrack);
             _demuxer.addEventListener(Event.ERROR, _this.forward);
@@ -164,7 +167,7 @@
 
         function _cleanupMuxer() {
             _demuxer.close();
-            _demuxer.removeEventListener(MediaEvent.PACKET, _onFLVPacket);
+            _demuxer.removeEventListener(MediaEvent.PACKET, _onFlvPacket);
             _demuxer.removeEventListener(MediaStreamTrackEvent.ADDTRACK, _onAddTrack);
             _demuxer.removeEventListener(MediaStreamTrackEvent.REMOVETRACK, _onRemoveTrack);
             _demuxer.removeEventListener(Event.ERROR, _this.forward);
@@ -189,60 +192,54 @@
             }
         };
 
-        _this.play = function (file, option) {
+        _this.play = function (program) {
             if (_ready === false) {
                 _this.setup();
                 return;
             }
-            if (utils.typeOf(file) === 'string' && new utils.URL(file).href !== _url.href) {
+
+            if (program && program.sources[_definition].url !== _url.href) {
+                var file = program.sources[_definition].url;
+                _logger.log('URL: ' + file);
+
                 try {
-                    _logger.log('URL: ' + file);
                     _url.parse(file);
                 } catch (err) {
                     _logger.error('Failed to parse url \"' + file + '\".');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     return;
                 }
+                _program = program;
                 _ended = false;
                 _demuxer.reset();
                 _remuxer.reset();
                 _remuxer.info = _demuxer.info;
-                _initLoader(option || {});
+                _initLoader(_this.config.loader || {});
+
                 _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
                 _video.src = URL.createObjectURL(_ms);
                 _video.load();
             }
 
-            var promise = _video.play();
-            if (promise) {
-                promise['catch'](function (err) {
-                    switch (err.name) {
-                        case 'AbortError':
-                            _logger.debug(err.name + ': ' + err.message);
-                            break;
-                        case 'NotAllowedError':
-                            // Chrome: play() failed because the user didn’t interact with the document first.
-                            // Safari: The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.
-                            _logger.warn('Failed to play due to the autoplay policy, trying to play in mute.');
-                            if (OS.isMobile) {
-                                return;
-                            }
+            _video.play().catch(function (err) {
+                switch (err.name) {
+                    case 'AbortError':
+                        _logger.debug(err.name + ': ' + err.message);
+                        break;
+                    case 'NotAllowedError':
+                        if (_video.muted == false) {
                             _video.muted = true;
-
-                            promise = _video.play();
-                            if (promise) {
-                                promise['catch'](function (err) {
-                                    _video.muted = _this.config.muted;
-                                });
-                            }
+                            _video.play().catch(function (err) {
+                                _logger.warn(`${err}`);
+                            });
                             break;
-                        default:
-                            _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
-                            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                            break;
-                    }
-                });
-            }
+                        }
+                    default:
+                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        break;
+                }
+            });
             _video.controls = false;
         };
 
@@ -397,9 +394,9 @@
             _loader.addEventListener(IOEvent.LOADSTART, _this.forward);
             _loader.addEventListener(IOEvent.OPEN, _this.forward);
             _loader.addEventListener(IOEvent.STALLED, _this.forward);
-            _loader.addEventListener(IOEvent.ABORT, _onIOAbort);
+            _loader.addEventListener(IOEvent.ABORT, _onAbort);
             _loader.addEventListener(IOEvent.TIMEOUT, _this.forward);
-            _loader.addEventListener(IOEvent.PROGRESS, _onIOProgress);
+            _loader.addEventListener(IOEvent.PROGRESS, _onProgress);
             _loader.addEventListener(IOEvent.SUSPEND, _this.forward);
             _loader.addEventListener(IOEvent.LOAD, _this.forward);
             _loader.addEventListener(IOEvent.LOADEND, _onLoadEnd);
@@ -412,9 +409,9 @@
                 _loader.removeEventListener(IOEvent.LOADSTART, _this.forward);
                 _loader.removeEventListener(IOEvent.OPEN, _this.forward);
                 _loader.removeEventListener(IOEvent.STALLED, _this.forward);
-                _loader.removeEventListener(IOEvent.ABORT, _onIOAbort);
+                _loader.removeEventListener(IOEvent.ABORT, _onAbort);
                 _loader.removeEventListener(IOEvent.TIMEOUT, _this.forward);
-                _loader.removeEventListener(IOEvent.PROGRESS, _onIOProgress);
+                _loader.removeEventListener(IOEvent.PROGRESS, _onProgress);
                 _loader.removeEventListener(IOEvent.SUSPEND, _this.forward);
                 _loader.removeEventListener(IOEvent.LOAD, _this.forward);
                 _loader.removeEventListener(IOEvent.LOADEND, _onLoadEnd);
@@ -423,11 +420,16 @@
             }
         }
 
-        function _onIOProgress(e) {
+        function _onAbort(e) {
+            e.type = Event.ENDED;
+            _this.forward(e);
+        }
+
+        function _onProgress(e) {
             _logger.debug('progress: ' + e.data.loaded + '/' + e.data.total);
             _bytesReceived += e.data.loaded;
             _bytesReceivedPerSecond += e.data.loaded;
-            _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: { BytesReceived: _bytesReceived } });
+            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { BytesReceived: _bytesReceived } });
             _demuxer.append(e.data.buffer);
         }
 
@@ -448,18 +450,13 @@
                 stats.DroppedVideoFrames = quality.droppedVideoFrames;
                 stats.TotalVideoFrames = quality.totalVideoFrames;
             }
-            _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: stats });
+            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: stats });
             _bytesReceivedPerSecond = 0;
             _audioPacketsReceivedPerSecond = 0;
             _videoPacketsReceivedPerSecond = 0;
         }
 
-        function _onIOAbort(e) {
-            e.type = Event.ENDED;
-            _this.forward(e);
-        }
-
-        function _onFLVPacket(e) {
+        function _onFlvPacket(e) {
             var pkt = e.data.packet;
             // _logger.log(pkt.kind + ': ' + pkt.timestamp);
             switch (pkt.kind) {
@@ -488,7 +485,7 @@
                             _writeInitSegment();
                         }
                         _firstVideoFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
-                        _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: { FirstVideoFrameReceivedIn: _firstVideoFrameReceivedIn } });
+                        _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstVideoFrameReceivedIn: _firstVideoFrameReceivedIn } });
                     }
                     break;
 
@@ -517,7 +514,7 @@
                             _writeInitSegment();
                         }
                         _firstAudioFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
-                        _this.dispatchEvent(MediaEvent.STATSUPDATE, { stats: { FirstAudioFrameReceivedIn: _firstAudioFrameReceivedIn } });
+                        _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstAudioFrameReceivedIn: _firstAudioFrameReceivedIn } });
                     }
                     break;
 
@@ -543,24 +540,24 @@
 
         function _onAddTrack(e) {
             var track = e.data.track.clone();
-            track.source.addEventListener(MediaEvent.AVC_CONFIG_RECORD, _onAVCConfigRecord);
-            track.source.addEventListener(MediaEvent.AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
-            track.source.addEventListener(MediaEvent.AVC_SAMPLE, _onAVCSample);
-            track.source.addEventListener(MediaEvent.AAC_SAMPLE, _onAACSample);
+            track.source.addEventListener(MediaEvent.AVCCONFIGRECORD, _onAvcConfigRecord);
+            track.source.addEventListener(MediaEvent.AACSPECIFICCONFIG, _onAacSpecificConfig);
+            track.source.addEventListener(MediaEvent.AVCSAMPLE, _onAvcSample);
+            track.source.addEventListener(MediaEvent.AACSAMPLE, _onAacSample);
             track.source.addEventListener(MediaEvent.SEI, _this.forward);
-            track.source.addEventListener(MediaEvent.END_OF_STREAM, _onEndOfStream);
+            track.source.addEventListener(MediaEvent.ENDOFSTREAM, _onEndOfStream);
             track.source.addEventListener(Event.ERROR, _this.forward);
             _remuxer.addTrack(track);
         }
 
         function _onRemoveTrack(e) {
             var track = _remuxer.getTrackById(e.data.track.id);
-            track.source.removeEventListener(MediaEvent.AVC_CONFIG_RECORD, _onAVCConfigRecord);
-            track.source.removeEventListener(MediaEvent.AAC_SPECIFIC_CONFIG, _onAACSpecificConfig);
-            track.source.removeEventListener(MediaEvent.AVC_SAMPLE, _onAVCSample);
-            track.source.removeEventListener(MediaEvent.AAC_SAMPLE, _onAACSample);
+            track.source.removeEventListener(MediaEvent.AVCCONFIGRECORD, _onAvcConfigRecord);
+            track.source.removeEventListener(MediaEvent.AACSPECIFICCONFIG, _onAacSpecificConfig);
+            track.source.removeEventListener(MediaEvent.AVCSAMPLE, _onAvcSample);
+            track.source.removeEventListener(MediaEvent.AACSAMPLE, _onAacSample);
             track.source.removeEventListener(MediaEvent.SEI, _this.forward);
-            track.source.removeEventListener(MediaEvent.END_OF_STREAM, _onEndOfStream);
+            track.source.removeEventListener(MediaEvent.ENDOFSTREAM, _onEndOfStream);
             track.source.removeEventListener(Event.ERROR, _this.forward);
             track.stop();
             _remuxer.removeTrack(track);
@@ -606,7 +603,7 @@
             _this.dispatchEvent(MediaEvent.INFOCHANGE, { info: info });
         }
 
-        function _onAVCConfigRecord(e) {
+        function _onAvcConfigRecord(e) {
             var track = _remuxer.getVideoTracks()[0];
             _addSourceBuffer(track);
 
@@ -616,7 +613,7 @@
             _appendBuffer();
         }
 
-        function _onAACSpecificConfig(e) {
+        function _onAacSpecificConfig(e) {
             var track = _remuxer.getAudioTracks()[0];
             _addSourceBuffer(track);
 
@@ -626,7 +623,7 @@
             _appendBuffer();
         }
 
-        function _onAVCSample(e) {
+        function _onAvcSample(e) {
             var track = _remuxer.getVideoTracks()[0];
             if (_demuxer.hasAudio && !_demuxer.hasVideo) {
                 _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Video sample arrived unexpectedly.' });
@@ -646,7 +643,7 @@
             }
         }
 
-        function _onAACSample(e) {
+        function _onAacSample(e) {
             var track = _remuxer.getAudioTracks()[0];
             if (_demuxer.hasVideo && !_demuxer.hasAudio) {
                 _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Audio sample arrived unexpectedly.' });
@@ -930,23 +927,21 @@
     FLV.prototype.constructor = FLV;
     FLV.prototype.kind = 'FLV';
 
-    FLV.prototype.isSupported = function (file, mode) {
+    FLV.prototype.isSupported = function (program) {
         if (Browser.isMSIE && Browser.major < 9 || !(window.MediaSource || window.WebKitMediaSource)) {
             return false;
         }
-        var url = new utils.URL(file);
-        if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.protocol !== 'ws:' && url.protocol !== 'wss:') {
-            return false;
-        }
-        var map = [
-            'flv', '', undefined,
-        ];
-        for (var i = 0; i < map.length; i++) {
-            if (url.filetype === map[i]) {
-                return true;
+        for (var source of program.sources) {
+            var url = new utils.URL(source.url);
+            if (!url.protocol.match(/^(http|https|ws|wss)\:$/gi)) {
+                return false;
+            }
+            var arr = ['.flv', ''];
+            if (arr.indexOf(url.filetype) === -1) {
+                return false;
             }
         }
-        return false;
+        return !!program.sources.length;
     };
 
     Module.register(FLV);

@@ -10,7 +10,6 @@
         NetStatusEvent = events.NetStatusEvent,
         SaverEvent = events.SaverEvent,
         UIEvent = events.UIEvent,
-        GlobalEvent = events.GlobalEvent,
         MouseEvent = events.MouseEvent,
         TimerEvent = events.TimerEvent,
         Player = odd.Player,
@@ -21,15 +20,15 @@
         _id = 0,
         _instances = {},
         _default = {
-            aspectratio: '',         // deprecated! 16:9 etc.
-            client: null,
+            presentation: 'full', // full, mini, popup
             skin: 'classic',
             plugins: [],
         };
 
     function UI(id, logger) {
         var _this = this,
-            _logger = new utils.Logger(id, logger),
+            _id = id,
+            _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
             _content,
@@ -39,23 +38,28 @@
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, IOEvent, NetStatusEvent, UIEvent);
 
         function _init() {
-            _this.id = id;
             _this.logger = _logger;
             _this.plugins = {};
+
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
         }
 
+        _this.id = function () {
+            return _id;
+        };
+
         _this.setup = function (container, config) {
             _container = container;
-            _parseConfig(config);
+            _parseConfig(config || {});
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
-            _content = utils.createElement('div', CLASS_CONTENT);
-            _wrapper.appendChild(_content);
             _container.appendChild(_wrapper);
 
-            _api = Player.get(_this.id, _logger);
+            _content = utils.createElement('div', CLASS_CONTENT);
+            _wrapper.appendChild(_content);
+
+            _api = Player.get(_id, _logger);
             _api.addEventListener(Event.BIND, _onBind);
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(Event.PLAY, _onStateChange);
@@ -84,7 +88,7 @@
             _api.addEventListener(IOEvent.LOAD, _this.forward);
             _api.addEventListener(IOEvent.LOADEND, _this.forward);
             _api.addEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
-            _api.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+            _api.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
             _api.addEventListener(MediaEvent.SEI, _this.forward);
             _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
             _api.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
@@ -96,6 +100,7 @@
             _buildPlugins();
             _setupPlugins();
             _this.resize();
+            return Promise.resolve();
         };
 
         function _parseConfig(config) {
@@ -119,7 +124,7 @@
                 plugins.push(utils.extendz({}, def, cfg));
             }
 
-            _this.config = utils.extendz({ id: _this.id }, Player.prototype.CONF, _default, config);
+            _this.config = utils.extendz({ id: _id }, Player.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
         }
 
@@ -132,19 +137,6 @@
                 if (config.visibility === false) {
                     _logger.log('Component ' + config.kind + ' is disabled.');
                     return;
-                }
-
-                switch (config.kind) {
-                    case 'Chat':
-                        config.client = _this.config.client;
-                        config.rtc = _this.config.rtc;
-                        config.service = _this.config.service;
-                        break;
-                    case 'Controlbar':
-                        if (!_this.config.file) {
-                            config.sources = _this.config.sources;
-                        }
-                        break;
                 }
 
                 try {
@@ -161,6 +153,7 @@
         }
 
         function _setupPlugins() {
+            _wrapper.setAttribute('presentation', _this.config.presentation);
             _wrapper.setAttribute('mode', _this.config.mode);
             _wrapper.setAttribute('state', '');
 
@@ -179,13 +172,13 @@
                 _wrapper.setAttribute('chat', chat.config.enable ? 'on' : 'off');
             }
 
-            var danmu = _this.plugins['Danmu'];
-            if (danmu) {
-                _wrapper.setAttribute('danmu', danmu.config.enable ? 'on' : 'off');
+            var comments = _this.plugins['Comments'];
+            if (comments) {
+                _wrapper.setAttribute('comments', comments.config.enable ? 'on' : 'off');
             }
 
             _wrapper.setAttribute('muted', _this.config.muted);
-            _wrapper.setAttribute('fullpage', false);
+            _wrapper.setAttribute('theater', false);
             _wrapper.setAttribute('fullscreen', false);
 
             var contextmenu = _this.plugins['ContextMenu'];
@@ -208,18 +201,16 @@
         }
 
         function _onBind(e) {
-            _this.config = _api.config;
             _this.play = _api.play;
             _this.pause = _api.pause;
+            _this.reload = _api.reload;
             _this.seek = _api.seek;
             _this.stop = _api.stop;
-            _this.reload = _api.reload;
+            _this.capture = _api.capture;
+            _this.record = _api.record;
             _this.muted = _api.muted;
             _this.volume = _api.volume;
             _this.definition = _api.definition;
-            _this.capture = _api.capture;
-            _this.record = _api.record;
-            _this.element = _api.element;
             _this.getProperty = _api.getProperty;
             _this.duration = _api.duration;
             _this.state = _api.state;
@@ -228,6 +219,7 @@
 
         _this.chat = function (enable) {
             _wrapper.setAttribute('chat', enable ? 'on' : 'off');
+
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
                 controlbar.resize(_content.clientWidth, _content.clientHeight);
@@ -240,137 +232,135 @@
                     chat.unpublish();
                 }
             }
+            _this.forward(e);
         };
 
-        _this.danmu = function (enable) {
-            _wrapper.setAttribute('danmu', enable ? 'on' : 'off');
+        _this.comments = function (enable) {
+            _wrapper.setAttribute('comments', enable ? 'on' : 'off');
+
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
                 controlbar.resize(_content.clientWidth, _content.clientHeight);
             }
-            var danmu = _this.plugins['Danmu'];
-            if (danmu) {
-                return danmu.enable(enable);
+            var comments = _this.plugins['Comments'];
+            if (comments) {
+                return comments.enable(enable);
             }
             return false;
         };
 
-        _this.shoot = function (text, data) {
-            var danmu = _this.plugins['Danmu'];
-            if (danmu) {
-                danmu.shoot(text, data);
+        _this.comment = function (text, data) {
+            var comments = _this.plugins['Comments'];
+            if (comments) {
+                comments.append(text, data);
                 _this.dispatchEvent(UIEvent.SHOOTING, { text: text, data: data });
             }
         };
 
-        _this.displayAD = function (element) {
+        _this.ad = function (element) {
             var ad = _this.plugins['AD'];
             if (ad) {
                 ad.display(element);
             }
         };
 
-        _this.removeAD = function () {
-            var ad = _this.plugins['AD'];
-            if (ad) {
-                ad.remove();
-            }
+        _this.layout = function (state) {
+
         };
 
-        _this.fullpage = function (status) {
-            if (status === undefined) {
-                return _wrapper.getAttribute('fullpage') === 'true';
-            }
+        _this.theater = function (status) {
+            if (status !== undefined) {
+                var fullscreenElement = document.fullscreenElement
+                    || document.webkitFullscreenElement
+                    || document.mozFullScreenElement
+                    || document.msFullscreenElement;
+                if (fullscreenElement) {
+                    _this.fullscreen(false);
+                }
 
-            var fullscreenElement = document.fullscreenElement
-                || document.webkitFullscreenElement
-                || document.mozFullScreenElement
-                || document.msFullscreenElement;
-            if (fullscreenElement) {
-                _this.fullscreen(false);
+                _wrapper.setAttribute('theater', !!status);
+                _this.resize();
+                _this.dispatchEvent(UIEvent.THEATER, { status: status });
             }
-
-            _wrapper.setAttribute('fullpage', !!status);
-            _this.resize();
-            _this.dispatchEvent(UIEvent.FULLPAGE, { status: status });
+            return _wrapper.getAttribute('theater') === 'true';
         };
 
         _this.fullscreen = function (status) {
-            if (status === undefined) {
-                return _wrapper.getAttribute('fullscreen') === 'true';
-            }
-
-            var video = _api.element();
-            if (!!status) {
-                var requestFullscreen = _wrapper.requestFullscreen
-                    || _wrapper.webkitRequestFullScreen
-                    || _wrapper.mozRequestFullScreen
-                    || _wrapper.msRequestFullscreen; // IE 11, Edge
-                if (OS.isMobile) {
-                    if (video && video.webkitEnterFullscreen) {
-                        video.setAttribute('x5-video-orientation', 'landscape');
-                        video.webkitEnterFullscreen();
-                    }
-                    if (OS.isIOS) {
-                        // TODO(spencer@lau): Need to double check.
+            if (status !== undefined) {
+                var video = _api.element();
+                if (!!status) {
+                    var requestFullscreen = _wrapper.requestFullscreen
+                        || _wrapper.webkitRequestFullScreen
+                        || _wrapper.mozRequestFullScreen
+                        || _wrapper.msRequestFullscreen; // IE 11, Edge
+                    if (OS.isMobile) {
+                        if (video && video.webkitEnterFullscreen) {
+                            video.setAttribute('x5-video-orientation', 'landscape');
+                            video.webkitEnterFullscreen();
+                        }
+                        if (OS.isIOS) {
+                            // TODO(spencer@lau): Need to double check.
+                            return;
+                        }
+                    } else if (requestFullscreen) {
+                        var promise = requestFullscreen.call(_wrapper);
+                        if (promise) {
+                            promise['catch'](function (err) {
+                                _logger.debug(err.name + ': ' + err.message);
+                                _wrapper.setAttribute('fullscreen', false);
+                            });
+                        }
+                    } else {
+                        // IE 9/10
+                        _this.theater(status);
                         return;
                     }
-                } else if (requestFullscreen) {
-                    var promise = requestFullscreen.call(_wrapper);
-                    if (promise) {
-                        promise['catch'](function (err) {
-                            _logger.debug(err.name + ': ' + err.message);
-                        });
-                    }
                 } else {
-                    // IE 9/10
-                    _this.fullpage(status);
-                    return;
-                }
-            } else {
-                var exitFullscreen = document.exitFullscreen
-                    || document.webkitCancelFullScreen
-                    || document.mozCancelFullScreen
-                    || document.msExitFullscreen;
-                if (exitFullscreen) {
-                    if (video) {
-                        video.setAttribute('x5-video-orientation', 'portraint');
+                    var exitFullscreen = document.exitFullscreen
+                        || document.webkitCancelFullScreen
+                        || document.mozCancelFullScreen
+                        || document.msExitFullscreen;
+                    if (exitFullscreen) {
+                        if (video) {
+                            video.setAttribute('x5-video-orientation', 'portraint');
+                        }
+                        var promise = exitFullscreen.call(document);
+                        if (promise) {
+                            promise['catch'](function (err) {
+                                _logger.debug(err.name + ': ' + err.message);
+                            });
+                        }
+                    } else {
+                        _this.theater(status);
+                        return;
                     }
-                    var promise = exitFullscreen.call(document);
-                    if (promise) {
-                        promise['catch'](function (err) {
-                            _logger.debug(err.name + ': ' + err.message);
-                        });
-                    }
-                } else {
-                    _this.fullpage(status);
-                    return;
                 }
+
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    css.style(controlbar.element(), {
+                        'visibility': 'visible',
+                    });
+
+                    if (!!status) {
+                        if (!controlbar.config.autohide) {
+                            _wrapper.setAttribute('controls', 'motion');
+                            _wrapper.addEventListener('mousemove', _onMouseMove);
+                        }
+                    } else {
+                        if (!controlbar.config.autohide) {
+                            _wrapper.setAttribute('controls', 'always');
+                            _wrapper.removeEventListener('mousemove', _onMouseMove);
+                            _timer.stop();
+                        }
+                    }
+                }
+
+                _wrapper.setAttribute('fullscreen', !!status);
+                _this.resize();
+                _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
             }
-
-            var controlbar = _this.plugins['Controlbar'];
-            if (controlbar) {
-                css.style(controlbar.element(), {
-                    'visibility': 'visible',
-                });
-
-                if (!!status) {
-                    if (!controlbar.config.autohide) {
-                        _wrapper.setAttribute('controls', 'motion');
-                        _wrapper.addEventListener('mousemove', _onMouseMove);
-                    }
-                } else {
-                    if (!controlbar.config.autohide) {
-                        _wrapper.setAttribute('controls', 'always');
-                        _wrapper.removeEventListener('mousemove', _onMouseMove);
-                        _timer.stop();
-                    }
-                }
-            }
-
-            _wrapper.setAttribute('fullscreen', !!status);
-            _this.resize();
-            _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
+            return _wrapper.getAttribute('fullscreen') === 'true';
         };
 
         function _onFullscreenChange(e) {
@@ -386,13 +376,13 @@
 
         function _onPluginEvent(e) {
             switch (e.type) {
-                case GlobalEvent.CHANGE:
+                case Event.CHANGE:
                     _onChange(e);
                     break;
                 case MouseEvent.CLICK:
                     _onClick(e);
                     break;
-                case MouseEvent.DOUBLE_CLICK:
+                case MouseEvent.DOUBLECLICK:
                     _onDoubleClick(e);
                     break;
                 default:
@@ -425,24 +415,20 @@
 
         function _onClick(e) {
             var h = {
-                'play': _this.play,
-                'pause': _this.pause,
-                'stop': _this.stop,
+                'playing': function () { e.data.state === 'off' ? _this.play() : _this.pause(); },
                 'reload': _this.reload,
+                'stop': _this.stop,
                 'capture': _this.capture,
                 'download': function () { _this.record('fragmented.mp4'); },
-                'dial': function () { _this.chat(true); _this.forward(e); },
-                'hangup': function () { _this.chat(false); _this.forward(e); },
-                'mute': function () { _this.muted(true); },
-                'unmute': function () { _this.muted(false); },
-                'danmuoff': function () { _this.danmu(false); },
-                'danmuon': function () { _this.danmu(true); },
-                'fullpage': function () { _this.fullpage(true); },
-                'exitfullpage': function () { _this.fullpage(false); },
-                'fullscreen': function () { _this.fullscreen(true); },
-                'exitfullscreen': function () { _this.fullscreen(false); },
+                'calling': function () { _this.chat(e.data.state === 'off'); },
+                'muted': function () { _this.muted(e.data.state === 'off'); },
+                'comments': function () { _this.comments(e.data.state !== 'off'); },
+                'layout': function () { _this.layout(e.data.state); },
                 'info': function () { _showPanel(e.data.name); },
                 'stats': function () { _showPanel(e.data.name); },
+                'settings': function () { _showPanel(e.data.name); },
+                'theater': function () { _this.theater(e.data.state !== 'off'); },
+                'fullscreen': function () { _this.fullscreen(e.data.state !== 'off'); },
             }[e.data.name];
             if (h) {
                 h();
@@ -453,7 +439,7 @@
 
         function _onDoubleClick(e) {
             var h = {
-                'fullpage': function () { _this.fullpage(_wrapper.getAttribute('fullpage') !== 'true'); },
+                'theater': function () { _this.theater(_wrapper.getAttribute('theater') !== 'true'); },
                 'fullscreen': function () { _this.fullscreen(_wrapper.getAttribute('fullscreen') !== 'true'); },
             }[e.data.name];
             if (h) {
@@ -541,7 +527,6 @@
                     definition.value(e.data.index);
                 }
             }
-
             _onStateChange(e);
         }
 
@@ -562,9 +547,9 @@
                 }
             }
 
-            var display = _this.plugins['Display'];
-            if (display) {
-                display.update('stats', {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                dashboard.update('stats', {
                     TimeStart: utils.formatTime(e.data.start),
                     TimeEnd: utils.formatTime(e.data.buffered),
                     Time: utils.formatTime(e.data.time),
@@ -594,17 +579,17 @@
         }
 
         function _onInfoChange(e) {
-            var display = _this.plugins['Display'];
-            if (display) {
-                display.update('info', e.data.info);
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                dashboard.update('info', e.data.info);
             }
 
             _this.forward(e);
         }
 
-        function _onStatsUpdate(e) {
-            var display = _this.plugins['Display'];
-            if (display) {
+        function _onStatsChange(e) {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
                 var data = utils.extendz({}, e.data.stats);
                 utils.forEach(data, function (key, value) {
                     switch (key) {
@@ -639,9 +624,9 @@
         }
 
         function _showPanel(name) {
-            var display = _this.plugins['Display'];
-            if (display) {
-                display.show(name);
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                dashboard.show(name);
             }
         }
 
@@ -661,11 +646,6 @@
                 return;
             }
 
-            var display = _this.plugins['Display'];
-            if (display) {
-                display.error(e.data);
-            }
-
             e.type = Event.ERROR;
             _onStateChange(e);
             _this.stop();
@@ -677,26 +657,46 @@
             var display = _this.plugins['Display'];
             if (display) {
                 display.state(e.type);
+                if (e.type === Event.ERROR) {
+                    display.error(e.data);
+                }
             }
 
             _this.resize();
             _this.forward(e);
         }
 
+        _this.presentation = function (container, presentation) {
+            if (container && presentation) {
+                if (!_wrapper) {
+                    throw { name: 'InvalidStateError', message: 'UI must be setup before presentation.' };
+                }
+                _container = container;
+
+                _wrapper.setAttribute('presentation', presentation);
+                _container.appendChild(_wrapper);
+
+                _this.config.presentation = presentation;
+                _this.resize();
+            }
+            return _wrapper.getAttribute('presentation');
+        };
+
+        _this.skin = function (value) {
+            if (value !== undefined) {
+                _this.config.skin = value;
+                _wrapper.className = CLASS_WRAPPER + ' pe-ui-' + value;
+            }
+            return _this.config.skin;
+        };
+
+        _this.element = function () {
+            return _container;
+        };
+
         _this.resize = function () {
             var width = _content.clientWidth;
             var height = _content.clientHeight;
-            if (_this.config.aspectratio !== '') {
-                var arr = _this.config.aspectratio.match(/(\d+)\:(\d+)/);
-                if (utils.typeOf(arr) === 'array' && arr.length > 2) {
-                    var w = parseInt(arr[1]);
-                    var h = parseInt(arr[2]);
-                    height = width * h / w;
-                    if (_wrapper.getAttribute('controls') === 'always') {
-                        height -= 40;
-                    }
-                }
-            }
 
             utils.forEach(_this.plugins, function (kind, plugin) {
                 plugin.resize(width, height);
@@ -705,11 +705,31 @@
             _this.dispatchEvent(UIEvent.RESIZE, { width: width, height: height });
         };
 
-        _this.destroy = function () {
+        _this.destroy = function (reason) {
             _timer.stop();
             _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
+
+            document.removeEventListener('mouseup', _onMouseUp);
+            _wrapper.removeEventListener('mouseup', _onMouseUp);
+            document.removeEventListener('mousedown', _onMouseDown);
+            _wrapper.removeEventListener('mousedown', _onMouseDown);
+
+            document.removeEventListener('fullscreenchange', _onFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
+
+            utils.forEach(_this.plugins, function (_, plugin) {
+                if (plugin.removeGlobalListener) {
+                    plugin.removeGlobalListener(_onPluginEvent);
+                }
+                if (plugin.destroy) {
+                    plugin.destroy();
+                }
+            });
+
             if (_api) {
-                _api.destroy();
+                _api.destroy(reason);
                 _api.removeEventListener(Event.BIND, _onBind);
                 _api.removeEventListener(Event.READY, _onReady);
                 _api.removeEventListener(Event.PLAY, _onStateChange);
@@ -737,14 +757,15 @@
                 _api.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
                 _api.removeEventListener(IOEvent.LOAD, _this.forward);
                 _api.removeEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
-                _api.removeEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+                _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
                 _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
                 _api.removeEventListener(Event.ENDED, _onStateChange);
                 _api.removeEventListener(Event.ERROR, _onError);
                 _api = undefined;
-                _container.innerHTML = '';
             }
-            delete _instances[_this.id];
+
+            _container.innerHTML = '';
+            delete _instances[_id];
         };
 
         _init();
@@ -759,7 +780,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            _logger.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
         }
     };
 

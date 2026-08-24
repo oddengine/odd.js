@@ -62,8 +62,7 @@
                 signal: _controller.signal,
             });
 
-            fetch(url.href, options)
-            ['then'](function (res) {
+            fetch(url.href, options).then(function (res) {
                 switch (_readyState) {
                     case ReadyState.OPEN:
                         _readyState = ReadyState.SENT;
@@ -97,13 +96,13 @@
                 }
 
                 return _pump(res.body.getReader());
-            })
-            ['catch'](_onError);
+            }).catch(function (err) {
+                _onError(err);
+            });
         };
 
         function _pump(reader) {
-            return reader.read()
-            ['then'](function (res) {
+            return reader.read().then(function (res) {
                 if (res.done) {
                     _logger.log('Loader load.');
                     _readyState = ReadyState.DONE;
@@ -129,13 +128,15 @@
                 });
 
                 return _pump(reader);
-            })
-            ['catch'](_onError);
+            }).catch(function (err) {
+                _onError(err);
+            });
         }
 
         function _onError(err) {
             _readyState = ReadyState.DONE;
             _logger.error('Loader ' + err.name + ': ' + err.message);
+
             switch (err.name) {
                 case 'AbortError':
                     _this.dispatchEvent(IOEvent.ABORT, { name: err.name, message: err.message });
@@ -167,11 +168,8 @@
     Fetch.prototype.CONF = _default;
 
     // Not supported by IE11 and or below.
-    Fetch.prototype.isSupported = function (url, mode) {
-        if (mode && mode !== 'live') {
-            return false;
-        }
-        return !!fetch && (url.protocol === 'http:' || url.protocol === 'https:');
+    Fetch.prototype.isSupported = function (url, vod) {
+        return (url.protocol === 'http:' || url.protocol === 'https:') && !!fetch;
     };
 
     IO.register(Fetch);

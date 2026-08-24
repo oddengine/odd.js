@@ -2,32 +2,33 @@
     var utils = odd.utils,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        IM = odd.IM,
-        UI = IM.UI,
-        components = UI.components,
+        components = odd.IM.UI.components,
 
-        CLASS_LABEL = 'im-label';
+        CLASS_TOOLTIP = 'pe-tooltip',
+        CLASS_LABEL = 'pe-label';
 
-    function Label(name, kind, logger) {
+    function Label(name, value, logger) {
         EventDispatcher.call(this, 'Label', { logger: logger });
 
         var _this = this,
-            _name,
-            _kind,
+            _name = name,
             _logger = logger,
-            _container;
+            _container,
+            _tooltip;
 
         function _init() {
-            _name = name;
-            _kind = kind || '';
             _container = utils.createElement('span', CLASS_LABEL + ' ' + name);
-            _container.innerHTML = _kind;
+            _container.innerHTML = value || '';
+
+            _tooltip = utils.createElement('span', CLASS_TOOLTIP);
+            _container.appendChild(_tooltip);
         }
 
-        _this.text = function (text) {
-            if (text !== undefined) {
-                _container.innerHTML = text;
-            }
+        _this.set = function (text) {
+            _container.innerHTML = text || '';
+        };
+
+        _this.get = function () {
             return _container.innerHTML;
         };
 

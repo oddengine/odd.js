@@ -2,6 +2,7 @@
     var utils = odd.utils,
 
         Module = {},
+
         _modules = [];
 
     Module.register = function (module, index) {
@@ -13,19 +14,10 @@
         }
     };
 
-    Module.get = function (file, option) {
-        if (option && option.module) {
-            var module = odd.Module[option.module];
-            if (module && module.prototype.isSupported(file) === true) {
-                return module;
-            }
-            return null;
-        }
-        for (var i = 0; i < _modules.length; i++) {
-            var module = _modules[i];
-            if (module.prototype.isSupported(file)) {
-                return module;
-            }
+    Module.get = function (program) {
+        var module = odd.Module[program.type];
+        if (module && module.prototype.isSupported(program)) {
+            return module;
         }
         return null;
     };

@@ -249,7 +249,7 @@
         }
 
         function _processCommandSend(m) {
-            _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+            _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                 level: Level.STATUS,
                 code: m.Arguments.cast === 'uni' ? Code.NETGROUP_SENDTO_NOTIFY : Code.NETGROUP_POSTING_NOTIFY,
                 description: m.Arguments.cast === 'uni' ? 'sendto notify' : 'posting notify',
@@ -287,7 +287,7 @@
                     break;
             }
 
-            _this.dispatchEvent(NetStatusEvent.NET_STATUS, m.Arguments);
+            _this.dispatchEvent(NetStatusEvent.NETSTATUS, m.Arguments);
             return Promise.resolve();
         }
 

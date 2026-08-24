@@ -4,26 +4,28 @@
         Event = {
             BIND: 'bind',
             READY: 'ready',
+            CHANGE: 'change',                     // name, value
             PLAY: 'play',
             WAITING: 'waiting',
-            DURATIONCHANGE: 'durationchange', // duration
-            LOADEDMETADATA: 'loadedmetadata', // metadata
+            DURATIONCHANGE: 'durationchange',     // duration
+            LOADEDMETADATA: 'loadedmetadata',     // metadata
             LOADEDDATA: 'loadeddata',
             CANPLAY: 'canplay',
             PLAYING: 'playing',
             CANPLAYTHROUGH: 'canplaythrough',
-            PAUSE: 'pause',                   // timestamp
-            SEEKING: 'seeking',               // timestamp
-            SEEKED: 'seeked',                 // timestamp
-            SWITCHING: 'switching',           // index
-            SWITCHED: 'switched',             // index
-            RATECHANGE: 'ratechange',         // rate
-            TIMEUPDATE: 'timeupdate',         // timestamp, buffered
-            VOLUMECHANGE: 'volumechange',     // volume
+            PAUSE: 'pause',                       // timestamp
+            SEEKING: 'seeking',                   // timestamp
+            SEEKED: 'seeked',                     // timestamp
+            SWITCHING: 'switching',               // index
+            SWITCHED: 'switched',                 // index
+            RATECHANGE: 'ratechange',             // rate
+            TIMEUPDATE: 'timeupdate',             // timestamp, buffered
+            VOLUMECHANGE: 'volumechange',         // volume
+            VISIBILITYCHANGE: 'visibilitychange', // name, state=visible;hidden
             ENDED: 'ended',
-            ERROR: 'error',                   // name, message
+            ERROR: 'error',                       // name, message
             RELEASE: 'release',
-            CLOSE: 'close',                   // reason
+            CLOSE: 'close',                       // reason
         },
 
         IOEvent = {
@@ -39,16 +41,16 @@
         },
 
         MediaEvent = {
-            PACKET: 'packet',                           // packet
-            INFOCHANGE: 'infochange',                   // info
-            STATSUPDATE: 'statsupdate',                 // stats
-            AAC_SPECIFIC_CONFIG: 'aac-specific-config', // packet
-            AAC_SAMPLE: 'aac-sample',                   // packet
-            AVC_CONFIG_RECORD: 'avc-config-record',     // packet
-            AVC_SAMPLE: 'avc-sample',                   // packet
-            SEI: 'sei',                                 // packet, nalu
-            END_OF_STREAM: 'end-of-stream',             // packet
-            SCREENSHOT: 'screenshot',                   // image
+            PACKET: 'packet',                       // packet
+            INFOCHANGE: 'infochange',               // info
+            STATSCHANGE: 'statschange',             // stats
+            AACSPECIFICCONFIG: 'aacspecificconfig', // packet
+            AACSAMPLE: 'aacsample',                 // packet
+            AVCCONFIGRECORD: 'avcconfigrecord',     // packet
+            AVCSAMPLE: 'avcsample',                 // packet
+            SEI: 'sei',                             // packet, nalu
+            ENDOFSTREAM: 'endofstream',             // packet
+            SCREENSHOT: 'screenshot',               // image
         },
 
         MediaStreamTrackEvent = {
@@ -57,7 +59,7 @@
         },
 
         NetStatusEvent = {
-            NET_STATUS: 'netstatus', // level, code, description, info
+            NETSTATUS: 'netstatus', // level, code, description, info
         },
 
         SaverEvent = {
@@ -69,36 +71,31 @@
 
         UIEvent = {
             SHOOTING: 'shooting',     // text, data
-            FULLPAGE: 'fullpage',     // status
+            THEATER: 'theater',       // status
             FULLSCREEN: 'fullscreen', // status
             RESIZE: 'resize',         // width, height
         },
 
-        GlobalEvent = {
-            CHANGE: 'change',                     // name, value
-            VISIBILITYCHANGE: 'visibilitychange', // name, state=visible;hidden
-        },
-
         // alt, control, shift, command
         MouseEvent = {
-            MOUSE_DOWN: 'mousedown',     // name
-            MOUSE_UP: 'mouseup',         // name
-            CLICK: 'click',              // name
-            DOUBLE_CLICK: 'doubleclick', // name
-            MOUSE_MOVE: 'mousemove',     // name, value
+            MOUSEDOWN: 'mousedown',     // name
+            MOUSEUP: 'mouseup',         // name
+            MOUSEMOVE: 'mousemove',     // name, value
+            CLICK: 'click',             // name
+            DOUBLECLICK: 'doubleclick', // name
         },
 
         TouchEvent = {
-            TOUCH_START: 'touchstart',   // name
-            TOUCH_MOVE: 'touchmove',     // name
-            TOUCH_END: 'touchend',       // name
-            TOUCH_CANCEL: 'touchcancel', // name
+            TOUCHSTART: 'touchstart',   // name
+            TOUCHMOVE: 'touchmove',     // name
+            TOUCHEND: 'touchend',       // name
+            TOUCHCANCEL: 'touchcancel', // name
         },
 
         KeyboardEvent = {
-            KEY_DOWN: 'keydown',   // keyCode, altKey, ctrlKey, shiftKey, metaKey
-            KEY_UP: 'keyup',       // keyCode, altKey, ctrlKey, shiftKey, metaKey
-            KEY_PRESS: 'keypress', // keyCode, altKey, ctrlKey, shiftKey, metaKey
+            KEYDOWN: 'keydown',   // keyCode, altKey, ctrlKey, shiftKey, metaKey
+            KEYUP: 'keyup',       // keyCode, altKey, ctrlKey, shiftKey, metaKey
+            KEYPRESS: 'keypress', // keyCode, altKey, ctrlKey, shiftKey, metaKey
         },
 
         TimerEvent = {
@@ -125,24 +122,6 @@
             NETCONNECTION_CONNECT_NETWORKCHANGE: 'NetConnection.Connect.NetworkChange',
             NETCONNECTION_CONNECT_REJECTED: 'NetConnection.Connect.Rejected',
             NETCONNECTION_CONNECT_SUCCESS: 'NetConnection.Connect.Success',
-
-            NETGROUP_CONNECT_CLOSED: "NetGroup.Connect.Closed",
-            NETGROUP_CONNECT_FAILED: "NetGroup.Connect.Failed",
-            NETGROUP_CONNECT_REJECTED: "NetGroup.Connect.Rejected",
-            NETGROUP_CONNECT_SUCCESS: "NetGroup.Connect.Success",
-            NETGROUP_LOCALCOVERAGE_NOTIFY: "NetGroup.LocalCoverage.Notify",
-            NETGROUP_MULTICASTSTREAM_PUBLISHNOTIFY: "NetGroup.MulticastStream.PublishNotify",
-            NETGROUP_MULTICASTSTREAM_UNPUBLISHNOTIFY: "NetGroup.MulticastStream.UnpublishNotify",
-            NETGROUP_NEIGHBOR_CONNECT: "NetGroup.Neighbor.Connect",
-            NETGROUP_NEIGHBOR_DISCONNECT: "NetGroup.Neighbor.Disconnect",
-            NETGROUP_POSTING_FAILED: "NetGroup.Posting.Failed",
-            NETGROUP_POSTING_NOTIFY: "NetGroup.Posting.Notify",
-            NETGROUP_REPLICATION_FETCH_FAILED: "NetGroup.Replication.Fetch.Failed",
-            NETGROUP_REPLICATION_FETCH_RESULT: "NetGroup.Replication.Fetch.Result",
-            NETGROUP_REPLICATION_FETCH_SENDNOTIFY: "NetGroup.Replication.Fetch.SendNotify",
-            NETGROUP_REPLICATION_REQUEST: "NetGroup.Replication.Request",
-            NETGROUP_SENDTO_FAILED: "NetGroup.SendTo.Failed",
-            NETGROUP_SENDTO_NOTIFY: "NetGroup.SendTo.Notify",
 
             NETSTREAM_BUFFER_EMPTY: 'NetStream.Buffer.Empty',
             NETSTREAM_BUFFER_FLUSH: 'NetStream.Buffer.Flush',
@@ -181,6 +160,24 @@
             NETSTREAM_UNPAUSE_NOTIFY: 'NetStream.Unpause.Notify',
             NETSTREAM_UNPUBLISH_SUCCESS: 'NetStream.Unpublish.Success',
             NETSTREAM_VIDEO_DIMENSIONCHANGE: 'NetStream.Video.DimensionChange',
+
+            NETGROUP_CONNECT_CLOSED: "NetGroup.Connect.Closed",
+            NETGROUP_CONNECT_FAILED: "NetGroup.Connect.Failed",
+            NETGROUP_CONNECT_REJECTED: "NetGroup.Connect.Rejected",
+            NETGROUP_CONNECT_SUCCESS: "NetGroup.Connect.Success",
+            NETGROUP_LOCALCOVERAGE_NOTIFY: "NetGroup.LocalCoverage.Notify",
+            NETGROUP_MULTICASTSTREAM_PUBLISHNOTIFY: "NetGroup.MulticastStream.PublishNotify",
+            NETGROUP_MULTICASTSTREAM_UNPUBLISHNOTIFY: "NetGroup.MulticastStream.UnpublishNotify",
+            NETGROUP_NEIGHBOR_CONNECT: "NetGroup.Neighbor.Connect",
+            NETGROUP_NEIGHBOR_DISCONNECT: "NetGroup.Neighbor.Disconnect",
+            NETGROUP_POSTING_FAILED: "NetGroup.Posting.Failed",
+            NETGROUP_POSTING_NOTIFY: "NetGroup.Posting.Notify",
+            NETGROUP_REPLICATION_FETCH_FAILED: "NetGroup.Replication.Fetch.Failed",
+            NETGROUP_REPLICATION_FETCH_RESULT: "NetGroup.Replication.Fetch.Result",
+            NETGROUP_REPLICATION_FETCH_SENDNOTIFY: "NetGroup.Replication.Fetch.SendNotify",
+            NETGROUP_REPLICATION_REQUEST: "NetGroup.Replication.Request",
+            NETGROUP_SENDTO_FAILED: "NetGroup.SendTo.Failed",
+            NETGROUP_SENDTO_NOTIFY: "NetGroup.SendTo.Notify",
         };
 
     events.Event = Event;
@@ -190,7 +187,6 @@
     events.NetStatusEvent = NetStatusEvent;
     events.SaverEvent = SaverEvent;
     events.UIEvent = UIEvent;
-    events.GlobalEvent = GlobalEvent;
     events.MouseEvent = MouseEvent;
     events.TouchEvent = TouchEvent;
     events.KeyboardEvent = KeyboardEvent;

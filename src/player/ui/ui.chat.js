@@ -39,7 +39,7 @@
             _this.constraints = utils.extendz({}, Constraints[_this.config.profile || '180P_1']);
 
             _this.rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
-            _this.rtc.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+            _this.rtc.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _this.rtc.addEventListener(Event.CLOSE, _onClose);
             _this.rtc.setup(_this.config.rtc);
 
@@ -102,7 +102,7 @@
                 return Promise.resolve();
             }
             return _this.rtc.play(name).then(function (ns) {
-                ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
+                ns.addEventListener(NetStatusEvent.NETSTATUS, function (e) {
                     switch (e.data.code) {
                         case Code.NETSTREAM_PLAY_START:
                             _attachVideo(e.srcElement, e.data.info.streams[0]);
@@ -147,9 +147,28 @@
             var video = ns.video;
             video.addEventListener('click', _onClick);
             video.srcObject = stream;
+
             video.play().catch(function (err) {
-                _logger.warn(`${err}`);
+                switch (err.name) {
+                    case 'AbortError':
+                        _logger.debug(err.name + ': ' + err.message);
+                        break;
+                    case 'NotAllowedError':
+                        if (video.muted == false) {
+                            video.muted = true;
+                            video.play().catch(function (err) {
+                                _logger.warn(`${err}`);
+                            });
+                            break;
+                        }
+                    default:
+                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        break;
+                }
             });
+            video.controls = false;
+
             if (video.parentNode !== _playlist) {
                 _playlist.appendChild(video);
             }

@@ -3,24 +3,26 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         MouseEvent = events.MouseEvent,
-        IM = odd.IM,
-        UI = IM.UI,
-        components = UI.components,
+        components = odd.IM.UI.components,
 
-        CLASS_BUTTON = 'im-button';
+        CLASS_TOOLTIP = 'pe-tooltip',
+        CLASS_BUTTON = 'pe-button';
 
-    function Button(name, kind, logger) {
+    function Button(name, value, logger) {
         EventDispatcher.call(this, 'Button', { logger: logger }, [MouseEvent.CLICK]);
 
         var _this = this,
-            _name,
+            _name = name,
             _logger = logger,
-            _container;
+            _container,
+            _tooltip;
 
         function _init() {
-            _name = name;
             _container = utils.createElement('span', CLASS_BUTTON + ' ' + name);
             _container.addEventListener('click', _onClick);
+
+            _tooltip = utils.createElement('span', CLASS_TOOLTIP);
+            _container.appendChild(_tooltip);
         }
 
         function _onClick(e) {

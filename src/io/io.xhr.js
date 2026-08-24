@@ -176,19 +176,8 @@
 
     // Not supported by IE9 and or below.
     // Forbid to use in http-flv/fmp4 live streaming, because it is not a progressive loader.
-    XHR.prototype.isSupported = function (url, mode) {
-        if (mode && mode === 'live') {
-            var map = [
-                'flv', '', undefined,
-                'mp4', 'm4s', 'f4v', 'm4v', 'mov',
-            ];
-            for (var i = 0; i < map.length; i++) {
-                if (url.filetype === map[i]) {
-                    return false;
-                }
-            }
-        }
-        return url.protocol === 'http:' || url.protocol === 'https:';
+    XHR.prototype.isSupported = function (url, vod) {
+        return (url.protocol === 'http:' || url.protocol === 'https:') && vod;
     };
 
     IO.register(XHR);

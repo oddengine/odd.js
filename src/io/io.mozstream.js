@@ -174,10 +174,7 @@
     MozStream.prototype.CONF = _default;
 
     // Only supported by Firefox 14-67.
-    MozStream.prototype.isSupported = function (url, mode) {
-        if (mode && mode !== 'live') {
-            return false;
-        }
+    MozStream.prototype.isSupported = function (url, vod) {
         if (Browser.isFirefox && (Browser.major < 14 || Browser.major > 67)) {
             return false;
         }

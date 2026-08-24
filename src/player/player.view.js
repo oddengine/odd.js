@@ -12,20 +12,16 @@
         EventDispatcher.call(this, 'View', { logger: logger }, Event, IOEvent);
 
         var _this = this,
+            _container = container,
+            _model = model,
             _logger = logger,
-            _container,
-            _model,
             _module,
             _canvas,
-            _context,
-            _index;
+            _context;
 
         function _init() {
-            _container = container;
-            _model = model;
             _canvas = utils.createElement('canvas');
             _context = _canvas.getContext('2d');
-            _index = 0;
         }
 
         _this.setup = function (kind) {
@@ -48,26 +44,23 @@
             }
         };
 
-        _this.play = function (file, option) {
-            if (file === undefined) {
+        _this.play = function (program) {
+            if (program === undefined) {
                 if (_module === undefined) {
                     _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'Module not found while the source url doesn\'t provided.' });
                     return;
                 }
-            } else if (_module === undefined || option && option.module && option.module !== _module.kind || !_module.isSupported(file, _model.config.mode)) {
-                var module = odd.Module[(option ? option.module : '') || _model.config.module];
-                if (module == null || module.prototype.isSupported(file, _model.config.mode) === false) {
-                    module = odd.module(file, option);
-                    if (module == null) {
-                        _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'No supported module found.' });
-                        return;
-                    }
+            } else if (_module === undefined || program.type !== _module.kind || !_module.isSupported(program)) {
+                var module = odd.module(program.type);
+                if (module == null) {
+                    _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'No supported module found.' });
+                    return;
                 }
                 _this.setup(module.prototype.kind);
                 return;
             }
 
-            _module.play(file, option);
+            _module.play(program);
         };
 
         _this.pause = function () {

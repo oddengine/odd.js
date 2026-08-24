@@ -7,19 +7,19 @@
         Player = odd.Player,
         UI = Player.UI,
 
-        CLASS_DANMU = 'pe-danmu',
-        CLASS_DANMU_ITEM = 'pe-danmu-item',
+        CLASS_COMMENTS = 'pe-comments',
+        CLASS_COMMENTS_ITEM = 'pe-comments-item',
 
         _default = {
-            kind: 'Danmu',
+            kind: 'Comments',
             speed: 100,
             lineHeight: 32,
             enable: true,
             visibility: true,
         };
 
-    function Danmu(config, logger) {
-        EventDispatcher.call(this, 'Danmu', { logger: logger }, [UIEvent.SHOOTING]);
+    function Comments(config, logger) {
+        EventDispatcher.call(this, 'Comments', { logger: logger }, [UIEvent.SHOOTING]);
 
         var _this = this,
             _logger = logger,
@@ -29,7 +29,8 @@
         function _init() {
             _this.config = config;
 
-            _container = utils.createElement('div', CLASS_DANMU);
+            _container = utils.createElement('div', CLASS_COMMENTS);
+
             _content = utils.createElement('div');
             _container.appendChild(_content);
         }
@@ -41,23 +42,21 @@
             return _this.config.enable;
         };
 
-        _this.shoot = function (text, data) {
-            if (!_this.config.enable) {
-                return;
+        _this.append = function (text, data) {
+            if (_this.config.enable) {
+                var item = utils.createElement('div', CLASS_COMMENTS_ITEM);
+                item.addEventListener('transitionend', _onTransitionEnd);
+                item.innerHTML = text;
+                _content.appendChild(item);
+
+                var offset = _container.clientWidth + item.clientWidth;
+                css.style(item, utils.extendz({}, data, {
+                    top: _getRowIndex(item.clientWidth) * _this.config.lineHeight + 'px',
+                    left: _container.clientWidth + 'px',
+                    transform: 'translateX(-' + offset + 'px)',
+                    transition: 'transform ' + (offset / _this.config.speed) + 's linear 0s',
+                }));
             }
-
-            var item = utils.createElement('div', CLASS_DANMU_ITEM);
-            item.addEventListener('transitionend', _onTransitionEnd);
-            item.innerHTML = text;
-            _content.appendChild(item);
-
-            var offset = _container.clientWidth + item.clientWidth;
-            css.style(item, utils.extendz({}, data, {
-                top: _getRowIndex(item.clientWidth) * _this.config.lineHeight + 'px',
-                left: _container.clientWidth + 'px',
-                transform: 'translateX(-' + offset + 'px)',
-                transition: 'transform ' + (offset / _this.config.speed) + 's linear 0s',
-            }));
         };
 
         function _onTransitionEnd(e) {
@@ -81,11 +80,11 @@
         _init();
     }
 
-    Danmu.prototype = Object.create(EventDispatcher.prototype);
-    Danmu.prototype.constructor = Danmu;
-    Danmu.prototype.kind = 'Danmu';
-    Danmu.prototype.CONF = _default;
+    Comments.prototype = Object.create(EventDispatcher.prototype);
+    Comments.prototype.constructor = Comments;
+    Comments.prototype.kind = 'Comments';
+    Comments.prototype.CONF = _default;
 
-    UI.register(Danmu);
+    UI.register(Comments);
 })(odd);
 

@@ -2,10 +2,8 @@
     var utils = odd.utils,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        GlobalEvent = events.GlobalEvent,
-        IM = odd.IM,
-        UI = IM.UI,
-        components = UI.components,
+        Event = events.Event,
+        components = odd.IM.UI.components,
 
         CLASS_TAB = 'im-tab',
         CLASS_TAB_HEAD = 'im-tab-head',
@@ -14,8 +12,8 @@
         CLASS_TAB_PAGE = 'im-tab-page',
         CLASS_ACTIVE = 'active';
 
-    function Tab(name, kind, logger) {
-        EventDispatcher.call(this, 'Tab', { logger: logger }, [GlobalEvent.CHANGE]);
+    function Tab(name, value, logger) {
+        EventDispatcher.call(this, 'Tab', { logger: logger }, [Event.CHANGE]);
 
         var _this = this,
             _name,
@@ -84,7 +82,7 @@
             }
             _active = _head.children[index];
             if (index !== origin) {
-                _this.dispatchEvent(GlobalEvent.CHANGE, { name: _name, value: index });
+                _this.dispatchEvent(Event.CHANGE, { name: _name, value: index });
             }
         };
 

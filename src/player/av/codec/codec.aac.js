@@ -231,7 +231,7 @@
 
             _this.Codec = 'mp4a.40.' + _this.AudioObjectType;
             _info.Codecs.push(_this.Codec);
-            _this.dispatchEvent(MediaEvent.AAC_SPECIFIC_CONFIG, { packet: pkt });
+            _this.dispatchEvent(MediaEvent.AACSPECIFICCONFIG, { packet: pkt });
         }
 
         function _parseRawFrameData(pkt) {
@@ -257,13 +257,13 @@
 
                 _logger.warn('Generates silent frame: ' + tmp.timestamp);
                 _info.AudioTimestamp = tmp.timestamp;
-                _this.dispatchEvent(MediaEvent.AAC_SAMPLE, { packet: tmp });
+                _this.dispatchEvent(MediaEvent.AACSAMPLE, { packet: tmp });
             }
 
             pkt.set('DTS', _info.TimeBase + pkt.timestamp);
             pkt.set('PTS', pkt.get('DTS'));
             pkt.set('Data', pkt.payload.subarray(pkt.position));
-            _this.dispatchEvent(MediaEvent.AAC_SAMPLE, { packet: pkt });
+            _this.dispatchEvent(MediaEvent.AACSAMPLE, { packet: pkt });
         }
 
         function _parseConfigALS() {

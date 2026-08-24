@@ -29,6 +29,7 @@
 
         function _init() {
             _this.config = config;
+
             _container = utils.createElement('div', CLASS_LOGO);
             _container.style = _this.config.style;
             _logo = utils.createElement('a');

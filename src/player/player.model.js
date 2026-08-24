@@ -5,82 +5,42 @@
     function Model(config, logger) {
         var _this = this,
             _logger = logger,
-            _usermode,
-            _state,
-            _index,
+            _program,
+            _definition,
             _duration,
+            _state,
             _properties;
 
         function _init() {
             _this.config = config;
-            _usermode = _this.config.mode;
-            _state = '';
+
+            _program = 0;
+            _definition = 0;
             _duration = NaN;
+            _state = '';
             _properties = {};
-
-            if (utils.typeOf(_this.config.sources) !== 'array') {
-                _this.config.sources = [];
-            }
-            if (_this.config.file) {
-                _this.config.sources = [{
-                    file: _this.config.file,
-                    module: _this.config.module,
-                    loader: _this.config.loader,
-                }];
-            }
-            _index = _this.config.sources.length ? 0 : NaN;
-
-            for (var i = 0; i < _this.config.sources.length; i++) {
-                var item = _this.config.sources[i];
-                item.loader = utils.extendz({}, _this.config.loader, item.loader);
-
-                var module = odd.module(item.file, item);
-                if (module == null) {
-                    _logger.warn('Ignored unsupported source url: ' + item.file + '.');
-                    _this.config.sources.splice(i--, 1);
-                    continue;
-                }
-                if (item['default']) {
-                    _index = i;
-                }
-            }
-            if (_this.config.sources.length === 0) {
-                _logger.warn('No supported source url provided.');
-            }
         }
 
-        _this.definition = function (index) {
-            if (utils.typeOf(index) === 'number' && index !== _index && index < _this.config.sources.length) {
-                _logger.log('Model definition change: ' + index);
-                _index = index;
+        _this.program = function (index) {
+            if (utils.typeOf(index) === 'number' && index !== _program && index < _this.config.playlist.length) {
+                _logger.log('Program change: ' + index);
+                _program = index;
             }
-            return isNaN(_index) ? null : _this.config.sources[_index];
+            return _program < _this.config.playlist.length ? _this.config.playlist[_program] : null;
+        };
+
+        _this.definition = function (index) {
+            if (utils.typeOf(index) === 'number' && index !== _definition && index < _this.config.playlist[_program].sources.length) {
+                _logger.log('Definition change: ' + index);
+                _definition = index;
+            }
+            return _definition;
         };
 
         _this.duration = function (duration) {
-            if (utils.typeOf(duration) === 'number' && duration !== _duration && !(isNaN(_duration) && isNaN(duration))) {
-                _logger.log('Model duration change: ' + duration);
-                if (_usermode === 'auto') {
-                    // NaN -> Infinity: live
-                    // NaN -> Number: vod
-                    // Infinity -> NaN: live
-                    // Infinity -> Number: live
-                    // Number -> NaN: user config
-                    // Number -> Infinity: live (should not happen)
-                    // Number -> Number: live (Mac Safari)
-                    var mode;
-                    if (isNaN(_duration) && duration !== Infinity) {
-                        mode = 'vod';
-                    } else if (_duration !== Infinity && isNaN(duration)) {
-                        mode = _usermode;
-                    } else {
-                        mode = 'live';
-                    }
-                    if (_this.config.mode !== mode) {
-                        _this.config.mode = mode;
-                        _logger.log('Model mode change: ' + _this.config.mode);
-                    }
-                }
+            if (utils.typeOf(duration) === 'number' && duration !== _duration) {
+                _logger.log('Duration change: ' + duration);
+                _this.config.playlist[_program].vod = !!duration;
                 _duration = duration;
             }
             return _duration;

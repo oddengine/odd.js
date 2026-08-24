@@ -21,16 +21,15 @@
 
         function _init() {
             _this.config = config;
+
             _container = utils.createElement('div', CLASS_AD);
         }
 
         _this.display = function (element) {
             _container.innerHTML = '';
-            _container.appendChild(element);
-        };
-
-        _this.remove = function () {
-            _container.innerHTML = '';
+            if (element) {
+                _container.appendChild(element);
+            }
         };
 
         _this.element = function () {

@@ -16,22 +16,25 @@
         Beauty = RTC.Beauty,
         AudioMeter = RTC.AudioMeter,
 
-        _id = 0,
         _default = {
-            profile: '540P_2',
-            whip: location.protocol + '//' + location.host + '/whip/live',
-            whep: location.protocol + '//' + location.host + '/whep/live',
+            id: 0,
+            profile: '720P_2',
+            whip: `${location.protocol}//${location.host}/whip/live`,
+            whep: `${location.protocol}//${location.host}/whep/live`,
             trickle: false,
-            codecpreferences: [
-                'audio/opus',
-                'video/H264',
-                'video/rtx',
-            ],
-            rtcconfiguration: {
+            configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],
                 }],
-                iceTransportPolicy: "all", // all, relay
+            },
+            codecpreferences: [
+                'audio/opus',
+                'video/H264',
+            ],
+            service: {
+                script: 'js/sw.js',
+                scope: 'js/',
+                enable: false,
             },
         };
 
@@ -40,21 +43,22 @@
 
         var _this = this,
             _logger = logger,
-            _pid,
-            _client,
+            _video,
             _pc,
+            _name,
+            _stream,
             _videomixer,
-            _screenshare,
-            _withcamera,
+            _screensharing = false,
+            _withcamera = false,
             _beauty,
-            _subscribing,
+            _subscribing = [],
             _audiometer,
             _recorder,
             _location,
             _saver,
             _writer,
             _stats,
-            _properties,
+            _properties = {},
             _readyState;
 
         function _init() {
@@ -70,19 +74,19 @@
                 },
             }, Constraints[_this.config.profile]);
 
-            _this.stream = null;
-            _this.video = utils.createElement('video');
-            _this.video.setAttribute('playsinline', '');
-            _this.video.setAttribute('autoplay', '');
+            _video = utils.createElement('video');
+            _video.setAttribute('x-webkit-airplay', 'allow');
+            _video.setAttribute('autoplay', '');
+            _video.setAttribute('playsinline', '');
+            _video.setAttribute('webkit-playsinline', 'isiPhoneShowPlaysinline');
+            _video.setAttribute('x5-playsinline', '');
+            _video.setAttribute('x5-video-player-type', 'h5-page');
+            _video.setAttribute('x5-video-player-fullscreen', true);
+            _video.setAttribute('t7-video-player-type', 'inline');
 
-            _pid = ++_id;
-            _screenshare = false;
-            _withcamera = false;
             _beauty = new Beauty(_logger);
-            _subscribing = [];
             _audiometer = new AudioMeter(_logger);
             _stats = new RTC.Stats(_logger);
-            _properties = {};
             _readyState = State.INITIALIZED;
 
             _saver = new StreamSaver(_this.config.service, _logger);
@@ -90,29 +94,11 @@
             _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
         }
 
-        _this.pid = function () {
-            return _pid;
+        _this.name = function () {
+            return _name;
         };
 
-        _this.uuid = function () {
-            var uuid = _this.getProperty('@uuid');
-            return uuid || '';
-        };
-
-        _this.client = function () {
-            return _client;
-        };
-
-        function _userId() {
-            if (_client && _client.userId) {
-                return _client.userId();
-            }
-            return _this.config.id || 0;
-        }
-
-        _this.attach = async function (nc) {
-            _client = nc;
-
+        _this.attach = async function () {
             switch (_readyState) {
                 case State.CONNECTED:
                 case State.PUBLISHING:
@@ -123,33 +109,25 @@
                     _pc.addEventListener('negotiationneeded', _onNegotiationNeeded);
                     _pc.addEventListener('track', _onTrack);
                     _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
-                    // _pc.addEventListener('icecandidate', _onIceCandidate);
                     _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
+                    // _pc.addEventListener('icecandidate', _onIceCandidate);
 
                     _readyState = State.CONNECTED;
                     return Promise.resolve();
             }
         };
 
-        _this.setProperty = function (key, value) {
-            _properties[key] = value;
-        };
-
-        _this.getProperty = function (key) {
-            return _properties[key];
-        };
-
         _this.applyConstraints = function (constraints) {
             _this.constraints = utils.extendz(_this.constraints, constraints);
-            if (_this.stream) {
-                _this.stream.getTracks().forEach(function (track) {
+            if (_stream) {
+                _stream.getTracks().forEach(function (track) {
                     track.applyConstraints(_this.constraints[track.kind]);
                 });
             }
         };
 
         _this.setCamera = async function (deviceId) {
-            if (_readyState === State.PUBLISHING && (!_screenshare || _withcamera)) {
+            if (_readyState === State.PUBLISHING && (!_screensharing || _withcamera)) {
                 var constraints = utils.extendz({}, _this.constraints, {
                     audio: false,
                     video: {
@@ -159,14 +137,14 @@
                 var source;
                 try {
                     source = await navigator.mediaDevices.getUserMedia(constraints);
-                    _logger.log(`Got user media: user=${_userId()}, stream=${source.id}, constraints=`, constraints);
+                    _logger.log(`Got user media: id=${_this.config.id}, stream=${_name}, stream=${source.id}, constraints=`, constraints);
                 } catch (err) {
-                    _logger.error(`Failed to get user media: user=${_userId()}, constraints=`, constraints, `, error=${err}`);
+                    _logger.error(`Failed to get user media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
                     return Promise.reject(err);
                 }
 
                 var track = source.getVideoTracks()[0];
-                if (_screenshare) {
+                if (_screensharing) {
                     if (_withcamera) {
                         var found = false;
                         _videomixer.forEach(function (element) {
@@ -237,9 +215,9 @@
             var stream;
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
-                _logger.log(`Got user media: user=${_userId()}, stream=${stream.id}, constraints=`, constraints);
+                _logger.log(`Got user media: id=${_this.config.id}, stream=${_name}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
-                _logger.error(`Failed to get user media: user=${_userId()}, constraints=`, constraints, `, error=${err}`);
+                _logger.error(`Failed to get user media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(stream);
@@ -249,9 +227,9 @@
             var stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-                _logger.log(`Got display media: user=${_userId()}, stream=${stream.id}, constraints=`, constraints);
+                _logger.log(`Got display media: id=${_this.config.id}, stream=${_name}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
-                _logger.error(`Failed to get display media: user=${_userId()}, constraints=`, constraints, `, error=${err}`);
+                _logger.error(`Failed to get display media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
             return Promise.resolve(stream);
@@ -263,9 +241,9 @@
             track.addEventListener('unmute', _onUnmute);
 
             var sender = _pc.addTrack(track, stream);
-            _logger.log(`AddTrack: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`AddTrack: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
             if (sender.track.id !== track.id) {
-                _logger.warn(`Track id changed: user=${_userId()}, ${sender.track.id} != ${track.id}`);
+                _logger.warn(`Track id changed: id=${_this.config.id}, stream=${_name}, ${sender.track.id} != ${track.id}`);
             }
             return sender;
         };
@@ -273,9 +251,9 @@
         _this.replaceTrack = function (track, stopprevious) {
             var origin;
             if (track.kind === 'audio') {
-                origin = _this.stream.getAudioTracks()[0];
+                origin = _stream.getAudioTracks()[0];
             } else {
-                origin = _this.stream.getVideoTracks()[0];
+                origin = _stream.getVideoTracks()[0];
             }
             if (origin == undefined) {
                 return Promise.reject(`${track.kind} track not found`);
@@ -285,8 +263,8 @@
             origin.removeEventListener('mute', _onMute);
             origin.removeEventListener('unmute', _onUnmute);
 
-            _this.stream.removeTrack(origin);
-            _this.stream.addTrack(track);
+            _stream.removeTrack(origin);
+            _stream.addTrack(track);
 
             _pc.getSenders().forEach(function (sender) {
                 var item = sender.track;
@@ -307,7 +285,7 @@
                 track.removeEventListener('mute', _onMute);
                 track.removeEventListener('unmute', _onUnmute);
 
-                _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+                _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                     level: Level.STATUS,
                     code: Code.NETSTREAM_UNPUBLISH_SUCCESS,
                     description: 'unpublish success',
@@ -321,22 +299,22 @@
 
         function _onEnded(e) {
             var track = e.target;
-            _logger.log(`Track ended: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track ended: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         function _onMute(e) {
             var track = e.target;
-            _logger.log(`Track muted: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track muted: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
         function _onUnmute(e) {
             var track = e.target;
-            _logger.log(`Track unmuted: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+            _logger.log(`Track unmuted: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
         }
 
-        _this.createStream = async function (screenshare, withcamera, option) {
+        _this.createStream = async function (screensharing, withcamera, option) {
             var stream;
-            if (screenshare) {
+            if (screensharing) {
                 if (withcamera) {
                     stream = new MediaStream();
 
@@ -387,287 +365,129 @@
                 stream = await _this.getUserMedia(_this.constraints);
             }
 
-            _screenshare = screenshare;
+            _name = stream.id;
+            _screensharing = screensharing;
             _withcamera = withcamera;
-            _this.stream = stream;
-            _this.setProperty('stream', stream.id);
+            _stream = stream;
             return Promise.resolve(stream);
         };
 
-        _this.preview = async function (screenshare, withcamera, option) {
-            if (_this.stream == null) {
+        _this.preview = async function (screensharing, withcamera, option) {
+            if (_stream == null) {
                 try {
-                    await _this.createStream(screenshare, withcamera, option);
+                    await _this.createStream(screensharing, withcamera, option);
                 } catch (err) {
-                    _logger.error(`Failed to create stream: user=${_userId()}, pipe=${_pid}`);
+                    _logger.error(`Failed to create stream: id=${_this.config.id}, stream=${_name}`);
                     return Promise.reject(err);
                 }
             }
-            _this.stream.getTracks().forEach(function (track) {
-                _this.addTrack(track, _this.stream);
+            _stream.getTracks().forEach(function (track) {
+                _this.addTrack(track, _stream);
             });
             return Promise.resolve();
         };
 
         _this.publish = async function () {
-            _setCodecPreferences('send');
-            try {
-                var offer = await _pc.createOffer();
-                offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
-                _logger.log(`createOffer success: user=${_userId()}, pipe=${_pid}, sdp=\n${offer.sdp}`);
-            } catch (err) {
-                _logger.error(`Failed to createOffer: user=${_userId()}, pipe=${_pid}`);
-                return Promise.reject(err);
-            }
-            try {
-                await _pc.setLocalDescription(offer);
-                _logger.log(`setLocalDescription success: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
-            } catch (err) {
-                _logger.error(`Failed to setLocalDescription: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
-                return Promise.reject(err);
-            }
-            _readyState = State.PUBLISHING;
+            _setCodecPreferences('sender');
 
             try {
-                var answer = await _post(_this.config.whip, offer.sdp);
-                await _setAnswer(answer);
-                _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-                    level: Level.STATUS,
-                    code: Code.NETSTREAM_PUBLISH_START,
-                    description: 'publish start',
-                    info: {
-                        stream: _this.getProperty('@id') || _this.getProperty('stream'),
-                        id: _this.getProperty('@id'),
-                        location: _location,
-                    },
-                });
+                var offer = await _pc.createOffer();
+                offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
+                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+                _logger.log(`createOffer success: id=${_this.config.id}, stream=${_name}, sdp=\n${offer.sdp}`);
+
+                await _pc.setLocalDescription(offer);
+
+                var response = await _post(_this.config.whip, offer.sdp);
+                var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
+                await _pc.setRemoteDescription(answer);
             } catch (err) {
-                _logger.error(`Failed to publish: user=${_userId()}, pipe=${_pid}, error=${err}`);
+                _logger.error(`Failed to publish: id=${_this.config.id}, stream=${_name}, error=${err}`);
                 return Promise.reject(err);
             }
+
+            _setMaxBitrate();
+            _readyState = State.PUBLISHING;
+            _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
+                level: Level.STATUS,
+                code: Code.NETSTREAM_PUBLISH_START,
+                description: 'publish start',
+                info: {
+                    stream: _this.getProperty('@id') || _this.getProperty('stream'),
+                    id: _this.getProperty('@id'),
+                    location: _location,
+                },
+            });
             return Promise.resolve();
         };
 
-        function _modify(sdp, mimetypes) {
-            sdp = sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
-            sdp = sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
-            sdp = sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
-
-            var lines = sdp.split('\r\n');
-            var state = 'v=';
-            var dst = '';
-            var kind = '';
-            var codec = '';
-            var block = [];
-            var pts = [];
-            var last = -1;
-
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i];
-                if (line === '') {
-                    continue;
-                }
-                switch (state) {
-                    case 'dropping':
-                    // fallthrough
-
-                    case 'a=rtpmap':
-                        var arr = line.match(/^a=rtcp-fb:(\d+)/);
-                        if (arr) {
-                            if (state === 'dropping') {
-                                // Drop this line.
-                                break;
-                            }
-                            var pt = pts[pts.length - 1];
-                            line = line.replace(/^a=rtcp-fb:(\d+)/, `a=rtcp-fb:${pt}`);
-                            block.push(line);
-                            break;
-                        }
-                        arr = line.match(/^a=fmtp:(\d+)/);
-                        if (arr) {
-                            if (state === 'dropping') {
-                                // Drop this line.
-                                break;
-                            }
-                            var pt = pts[pts.length - 1];
-                            var apt = pts[pts.length - 2];
-                            line = line.replace(/^a=fmtp:(\d+)/, `a=fmtp:${pt}`);
-                            line = line.replace(/apt=(\d+)/, `apt=${apt}`);
-                            switch (codec) {
-                                case 'H264':
-                                    line = line.replace(/packetization-mode=(0|1)/i, 'packetization-mode=1');
-                                    line = line.replace(/profile-level-id=([a-z\d]+)/i, 'profile-level-id=42e01f');
-                                    break;
-                                case 'VP9':
-                                    line = line.replace(/profile-id=(\d+)/i, 'profile-id=2');
-                                    break;
-                            }
-                            block.push(line);
-                            break;
-                        }
-                    // fallthrough
-
-                    case 'm=':
-                        var arr = line.match(/^a=rtpmap:(\d+) ([a-zA-Z\d\-]+)\/(\d+)(?:\/(\d))?/);
-                        if (arr) {
-                            var pt = arr[1];
-                            codec = arr[2];
-                            switch (codec) {
-                                case 'opus':
-                                    pt = 111;
-                                    break;
-                                case 'VP8':
-                                    pt = 96;
-                                    break;
-                                case 'VP9':
-                                    pt = 98;
-                                    break;
-                                case 'H264':
-                                    pt = 106;
-                                    break;
-                                case 'H265':
-                                    pt = 108;
-                                    break;
-                                case 'AV1':
-                                    pt = 41;
-                                    break;
-                                case 'red':
-                                case 'rtx':
-                                case 'ulpfec':
-                                    switch (last) {
-                                        case 111:
-                                            pt = 63;
-                                            break;
-                                        default:
-                                            pt = last + 1;
-                                            break;
-                                    }
-                                    break;
-                            }
-
-                            var found = false;
-                            for (var j = 0; j < mimetypes.length; j++) {
-                                if (mimetypes[j] === kind + '/' + codec) {
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (found || last !== -1 && (codec === 'red' || codec === 'rtx' || codec === 'ulpfec')) {
-                                var inserted = false;
-                                for (var j = 0; j < pts.length; j++) {
-                                    if (pts[j] === pt) {
-                                        inserted = true;
-                                        break;
-                                    }
-                                }
-                                if (inserted === false) {
-                                    line = line.replace(/^a=rtpmap:(\d+)/, `a=rtpmap:${pt}`);
-                                    block[0] += ` ${pt}`;
-                                    block.push(line);
-                                    pts.push(pt);
-                                    last = pt;
-                                    state = 'a=rtpmap';
-                                    break;
-                                }
-                            }
-                            // Drop this line.
-                            last = -1;
-                            state = 'dropping';
-                            break;
-                        }
-                    // fallthrough
-
-                    case 'v=':
-                        var arr = line.match(/^m=(audio|video) 9 UDP\/TLS\/RTP\/SAVPF/);
-                        if (arr) {
-                            dst += block.join('\r\n') + '\r\n';
-
-                            kind = arr[1];
-                            block = [arr[0]];
-                            pts = [];
-                            state = 'm=';
-                            break;
-                        }
-                        block.push(line);
-                        break;
-                }
-            }
-            dst += block.join('\r\n') + '\r\n';
-            return dst;
-        }
-
         function _setCodecPreferences(type) {
-            var audio = _codecs(type === 'send' ? RTCRtpSender : RTCRtpReceiver, 'audio');
-            var video = _codecs(type === 'send' ? RTCRtpSender : RTCRtpReceiver, 'video');
+            var audiocodecs = [];
+            var videocodecs = [];
+            var factory = type === 'sender' ? RTCRtpSender : RTCRtpReceiver;
+
+            var ac = factory.getCapabilities('audio');
+            if (ac && ac.codecs) {
+                ac.codecs.forEach(function (codec) {
+                    if (codec.mimeType === 'audio/opus') {
+                        audiocodecs.push(codec);
+                    }
+                });
+            }
+            var vc = factory.getCapabilities('video');
+            if (vc && vc.codecs) {
+                vc.codecs.forEach(function (codec) {
+                    if (codec.mimeType === 'video/rtx' ||
+                        codec.mimeType === 'video/H264' && codec.sdpFmtpLine &&
+                        codec.sdpFmtpLine.indexOf('packetization-mode=1') !== -1 &&
+                        codec.sdpFmtpLine.indexOf('profile-level-id=42e01f') !== -1) {
+                        videocodecs.push(codec);
+                    }
+                });
+            }
             _pc.getTransceivers().forEach(function (transceiver) {
-                switch (_kind(transceiver, type)) {
+                switch (transceiver[type].track.kind) {
                     case 'audio':
-                        if (audio.length) {
-                            transceiver.setCodecPreferences(audio);
-                        }
+                        transceiver.setCodecPreferences(audiocodecs);
                         break;
                     case 'video':
-                        if (video.length) {
-                            transceiver.setCodecPreferences(video);
-                        } else {
-                            _logger.warn(`No preferred video codec found: user=${_userId()}, codecpreferences=`, _this.config.codecpreferences);
-                        }
+                        transceiver.setCodecPreferences(videocodecs);
                         break;
                 }
             });
         }
 
-        function _kind(transceiver, type) {
-            var track = type === 'send' ? transceiver.sender.track : transceiver.receiver.track;
-            return track ? track.kind : '';
-        }
-
-        function _codecs(factory, kind) {
-            var items = [];
-            if (factory.getCapabilities == null) {
-                return items;
-            }
-            var capabilities = factory.getCapabilities(kind);
-            if (capabilities == null) {
-                return items;
-            }
-            var hasPreferredVideo = false;
-            capabilities.codecs.forEach(function (codec) {
-                if (kind === 'video' && codec.mimeType.toLowerCase() === 'video/rtx') {
-                    items.push(codec);
-                    return;
-                }
-                for (var i = 0; i < _this.config.codecpreferences.length; i++) {
-                    if (_matchCodec(codec, _this.config.codecpreferences[i])) {
-                        items.push(codec);
-                        if (kind === 'video') {
-                            hasPreferredVideo = true;
-                        }
-                        break;
+        function _setMaxBitrate() {
+            _pc.getSenders().forEach(function (sender) {
+                var track = sender.track;
+                if (track && track.kind === 'video' && _this.constraints.video && _this.constraints.video.maxBitrate) {
+                    var bitrate = _this.constraints.video.maxBitrate * 1000;
+                    var parameters = sender.getParameters();
+                    if (parameters.encodings == null) {
+                        parameters.encodings = [{}];
                     }
+                    parameters.encodings.forEach(function (encoding) {
+                        encoding.maxBitrate = bitrate;
+                    });
+                    sender.setParameters(parameters).then(function () {
+                        _logger.log(`Set max bitrate: id=${_this.config.id}, stream=${_name}, value=${bitrate}`);
+                    }).catch(function (err) {
+                        _logger.warn(`Failed to set max bitrate: id=${_this.config.id}, stream=${_name}, value=${bitrate}, error=${err}`);
+                    });
                 }
             });
-            if (kind === 'video' && hasPreferredVideo === false) {
-                items = [];
-            }
-            return items;
         }
 
-        function _matchCodec(codec, mimetype) {
-            if (mimetype.toLowerCase() !== codec.mimeType.toLowerCase()) {
-                return false;
-            }
-            switch (mimetype.toLowerCase()) {
-                case 'video/h264':
-                    var fmtp = codec.sdpFmtpLine || '';
-                    fmtp = fmtp.toLowerCase();
-                    return fmtp.indexOf('packetization-mode=1') !== -1 &&
-                        fmtp.indexOf('profile-level-id=42e01f') !== -1;
-            }
-            return true;
+        function _setJitterBufferTarget() {
+            _pc.getReceivers().forEach(function (receiver) {
+                if (receiver.track && receiver.track.kind === 'video') {
+                    receiver.jitterBufferTarget = 300;
+                }
+            });
         }
 
-        function _post(url, sdp) {
+        async function _post(url, sdp) {
             return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('POST', url, true);
@@ -676,17 +496,26 @@
                     if (xhr.readyState !== 4) {
                         return;
                     }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        _location = xhr.getResponseHeader('Location') || url;
-                        _this.setProperty('@id', _location.split('/').pop() || _pid);
-                        _this.setProperty('@location', _location);
+                        _location = xhr.getResponseHeader('Location')
+                        if (_location) {
+                            _logger.log(`Location: ${_location}`);
+                            _params = new URLSearchParams(new URL(_location).search);
+                            _port = Number(_params.get('port'));
+                            _setCookie(_params.toString(), Date.now() + 30000);
+                        }
                         resolve(xhr.responseText);
                         return;
                     }
-                    reject(`status=${xhr.status}, response=${xhr.responseText}`);
                 };
-                xhr.onerror = function () {
-                    reject('network error');
+                xhr.onerror = function (err) {
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
                 };
                 xhr.send(sdp);
             });
@@ -704,14 +533,19 @@
                     if (xhr.readyState !== 4) {
                         return;
                     }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
                     if (xhr.status >= 200 && xhr.status < 300) {
                         resolve();
                         return;
                     }
-                    reject(`status=${xhr.status}, response=${xhr.responseText}`);
                 };
                 xhr.onerror = function () {
-                    reject('network error');
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
                 };
                 if (candidate.candidate) {
                     xhr.send(`a=${candidate.candidate}\na=end-of-candidates`);
@@ -721,79 +555,47 @@
             });
         }
 
-        function _delete() {
+        async function _delete() {
             if (_location == null) {
-                return;
+                return Promise.resolve();
             }
-            var xhr = new XMLHttpRequest();
-            xhr.open('DELETE', _location, true);
-            xhr.send();
-            _location = undefined;
-        }
-
-        function _join(prefix, name) {
-            return prefix.replace(/\/$/, '') + '/' + encodeURIComponent(name);
-        }
-
-        async function _setAnswer(sdp) {
-            var answer = new RTCSessionDescription({
-                type: 'answer',
-                sdp: sdp,
-            });
-            _logger.log(`onRemoteAnswer: user=${_userId()}, pipe=${_pid}, sdp=\n${answer.sdp}`);
-            try {
-                await _pc.setRemoteDescription(answer);
-                _logger.log(`setRemoteDescription success: user=${_userId()}, pipe=${_pid}, type=${answer.type}`);
-            } catch (err) {
-                _logger.error(`Failed to setRemoteDescription: user=${_userId()}, pipe=${_pid}, type=${answer.type}`);
-                return Promise.reject(err);
-            }
-            _setMaxBitrate();
-            _setJitterBufferTarget();
-            return Promise.resolve();
-        }
-
-        function _setMaxBitrate() {
-            _pc.getSenders().forEach(function (sender) {
-                var track = sender.track;
-                if (track && track.kind === 'video' && _this.constraints.video && _this.constraints.video.maxBitrate) {
-                    var bitrate = _this.constraints.video.maxBitrate * 1000;
-                    var parameters = sender.getParameters();
-                    if (parameters.encodings == null) {
-                        parameters.encodings = [{}];
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('DELETE', _location, true);
+                xhr.send();
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4) {
+                        return;
                     }
-                    parameters.encodings.forEach(function (encoding) {
-                        encoding.maxBitrate = bitrate;
-                    });
-                    sender.setParameters(parameters).then(function () {
-                        _logger.log(`Set max bitrate: user=${_userId()}, value=${bitrate}`);
-                    }).catch(function (err) {
-                        _logger.warn(`Failed to set max bitrate: user=${_userId()}, value=${bitrate}, error=${err}`);
-                    });
-                }
-            });
-        }
-
-        function _setJitterBufferTarget() {
-            _pc.getReceivers().forEach(function (receiver) {
-                if (receiver.track && receiver.track.kind === 'video' && 'jitterBufferTarget' in receiver) {
-                    receiver.jitterBufferTarget = 300;
-                }
+                    if (xhr.status < 200 || xhr.status > 299) {
+                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
+                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        return;
+                    }
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve();
+                        return;
+                    }
+                };
+                xhr.onerror = function () {
+                    _logger.error(`Loader ${err.name}: ${err.message}`);
+                    reject(err);
+                };
             });
         }
 
         _this.beauty = function (enable, constraints) {
             if (enable) {
-                _beauty.enable(_this.stream, constraints).then(function () {
+                _beauty.enable(_stream, constraints).then(function () {
                     _this.replaceTrack(_beauty.output(), false).catch(function (err) {
-                        _logger.error(`Failed to replace track: user=${_userId()}, error=${err}`);
+                        _logger.error(`Failed to replace track: id=${_this.config.id}, stream=${_name}, error=${err}`);
                     });
                 });
             } else {
                 var input = _beauty.input();
                 if (input) {
                     _this.replaceTrack(input, true).catch(function (err) {
-                        _logger.error(`Failed to replace track: user=${_userId()}, error=${err}`);
+                        _logger.error(`Failed to replace track: id=${_this.config.id}, stream=${_name}, error=${err}`);
                     });
                     _beauty.disable();
                 }
@@ -804,52 +606,93 @@
             return _beauty.enabled();
         };
 
-        _this.play = async function (rid, mode) {
-            _this.setProperty('stream', rid.split('@')[0]);
+        _this.play = async function (name) {
+            _name = name;
 
-            _pc.addTransceiver('audio', {
-                direction: 'recvonly',
-            });
-            _pc.addTransceiver('video', {
-                direction: 'recvonly',
-            });
-            _setCodecPreferences('recv');
+            _pc.addTransceiver('audio', { direction: 'recvonly' });
+            _pc.addTransceiver('video', { direction: 'recvonly' });
+            _setCodecPreferences('receiver');
 
             try {
                 var offer = await _pc.createOffer();
-                offer.sdp = _modify(offer.sdp, _this.config.codecpreferences);
-                _logger.log(`createOffer success: user=${_userId()}, pipe=${_pid}, sdp=\n${offer.sdp}`);
-            } catch (err) {
-                _logger.error(`Failed to createOffer: user=${_userId()}, pipe=${_pid}`);
-                return Promise.reject(err);
-            }
-            try {
+                offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
+                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
+                _logger.log(`createOffer success: id=${_this.config.id}, stream=${_name}, sdp=\n${offer.sdp}`);
+
                 await _pc.setLocalDescription(offer);
-                _logger.log(`setLocalDescription success: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
+
+                var response = await _post(`${_this.config.whep}/${_name}`, offer.sdp);
+                var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
+                await _pc.setRemoteDescription(answer);
             } catch (err) {
-                _logger.error(`Failed to setLocalDescription: user=${_userId()}, pipe=${_pid}, type=${offer.type}`);
+                _logger.error(`Failed to play: id=${_this.config.id}, stream=${_name}, error=${err}`);
                 return Promise.reject(err);
             }
+
+            _setJitterBufferTarget();
             _readyState = State.PLAYING;
+            return Promise.resolve();
+        };
 
-            try {
-                var answer = await _post(_join(_this.config.whep, rid), offer.sdp);
-                await _setAnswer(answer);
-            } catch (err) {
-                _logger.error(`Failed to play: user=${_userId()}, pipe=${_pid}, stream=${rid}, error=${err}`);
-                return Promise.reject(err);
+        function _onNegotiationNeeded(e) {
+            // We don't negotiate at this moment, until user called publish manually.
+            _logger.log(`onNegotiationNeeded: id=${_this.config.id}, stream=${_name}`);
+        }
+
+        function _onTrack(e) {
+            var stream = e.streams[0];
+            _logger.log(`onTrack: id=${_this.config.id}, stream=${_name}, kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
+            _subscribing.push(e.track);
+            _audiometer.update(stream);
+            _stream = stream;
+            _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
+                level: Level.STATUS,
+                code: Code.NETSTREAM_PLAY_START,
+                description: 'play start',
+                info: {
+                    track: e.track,
+                    streams: e.streams,
+                },
+            });
+        }
+
+        function _onConnectionStateChange(e) {
+            var pc = e.target;
+            _logger.log(`onConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.connectionState}`);
+
+            switch (pc.connectionState) {
+                case 'failed':
+                case 'closed':
+                    _this.close(pc.connectionState);
+                    break;
             }
-            return Promise.resolve();
-        };
+        }
 
-        _this.stop = function (name) {
-            _this.release('stopping');
-            return Promise.resolve();
-        };
+        function _onIceConnectionStateChange(e) {
+            var pc = e.target;
+            _logger.log(`onIceConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.iceConnectionState}`);
+        }
+
+        function _onIceCandidate(e) {
+            var candidate = e.candidate;
+            if (candidate == null) {
+                candidate = {
+                    candidate: '',
+                    sdpMid: '',
+                    sdpMLineIndex: 0,
+                };
+            }
+            _logger.log(`onIceCandidate: id=${_this.config.id}, stream=${_name}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+
+            _patch(candidate).catch((err) => {
+                _logger.error(`Failed to send candidate: id=${_this.config.id}, stream=${_name}, error=${err}`);
+            });
+        }
 
         _this.record = function (filename, ondata) {
             function handler() {
-                if (_this.stream == null) {
+                if (_stream == null) {
                     return Promise.reject('Failed to record stream, not found.');
                 }
                 var writer = _saver.record(filename);
@@ -874,7 +717,7 @@
                 }
                 _writer = writer;
 
-                _recorder = new MediaRecorder(_this.stream);
+                _recorder = new MediaRecorder(_stream);
                 _recorder.addEventListener('dataavailable', _onDataAvailable);
                 _recorder.start(200);
             }
@@ -917,60 +760,6 @@
             return _pc.getReceivers();
         };
 
-        function _onNegotiationNeeded(e) {
-            // We don't negotiate at this moment, until user called publish manually.
-            _logger.log(`onNegotiationNeeded: user=${_userId()}, pipe=${_pid}`);
-        }
-
-        function _onTrack(e) {
-            var stream = e.streams[0];
-            _logger.log(`onTrack: user=${_userId()}, kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
-            _subscribing.push(e.track);
-            _audiometer.update(stream);
-            _this.stream = stream;
-            _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
-                level: Level.STATUS,
-                code: Code.NETSTREAM_PLAY_START,
-                description: 'play start',
-                info: {
-                    track: e.track,
-                    streams: e.streams,
-                },
-            });
-        }
-
-        function _onConnectionStateChange(e) {
-            var pc = e.target;
-            _logger.log(`onConnectionStateChange: user=${_userId()}, pipe=${_pid}, state=${pc.connectionState}`);
-            switch (pc.connectionState) {
-                case 'failed':
-                case 'closed':
-                    _this.close(pc.connectionState);
-                    break;
-            }
-        }
-
-        function _onIceCandidate(e) {
-            var candidate = e.candidate;
-            if (candidate == null) {
-                candidate = {
-                    candidate: '',
-                    sdpMid: '',
-                    sdpMLineIndex: 0,
-                };
-            }
-            _logger.log(`onIceCandidate: user=${_userId()}, pipe=${_pid}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
-
-            _patch(candidate).catch((err) => {
-                _logger.error(`Failed to send candidate: user=${_userId()}, error=${err}`);
-            });
-        }
-
-        function _onIceConnectionStateChange(e) {
-            var pc = e.target;
-            _logger.log(`onIceConnectionStateChange: user=${_userId()}, pipe=${_pid}, state=${pc.iceConnectionState}`);
-        }
-
         _this.volume = function () {
             return _audiometer.volume();
         };
@@ -982,17 +771,24 @@
                 });
                 return Promise.resolve(_stats.report);
             }).catch((err) => {
-                _logger.warn(`Failed to getStats: user=${_userId()}, error=${err}`);
+                _logger.warn(`Failed to getStats: id=${_this.config.id}, stream=${_name}, error=${err}`);
             });
+        };
+
+        _this.setProperty = function (key, value) {
+            _properties[key] = value;
+        };
+
+        _this.getProperty = function (key) {
+            return _properties[key];
         };
 
         _this.state = function () {
             return _readyState;
         };
 
-        _this.release = function (reason) {
-            _delete();
-            _this.close(reason);
+        _this.element = function () {
+            return _video;
         };
 
         _this.close = function (reason) {
@@ -1001,12 +797,13 @@
                 case State.PUBLISHING:
                 case State.PLAYING:
                     _readyState = State.CLOSING;
+                    _delete();
 
                     var senders = _pc.getSenders();
                     senders.forEach(function (sender) {
                         var track = sender.track;
                         if (track) {
-                            _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+                            _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                                 level: Level.STATUS,
                                 code: Code.NETSTREAM_UNPUBLISH_SUCCESS,
                                 description: 'unpublish success',
@@ -1020,7 +817,7 @@
                     receivers.forEach(function (receiver) {
                         var track = receiver.track;
                         if (track) {
-                            _this.dispatchEvent(NetStatusEvent.NET_STATUS, {
+                            _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                                 level: Level.STATUS,
                                 code: Code.NETSTREAM_PLAY_STOP,
                                 description: 'play stop',
@@ -1038,20 +835,29 @@
                         _writer.close();
                         _writer = null;
                     }
-                    if (_this.stream) {
-                        _this.stream.getTracks().forEach(function (track) {
-                            _logger.log(`Stopping track: user=${_userId()}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
+                    if (_stream) {
+                        _stream.getTracks().forEach(function (track) {
+                            _logger.log(`Stopping track: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
                             track.stop();
                         });
                     }
-                    _pc.close();
+                    if (_pc) {
+                        _pc.removeEventListener('negotiationneeded', _onNegotiationNeeded);
+                        _pc.removeEventListener('track', _onTrack);
+                        _pc.removeEventListener('connectionstatechange', _onConnectionStateChange);
+                        _pc.removeEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
+                        _pc.removeEventListener('icecandidate', _onIceCandidate);
+                        _pc.close();
+                        _pc = undefined;
+                    }
+
                     _subscribing = [];
                     _audiometer.stop();
                 // fallthrough
                 case State.INITIALIZED:
                     _this.dispatchEvent(Event.RELEASE, { reason: reason });
-                    _this.stream = null;
-                    _this.video.srcObject = undefined;
+                    _stream = null;
+                    _video.srcObject = undefined;
                     _readyState = State.CLOSED;
                     break;
             }

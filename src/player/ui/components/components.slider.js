@@ -4,84 +4,66 @@
         css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        GlobalEvent = events.GlobalEvent,
+        Event = events.Event,
         MouseEvent = events.MouseEvent,
-        Player = odd.Player,
-        UI = Player.UI,
-        components = UI.components,
+        components = odd.Player.UI.components,
 
         CLASS_SLIDER = 'pe-slider',
         CLASS_SLIDER_CONTENT = 'pe-slider-content',
-        CLASS_TOOLTIP = 'pe-tooltip',
         CLASS_SLIDER_RAIL = 'pe-slider-rail',
         CLASS_SLIDER_THUMB = 'pe-slider-thumb',
+        CLASS_TOOLTIP = 'pe-tooltip',
 
         HORIZONTAL = 'horizontal',
         VERTICAL = 'vertical';
 
-    function Slider(name, kind, logger) {
-        EventDispatcher.call(this, 'Slider', { logger: logger }, [GlobalEvent.CHANGE, MouseEvent.MOUSE_MOVE]);
+    function Slider(name, value, logger) {
+        EventDispatcher.call(this, 'Slider', { logger: logger }, [Event.CHANGE, MouseEvent.MOUSEMOVE]);
 
         var _this = this,
-            _name,
+            _name = name,
             _logger = logger,
-            _direction,
-            _active,
             _container,
-            _content,
             _tooltip,
+            _content,
             _background,
             _progress,
             _position,
-            _thumb;
-
-        function _init() {
-            _name = name;
-            _direction = HORIZONTAL;
+            _thumb,
+            _direction = HORIZONTAL,
             _active = false;
 
+        function _init() {
             _container = utils.createElement('div', CLASS_SLIDER + ' ' + _name);
-            _content = utils.createElement('div', CLASS_SLIDER_CONTENT);
+
             _tooltip = utils.createElement('span', CLASS_TOOLTIP + ' value');
-            _background = utils.createElement('span', CLASS_SLIDER_RAIL + ' background');
-            _progress = utils.createElement('span', CLASS_SLIDER_RAIL + ' progress');
-            _position = utils.createElement('span', CLASS_SLIDER_RAIL + ' position');
-            _thumb = utils.createElement('span', CLASS_SLIDER_THUMB);
-            _thumb.innerHTML = '<span></span>';
-            _content.appendChild(_tooltip);
-            _content.appendChild(_background);
-            _content.appendChild(_progress);
-            _content.appendChild(_position);
-            _content.appendChild(_thumb);
+            _container.appendChild(_tooltip);
+
+            _content = utils.createElement('div', CLASS_SLIDER_CONTENT);
             _container.appendChild(_content);
 
-            switch (name) {
-                case 'timebar':
-                    _this.value('--:--');
-                    break;
-                case 'volumebar':
-                    _this.value(kind);
-                    _this.position(kind);
-                    _this.thumb(kind);
-                    break;
-            }
+            _background = utils.createElement('span', CLASS_SLIDER_RAIL + ' background');
+            _content.appendChild(_background);
 
-            try {
-                document.addEventListener('mousedown', _onMouseDown);
-                document.addEventListener('mousemove', _onMouseMove);
-                document.addEventListener('mouseup', _onMouseUp);
-            } catch (err) {
-                document.attachEvent('onmousedown', _onMouseDown);
-                document.attachEvent('onmousemove', _onMouseMove);
-                document.attachEvent('onmouseup', _onMouseUp);
-            }
+            _progress = utils.createElement('span', CLASS_SLIDER_RAIL + ' progress');
+            _content.appendChild(_progress);
+
+            _position = utils.createElement('span', CLASS_SLIDER_RAIL + ' position');
+            _content.appendChild(_position);
+
+            _thumb = utils.createElement('span', CLASS_SLIDER_THUMB);
+            _thumb.innerHTML = '<span></span>';
+            _content.appendChild(_thumb);
+
+            document.addEventListener('mousedown', _onMouseDown);
+            document.addEventListener('mousemove', _onMouseMove);
+            document.addEventListener('mouseup', _onMouseUp);
         }
 
-        _this.value = function (value) {
+        _this.tips = function (value) {
             if (value !== undefined) {
                 _tooltip.innerHTML = value;
             }
-
             return _tooltip.innerHTML;
         };
 
@@ -89,26 +71,23 @@
             css.style(_progress, {
                 'width': value + '%',
             });
+            _progress.setAttribute('value', value);
         };
 
         _this.position = function (value) {
-            _container.setAttribute('value', value);
             css.style(_position, {
                 'width': value + '%',
             });
-        };
-
-        _this.thumb = function (value) {
             css.style(_thumb, {
                 'left': value + '%',
             });
+            _position.setAttribute('value', value);
         };
 
         function _onMouseDown(e) {
             if (e.button !== (Browser.isIE8 ? 1 : 0)) {
                 return;
             }
-
             if (!e.target) {
                 e.target = e.srcElement;
             }
@@ -118,28 +97,44 @@
                 return;
             }
 
-            var value = _getValue(e.clientX, e.clientY);
-            if (value !== _container.getAttribute('value')) {
-                _this.dispatchEvent(GlobalEvent.CHANGE, { name: _name, value: value });
+            var value = _calc(e.clientX, e.clientY);
+            if (value !== _position.getAttribute('value')) {
+                _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
             }
-
             _active = true;
         }
 
         function _onMouseMove(e) {
-            var value = _getValue(e.clientX, e.clientY);
-            if (_content === e.target ||
-                _content === e.target.parentNode ||
-                _content === e.target.parentNode.parentNode) {
-                _this.dispatchEvent(MouseEvent.MOUSE_MOVE, { name: _name, value: value });
-            }
-
             if (!_active) {
                 return;
             }
+            var value = _calc(e.clientX, e.clientY);
+            if (_content === e.target ||
+                _content === e.target.parentNode ||
+                _content === e.target.parentNode.parentNode) {
+                var offset = _container.clientWidth * value / 100 - _tooltip.clientWidth / 2;
+                var left = offset + _container.offsetLeft;
+                var right = element.offsetParent.offsetLeft + left + tooltip.clientWidth;
 
-            if (value !== _container.getAttribute('value')) {
-                _this.dispatchEvent(GlobalEvent.CHANGE, { name: _name, value: value });
+                if (left < 1 && _container.offsetParent === e.target.parentNode.parentNode) {
+                    css.style(tooltip, {
+                        'left': 1 - element.offsetLeft + 'px',
+                        'right': 'auto',
+                    });
+                } else if (right > e.target.parentNode.parentNode.clientWidth - 1) {
+                    css.style(tooltip, {
+                        'left': 'auto',
+                        'right': element.offsetParent.offsetLeft + element.offsetLeft + element.clientWidth + 1 - _content.clientWidth + 'px',
+                    });
+                } else {
+                    css.style(tooltip, {
+                        'left': offset + 'px',
+                        'right': 'auto',
+                    });
+                }
+                if (value !== _position.getAttribute('value')) {
+                    _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
+                }
             }
         }
 
@@ -147,40 +142,32 @@
             if (!_active) {
                 return;
             }
-
-            var value = _getValue(e.clientX, e.clientY);
-            if (value !== _container.getAttribute('value')) {
-                _this.dispatchEvent(GlobalEvent.CHANGE, { name: _name, value: value });
+            var value = _calc(e.clientX, e.clientY);
+            if (value !== _position.getAttribute('value')) {
+                _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
             }
-
             _active = false;
         }
 
-        function _getValue(x, y) {
-            var offsetX, offsetY, value;
-
-            offsetX = x;
-            offsetY = y;
+        function _calc(x, y) {
+            var offsetX = x, offsetY = y, value;
             for (var node = _content; node; node = node.offsetParent) {
                 offsetX -= node.offsetLeft;
                 offsetY -= node.offsetTop;
             }
-
             if (_direction === HORIZONTAL) {
                 value = (offsetX / _content.clientWidth * 100).toFixed(3);
             } else {
                 value = (offsetY / _content.clientHeight * 100).toFixed(3);
             }
-
-            value = Math.max(0, Math.min(value, 100));
-            return value;
+            return Math.max(0, Math.min(value, 100));
         }
 
         _this.element = function () {
             return _container;
         };
 
-        _this.nonius = function () {
+        _this.tooltip = function () {
             return _tooltip;
         };
 

@@ -3,8 +3,7 @@
         css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        Player = odd.Player,
-        UI = Player.UI,
+        UI = odd.Player.UI,
 
         CLASS_POSTER = 'pe-poster',
 
@@ -26,6 +25,7 @@
 
         function _init() {
             _this.config = config;
+
             _container = utils.createElement('div', CLASS_POSTER);
 
             _img = new Image();

@@ -10,109 +10,104 @@
         TouchEvent = events.TouchEvent,
         TimerEvent = events.TimerEvent,
         Famicom = odd.Famicom,
+        Port = Famicom.Port,
         Key = Famicom.Key,
 
-        CLASS_WRAPPER = 'famicom-wrapper',
-        CLASS_CONTENT = 'famicom-content',
+        CLASS_WRAPPER = 'pe-wrapper',
+        CLASS_CONTENT = 'pe-content',
 
         _id = 0,
         _instances = {},
         _default = {
+            presentation: 'full', // full, mini, popup
             skin: 'classic',
-            keyboard: {
-                KeyW: Key.UP,
-                ArrowUp: Key.UP,
-                KeyS: Key.DOWN,
-                ArrowDown: Key.DOWN,
-                KeyA: Key.LEFT,
-                ArrowLeft: Key.LEFT,
-                KeyD: Key.RIGHT,
-                ArrowRight: Key.RIGHT,
-                KeyJ: Key.B,
-                KeyK: Key.A,
-                KeyU: Key.SELECT,
-                ShiftLeft: Key.SELECT,
-                ShiftRight: Key.SELECT,
-                KeyI: Key.START,
-                Enter: Key.START,
-            },
-            gamepad: {
-                buttons: {
-                    0: Key.A,
-                    1: Key.B,
-                    8: Key.SELECT,
-                    9: Key.START,
-                    12: Key.UP,
-                    13: Key.DOWN,
-                    14: Key.LEFT,
-                    15: Key.RIGHT,
-                },
-                threshold: 0.5,
-            },
             joystick: {
                 center: 0.0,
                 direction: 8,
+            },
+            keyboard: {
+                KeyW: [Port.P1, Key.UP],
+                KeyS: [Port.P1, Key.DOWN],
+                KeyA: [Port.P1, Key.LEFT],
+                KeyD: [Port.P1, Key.RIGHT],
+                KeyH: [Port.P1, Key.START],
+                KeyG: [Port.P1, Key.SELECT],
+                KeyJ: [Port.P1, Key.B],
+                KeyK: [Port.P1, Key.A],
+                ArrowUp: [Port.P2, Key.UP],
+                ArrowDown: [Port.P2, Key.DOWN],
+                ArrowLeft: [Port.P2, Key.LEFT],
+                ArrowRight: [Port.P2, Key.RIGHT],
+                Numpad3: [Port.P2, Key.START],
+                Numpad2: [Port.P2, Key.SELECT],
+                Numpad0: [Port.P2, Key.B],
+                NumpadDecimal: [Port.P2, Key.A],
+            },
+            gamepad: {
+                0: Key.A,
+                1: Key.B,
+                8: Key.SELECT,
+                9: Key.START,
+                12: Key.UP,
+                13: Key.DOWN,
+                14: Key.LEFT,
+                15: Key.RIGHT,
             },
             plugins: [],
         };
 
     function UI(id, logger) {
         var _this = this,
-            _logger = new utils.Logger(id, logger),
+            _id = id,
+            _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
             _content,
-            _famicom,
-            _keyboardKeys,
-            _gamepadKeys,
-            _joystickKeys,
-            _gamepadRaf,
+            _api,
+            _joystickkeys,
+            _keyboardkeys,
             _timer;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, MediaEvent, UIEvent, MouseEvent, TouchEvent);
 
         function _init() {
-            _this.id = id;
             _this.logger = _logger;
             _this.plugins = {};
-            _keyboardKeys = {};
-            _gamepadKeys = {};
-            _joystickKeys = {};
+
+            _joystickkeys = {};
+            _keyboardkeys = {};
+
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
         }
+
+        _this.id = function () {
+            return _id;
+        };
 
         _this.setup = async function (container, config) {
             _container = container;
             _parseConfig(config || {});
 
-            _wrapper = utils.createElement('div', CLASS_WRAPPER + ' famicom-ui-' + _this.config.skin);
-            _content = utils.createElement('div', CLASS_CONTENT);
-            _wrapper.appendChild(_content);
+            _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
             _container.appendChild(_wrapper);
 
-            _famicom = Famicom.get(_this.id, _logger);
-            _famicom.addEventListener(Event.BIND, _onBind);
-            _famicom.addEventListener(Event.READY, _onReady);
-            _famicom.addEventListener(Event.VOLUMECHANGE, _onVolumeChange);
-            _famicom.addEventListener(Event.ERROR, _onError);
-            _famicom.addEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+            _content = utils.createElement('div', CLASS_CONTENT);
+            _wrapper.appendChild(_content);
+
+            _api = Famicom.get(_id, _logger);
+            _api.addEventListener(Event.BIND, _onBind);
+            _api.addEventListener(Event.READY, _onReady);
+            _api.addEventListener(Event.VOLUMECHANGE, _onVolumeChange);
+            _api.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
+            _api.addEventListener(Event.ERROR, _onError);
+            _api.setup(_content, _this.config);
 
             _buildPlugins();
             _setupPlugins();
             _this.resize();
 
-            try {
-                await _famicom.setup(_content, _this.config);
-            } catch (err) {
-                _logger.error(`Failed to setup: ${err}`);
-                return Promise.reject(err);
-            }
-
             window.addEventListener('resize', _this.resize);
-            window.addEventListener('blur', _releaseAll);
-            document.addEventListener('visibilitychange', _onVisibilityChange);
-            _gamepadRaf = requestAnimationFrame(_pollGamepad);
             return Promise.resolve();
         };
 
@@ -137,7 +132,7 @@
                 plugins.push(utils.extendz({}, def, cfg));
             }
 
-            _this.config = utils.extendz({ id: _this.id }, Famicom.prototype.CONF, _default, config);
+            _this.config = utils.extendz({ id: _id }, Famicom.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
         }
 
@@ -150,13 +145,6 @@
                 if (config.visibility === false) {
                     _logger.log('Component ' + config.kind + ' is disabled.');
                     return;
-                }
-
-                switch (config.kind) {
-                    case 'Display':
-                    case 'Controlbar':
-                        config.joystick = _this.config.joystick;
-                        break;
                 }
 
                 try {
@@ -173,83 +161,183 @@
         }
 
         function _setupPlugins() {
-            _wrapper.setAttribute('tabindex', -1);
+            _wrapper.setAttribute('presentation', _this.config.presentation);
             _wrapper.setAttribute('state', '');
-            _wrapper.setAttribute('controls', _this.plugins['Controlbar'] ? 'always' : 'never');
-            _wrapper.setAttribute('fullpage', false);
-            _wrapper.setAttribute('fullscreen', false);
-            _wrapper.setAttribute('muted', _this.config.muted);
-            _wrapper.addEventListener('mousedown', _focus);
-            _wrapper.addEventListener('touchstart', _focus);
+
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                _wrapper.setAttribute('controls', controlbar.config.autohide ? 'motion' : 'always');
+                if (controlbar.config.autohide) {
+                    _wrapper.addEventListener('mousemove', _onMouseMove);
+                }
+            } else {
+                _wrapper.setAttribute('controls', 'never');
+            }
+
             _wrapper.addEventListener('keydown', _onKeyDown);
             _wrapper.addEventListener('keyup', _onKeyUp);
-            _wrapper.addEventListener('keypress', _onKeyPress);
+            _wrapper.setAttribute('muted', _this.config.muted);
+            _wrapper.setAttribute('theater', false);
+            _wrapper.setAttribute('fullscreen', false);
+
+            var contextmenu = _this.plugins['ContextMenu'];
+            if (contextmenu) {
+                _wrapper.oncontextmenu = function (e) {
+                    e = e || window.event;
+                    e.preventDefault ? e.preventDefault() : e.returnValue = false;
+                    return false;
+                };
+                document.addEventListener('mouseup', _onMouseUp);
+                _wrapper.addEventListener('mouseup', _onMouseUp);
+                document.addEventListener('mousedown', _onMouseDown);
+                _wrapper.addEventListener('mousedown', _onMouseDown);
+            }
+
             document.addEventListener('fullscreenchange', _onFullscreenChange);
             document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
             document.addEventListener('mozfullscreenchange', _onFullscreenChange);
             document.addEventListener('MSFullscreenChange', _onFullscreenChange);
         }
 
-        function _focus(e) {
-            _wrapper.focus();
-        }
-
         function _onBind(e) {
-            _this.config = _famicom.config;
-            _this.load = _famicom.load;
-            _this.selectPlayer = _famicom.selectPlayer;
-            _this.init = _famicom.init;
-            _this.join = _famicom.join;
-            _this.leave = _famicom.leave;
-            _this.destroyGame = _famicom.destroy;
-            _this.keyDown = _famicom.keyDown;
-            _this.keyUp = _famicom.keyUp;
-            _this.muted = _famicom.muted;
-            _this.key = _famicom.key;
-            _this.keys = _famicom.keys;
-            _this.state = _famicom.state;
-            _this.video = _famicom.video;
-            _this.getStats = _famicom.getStats;
+            _this.load = _api.load;
+            _this.play = _api.play;
+            _this.stop = _api.stop;
+            _this.keyDown = _api.keyDown;
+            _this.keyUp = _api.keyUp;
+            _this.capture = _api.capture;
+            _this.record = _api.record;
+            _this.muted = _api.muted;
+            _this.volume = _api.volume;
+            _this.state = _api.state;
             _this.forward(e);
         }
 
-        function _onReady(e) {
-            _wrapper.focus();
-            _wrapper.setAttribute('state', e.type);
-            _this.forward(e);
-        }
+        _this.layout = function (state) {
 
-        function _onError(e) {
-            _wrapper.setAttribute('state', e.type);
-            _this.forward(e);
-        }
+        };
 
-        function _onStatsUpdate(e) {
-            var display = _this.plugins['Display'];
-            if (display && display.updateStats) {
-                display.updateStats(e.data.stats);
+        _this.theater = function (status) {
+            if (status !== undefined) {
+                var fullscreenElement = document.fullscreenElement
+                    || document.webkitFullscreenElement
+                    || document.mozFullScreenElement
+                    || document.msFullscreenElement;
+                if (fullscreenElement) {
+                    _this.fullscreen(false);
+                }
+
+                _wrapper.setAttribute('theater', !!status);
+                _this.resize();
+                _this.dispatchEvent(UIEvent.THEATER, { status: status });
             }
-            _this.forward(e);
+            return _wrapper.getAttribute('theater') === 'true';
+        };
+
+        _this.fullscreen = function (status) {
+            if (status !== undefined) {
+                var video = _api.element();
+                if (!!status) {
+                    var requestFullscreen = _wrapper.requestFullscreen
+                        || _wrapper.webkitRequestFullScreen
+                        || _wrapper.mozRequestFullScreen
+                        || _wrapper.msRequestFullscreen; // IE 11, Edge
+                    if (OS.isMobile) {
+                        if (video && video.webkitEnterFullscreen) {
+                            video.setAttribute('x5-video-orientation', 'landscape');
+                            video.webkitEnterFullscreen();
+                        }
+                        if (OS.isIOS) {
+                            // TODO(spencer@lau): Need to double check.
+                            return;
+                        }
+                    } else if (requestFullscreen) {
+                        var promise = requestFullscreen.call(_wrapper);
+                        if (promise) {
+                            promise['catch'](function (err) {
+                                _logger.debug(err.name + ': ' + err.message);
+                                _wrapper.setAttribute('fullscreen', false);
+                            });
+                        }
+                    } else {
+                        // IE 9/10
+                        _this.theater(status);
+                        return;
+                    }
+                } else {
+                    var exitFullscreen = document.exitFullscreen
+                        || document.webkitCancelFullScreen
+                        || document.mozCancelFullScreen
+                        || document.msExitFullscreen;
+                    if (exitFullscreen) {
+                        if (video) {
+                            video.setAttribute('x5-video-orientation', 'portraint');
+                        }
+                        var promise = exitFullscreen.call(document);
+                        if (promise) {
+                            promise['catch'](function (err) {
+                                _logger.debug(err.name + ': ' + err.message);
+                            });
+                        }
+                    } else {
+                        _this.theater(status);
+                        return;
+                    }
+                }
+
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    css.style(controlbar.element(), {
+                        'visibility': 'visible',
+                    });
+
+                    if (!!status) {
+                        if (!controlbar.config.autohide) {
+                            _wrapper.setAttribute('controls', 'motion');
+                            _wrapper.addEventListener('mousemove', _onMouseMove);
+                        }
+                    } else {
+                        if (!controlbar.config.autohide) {
+                            _wrapper.setAttribute('controls', 'always');
+                            _wrapper.removeEventListener('mousemove', _onMouseMove);
+                            _timer.stop();
+                        }
+                    }
+                }
+
+                _wrapper.setAttribute('fullscreen', !!status);
+                _this.resize();
+                _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
+            }
+            return _wrapper.getAttribute('fullscreen') === 'true';
+        };
+
+        function _onFullscreenChange(e) {
+            var fullscreenElement = document.fullscreenElement
+                || document.webkitFullscreenElement
+                || document.mozFullScreenElement
+                || document.msFullscreenElement;
+            // Deal with ESC key pressed.
+            if (!fullscreenElement) {
+                _this.fullscreen(false);
+            }
         }
 
         function _onPluginEvent(e) {
             switch (e.type) {
-                case TouchEvent.TOUCH_START:
-                case TouchEvent.TOUCH_MOVE:
-                    _onTouchStartAndMove(e);
+                case TouchEvent.TOUCHSTART:
+                case TouchEvent.TOUCHMOVE:
+                    _onTouchStart(e);
                     break;
-                case TouchEvent.TOUCH_END:
-                case TouchEvent.TOUCH_CANCEL:
+                case TouchEvent.TOUCHEND:
+                case TouchEvent.TOUCHCANCEL:
                     _onTouchEnd(e);
-                    break;
-                case MouseEvent.MOUSE_DOWN:
-                    _onMouseDown(e);
-                    break;
-                case MouseEvent.MOUSE_UP:
-                    _onMouseUp(e);
                     break;
                 case MouseEvent.CLICK:
                     _onClick(e);
+                    break;
+                case Event.CHANGE:
+                    _onChange(e);
                     break;
                 default:
                     _this.forward(e);
@@ -257,29 +345,29 @@
             }
         }
 
-        function _onTouchStartAndMove(e) {
-            var plugin = _controlsPlugin();
-            var joystick = plugin && plugin.components['joystick'];
-            if (!joystick) {
-                return;
+        function _onTouchStart(e) {
+            var display = _this.plugins['Display'];
+            if (display) {
+                var joystick = display.components['joystick'];
+                if (joystick) {
+                    var offsetX = 0;
+                    var offsetY = 0;
+                    for (var node = joystick.element(); node && node !== _wrapper; node = node.offsetParent) {
+                        offsetX += node.offsetLeft;
+                        offsetY += node.offsetTop;
+                    }
+                    var clientX = e.data.touches[0].clientX - offsetX;
+                    var clientY = e.data.touches[0].clientY - offsetY;
+                    _onTouch(joystick.direction(clientX, clientY));
+                }
             }
-
-            var offsetX = 0;
-            var offsetY = 0;
-            for (var node = joystick.element(); node && node !== _wrapper; node = node.offsetParent) {
-                offsetX += node.offsetLeft;
-                offsetY += node.offsetTop;
-            }
-            var clientX = e.data.touches[0].clientX - offsetX;
-            var clientY = e.data.touches[0].clientY - offsetY;
-            _onDirection(joystick.getDirection(clientX, clientY), joystick.config.direction);
         }
 
         function _onTouchEnd(e) {
-            _onDirection(0, _this.config.joystick.direction);
+            _onTouch(0);
         }
 
-        function _onDirection(index, direction) {
+        function _onTouch(index) {
             var map4 = {
                 1: [Key.UP],
                 2: [Key.RIGHT],
@@ -296,222 +384,150 @@
                 7: [Key.LEFT],
                 8: [Key.LEFT, Key.UP],
             };
-            _pressOnly(direction === 4 ? map4[index] : map8[index], [Key.UP, Key.RIGHT, Key.DOWN, Key.LEFT]);
-        }
+            var keys = (_this.config.joystick.direction === 4 ? map4[index] : map8[index]) || [];
+            var pressed = {};
 
-        function _pressOnly(keys, group) {
-            var next = {};
-            keys = keys || [];
-            group.forEach(function (key) {
+            [Key.UP, Key.RIGHT, Key.DOWN, Key.LEFT].forEach(function (key) {
                 if (utils.indexOf(keys, key) === -1) {
-                    if (_joystickKeys[key]) {
-                        _famicom.keyUp(key);
+                    if (_joystickkeys[key]) {
+                        _api.keyUp(key);
                     }
                 } else {
-                    next[key] = true;
-                    if (!_joystickKeys[key]) {
-                        _famicom.keyDown(key);
+                    pressed[key] = true;
+                    if (!_joystickkeys[key]) {
+                        _api.keyDown(key);
                     }
                 }
             });
-            _joystickKeys = next;
+            _joystickkeys = pressed;
         }
 
-        function _releaseJoystick() {
-            utils.forEach(_joystickKeys, function (key) {
-                _famicom.keyUp(key);
-            });
-            _joystickKeys = {};
-        }
-
-        function _onMouseDown(e) {
-            var key = _buttonKey(e.data.name);
-            if (key) {
-                _famicom.keyDown(key);
+        function _onClick(e) {
+            var h = {
+                'capture': _this.capture,
+                'muted': function () { _this.muted(e.data.state === 'off'); },
+                'layout': function () { _this.layout(e.data.state); },
+                'stats': function () { _showPanel(e.data.name); },
+                'settings': function () { _showPanel(e.data.name); },
+                'theater': function () { _this.theater(!!e.data.value); },
+                'fullscreen': function () { _this.fullscreen(!!e.data.value); },
+            }[e.data.name];
+            if (h) {
+                h();
             } else {
-                switch (e.data.name) {
-                    case 'mute':
-                        _this.muted(true);
-                        break;
-                    case 'unmute':
-                        _this.muted(false);
-                        break;
-                    case 'fullpage':
-                        _this.fullpage(true);
-                        break;
-                    case 'exitfullpage':
-                        _this.fullpage(false);
-                        break;
-                    case 'fullscreen':
-                        _this.fullscreen(true);
-                        break;
-                    case 'exitfullscreen':
-                        _this.fullscreen(false);
-                        break;
-                }
+                _this.forward(e);
             }
-            _wrapper.focus();
-            _this.forward(e);
         }
 
-        function _onMouseUp(e) {
-            var key = _buttonKey(e.data.name);
-            if (key) {
-                _famicom.keyUp(key);
-            }
-            _this.forward(e);
-        }
-
-        function _buttonKey(name) {
-            return {
-                a: Key.A,
-                b: Key.B,
-                select: Key.SELECT,
-                start: Key.START,
-            }[name];
-        }
-
-        function _controlsPlugin() {
-            return _this.plugins['Controlbar'] || _this.plugins['Display'];
-        }
-
-        _this.fullpage = function (status) {
-            if (status === undefined) {
-                return _wrapper.getAttribute('fullpage') === 'true';
-            }
-
-            var fullscreenElement = document.fullscreenElement
-                || document.webkitFullscreenElement
-                || document.mozFullScreenElement
-                || document.msFullscreenElement;
-            if (fullscreenElement) {
-                _this.fullscreen(false);
-            }
-
-            _wrapper.setAttribute('fullpage', !!status);
-            _this.resize();
-            _this.dispatchEvent(UIEvent.FULLPAGE, { status: status });
-        };
-
-        _this.fullscreen = function (status) {
-            if (status === undefined) {
-                return _wrapper.getAttribute('fullscreen') === 'true';
-            }
-
-            if (OS.isMobile) {
-                _this.fullpage(status);
-                _wrapper.setAttribute('fullscreen', !!status);
-                _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
-                return;
-            }
-
-            if (!!status) {
-                var requestFullscreen = _wrapper.requestFullscreen
-                    || _wrapper.webkitRequestFullScreen
-                    || _wrapper.mozRequestFullScreen
-                    || _wrapper.msRequestFullscreen;
-                if (requestFullscreen) {
-                    var promise = requestFullscreen.call(_wrapper);
-                    if (promise) {
-                        promise['catch'](function (err) {
-                            _logger.debug(err.name + ': ' + err.message);
-                        });
+        function _onChange(e) {
+            var h = {
+                'timebar': function () {
+                    var duration = _api.duration();
+                    if (duration) {
+                        _api.seek(duration * e.data.value / 100);
                     }
-                } else {
-                    _this.fullpage(status);
-                    return;
-                }
+                },
+                'volumebar': function () {
+                    _api.volume(e.data.value / 100);
+                },
+                'definition': function () {
+                    _api.definition(parseInt(e.data.value));
+                },
+            }[e.data.name];
+            if (h) {
+                h();
             } else {
-                var exitFullscreen = document.exitFullscreen
-                    || document.webkitCancelFullScreen
-                    || document.mozCancelFullScreen
-                    || document.msExitFullscreen;
-                if (exitFullscreen) {
-                    var exitPromise = exitFullscreen.call(document);
-                    if (exitPromise) {
-                        exitPromise['catch'](function (err) {
-                            _logger.debug(err.name + ': ' + err.message);
-                        });
-                    }
-                } else {
-                    _this.fullpage(status);
-                    return;
-                }
-            }
-
-            _wrapper.setAttribute('fullscreen', !!status);
-            _this.resize();
-            _this.dispatchEvent(UIEvent.FULLSCREEN, { status: status });
-        };
-
-        function _onFullscreenChange(e) {
-            var fullscreenElement = document.fullscreenElement
-                || document.webkitFullscreenElement
-                || document.mozFullScreenElement
-                || document.msFullscreenElement;
-            if (!fullscreenElement && _wrapper.getAttribute('fullscreen') === 'true') {
-                _this.fullscreen(false);
+                _this.forward(e);
             }
         }
 
-        function _openDisplay(status) {
-            var display = _this.plugins['Display'];
-            if (!display || !display.open) {
-                return;
+        function _onMouseMove(e) {
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                css.style(controlbar.element(), {
+                    'visibility': 'visible',
+                });
             }
 
-            display.open(status);
             _timer.stop();
-            if (!status || display.config.autohide === false) {
-                return;
-            }
-
-            _timer.reset();
-            _timer.delay = display.config.timeout || 5000;
             _timer.start();
         }
 
         function _onTimer(e) {
-            var display = _this.plugins['Display'];
-            if (display && display.open) {
-                display.open(false);
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                css.style(controlbar.element(), {
+                    'visibility': 'hidden',
+                });
             }
         }
 
+        function _onMouseUp(e) {
+            var contextmenu = _this.plugins['ContextMenu'];
+
+            if (e.currentTarget === undefined) {
+                for (var node = e.srcElement; node; node = node.offsetParent) {
+                    if (node === _wrapper) {
+                        e.currentTarget = _wrapper;
+                        break;
+                    }
+                }
+            }
+
+            if (e.button === 2 && e.currentTarget === _wrapper) {
+                var offsetX = 0;
+                var offsetY = 0;
+
+                for (var node = e.srcElement || e.target; node && node !== _wrapper; node = node.offsetParent) {
+                    offsetX += node.offsetLeft;
+                    offsetY += node.offsetTop;
+                }
+
+                css.style(contextmenu.element(), {
+                    left: e.offsetX + offsetX + 'px',
+                    top: e.offsetY + offsetY + 'px',
+                    display: 'block',
+                });
+
+                e.preventDefault ? e.preventDefault() : e.returnValue = false;
+                e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
+                return false;
+            }
+        }
+
+        function _onMouseDown(e) {
+            var contextmenu = _this.plugins['ContextMenu'];
+            css.style(contextmenu.element(), {
+                'display': 'none',
+            });
+        }
+
         function _onKeyDown(e) {
-            if (e.repeat || _shouldIgnoreKeyboardEvent(e.target)) {
+            if (_shouldIgnoreKeyboardEvent(e.target) || e.repeat) {
                 return;
             }
-            var key = _this.config.keyboard[e.code];
-            if (!key) {
-                return;
+            var arr = _this.config.keyboard[e.code];
+            if (arr) {
+                if (_keyboardkeys[arr[1]] == false) {
+                    _keyboardkeys[arr[1]] = true;
+                    _api.keyDown(arr[0], arr[1]);
+                }
+                e.preventDefault();
             }
-            e.preventDefault();
-            if (_keyboardKeys[key]) {
-                return;
-            }
-            _keyboardKeys[key] = true;
-            _famicom.keyDown(key);
         }
 
         function _onKeyUp(e) {
             if (_shouldIgnoreKeyboardEvent(e.target)) {
                 return;
             }
-            var key = _this.config.keyboard[e.code];
-            if (!key) {
-                return;
+            var arr = _this.config.keyboard[e.code];
+            if (arr) {
+                if (_keyboardkeys[arr[1]]) {
+                    _keyboardkeys[arr[1]] = false;
+                    _api.keyUp(arr[0], arr[1]);
+                }
+                e.preventDefault();
             }
-            e.preventDefault();
-            if (!_keyboardKeys[key]) {
-                return;
-            }
-            delete _keyboardKeys[key];
-            _famicom.keyUp(key);
-        }
-
-        function _onKeyPress(e) {
-            e.preventDefault();
         }
 
         function _shouldIgnoreKeyboardEvent(target) {
@@ -522,215 +538,137 @@
             return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
         }
 
-        function _pollGamepad() {
-            var pads = navigator.getGamepads ? navigator.getGamepads() : [];
-            var gp = pads && pads[0] ? pads[0] : null;
-            var next = _getGamepadPressedKeys(gp);
-
-            utils.forEach(next, function (key) {
-                if (!_gamepadKeys[key]) {
-                    _famicom.keyDown(key);
-                }
-            });
-            utils.forEach(_gamepadKeys, function (key) {
-                if (!next[key]) {
-                    _famicom.keyUp(key);
-                }
-            });
-
-            _gamepadKeys = next;
-            _gamepadRaf = requestAnimationFrame(_pollGamepad);
-        }
-
-        function _getGamepadPressedKeys(gp) {
-            var keys = {};
-            if (!gp) {
-                return keys;
-            }
-
-            utils.forEach(_this.config.gamepad.buttons, function (index, key) {
-                if (gp.buttons[index] && gp.buttons[index].pressed) {
-                    keys[key] = true;
-                }
-            });
-
-            if (gp.axes.length >= 2) {
-                var x = gp.axes[0];
-                var y = gp.axes[1];
-                var t = _this.config.gamepad.threshold;
-                if (x <= -t) {
-                    keys[Key.LEFT] = true;
-                } else if (x >= t) {
-                    keys[Key.RIGHT] = true;
-                }
-                if (y <= -t) {
-                    keys[Key.UP] = true;
-                } else if (y >= t) {
-                    keys[Key.DOWN] = true;
-                }
-            }
-            return keys;
-        }
-
-        function _releaseAll() {
-            utils.forEach(_keyboardKeys, function (key) {
-                _famicom.keyUp(key);
-            });
-            utils.forEach(_gamepadKeys, function (key) {
-                _famicom.keyUp(key);
-            });
-            _keyboardKeys = {};
-            _gamepadKeys = {};
-            _releaseJoystick();
-        }
-
-        function _onVisibilityChange(e) {
-            if (document.visibilityState !== 'visible') {
-                _releaseAll();
-            }
-        }
-
-        function _onClick(e) {
-            var h = {
-                'mute': function () { _this.muted(true); },
-                'unmute': function () { _this.muted(false); },
-                'display': function () {
-                    var display = _this.plugins['Display'];
-                    if (display) {
-                        _openDisplay(!display.open());
-                    }
-                },
-                'closedisplay': function () { _openDisplay(false); },
-                'share': function () {
-                    var display = _this.plugins['Display'];
-                    if (display) {
-                        display.sharing(!display.sharing());
-                        _openDisplay(true);
-                    }
-                },
-                'share2': function () { _sharePlayer(1); },
-                'share3': function () { _sharePlayer(2); },
-                'share4': function () { _sharePlayer(3); },
-                'stats': function () {
-                    var display = _this.plugins['Display'];
-                    if (display) {
-                        display.stats(!display.stats());
-                        _openDisplay(true);
-                    }
-                },
-            }[e.data.name];
-            if (h) {
-                h();
-            } else {
-                _this.forward(e);
-            }
-        }
-
-        function _sharePlayer(playerSlot) {
-            var display = _this.plugins['Display'];
-            var config = _famicom && _famicom.config ? _famicom.config : _this.config;
-            var instance = config.instance || '';
-            var playerName = 'P' + (playerSlot + 1);
-            if (!instance) {
-                display.message('Start or join a game before sharing.');
-                _openDisplay(true);
-                return;
-            }
-
-            var url = new URL(window.location.href);
-            url.searchParams.set('instance', instance);
-            url.searchParams.set('slot', playerSlot);
-            url.searchParams.delete('player');
-            var data = {
-                title: document.title,
-                text: 'Join this game as ' + playerName,
-                url: url.toString(),
-            };
-
-            var promise;
-            if (navigator.share) {
-                promise = navigator.share(data);
-            } else if (navigator.clipboard && navigator.clipboard.writeText) {
-                promise = navigator.clipboard.writeText(data.url);
-            } else {
-                promise = _copyText(data.url);
-            }
-
-            Promise.resolve(promise).then(function () {
-                display.sharing(false);
-                display.message(navigator.share ? playerName + ' shared.' : playerName + ' link copied.');
-                _openDisplay(true);
-            }).catch(function (err) {
-                if (!err || err.name !== 'AbortError') {
-                    display.message('Unable to share ' + playerName + '.');
-                    _logger.warn('Failed to share ' + playerName + ': ' + err);
-                }
-                _openDisplay(true);
-            });
-        }
-
-        function _copyText(value) {
-            return new Promise(function (resolve, reject) {
-                var input = document.createElement('textarea');
-                input.value = value;
-                input.setAttribute('readonly', '');
-                input.style.position = 'fixed';
-                input.style.opacity = 0;
-                document.body.appendChild(input);
-                input.select();
-                try {
-                    if (!document.execCommand('copy')) {
-                        throw new Error('Copy command failed.');
-                    }
-                    resolve();
-                } catch (err) {
-                    reject(err);
-                } finally {
-                    document.body.removeChild(input);
-                    _wrapper.focus();
-                }
-            });
+        function _onReady(e) {
+            _onStateChange(e);
         }
 
         function _onVolumeChange(e) {
             _wrapper.setAttribute('muted', e.data.muted || !e.data.volume);
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar && controlbar.state) {
+                controlbar.state('muted', e.data.muted || !e.data.volume);
+            }
             _this.forward(e);
         }
+
+        function _onStatsChange(e) {
+            var display = _this.plugins['Display'];
+            if (display && display.updateStats) {
+                display.updateStats(e.data.stats);
+            }
+            var controlbar = _this.plugins['Controlbar'],
+                stats = e.data.stats || {},
+                latency = stats.currentRoundTripTime || stats.roundTripTime || stats.rtt;
+            if (controlbar && controlbar.value && latency !== undefined) {
+                if (latency < 10) {
+                    latency *= 1000;
+                }
+                controlbar.value('latency', Math.round(latency) + ' ms');
+            }
+            _this.forward(e);
+        }
+
+        function _showPanel(name) {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                dashboard.show(name);
+            }
+        }
+
+        function _onError(e) {
+            _wrapper.setAttribute('state', e.type);
+            _this.forward(e);
+        }
+
+        function _onStateChange(e) {
+            _wrapper.setAttribute('state', e.type);
+
+            var display = _this.plugins['Display'];
+            if (display) {
+                display.state(e.type);
+                if (e.type === Event.ERROR) {
+                    display.error(e.data);
+                }
+            }
+
+            _this.resize();
+            _this.forward(e);
+        }
+
+        _this.presentation = function (container, presentation) {
+            if (container && presentation) {
+                if (!_wrapper) {
+                    throw { name: 'InvalidStateError', message: 'UI must be setup before presentation.' };
+                }
+                _container = container;
+
+                _wrapper.setAttribute('presentation', presentation);
+                _container.appendChild(_wrapper);
+
+                _this.config.presentation = presentation;
+                _this.resize();
+            }
+            return _wrapper.getAttribute('presentation');
+        };
+
+        _this.skin = function (value) {
+            if (value !== undefined) {
+                _this.config.skin = value;
+                _wrapper.className = CLASS_WRAPPER + ' pe-ui-' + value;
+            }
+            return _this.config.skin;
+        };
+
+        _this.element = function () {
+            return _container;
+        };
 
         _this.resize = function () {
             var width = _wrapper.clientWidth;
             var height = _wrapper.clientHeight;
+
             utils.forEach(_this.plugins, function (kind, plugin) {
                 plugin.resize(width, height);
             });
+
             _this.dispatchEvent(UIEvent.RESIZE, { width: width, height: height });
         };
 
         _this.destroy = function (reason) {
             _timer.stop();
             _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
-            if (_gamepadRaf) {
-                cancelAnimationFrame(_gamepadRaf);
-            }
-            window.removeEventListener('resize', _this.resize);
-            window.removeEventListener('blur', _releaseAll);
-            document.removeEventListener('visibilitychange', _onVisibilityChange);
+
+            document.removeEventListener('mouseup', _onMouseUp);
+            _wrapper.removeEventListener('mouseup', _onMouseUp);
+            document.removeEventListener('mousedown', _onMouseDown);
+            _wrapper.removeEventListener('mousedown', _onMouseDown);
+
             document.removeEventListener('fullscreenchange', _onFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
             document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
             document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
-            if (_famicom) {
-                _famicom.destroy(reason);
-                _famicom.removeEventListener(Event.BIND, _onBind);
-                _famicom.removeEventListener(Event.READY, _onReady);
-                _famicom.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
-                _famicom.removeEventListener(Event.ERROR, _onError);
-                _famicom.removeEventListener(MediaEvent.STATSUPDATE, _onStatsUpdate);
+
+            utils.forEach(_this.plugins, function (_, plugin) {
+                if (plugin.removeGlobalListener) {
+                    plugin.removeGlobalListener(_onPluginEvent);
+                }
+                if (plugin.destroy) {
+                    plugin.destroy();
+                }
+            });
+
+            if (_api) {
+                _api.destroy(reason);
+                _api.removeEventListener(Event.BIND, _onBind);
+                _api.removeEventListener(Event.READY, _onReady);
+                _api.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
+                _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
+                _api.removeEventListener(Event.ERROR, _onError);
+                _api = undefined;
             }
-            if (_container) {
-                _container.innerHTML = '';
-            }
-            delete _instances[_this.id];
+
+            _container.innerHTML = '';
+            delete _instances[_id];
         };
 
         _init();
@@ -741,8 +679,12 @@
     UI.prototype.CONF = _default;
 
     UI.register = function (plugin, index) {
-        _default.plugins.splice(index || _default.plugins.length, 0, plugin);
-        UI[plugin.prototype.kind] = plugin;
+        try {
+            _default.plugins.splice(index || _default.plugins.length, 0, plugin);
+            UI[plugin.prototype.kind] = plugin;
+        } catch (err) {
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+        }
     };
 
     UI.get = function (id, logger) {
@@ -765,3 +707,4 @@
     odd.famicom.ui.create = UI.create;
     Famicom.UI = UI;
 })(odd);
+

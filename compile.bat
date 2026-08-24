@@ -46,54 +46,12 @@ set /a index=%index% + 1
 goto loop0
 :end0
 
-set scripts[0]=".\src\famicom\famicom.js"
-set length=1
-
-cd.>.\release\odd.famicom.js
-
-set index=0
-:loop9
-if %index% equ %length% goto end9
-
-for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
-    echo %%j
-    type %%j >> .\release\odd.famicom.js
-)
-set /a index=%index% + 1
-
-goto loop9
-:end9
-
-set scripts[0]=".\src\famicom\ui\ui.js"
-set scripts[1]=".\src\famicom\ui\components\components.js"
-set scripts[2]=".\src\famicom\ui\components\components.button.js"
-set scripts[3]=".\src\famicom\ui\components\components.joystick.js"
-set scripts[4]=".\src\famicom\ui\ui.display.js"
-set scripts[5]=".\src\famicom\ui\ui.controlbar.js"
-set length=6
-
-cd.>.\release\odd.famicom.ui.js
-
-set index=0
-:loop10
-if %index% equ %length% goto end10
-
-for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
-    echo %%j
-    type %%j >> .\release\odd.famicom.ui.js
-)
-set /a index=%index% + 1
-
-goto loop10
-:end10
-
 set scripts[0]=".\src\im\im.js"
 set scripts[1]=".\src\im\message\message.js"
 set scripts[2]=".\src\im\message\message.abort.js"
 set scripts[3]=".\src\im\message\message.ackwindowsize.js"
 set scripts[4]=".\src\im\message\message.ack.js"
 set scripts[5]=".\src\im\message\message.command.js"
-set scripts[6]=".\src\im\im.state.js"
 set scripts[7]=".\src\im\im.responder.js"
 set scripts[8]=".\src\im\im.netconnection.js"
 set scripts[9]=".\src\im\im.netstream.js"
@@ -126,7 +84,8 @@ set scripts[8]=".\src\im\ui\components\components.tab.js"
 set scripts[9]=".\src\im\ui\ui.messages.js"
 set scripts[10]=".\src\im\ui\ui.contacts.js"
 set scripts[11]=".\src\im\ui\ui.settings.js"
-set length=12
+set scripts[12]=".\src\im\ui\ui.workspace.js"
+set length=13
 
 cd.>.\release\odd.im.ui.js
 
@@ -170,6 +129,72 @@ set /a index=%index% + 1
 goto loop5
 :end5
 
+set scripts[0]=".\src\rtc\ui\ui.js"
+set scripts[1]=".\src\rtc\ui\components\components.js"
+set scripts[2]=".\src\rtc\ui\components\components.button.js"
+set scripts[3]=".\src\rtc\ui\components\components.toggle.js"
+set scripts[4]=".\src\rtc\ui\ui.controlbar.js"
+set length=5
+
+cd.>.\release\odd.rtc.ui.js
+
+set index=0
+:loop13
+if %index% equ %length% goto end13
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.rtc.ui.js
+)
+set /a index=%index% + 1
+
+goto loop13
+:end13
+
+set scripts[0]=".\src\famicom\famicom.js"
+set length=1
+
+cd.>.\release\odd.famicom.js
+
+set index=0
+:loop9
+if %index% equ %length% goto end9
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.famicom.js
+)
+set /a index=%index% + 1
+
+goto loop9
+:end9
+
+set scripts[0]=".\src\famicom\ui\ui.js"
+set scripts[1]=".\src\famicom\ui\components\components.js"
+set scripts[2]=".\src\famicom\ui\components\components.button.js"
+set scripts[3]=".\src\famicom\ui\components\components.joystick.js"
+set scripts[4]=".\src\famicom\ui\components\components.toggle.js"
+set scripts[5]=".\src\famicom\ui\components\components.slider.js"
+set scripts[6]=".\src\famicom\ui\components\components.label.js"
+set scripts[7]=".\src\famicom\ui\ui.display.js"
+set scripts[8]=".\src\famicom\ui\ui.controlbar.js"
+set length=9
+
+cd.>.\release\odd.famicom.ui.js
+
+set index=0
+:loop10
+if %index% equ %length% goto end10
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.famicom.ui.js
+)
+set /a index=%index% + 1
+
+goto loop10
+:end10
+
 set scripts[0]=".\src\player\av\av.js"
 set scripts[1]=".\src\player\av\codec\codec.js"
 set scripts[2]=".\src\player\av\codec\codec.aac.js"
@@ -208,22 +233,24 @@ goto loop6
 set scripts[0]=".\src\player\ui\ui.js"
 set scripts[1]=".\src\player\ui\components\components.js"
 set scripts[2]=".\src\player\ui\components\components.button.js"
-set scripts[3]=".\src\player\ui\components\components.label.js"
-set scripts[4]=".\src\player\ui\components\components.preview.js"
-set scripts[5]=".\src\player\ui\components\components.select.js"
-set scripts[6]=".\src\player\ui\components\components.slider.js"
-set scripts[7]=".\src\player\ui\components\components.panel.js"
-set scripts[8]=".\src\player\ui\components\components.settings.js"
-set scripts[9]=".\src\player\ui\ui.poster.js"
-set scripts[10]=".\src\player\ui\ui.chat.js"
-set scripts[11]=".\src\player\ui\ui.danmu.js"
-set scripts[12]=".\src\player\ui\ui.display.js"
-set scripts[13]=".\src\player\ui\ui.ad.js"
-set scripts[14]=".\src\player\ui\ui.share.js"
-set scripts[15]=".\src\player\ui\ui.logo.js"
-set scripts[16]=".\src\player\ui\ui.controlbar.js"
-set scripts[17]=".\src\player\ui\ui.contextmenu.js"
-set length=18
+set scripts[3]=".\src\player\ui\components\components.toggle.js"
+set scripts[4]=".\src\player\ui\components\components.label.js"
+set scripts[5]=".\src\player\ui\components\components.preview.js"
+set scripts[6]=".\src\player\ui\components\components.select.js"
+set scripts[7]=".\src\player\ui\components\components.slider.js"
+set scripts[8]=".\src\player\ui\components\components.panel.js"
+set scripts[9]=".\src\player\ui\components\components.settings.js"
+set scripts[10]=".\src\player\ui\ui.poster.js"
+set scripts[11]=".\src\player\ui\ui.chat.js"
+set scripts[12]=".\src\player\ui\ui.comments.js"
+set scripts[13]=".\src\player\ui\ui.display.js"
+set scripts[14]=".\src\player\ui\ui.ad.js"
+set scripts[15]=".\src\player\ui\ui.share.js"
+set scripts[16]=".\src\player\ui\ui.logo.js"
+set scripts[17]=".\src\player\ui\ui.controlbar.js"
+set scripts[18]=".\src\player\ui\ui.contextmenu.js"
+set scripts[19]=".\src\player\ui\ui.playlist.js"
+set length=20
 
 cd.>.\release\odd.player.ui.js
 
@@ -240,15 +267,58 @@ set /a index=%index% + 1
 goto loop7
 :end7
 
+set scripts[0]=".\src\app\app.js"
+set length=1
+
+cd.>.\release\odd.app.js
+
+set index=0
+:loop11
+if %index% equ %length% goto end11
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.app.js
+)
+set /a index=%index% + 1
+
+goto loop11
+:end11
+
+set scripts[0]=".\src\app\ui\ui.js"
+set scripts[1]=".\src\app\ui\components\components.js"
+set scripts[2]=".\src\app\ui\components\components.tabs.js"
+set scripts[3]=".\src\app\ui\components\components.composer.js"
+set scripts[4]=".\src\app\ui\components\components.controlbar.js"
+set length=5
+
+cd.>.\release\odd.app.ui.js
+
+set index=0
+:loop12
+if %index% equ %length% goto end12
+
+for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
+    echo %%j
+    type %%j >> .\release\odd.app.ui.js
+)
+set /a index=%index% + 1
+
+goto loop12
+:end12
+
 set scripts[0]=".\release\odd.common.js"
-set scripts[1]=".\release\odd.famicom.js"
-set scripts[2]=".\release\odd.famicom.ui.js"
-set scripts[3]=".\release\odd.im.js"
-set scripts[4]=".\release\odd.im.ui.js"
-set scripts[5]=".\release\odd.rtc.js"
-set scripts[6]=".\release\odd.player.js"
-set scripts[7]=".\release\odd.player.ui.js"
-set length=8
+set scripts[1]=".\release\odd.im.js"
+set scripts[2]=".\release\odd.im.ui.js"
+set scripts[3]=".\release\odd.rtc.js"
+set scripts[4]=".\release\odd.rtc.ui.js"
+set scripts[5]=".\release\odd.famicom.js"
+set scripts[6]=".\release\odd.famicom.ui.js"
+set scripts[7]=".\release\odd.player.js"
+set scripts[8]=".\release\odd.player.ui.js"
+set scripts[9]=".\release\odd.app.js"
+set scripts[10]=".\release\odd.app.ui.js"
+set length=11
 
 cd.>.\release\odd.js
 
@@ -266,21 +336,27 @@ goto loop8
 :end8
 
 terser .\\release\\odd.common.js -c -m --warn -o .\\release\\odd.common.min.js || exit /b 1
-terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js || exit /b 1
-terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js || exit /b 1
 terser .\\release\\odd.im.js -c -m --warn -o .\\release\\odd.im.min.js || exit /b 1
 terser .\\release\\odd.im.ui.js -c -m --warn -o .\\release\\odd.im.ui.min.js || exit /b 1
 terser .\\release\\odd.rtc.js -c -m --warn -o .\\release\\odd.rtc.min.js || exit /b 1
+terser .\\release\\odd.rtc.ui.js -c -m --warn -o .\\release\\odd.rtc.ui.min.js || exit /b 1
+terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js || exit /b 1
+terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js || exit /b 1
 terser .\\release\\odd.player.js -c -m --warn -o .\\release\\odd.player.min.js || exit /b 1
 terser .\\release\\odd.player.ui.js -c -m --warn -o .\\release\\odd.player.ui.min.js || exit /b 1
+terser .\\release\\odd.app.js -c -m --warn -o .\\release\\odd.app.min.js || exit /b 1
+terser .\\release\\odd.app.ui.js -c -m --warn -o .\\release\\odd.app.ui.min.js || exit /b 1
 terser .\\release\\odd.js -c -m --warn -o .\\release\\odd.min.js || exit /b 1
 
 del /q .\\release\\odd.common.js
-del /q .\\release\\odd.famicom.js
-del /q .\\release\\odd.famicom.ui.js
 del /q .\\release\\odd.im.js
 del /q .\\release\\odd.im.ui.js
 del /q .\\release\\odd.rtc.js
+del /q .\\release\\odd.rtc.ui.js
+del /q .\\release\\odd.famicom.js
+del /q .\\release\\odd.famicom.ui.js
 del /q .\\release\\odd.player.js
 del /q .\\release\\odd.player.ui.js
+del /q .\\release\\odd.app.js
+del /q .\\release\\odd.app.ui.js
 del /q .\\release\\odd.js

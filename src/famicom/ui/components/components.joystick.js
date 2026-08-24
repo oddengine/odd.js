@@ -3,26 +3,26 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         TouchEvent = events.TouchEvent,
-        Famicom = odd.Famicom,
-        UI = Famicom.UI,
-        components = UI.components,
+        components = odd.Famicom.UI.components,
 
-        CLASS_JOYSTICK = 'famicom-joystick',
+        CLASS_JOYSTICK = 'pe-joystick',
 
         _default = {
             center: 0.0,
             direction: 8,
         };
 
-    function JoyStick(name, kind, logger) {
+    function JoyStick(name, value, logger) {
         EventDispatcher.call(this, 'JoyStick', { logger: logger }, TouchEvent);
 
         var _this = this,
             _name = name,
+            _logger = logger,
             _container;
 
         function _init() {
             _this.config = utils.extendz({}, _default);
+
             _container = utils.createElement('div', CLASS_JOYSTICK + ' ' + name);
             _container.addEventListener('touchstart', _onTouchStart);
             _container.addEventListener('touchmove', _onTouchMove);
@@ -31,26 +31,26 @@
         }
 
         function _onTouchStart(e) {
-            _this.dispatchEvent(TouchEvent.TOUCH_START, { name: _name, touches: e.touches });
+            _this.dispatchEvent(TouchEvent.TOUCHSTART, { name: _name, touches: e.touches });
             e.preventDefault();
         }
 
         function _onTouchMove(e) {
-            _this.dispatchEvent(TouchEvent.TOUCH_MOVE, { name: _name, touches: e.touches });
+            _this.dispatchEvent(TouchEvent.TOUCHMOVE, { name: _name, touches: e.touches });
             e.preventDefault();
         }
 
         function _onTouchEnd(e) {
-            _this.dispatchEvent(TouchEvent.TOUCH_END, { name: _name });
+            _this.dispatchEvent(TouchEvent.TOUCHEND, { name: _name });
             e.preventDefault();
         }
 
         function _onTouchCancel(e) {
-            _this.dispatchEvent(TouchEvent.TOUCH_CANCEL, { name: _name });
+            _this.dispatchEvent(TouchEvent.TOUCHCANCEL, { name: _name });
             e.preventDefault();
         }
 
-        _this.getDirection = function (clientX, clientY) {
+        _this.direction = function (clientX, clientY) {
             var n = 0;
             var x = clientX - _container.clientWidth / 2;
             var y = _container.clientHeight / 2 - clientY;
@@ -93,3 +93,4 @@
 
     components.JoyStick = JoyStick;
 })(odd);
+

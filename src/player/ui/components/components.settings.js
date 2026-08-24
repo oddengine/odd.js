@@ -3,27 +3,24 @@
         css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        GlobalEvent = events.GlobalEvent,
-        Player = odd.Player,
-        UI = Player.UI,
-        components = UI.components,
+        Event = events.Event,
+        components = odd.Player.UI.components,
         Panel = components.Panel,
 
         CLASS_SETTINGS = 'pe-settings';
 
-    function Settings(name, kind, logger) {
-        Panel.call(this, name, 'Settings', logger, [GlobalEvent.CHANGE]);
+    function Settings(name, value, logger) {
+        Panel.call(this, name, 'Settings', logger, [Event.CHANGE]);
 
         var _this = this,
-            _name,
+            _name = name,
             _logger = logger,
-            _profile,
-            _camera,
             _microphone,
-            _video,
-            _audio,
+            _camera,
+            _profile,
             _brightness,
-            _smoothness;
+            _smoothness,
+            _video;
 
         function _init() {
             _name = name;
@@ -38,7 +35,7 @@
 
     Settings.prototype = Object.create(EventDispatcher.prototype);
     Settings.prototype.constructor = Settings;
-    Settings.prototype.kind = 'Panel';
+    Settings.prototype.kind = 'Settings';
 
     components.Settings = Settings;
 })(odd);

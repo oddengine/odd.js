@@ -15,8 +15,8 @@
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
             kind: 'Display',
-            layout: '[Button:play=][Button:waiting=][Label:error=][Panel:info=][Panel:stats=][Settings:settings=]',
-            ondoubleclick: 'fullscreen', // fullpage, fullscreen
+            layout: '[Button:play=][Button:waiting=][Label:reason=]',
+            ondoubleclick: 'fullscreen', // theater, fullscreen
             visibility: true,
         };
 
@@ -28,7 +28,7 @@
             _container,
             _content,
             _timer,
-            _timestamp;
+            _timestamp = 0;
 
         function _init() {
             _this.config = config;
@@ -38,36 +38,44 @@
             _content = utils.createElement('div');
             _content.addEventListener('click', _onClick);
             _container.appendChild(_content);
+
             _buildComponents();
 
             _timer = new utils.Timer(80, 0, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
-            _timestamp = 0;
         }
 
         function _buildComponents() {
             var arr;
             while ((arr = _regi.exec(_this.config.layout)) !== null) {
-                _buildComponent(_content, arr[1], arr[2], arr[3]);
+                try {
+                    _buildComponent(_content, arr[1], arr[2], arr[3]);
+                } catch (err) {
+                    _logger.error('Failed to build component: type=' + arr[1] + ', name=' + arr[2] + ', Error=' + err.message);
+                }
             }
         }
 
-        function _buildComponent(container, type, name, kind) {
-            var component,
-                element;
-
-            try {
-                component = new components[type](name, kind, _logger);
-                if (utils.typeOf(component.addGlobalListener) === 'function') {
-                    component.addGlobalListener(_this.forward);
-                }
-                element = component.element();
-                container.appendChild(element);
-                _this.components[name] = component;
-            } catch (err) {
-                _logger.error('Failed to initialize component: type=' + type + ', name=' + name + ', Error=' + err.message);
-                return;
+        function _buildComponent(container, type, name, value) {
+            var component = new components[type](name, value, _logger);
+            if (utils.typeOf(component.addGlobalListener) === 'function') {
+                component.addGlobalListener(_this.forward);
             }
+            var element = component.element();
+            if (value !== undefined) {
+                var tooltip;
+                if (utils.typeOf(components[value]) === 'function') {
+                    tooltip = new components[value](name, value, _logger);
+                    element.insertAdjacentElement('afterbegin', tooltip.element());
+                } else {
+                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
+                    tooltip.innerHTML = value;
+                    element.insertAdjacentElement('afterbegin', tooltip);
+                }
+                component.tooltip = tooltip;
+            }
+            container.appendChild(element);
+            _this.components[name] = component;
         }
 
         _this.state = function (state) {
@@ -80,54 +88,21 @@
                     break;
             }
             if (state !== Event.ERROR) {
-                _this.error();
+                _this.explain();
             }
         };
 
-        _this.error = function (err) {
-            var error = _this.components['error'];
-            if (error) {
+        _this.explain = function (err) {
+            var reason = _this.components['reason'];
+            if (reason) {
                 if (!err) {
-                    error.text('');
+                    reason.text('');
                     return;
                 }
 
                 err.name = err.name || 'UnknownError';
                 err.message = err.message || 'An unknown error occurred.';
-                error.text(err.name + ': ' + err.message);
-            }
-        };
-
-        _this.update = function (name, data) {
-            var panel = _this.components[name];
-            if (panel) {
-                panel.update(data);
-            }
-        };
-
-        _this.clear = function (name) {
-            var panel = _this.components[name];
-            if (panel) {
-                panel.clear();
-            }
-        };
-
-        _this.show = function (name) {
-            utils.forEach(_this.components, function (key, component) {
-                if (component.kind === 'Panel' && key !== name) {
-                    component.hide();
-                }
-            });
-            var panel = _this.components[name];
-            if (panel) {
-                panel.show();
-            }
-        };
-
-        _this.hide = function (name) {
-            var panel = _this.components[name];
-            if (panel) {
-                panel.hide();
+                reason.text(err.name + ': ' + err.message);
             }
         };
 
@@ -150,7 +125,7 @@
             var time = new Date().getTime();
             if (time <= _timestamp + 700) {
                 _timestamp = 0; // Avoid triple click
-                _this.dispatchEvent(MouseEvent.DOUBLE_CLICK, { name: _this.config.ondoubleclick });
+                _this.dispatchEvent(MouseEvent.DOUBLECLICK, { name: _this.config.ondoubleclick });
                 return;
             }
             _timestamp = time;

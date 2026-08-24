@@ -9,7 +9,6 @@
         Level = events.Level,
         Code = events.Code,
         UIEvent = events.UIEvent,
-        GlobalEvent = events.GlobalEvent,
         MouseEvent = events.MouseEvent,
         IM = odd.IM,
         Command = IM.Message.Command,
@@ -20,25 +19,30 @@
         _id = 0,
         _instances = {},
         _default = {
+            presentation: 'full',
             skin: 'classic',
             plugins: [],
         };
 
     function UI(id, logger) {
         var _this = this,
-            _logger = new utils.Logger(id, logger),
+            _id = id,
+            _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
             _nav,
             _im;
 
-        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, GlobalEvent, MouseEvent);
+        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
 
         function _init() {
-            _this.id = id;
             _this.logger = _logger;
             _this.plugins = {};
         }
+
+        _this.id = function () {
+            return _id;
+        };
 
         _this.setup = async function (container, config) {
             _container = container;
@@ -48,27 +52,22 @@
             _nav.addGlobalListener(_this.forward);
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' im-ui-' + _this.config.skin);
+            _wrapper.setAttribute('presentation', _normalizePresentation(_this.config.presentation));
             _wrapper.appendChild(_nav.element());
             _container.appendChild(_wrapper);
 
             _im = IM.get(_this.id, null, _logger);
             _im.addEventListener(Event.BIND, _onBind);
             _im.addEventListener(Event.READY, _onReady);
-            _im.addEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+            _im.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _im.addEventListener(Event.CLOSE, _onClose);
 
             _buildPlugins();
             _setupPlugins();
             _this.resize();
 
-            try {
-                await _im.setup(_this.config);
-            } catch (err) {
-                _logger.error(`Failed to setup: ${err}`);
-                return Promise.reject(err);
-            }
             window.addEventListener('resize', _this.resize);
-            return Promise.resolve();
+            return _im.setup(_this.config);
         };
 
         function _onBind(e) {
@@ -91,6 +90,7 @@
         }
 
         function _parseConfig(config) {
+            config = config || {};
             if (utils.typeOf(config.plugins) !== 'array') {
                 config.plugins = [];
             }
@@ -113,6 +113,14 @@
 
             _this.config = utils.extendz({ id: _this.id }, IM.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
+        }
+
+        function _normalizePresentation(value) {
+            value = value || 'full';
+            if (utils.indexOf(['full', 'mini', 'popup'], value) === -1) {
+                throw { name: 'DataError', message: 'Unknown IM UI presentation: ' + value + '.' };
+            }
+            return value;
         }
 
         function _buildPlugins() {
@@ -145,7 +153,7 @@
 
         function _onPluginEvent(e) {
             switch (e.type) {
-                case GlobalEvent.CHANGE:
+                case Event.CHANGE:
                     _onChange(e);
                     break;
                 default:
@@ -180,12 +188,66 @@
             _this.forward(e);
         }
 
+        _this.presentation = function (value) {
+            if (value === undefined) {
+                return _wrapper && _wrapper.getAttribute('presentation');
+            }
+            value = _normalizePresentation(value);
+            _this.config.presentation = value;
+            _wrapper.setAttribute('presentation', value);
+            _this.resize();
+            return value;
+        };
+
+        _this.skin = function (value) {
+            if (value !== undefined) {
+                _this.config.skin = value;
+                _wrapper.className = CLASS_WRAPPER + ' im-ui-' + value;
+            }
+            return _this.config.skin;
+        };
+
+        _this.attach = function (container, presentation) {
+            if (!container || !container.appendChild) {
+                throw { name: 'DataError', message: 'IM UI attach requires a DOM container.' };
+            }
+            if (!_wrapper) {
+                throw { name: 'InvalidStateError', message: 'IM UI must be setup before attach.' };
+            }
+            _container = container;
+            _container.appendChild(_wrapper);
+            _this.presentation(presentation || _this.presentation() || 'full');
+            return _this;
+        };
+
+        _this.attachPlugin = function (kind, container, presentation) {
+            var plugin = _this.plugins[kind];
+            if (!plugin) {
+                throw { name: 'NotFoundError', message: 'IM UI plugin not found: ' + kind + '.' };
+            }
+            if (!container || !container.appendChild) {
+                throw { name: 'DataError', message: 'IM UI plugin attach requires a DOM container.' };
+            }
+            container.appendChild(plugin.element());
+            if (plugin.presentation) {
+                plugin.presentation(presentation || 'full');
+            }
+            _this.resize();
+            return plugin;
+        };
+
+        _this.element = function () {
+            return _container;
+        };
+
         _this.resize = function () {
             var width = _wrapper.clientWidth;
             var height = _wrapper.clientHeight;
+
             utils.forEach(_this.plugins, function (kind, plugin) {
                 plugin.resize(width, height);
             });
+
             _this.dispatchEvent(UIEvent.RESIZE, { width: width, height: height });
         };
 
@@ -194,9 +256,11 @@
                 _im.destroy(reason);
                 _im.removeEventListener(Event.BIND, _onBind);
                 _im.removeEventListener(Event.READY, _onReady);
-                _im.removeEventListener(NetStatusEvent.NET_STATUS, _onStatus);
+                _im.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
                 _im.removeEventListener(Event.CLOSE, _onClose);
-                _container.innerHTML = '';
+                if (_wrapper && _wrapper.parentNode) {
+                    _wrapper.parentNode.removeChild(_wrapper);
+                }
             }
             delete _instances[_this.id];
         };
@@ -213,7 +277,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            _logger.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
         }
     };
 
@@ -238,4 +302,3 @@
     odd.im.ui.create = UI.create;
     IM.UI = UI;
 })(odd);
-
