@@ -70,11 +70,14 @@
 
 | 插件 | 状态 | 主要职责／配置 |
 | --- | --- | --- |
-| `Messages` | **已验证** | 会话 Tab/Dialog 和文本消息；`layout`、嵌套 `dialog`、`visibility` |
-| `Contacts` | **骨架** | 布局／组件外壳；`layout`、`visibility` |
-| `Settings` | **骨架** | 布局／组件外壳；`layout`、`visibility` |
+| `Contacts` | **已实现** | 通讯录插件；按 `layout` 为好友和群聊创建独立 Contact 组件 |
+| `Conversations` | **已实现** | 最近会话列表插件；按 `layout` 创建 Contact 组件，并将选择事件交给 UI 协调器 |
+| `Conversation` | **已实现** | 单个会话窗口插件；按 `layout` 组合 Messages 与 Composer，并协调 IM Core 发送／接收 |
+| `Dashboard` | **已实现** | 按 `layout` 引用 Settings 等设置组件；Settings 不再是插件 |
 
-UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前 `Dialog` 是会话编辑／展示组件，不是 Player 产品目标中的 Notify/Alert/Confirm 抽象。
+UI 组件包含 Button、Label、Tab、Avatar、Contact、Messages、Message、Composer 和 Settings。Messages 是 Message 的集合组件，Message 通过 `align="left|right"` 表达消息方向。旧 Dialog 已由 Composer 取代，表情数据保留在 Composer；组件级 Contacts、Conversations、Transcript 不再存在。组件负责自身数据、DOM、状态和销毁，插件只负责 layout 装配与网络事件协调。
+
+Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages` Tab。点击联系人或最近会话时，组件先发出语义事件，IM UI 再设置 Conversation 的活动对象并切换到消息 Tab。App 可以通过同一 Tab 的公开接口注入播放、游戏和会议页面，不需要另建导航。
 
 ## 配置
 
@@ -84,9 +87,8 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 | --- | --- |
 | `url` | IM WebSocket 端点 |
 | `parameters.token` | connect 参数 |
-| `maxRetries` | 重试次数；`-1` 表示不限 |
-| `retryIn` | 初始随机重试延迟 |
-| `maxRetryInterval` | 指数退避上限 |
+| `retry.delay` | 基础重试延迟；每次连接会增加 0–3 秒随机量 |
+| `retry.count` | 重试次数；`-1` 表示不限 |
 
 `NetConnection` 还包含 ACK Window／Peer Bandwidth 默认值。`NetStream` 当前没有独立默认项。
 
@@ -96,7 +98,7 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 
 ## 接口
 
-`join` 至 `state` 仅在消息 `NetStream` 完成绑定后挂到 IM/UI 门面。
+`setup()` 始终立即建立连接并 attach 消息 `NetStream`；成功返回后可以直接发送消息。公开生命周期只保留 `setup()` 和 `destroy()`，不提供第二个 `connect()` 入口。`join` 至 `state` 在消息 `NetStream` 绑定时挂到 IM/UI 门面。
 
 公开 IM API 分为 Core 门面、可选 UI 门面，以及 Core 返回或暴露的 `NetConnection`/`NetStream` 实例。协议消息解析器和 UI 插件/组件契约属于实现细节。
 
@@ -104,8 +106,8 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 
 | 方法 | 参数 | 描述 |
 | --- | --- | --- |
-| `get` | id?: number, netConnection?: NetConnection, logger?: Logger \| LoggerConfig | 获取指定 id 的稳定 IM Core，不存在时创建。由 `IM.get` 实现，并通过 `odd.im` 暴露。 |
-| `create` | netConnection?: NetConnection, logger?: Logger \| LoggerConfig | 使用下一个数字 id 创建 IM Core。 |
+| `get` | id?: number, logger?: Logger \| LoggerConfig | 获取指定 id 的稳定 IM Core，不存在时创建。由 `IM.get` 实现，并通过 `odd.im` 暴露。 |
+| `create` | logger?: Logger \| LoggerConfig | 使用下一个数字 id 创建 IM Core。 |
 
 ### Core 实例接口
 
@@ -116,6 +118,7 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 | `id` | — | 返回注册表 id。 |
 | `setup` | config?: IMConfig | 创建连接与消息流，然后建立连接。 |
 | `client` | — | 返回活动 `NetConnection`。 |
+| `connected` | — | 返回 IM 连接是否处于 connected 状态。 |
 | `join` | resourceId: string | 加入群组/资源。 |
 | `leave` | resourceId: string | 离开群组/资源。 |
 | `chmod` | resourceId: string, targetId: string, operator: string, mask: number | 修改成员权限掩码。 |
@@ -141,6 +144,15 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 | 方法 | 参数 | 描述 |
 | --- | --- | --- |
 | `setup` | container: HTMLElement, config: IMUIConfig | 构建 UI 并初始化配对的 Core。 |
+| `presentation` | value?: 'full' \| 'mini' \| 'popup' | 读写 UI 展示形态。 |
+| `skin` | value?: string | 读写皮肤。 |
+| `attach` | container: HTMLElement, presentation?: string | 将同一个 IM wrapper 重新挂载到指定容器。 |
+| `attachPlugin` | kind: string, container: HTMLElement, presentation?: string | 挂载指定插件。 |
+| `restorePlugin` | kind: string, presentation?: string | 将插件恢复到它由 layout 创建的原始 Tab 容器。 |
+| `insert` | name: string, selector: string \| HTMLElement, content: HTMLElement, option?: object | 向 IM 主 Tab 注入页面。 |
+| `active` | value?: string \| number | 读写当前主 Tab。 |
+| `page` | value: string \| number | 返回指定主 Tab 页面。 |
+| `element` | — | 返回当前挂载容器。 |
 | `resize` | — | 调整 IM 布局与插件尺寸。 |
 | `destroy` | reason?: string | 移除 UI 资源、销毁配对的 Core 并注销 UI。 |
 
@@ -215,7 +227,7 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 
 | 类型 | 属性 | 含义 |
 | :--- | :--- | :--- |
-| CHANGE | name: string, value: unknown | 选择项、标签页或滑块值发生变化。 |
+| CHANGE | name: string, value: unknown, tab?: string | 选择项、标签页或滑块值发生变化；主 Tab 同时提供稳定的 `tab` 名称。 |
 | VISIBILITYCHANGE | name: string, state: 'visible' \| 'hidden' | 指定面板变为 `visible` 或 `hidden`。 |
 
 ### MouseEvent
@@ -257,6 +269,6 @@ UI 组件包含 Button、Dialog、Label、Panel、Select、Slider、Tab。当前
 ## 已知边界
 
 - 等待中的 Responder 没有基于超时的清理。
-- `Contacts` 和 `Settings` 只构建外壳，没有领域行为。
+- Contacts、Conversations、Conversation 和 Dashboard 已按组件装配；旧 Dialog、Workspace、组件级 Contacts/Conversations/Transcript 已移除。
 - 没有统一的用户列表、呼叫状态、闭麦、踢出或录制控制模型。
 - UI 多处使用 `innerHTML`，不可信文本需要先清洗。

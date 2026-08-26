@@ -57,6 +57,7 @@
                 case 'number':
                     if (to >= 0 && to < _states.length) {
                         _index = to;
+                        _container.setAttribute('state', _states[_index].key);
                         _tooltip.innerHTML = _states[_index].value;
                         return _states[_index];
                     }
@@ -65,6 +66,7 @@
                     for (var i = 0; i < _states.length; i++) {
                         if (_states[i].key === to) {
                             _index = i;
+                            _container.setAttribute('state', _states[_index].key);
                             _tooltip.innerHTML = _states[_index].value;
                             return _states[_index];
                         }
@@ -74,13 +76,14 @@
             if (++_index >= _states.length) {
                 _index = 0;
             }
+            _container.setAttribute('state', _states[_index].key);
             _tooltip.innerHTML = _states[_index].value;
             return _states[_index];
         };
 
         _this.state = function () {
             return _states[_index].key;
-        }
+        };
 
         _this.element = function () {
             return _container;
@@ -92,6 +95,7 @@
 
         _this.destroy = function () {
             _container.removeEventListener('click', _onClick);
+            _container.innerHTML = '';
         };
 
         _init();

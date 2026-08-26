@@ -952,3 +952,79 @@
 .pe-ui-classic .pe-contextmenu .pe-contextmenu-item.featured .pe-contextmenu-item-text {
     color: #FFFFFF;
 }
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-button,
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 8px;
+    color: #dce2e9;
+    background: transparent;
+    cursor: pointer;
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-button:hover,
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, .10);
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle::before {
+    font: 600 15px/1 sans-serif;
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.playing::before {
+    content: "▶";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.playing[state="on"]::before {
+    content: "Ⅱ";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.calling::before {
+    content: "☎";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.calling[state="on"] {
+    color: #ff6b6b;
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.muted::before {
+    content: "◖";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.muted[state="on"]::before {
+    content: "×";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.comments::before {
+    content: "弹";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.comments[state="off"] {
+    opacity: .45;
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.layout::before {
+    content: "▦";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.theater::before {
+    content: "▱";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle.fullscreen::before {
+    content: "⛶";
+}
+
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle[state="on"],
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle[state="top"],
+.pe-wrapper[kind="player"] .pe-controlbar .pe-toggle[state="grid"] {
+    color: #ff8a33;
+}

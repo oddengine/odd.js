@@ -1,14 +1,19 @@
 (function (odd) {
     var utils = odd.utils,
+        css = utils.css,
+        OS = odd.OS,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
+        NetStatusEvent = events.NetStatusEvent,
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
+        TimerEvent = events.TimerEvent,
         RTC = odd.RTC,
         Constraints = RTC.Constraints,
 
         CLASS_WRAPPER = 'pe-wrapper',
+        CLASS_CONTENT = 'pe-content',
 
         _id = 0,
         _instances = {},
@@ -43,9 +48,10 @@
             _wrapper,
             _content,
             _api,
+            _publisher,
             _timer;
 
-        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, UIEvent, MouseEvent);
+        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
 
         function _init() {
             _this.logger = _logger;
@@ -64,6 +70,7 @@
             _parseConfig(config || {});
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
+            _wrapper.setAttribute('kind', 'rtc');
             _container.appendChild(_wrapper);
 
             _content = utils.createElement('div', CLASS_CONTENT);
@@ -73,6 +80,7 @@
             _api.addEventListener(Event.BIND, _onBind);
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(Event.ERROR, _onError);
+            _api.addEventListener(NetStatusEvent.NETSTATUS, _this.forward);
             _api.setup(_this.config);
 
             _buildPlugins();
@@ -102,7 +110,7 @@
                 plugins.push(utils.extendz({}, def, cfg));
             }
 
-            _this.config = utils.extendz({ id: _id }, Player.prototype.CONF, _default, config);
+            _this.config = utils.extendz({ id: _id }, RTC.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
         }
 
@@ -133,6 +141,11 @@
         function _setupPlugins() {
             _wrapper.setAttribute('presentation', _this.config.presentation);
             _wrapper.setAttribute('state', '');
+            _wrapper.setAttribute('microphone', 'on');
+            _wrapper.setAttribute('camera', 'on');
+            _wrapper.setAttribute('sharing', 'off');
+            _wrapper.setAttribute('calling', 'off');
+            _wrapper.setAttribute('layout', 'right');
 
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
@@ -167,21 +180,65 @@
         }
 
         function _onBind(e) {
-            _this.play = _api.play;
-            _this.stop = _api.stop;
             _this.forward(e);
         }
 
-        _this.preview = function () {
-
+        _this.preview = async function (screensharing, withcamera, option) {
+            if (_publisher) {
+                _this.stop(_publisher.name());
+            }
+            _publisher = await _api.preview(Constraints[_this.config.profile], !!screensharing, !!withcamera, option);
+            _content.appendChild(_publisher.element());
+            _publisher.enabled('audio', _wrapper.getAttribute('microphone') === 'on');
+            _publisher.enabled('video', _wrapper.getAttribute('camera') === 'on');
+            _wrapper.setAttribute('sharing', screensharing ? 'on' : 'off');
+            _wrapper.setAttribute('calling', 'off');
+            return _publisher;
         };
 
-        _this.publish = function () {
+        _this.publish = async function (screensharing, withcamera, option) {
+            if (_publisher) {
+                _this.stop(_publisher.name());
+            }
+            _publisher = await _api.publish(Constraints[_this.config.profile], !!screensharing, !!withcamera, option);
+            _content.appendChild(_publisher.element());
+            _publisher.enabled('audio', _wrapper.getAttribute('microphone') === 'on');
+            _publisher.enabled('video', _wrapper.getAttribute('camera') === 'on');
+            _wrapper.setAttribute('sharing', screensharing ? 'on' : 'off');
+            _wrapper.setAttribute('calling', 'on');
+            return _publisher;
+        };
 
+        _this.play = async function (name) {
+            var ns = await _api.play(name);
+            _content.appendChild(ns.element());
+            return ns;
+        };
+
+        _this.stop = function (name) {
+            _api.stop(name);
+            if (_publisher && (!name || name === _publisher.name())) {
+                var element = _publisher.element();
+                if (element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
+                _publisher = null;
+                _wrapper.setAttribute('calling', 'off');
+            }
         };
 
         _this.layout = function (state) {
+            if (state !== undefined) {
+                _wrapper.setAttribute('layout', state);
 
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('layout', state);
+                }
+                _this.resize();
+                _this.dispatchEvent(Event.CHANGE, { name: 'layout', value: state });
+            }
+            return _wrapper.getAttribute('layout');
         };
 
         _this.theater = function (status) {
@@ -203,7 +260,7 @@
 
         _this.fullscreen = function (status) {
             if (status !== undefined) {
-                var video = _api.element();
+                var video = _publisher ? _publisher.element() : _content.querySelector('video');
                 if (!!status) {
                     var requestFullscreen = _wrapper.requestFullscreen
                         || _wrapper.webkitRequestFullScreen
@@ -308,7 +365,7 @@
             var h = {
                 'microphone': function () { _onMicrophoneClick(e); },
                 'camera': function () { _onCameraClick(e); },
-                'sharing': function () { _onSharingClick(e) },
+                'sharing': function () { _onSharingClick(e); },
                 'calling': function () { _onCallingClick(e); },
                 'layout': function () { _this.layout(e.data.state); },
                 'stats': function () { _showPanel(e.data.name); },
@@ -323,19 +380,60 @@
         }
 
         function _onMicrophoneClick(e) {
-
+            var state = e.data.state;
+            if (_publisher) {
+                _publisher.enabled('audio', state === 'on');
+            }
+            _wrapper.setAttribute('microphone', state);
         }
 
         function _onCameraClick(e) {
-
+            var state = e.data.state;
+            if (_publisher) {
+                _publisher.enabled('video', state === 'on');
+            }
+            _wrapper.setAttribute('camera', state);
         }
 
-        function _onSharingClick(e) {
+        async function _onSharingClick(e) {
+            var state = e.data.state,
+                previous = _wrapper.getAttribute('sharing'),
+                calling = _wrapper.getAttribute('calling') === 'on';
+            try {
+                if (calling) {
+                    await _this.publish(state === 'on', false);
+                } else {
+                    await _this.preview(state === 'on', false);
+                }
+            } catch (err) {
+                _wrapper.setAttribute('sharing', previous);
 
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('sharing', previous);
+                }
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            }
         }
 
-        function _onCallingClick(e) {
-
+        async function _onCallingClick(e) {
+            var state = e.data.state,
+                previous = _wrapper.getAttribute('calling'),
+                sharing = _wrapper.getAttribute('sharing') === 'on';
+            try {
+                if (state === 'on') {
+                    await _this.publish(sharing, false);
+                } else {
+                    await _this.preview(sharing, false);
+                }
+            } catch (err) {
+                _wrapper.setAttribute('calling', previous);
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('calling', previous);
+                }
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            }
         }
 
         function _onDoubleClick(e) {
@@ -523,23 +621,23 @@
             document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
 
             utils.forEach(_this.plugins, function (_, plugin) {
-                if (plugin.removeGlobalListener) {
-                    plugin.removeGlobalListener(_onPluginEvent);
-                }
-                if (plugin.destroy) {
-                    plugin.destroy();
-                }
+                plugin.removeGlobalListener(_onPluginEvent);
+                plugin.destroy();
             });
+            _this.plugins = {};
 
             if (_api) {
                 _api.destroy(reason);
                 _api.removeEventListener(Event.BIND, _onBind);
                 _api.removeEventListener(Event.READY, _onReady);
                 _api.removeEventListener(Event.ERROR, _onError);
+                _api.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
                 _api = undefined;
             }
 
-            _container.innerHTML = '';
+            if (_wrapper) {
+                _container.removeChild(_wrapper);
+            }
             delete _instances[_id];
         };
 
@@ -555,7 +653,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            console.error('Failed to register RTC UI plugin ' + plugin.prototype.kind + ': ' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
         }
     };
 

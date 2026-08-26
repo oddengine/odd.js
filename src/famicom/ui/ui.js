@@ -1,6 +1,7 @@
 (function (odd) {
     var utils = odd.utils,
         OS = odd.OS,
+        css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
@@ -44,14 +45,17 @@
                 NumpadDecimal: [Port.P2, Key.A],
             },
             gamepad: {
-                0: Key.A,
-                1: Key.B,
-                8: Key.SELECT,
-                9: Key.START,
-                12: Key.UP,
-                13: Key.DOWN,
-                14: Key.LEFT,
-                15: Key.RIGHT,
+                threshold: 0.5,
+                buttons: {
+                    0: Key.A,
+                    1: Key.B,
+                    8: Key.SELECT,
+                    9: Key.START,
+                    12: Key.UP,
+                    13: Key.DOWN,
+                    14: Key.LEFT,
+                    15: Key.RIGHT,
+                },
             },
             plugins: [],
         };
@@ -66,6 +70,8 @@
             _api,
             _joystickkeys,
             _keyboardkeys,
+            _gamepadkeys,
+            _gamepadframe,
             _timer;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, MediaEvent, UIEvent, MouseEvent, TouchEvent);
@@ -76,6 +82,7 @@
 
             _joystickkeys = {};
             _keyboardkeys = {};
+            _gamepadkeys = {};
 
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
@@ -90,6 +97,8 @@
             _parseConfig(config || {});
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
+            _wrapper.setAttribute('kind', 'famicom');
+            _wrapper.setAttribute('tabindex', '0');
             _container.appendChild(_wrapper);
 
             _content = utils.createElement('div', CLASS_CONTENT);
@@ -100,6 +109,7 @@
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(Event.VOLUMECHANGE, _onVolumeChange);
             _api.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
+            _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
             _api.addEventListener(Event.ERROR, _onError);
             _api.setup(_content, _this.config);
 
@@ -108,6 +118,10 @@
             _this.resize();
 
             window.addEventListener('resize', _this.resize);
+            window.addEventListener('blur', _releaseInput);
+            document.addEventListener('visibilitychange', _onVisibilityChange);
+            _wrapper.addEventListener('pointerdown', _focus);
+            _gamepadframe = requestAnimationFrame(_pollGamepads);
             return Promise.resolve();
         };
 
@@ -170,6 +184,7 @@
                 if (controlbar.config.autohide) {
                     _wrapper.addEventListener('mousemove', _onMouseMove);
                 }
+                controlbar.state('muted', _this.config.muted ? 'on' : 'off');
             } else {
                 _wrapper.setAttribute('controls', 'never');
             }
@@ -177,6 +192,7 @@
             _wrapper.addEventListener('keydown', _onKeyDown);
             _wrapper.addEventListener('keyup', _onKeyUp);
             _wrapper.setAttribute('muted', _this.config.muted);
+            _wrapper.setAttribute('layout', 'right');
             _wrapper.setAttribute('theater', false);
             _wrapper.setAttribute('fullscreen', false);
 
@@ -199,22 +215,36 @@
             document.addEventListener('MSFullscreenChange', _onFullscreenChange);
         }
 
+        function _focus() {
+            _wrapper.focus();
+        }
+
         function _onBind(e) {
             _this.load = _api.load;
             _this.play = _api.play;
             _this.stop = _api.stop;
             _this.keyDown = _api.keyDown;
             _this.keyUp = _api.keyUp;
+            _this.ports = _api.ports;
+            _this.location = _api.location;
             _this.capture = _api.capture;
-            _this.record = _api.record;
             _this.muted = _api.muted;
-            _this.volume = _api.volume;
             _this.state = _api.state;
             _this.forward(e);
         }
 
         _this.layout = function (state) {
+            if (state !== undefined) {
+                _wrapper.setAttribute('layout', state);
 
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('layout', state);
+                }
+                _this.resize();
+                _this.dispatchEvent(Event.CHANGE, { name: 'layout', value: state });
+            }
+            return _wrapper.getAttribute('layout');
         };
 
         _this.theater = function (status) {
@@ -228,6 +258,11 @@
                 }
 
                 _wrapper.setAttribute('theater', !!status);
+
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('theater', status ? 'on' : 'off');
+                }
                 _this.resize();
                 _this.dispatchEvent(UIEvent.THEATER, { status: status });
             }
@@ -287,6 +322,7 @@
 
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
+                    controlbar.state('fullscreen', status ? 'on' : 'off');
                     css.style(controlbar.element(), {
                         'visibility': 'visible',
                     });
@@ -368,6 +404,10 @@
         }
 
         function _onTouch(index) {
+            var port = _api.ports()[0];
+            if (port === undefined) {
+                return;
+            }
             var map4 = {
                 1: [Key.UP],
                 2: [Key.RIGHT],
@@ -390,12 +430,12 @@
             [Key.UP, Key.RIGHT, Key.DOWN, Key.LEFT].forEach(function (key) {
                 if (utils.indexOf(keys, key) === -1) {
                     if (_joystickkeys[key]) {
-                        _api.keyUp(key);
+                        _api.keyUp(port, key);
                     }
                 } else {
                     pressed[key] = true;
                     if (!_joystickkeys[key]) {
-                        _api.keyDown(key);
+                        _api.keyDown(port, key);
                     }
                 }
             });
@@ -403,14 +443,34 @@
         }
 
         function _onClick(e) {
+            var display = _this.plugins['Display'],
+                key = {
+                    'select': Key.SELECT,
+                    'start': Key.START,
+                    'b': Key.B,
+                    'a': Key.A,
+                }[e.data.name];
+            if (e.target === display && key) {
+                var port = _api.ports()[0];
+                if (port === undefined) {
+                    return;
+                }
+                _api.keyDown(port, key);
+                setTimeout(function () {
+                    if (_api) {
+                        _api.keyUp(port, key);
+                    }
+                }, 50);
+                return;
+            }
             var h = {
                 'capture': _this.capture,
-                'muted': function () { _this.muted(e.data.state === 'off'); },
+                'muted': function () { _this.muted(e.data.state === 'on'); },
                 'layout': function () { _this.layout(e.data.state); },
                 'stats': function () { _showPanel(e.data.name); },
                 'settings': function () { _showPanel(e.data.name); },
-                'theater': function () { _this.theater(!!e.data.value); },
-                'fullscreen': function () { _this.fullscreen(!!e.data.value); },
+                'theater': function () { _this.theater(e.data.state !== 'off'); },
+                'fullscreen': function () { _this.fullscreen(e.data.state !== 'off'); },
             }[e.data.name];
             if (h) {
                 h();
@@ -508,9 +568,11 @@
             }
             var arr = _this.config.keyboard[e.code];
             if (arr) {
-                if (_keyboardkeys[arr[1]] == false) {
-                    _keyboardkeys[arr[1]] = true;
-                    _api.keyDown(arr[0], arr[1]);
+                var name = arr[0] + ':' + arr[1];
+                var port = _api.ports()[arr[0]];
+                if (port !== undefined && !_keyboardkeys[name]) {
+                    _keyboardkeys[name] = true;
+                    _api.keyDown(port, arr[1]);
                 }
                 e.preventDefault();
             }
@@ -522,9 +584,11 @@
             }
             var arr = _this.config.keyboard[e.code];
             if (arr) {
-                if (_keyboardkeys[arr[1]]) {
-                    _keyboardkeys[arr[1]] = false;
-                    _api.keyUp(arr[0], arr[1]);
+                var name = arr[0] + ':' + arr[1];
+                var port = _api.ports()[arr[0]];
+                if (port !== undefined && _keyboardkeys[name]) {
+                    delete _keyboardkeys[name];
+                    _api.keyUp(port, arr[1]);
                 }
                 e.preventDefault();
             }
@@ -538,34 +602,133 @@
             return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
         }
 
+        function _pollGamepads() {
+            var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            for (var port = 0; port < 4; port++) {
+                var gamepad = gamepads[port];
+                if (!gamepad) {
+                    _syncGamepad(port, {});
+                    continue;
+                }
+                var pressed = {};
+                utils.forEach(_this.config.gamepad.buttons, function (index, key) {
+                    var button = gamepad.buttons[index];
+                    if (button && (button.pressed || button.value >= _this.config.gamepad.threshold)) {
+                        pressed[key] = true;
+                    }
+                });
+                if (gamepad.axes.length >= 2) {
+                    if (gamepad.axes[0] <= -_this.config.gamepad.threshold) {
+                        pressed[Key.LEFT] = true;
+                    } else if (gamepad.axes[0] >= _this.config.gamepad.threshold) {
+                        pressed[Key.RIGHT] = true;
+                    }
+                    if (gamepad.axes[1] <= -_this.config.gamepad.threshold) {
+                        pressed[Key.UP] = true;
+                    } else if (gamepad.axes[1] >= _this.config.gamepad.threshold) {
+                        pressed[Key.DOWN] = true;
+                    }
+                }
+                _syncGamepad(port, pressed);
+            }
+            _gamepadframe = requestAnimationFrame(_pollGamepads);
+        }
+
+        function _syncGamepad(port, pressed) {
+            var previous = _gamepadkeys[port] || {},
+                target = _api.ports()[port];
+            if (target === undefined) {
+                _gamepadkeys[port] = {};
+                return;
+            }
+            utils.forEach(previous, function (key) {
+                if (!pressed[key]) {
+                    _api.keyUp(target, Number(key));
+                }
+            });
+            utils.forEach(pressed, function (key) {
+                if (!previous[key]) {
+                    _api.keyDown(target, Number(key));
+                }
+            });
+            _gamepadkeys[port] = pressed;
+        }
+
+        function _releaseInput() {
+            utils.forEach(_keyboardkeys, function (name) {
+                var arr = name.split(':');
+                var port = _api.ports()[Number(arr[0])];
+                if (port !== undefined) {
+                    _api.keyUp(port, Number(arr[1]));
+                }
+            });
+            utils.forEach(_gamepadkeys, function (port, keys) {
+                var target = _api.ports()[Number(port)];
+                utils.forEach(keys, function (key) {
+                    if (target !== undefined) {
+                        _api.keyUp(target, Number(key));
+                    }
+                });
+            });
+            _keyboardkeys = {};
+            _gamepadkeys = {};
+            _onTouch(0);
+        }
+
+        function _onVisibilityChange() {
+            if (document.hidden) {
+                _releaseInput();
+            }
+        }
+
         function _onReady(e) {
             _onStateChange(e);
         }
 
         function _onVolumeChange(e) {
             _wrapper.setAttribute('muted', e.data.muted || !e.data.volume);
+
             var controlbar = _this.plugins['Controlbar'];
-            if (controlbar && controlbar.state) {
-                controlbar.state('muted', e.data.muted || !e.data.volume);
+            if (controlbar) {
+                controlbar.state('muted', e.data.muted || !e.data.volume ? 'on' : 'off');
             }
             _this.forward(e);
         }
 
         function _onStatsChange(e) {
-            var display = _this.plugins['Display'];
-            if (display && display.updateStats) {
-                display.updateStats(e.data.stats);
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                var data = utils.extendz({}, e.data.stats);
+                utils.forEach(data, function (key, value) {
+                    switch (key) {
+                        case 'BytesReceived':
+                        case 'BytesReceivedPerSecond':
+                            data[key] = utils.formatBytes(value);
+                            break;
+                        case 'AudioPacketsReceivedPerSecond':
+                        case 'VideoPacketsReceivedPerSecond':
+                        case 'DroppedVideoFrames':
+                        case 'TotalVideoFrames':
+                            data[key] = value.toLocaleString();
+                            break;
+                        case 'FirstAudioFrameReceivedIn':
+                        case 'FirstVideoFrameReceivedIn':
+                            data[key] = value.toLocaleString() + ' ms.';
+                            break;
+                    }
+                });
+                dashboard.update('stats', data);
             }
+
             var controlbar = _this.plugins['Controlbar'],
                 stats = e.data.stats || {},
-                latency = stats.currentRoundTripTime || stats.roundTripTime || stats.rtt;
-            if (controlbar && controlbar.value && latency !== undefined) {
-                if (latency < 10) {
-                    latency *= 1000;
+                rtt = stats.currentRoundTripTime || stats.roundTripTime || stats.rtt;
+            if (controlbar && rtt !== undefined) {
+                var label = controlbar.components['rtt'];
+                if (label) {
+                    label.set(`${Math.round(rtt)}(ms)`);
                 }
-                controlbar.value('latency', Math.round(latency) + ' ms');
             }
-            _this.forward(e);
         }
 
         function _showPanel(name) {
@@ -638,6 +801,13 @@
             _timer.stop();
             _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
 
+            cancelAnimationFrame(_gamepadframe);
+            window.removeEventListener('resize', _this.resize);
+            window.removeEventListener('blur', _releaseInput);
+            document.removeEventListener('visibilitychange', _onVisibilityChange);
+            _wrapper.removeEventListener('pointerdown', _focus);
+            _releaseInput();
+
             document.removeEventListener('mouseup', _onMouseUp);
             _wrapper.removeEventListener('mouseup', _onMouseUp);
             document.removeEventListener('mousedown', _onMouseDown);
@@ -649,13 +819,10 @@
             document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
 
             utils.forEach(_this.plugins, function (_, plugin) {
-                if (plugin.removeGlobalListener) {
-                    plugin.removeGlobalListener(_onPluginEvent);
-                }
-                if (plugin.destroy) {
-                    plugin.destroy();
-                }
+                plugin.removeGlobalListener(_onPluginEvent);
+                plugin.destroy();
             });
+            _this.plugins = {};
 
             if (_api) {
                 _api.destroy(reason);
@@ -663,11 +830,14 @@
                 _api.removeEventListener(Event.READY, _onReady);
                 _api.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
                 _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
+                _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
                 _api.removeEventListener(Event.ERROR, _onError);
                 _api = undefined;
             }
 
-            _container.innerHTML = '';
+            if (_wrapper) {
+                _container.removeChild(_wrapper);
+            }
             delete _instances[_id];
         };
 

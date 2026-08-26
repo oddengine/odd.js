@@ -1,5 +1,7 @@
 (function (odd) {
     var utils = odd.utils,
+        OS = odd.OS,
+        Browser = odd.Browser,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         MouseEvent = events.MouseEvent,
@@ -15,6 +17,7 @@
         _default = {
             kind: 'Controlbar',
             layout: '[Label:player=P1]' +
+                    '[Label:rtt=0(ms)]' +
                     '|' +
                     '[Label:left=Left(A)]' +
                     '[Label:up=Up(W)]' +
@@ -28,9 +31,7 @@
                     '|' +
                     '[Button:capture=Capture]' +
                     '[Toggle:muted=off off=Mute;on=Unmute]' +
-                    '[Slider:volume=80]' +
                     '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
-                    '[Button:settings=Settings]' +
                     '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
                     '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
             visibility: true,
@@ -61,7 +62,7 @@
                 throw { name: 'DataError', message: 'Controlbar should have exactly 4 sections.' };
             }
 
-            var sections = ['left', 'center', 'right'];
+            var sections = ['left', 'center', 'center', 'right'];
             for (var i = 0; i < layouts.length; i++) {
                 var section = utils.createElement('div', 'pe-' + sections[i]);
                 var arr;
@@ -110,14 +111,9 @@
 
         _this.state = function (name, value) {
             var component = _this.components[name];
-            if (component && component.value) {
-                component.value(value);
+            if (component && component.kind === 'Toggle') {
+                component.switch(value);
             }
-        };
-
-        _this.value = function (name, value) {
-            var component = _this.components[name];
-            return component && component.value ? component.value(value) : undefined;
         };
 
         _this.element = function () {
@@ -126,6 +122,14 @@
 
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
         };
 
         _init();
@@ -138,3 +142,4 @@
 
     UI.register(Controlbar);
 })(odd);
+

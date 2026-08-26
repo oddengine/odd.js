@@ -37,6 +37,7 @@
         function _init() {
             _this.config = config;
             _this.constraints = utils.extendz({}, Constraints[_this.config.profile || '180P_1']);
+            _this.components = {};
 
             _this.rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
             _this.rtc.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
@@ -53,33 +54,31 @@
         }
 
         function _bind() {
-            _this.unpublish = _this.rtc.unpublish;
             _this.stop = _this.rtc.stop;
         }
 
         _this.applyConstraints = function (constraints) {
             _this.constraints = utils.extendz(_this.constraints, constraints);
-            utils.forEach(_this.rtc.publishers, function (_, ns) {
+            utils.forEach(_this.rtc.publishing, function (_, ns) {
                 ns.applyConstraints(_this.constraints);
             });
         };
 
         _this.publish = async function () {
-            for (var id in _this.rtc.publishers) {
+            for (var id in _this.rtc.publishing) {
                 _logger.error(`Already published: user=${_userId()}`);
                 return Promise.reject('published');
             }
             return _this.rtc.publish(_this.constraints).then(function (ns) {
                 ns.addEventListener(Event.RELEASE, function (e) {
-                    var video = e.srcElement.video;
+                    var video = e.srcElement.element();
                     video.removeEventListener('click', _onClick);
                     _detachVideo(video);
                 });
 
-                var video = ns.video;
+                var video = ns.element();
                 video.addEventListener('click', _onClick);
                 video.muted = true;
-                video.srcObject = ns.stream;
                 video.play().catch(function (err) {
                     _logger.warn(`${err}`);
                 });
@@ -110,10 +109,10 @@
                     }
                 });
                 ns.addEventListener(Event.RELEASE, function (e) {
-                    _detachVideo(e.srcElement.video);
+                    _detachVideo(e.srcElement.element());
                 });
-                if (ns.stream) {
-                    _attachVideo(ns, ns.stream);
+                if (ns.stream()) {
+                    _attachVideo(ns, ns.stream());
                 }
             }).catch(function (err) {
                 _logger.warn(`${err}`);
@@ -127,6 +126,7 @@
             var info = e.data.info;
             var method = { status: 'log', warning: 'warn', error: 'error' }[level];
             _logger[method](`RTC.onStatus: user=${_userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
+
             _this.forward(e);
         }
 
@@ -136,7 +136,7 @@
         }
 
         function _userId() {
-            var client = _this.rtc.client();
+            var client = _this.config.client;
             if (client && client.userId) {
                 return client.userId();
             }
@@ -144,7 +144,7 @@
         }
 
         function _attachVideo(ns, stream) {
-            var video = ns.video;
+            var video = ns.element();
             video.addEventListener('click', _onClick);
             video.srcObject = stream;
 
@@ -196,6 +196,18 @@
 
         };
 
+        _this.destroy = function () {
+            _this.rtc.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            _this.rtc.removeEventListener(Event.CLOSE, _onClose);
+            _this.rtc.destroy('closing');
+
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
+        };
+
         _init();
     }
 
@@ -206,3 +218,4 @@
 
     UI.register(Chat);
 })(odd);
+

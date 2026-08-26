@@ -54,6 +54,7 @@
             _parseConfig(config || {});
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
+            _wrapper.setAttribute('kind', 'player');
             _container.appendChild(_wrapper);
 
             _content = utils.createElement('div', CLASS_CONTENT);
@@ -163,6 +164,7 @@
                 if (controlbar.config.autohide) {
                     _wrapper.addEventListener('mousemove', _onMouseMove);
                 }
+                controlbar.state('muted', _this.config.muted ? 'on' : 'off');
             } else {
                 _wrapper.setAttribute('controls', 'never');
             }
@@ -170,14 +172,21 @@
             var chat = _this.plugins['Chat'];
             if (chat) {
                 _wrapper.setAttribute('chat', chat.config.enable ? 'on' : 'off');
+                if (controlbar) {
+                    controlbar.state('calling', chat.config.enable ? 'on' : 'off');
+                }
             }
 
             var comments = _this.plugins['Comments'];
             if (comments) {
                 _wrapper.setAttribute('comments', comments.config.enable ? 'on' : 'off');
+                if (controlbar) {
+                    controlbar.state('comments', comments.config.enable ? 'on' : 'off');
+                }
             }
 
             _wrapper.setAttribute('muted', _this.config.muted);
+            _wrapper.setAttribute('layout', 'right');
             _wrapper.setAttribute('theater', false);
             _wrapper.setAttribute('fullscreen', false);
 
@@ -222,17 +231,18 @@
 
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
-                controlbar.resize(_content.clientWidth, _content.clientHeight);
+                controlbar.state('calling', enable ? 'on' : 'off');
             }
+
             var chat = _this.plugins['Chat'];
             if (chat) {
                 if (enable) {
                     chat.publish().catch((err) => { });
                 } else {
-                    chat.unpublish();
+                    chat.stop();
                 }
             }
-            _this.forward(e);
+            _this.dispatchEvent(Event.CHANGE, { name: 'chat', value: !!enable });
         };
 
         _this.comments = function (enable) {
@@ -240,7 +250,7 @@
 
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
-                controlbar.resize(_content.clientWidth, _content.clientHeight);
+                controlbar.state('comments', enable ? 'on' : 'off');
             }
             var comments = _this.plugins['Comments'];
             if (comments) {
@@ -265,7 +275,17 @@
         };
 
         _this.layout = function (state) {
+            if (state !== undefined) {
+                _wrapper.setAttribute('layout', state);
 
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('layout', state);
+                }
+                _this.resize();
+                _this.dispatchEvent(Event.CHANGE, { name: 'layout', value: state });
+            }
+            return _wrapper.getAttribute('layout');
         };
 
         _this.theater = function (status) {
@@ -279,6 +299,11 @@
                 }
 
                 _wrapper.setAttribute('theater', !!status);
+
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('theater', status ? 'on' : 'off');
+                }
                 _this.resize();
                 _this.dispatchEvent(UIEvent.THEATER, { status: status });
             }
@@ -338,6 +363,7 @@
 
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
+                    controlbar.state('fullscreen', status ? 'on' : 'off');
                     css.style(controlbar.element(), {
                         'visibility': 'visible',
                     });
@@ -399,7 +425,7 @@
                         _api.seek(duration * e.data.value / 100);
                     }
                 },
-                'volumebar': function () {
+                'volume': function () {
                     _api.volume(e.data.value / 100);
                 },
                 'definition': function () {
@@ -415,13 +441,13 @@
 
         function _onClick(e) {
             var h = {
-                'playing': function () { e.data.state === 'off' ? _this.play() : _this.pause(); },
+                'playing': function () { e.data.state === 'on' ? _this.play() : _this.pause(); },
                 'reload': _this.reload,
                 'stop': _this.stop,
                 'capture': _this.capture,
                 'download': function () { _this.record('fragmented.mp4'); },
-                'calling': function () { _this.chat(e.data.state === 'off'); },
-                'muted': function () { _this.muted(e.data.state === 'off'); },
+                'calling': function () { _this.chat(e.data.state === 'on'); },
+                'muted': function () { _this.muted(e.data.state === 'on'); },
                 'comments': function () { _this.comments(e.data.state !== 'off'); },
                 'layout': function () { _this.layout(e.data.state); },
                 'info': function () { _showPanel(e.data.name); },
@@ -543,7 +569,7 @@
                 if (time) {
                     var t = utils.formatTime(e.data.time);
                     var d = utils.formatTime(e.data.duration);
-                    time.text(t + '/' + d);
+                    time.set(t + '/' + d);
                 }
             }
 
@@ -566,9 +592,9 @@
 
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
-                controlbar.resize(_content.clientWidth, _content.clientHeight);
+                controlbar.state('muted', e.data.muted || !n ? 'on' : 'off');
 
-                var volumebar = controlbar.components['volumebar'];
+                var volumebar = controlbar.components['volume'];
                 if (volumebar) {
                     volumebar.position(n);
                     volumebar.thumb(n);
@@ -609,10 +635,8 @@
                             break;
                     }
                 });
-                display.update('stats', data);
+                dashboard.update('stats', data);
             }
-
-            _this.forward(e);
         }
 
         function _onWriterStart(e) {
@@ -653,6 +677,20 @@
 
         function _onStateChange(e) {
             _wrapper.setAttribute('state', e.type);
+
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                switch (e.type) {
+                    case Event.PLAYING:
+                        controlbar.state('playing', 'on');
+                        break;
+                    case Event.PAUSE:
+                    case Event.ENDED:
+                    case Event.ERROR:
+                        controlbar.state('playing', 'off');
+                        break;
+                }
+            }
 
             var display = _this.plugins['Display'];
             if (display) {
@@ -720,13 +758,10 @@
             document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
 
             utils.forEach(_this.plugins, function (_, plugin) {
-                if (plugin.removeGlobalListener) {
-                    plugin.removeGlobalListener(_onPluginEvent);
-                }
-                if (plugin.destroy) {
-                    plugin.destroy();
-                }
+                plugin.removeGlobalListener(_onPluginEvent);
+                plugin.destroy();
             });
+            _this.plugins = {};
 
             if (_api) {
                 _api.destroy(reason);
@@ -764,7 +799,9 @@
                 _api = undefined;
             }
 
-            _container.innerHTML = '';
+            if (_wrapper) {
+                _container.removeChild(_wrapper);
+            }
             delete _instances[_id];
         };
 

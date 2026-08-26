@@ -40,7 +40,6 @@ function onJoinClick(e) {
 }
 
 function onLeaveClick(e) {
-    rtc.unpublish();
     rtc.stop();
     if (_imReady) {
         im.leave(_value('in_room', ''));
@@ -48,7 +47,7 @@ function onLeaveClick(e) {
 }
 
 var rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
-rtc.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
+rtc.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
 rtc.addEventListener(Event.CLOSE, onClose);
 rtc.setup({
     profile: sl_profiles.value || '180P_1',
@@ -80,7 +79,7 @@ function _setupIM(room) {
     _pendingJoin = room;
     im = odd.im.create();
     im.addEventListener(Event.READY, onReady);
-    im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
+    im.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
     im.addEventListener(Event.CLOSE, onClose);
     im.setup({
         maxRetries: 0,
@@ -151,12 +150,12 @@ function onPreviewClick(e) {
     if (ch_enableaudio.checked === false) {
         utils.extendz(constraints, { audio: false });
     }
-    var screenshare = sl_mode.value > 0;
+    var screensharing = sl_mode.value > 0;
     var withcamera = sl_mode.value == 2;
 
-    rtc.preview(constraints, screenshare, withcamera).then(function (ns) {
+    rtc.preview(constraints, screensharing, withcamera).then(function (ns) {
         ns.addEventListener(Event.RELEASE, function (e) {
-            var video = e.srcElement.video;
+            var video = e.srcElement.element();
             try {
                 view.removeChild(video);
             } catch (err) {
@@ -166,11 +165,11 @@ function onPreviewClick(e) {
         });
         _preview = ns;
 
-        var video = ns.video;
+        var video = ns.element();
         video.setAttribute('controls', '');
         video.classList[_checked('ch_enablemirror', false) ? 'add' : 'remove']('mirror');
         video.muted = true;
-        video.srcObject = ns.stream;
+        video.srcObject = ns.stream();
         video.play().catch(function (err) {
             console.warn(`${err}`);
         });
@@ -189,7 +188,7 @@ function onPreviewClick(e) {
 
 function onStopPreviewClick(e) {
     if (_preview) {
-        _preview.release('stop previewing');
+        _preview.close('stop previewing');
         _preview = undefined;
     }
 }
@@ -205,20 +204,20 @@ function onPublishClick(e) {
     if (ch_enableaudio.checked === false) {
         utils.extendz(constraints, { audio: false });
     }
-    var screenshare = sl_mode.value > 0;
+    var screensharing = sl_mode.value > 0;
     var withcamera = sl_mode.value == 2;
 
     if (_preview) {
-        return _preview.publish(screenshare, withcamera).then(function () {
+        return _preview.publish().then(function () {
             _preview = undefined;
         }).catch(function (err) {
             console.warn(`${err}`);
         });
     }
 
-    rtc.publish(constraints, screenshare, withcamera).then(function (ns) {
+    rtc.publish(constraints, screensharing, withcamera).then(function (ns) {
         ns.addEventListener(Event.RELEASE, function (e) {
-            var video = e.srcElement.video;
+            var video = e.srcElement.element();
             try {
                 view.removeChild(video);
             } catch (err) {
@@ -226,11 +225,11 @@ function onPublishClick(e) {
             }
         });
 
-        var video = ns.video;
+        var video = ns.element();
         video.setAttribute('controls', '');
         video.classList[_checked('ch_enablemirror', false) ? 'add' : 'remove']('mirror');
         video.muted = true;
-        video.srcObject = ns.stream;
+        video.srcObject = ns.stream();
         video.play().catch(function (err) {
             console.warn(`${err}`);
         });
@@ -248,7 +247,7 @@ function onPublishClick(e) {
 }
 
 function onAudioEnableChange(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         ns.getSenders().forEach((sender) => {
             var track = sender.track;
             if (track && track.kind === 'audio') {
@@ -259,7 +258,7 @@ function onAudioEnableChange(e) {
 }
 
 function onVideoEnableChange(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         ns.getSenders().forEach((sender) => {
             var track = sender.track;
             if (track && track.kind === 'video') {
@@ -270,32 +269,34 @@ function onVideoEnableChange(e) {
 }
 
 function onMirrorEnableChange(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
-        var video = ns.video;
+    utils.forEach(rtc.publishing, function (_, ns) {
+        var video = ns.element();
         video.classList[_checked('ch_enablemirror', false) ? 'add' : 'remove']('mirror');
     });
 }
 
 function onChangeProfileClick(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         ns.setProfile(sl_profiles.value);
     });
 }
 
 function onChangeCameraClick(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         ns.setCamera(sl_cameras.value);
     });
 }
 
 function onChangeMicrophoneClick(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         ns.setMicrophone(sl_microphones.value);
     });
 }
 
 function onUnpublishClick(e) {
-    rtc.unpublish();
+    utils.forEach(rtc.publishing, function (name) {
+        rtc.stop(name);
+    });
 }
 
 function onPlayClick(e) {
@@ -308,7 +309,7 @@ function play(name) {
         return;
     }
     rtc.play(name).then(function (ns) {
-        ns.addEventListener(NetStatusEvent.NET_STATUS, function (e) {
+        ns.addEventListener(NetStatusEvent.NETSTATUS, function (e) {
             switch (e.data.code) {
                 case Code.NETSTREAM_PLAY_START:
                     _attachVideo(e.srcElement, e.data.info.streams[0]);
@@ -316,10 +317,10 @@ function play(name) {
             }
         });
         ns.addEventListener(Event.RELEASE, function (e) {
-            _detachVideo(e.srcElement.video);
+            _detachVideo(e.srcElement.element());
         });
-        if (ns.stream) {
-            _attachVideo(ns, ns.stream);
+        if (ns.stream()) {
+            _attachVideo(ns, ns.stream());
         }
     }).catch(function (err) {
         console.warn(`${err}`);
@@ -354,7 +355,7 @@ function onStatus(e) {
             }
             _self = info.user;
             _setValue('in_nick', info.user.nick);
-            utils.forEach(rtc.publishers, function (_, ns) {
+            utils.forEach(rtc.publishing, function (_, ns) {
                 var stream = ns.getProperty('@id') || ns.getProperty('stream');
                 if (stream) {
                     im.send(Sending.STREAMING, Casting.MULTI, info.room.id, {
@@ -377,7 +378,7 @@ function onStatus(e) {
             _users[info.user.id] = info.user;
             _setValue('in_online', Object.keys(_users).length);
 
-            utils.forEach(rtc.publishers, function (_, ns) {
+            utils.forEach(rtc.publishing, function (_, ns) {
                 var stream = ns.getProperty('@id') || ns.getProperty('stream');
                 if (stream) {
                     im.send(Sending.STREAMING, Casting.UNI, info.user.id, {
@@ -423,8 +424,8 @@ function onClose(e) {
 }
 
 async function onRecordClick(e) {
-    for (var i in rtc.publishers) {
-        var ns = rtc.publishers[i];
+    for (var i in rtc.publishing) {
+        var ns = rtc.publishing[i];
         _writer = await ns.record('vod.webm', onDataAvailable);
         _writer.addEventListener(SaverEvent.WRITEREND, onWriterEnd);
         break;
@@ -448,7 +449,7 @@ function onWriterEnd(e) {
 }
 
 function onBrightnessChange(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         if (ns.constraints.video && ns.beautyEnabled()) {
             ns.beauty(true, {
                 brightness: _value('rg_brightness', 0.5),
@@ -458,7 +459,7 @@ function onBrightnessChange(e) {
 }
 
 function onSmoothnessChange(e) {
-    utils.forEach(rtc.publishers, function (_, ns) {
+    utils.forEach(rtc.publishing, function (_, ns) {
         if (ns.constraints.video && ns.beautyEnabled()) {
             ns.beauty(true, {
                 smoothness: _value('rg_smoothness', 1.0),
@@ -489,12 +490,30 @@ function _setValue(id, value) {
 }
 
 function _attachVideo(ns, stream) {
-    var video = ns.video;
+    var video = ns.element();
     video.setAttribute('controls', '');
     video.srcObject = stream;
+
     video.play().catch(function (err) {
-        console.warn(`${err}`);
+        switch (err.name) {
+            case 'AbortError':
+                rtc.logger.debug(err.name + ': ' + err.message);
+                break;
+            case 'NotAllowedError':
+                if (video.muted == false) {
+                    video.muted = true;
+                    video.play().catch(function (err) {
+                        rtc.logger.warn(`${err}`);
+                    });
+                    break;
+                }
+            default:
+                rtc.logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
+                break;
+        }
     });
+    video.controls = false;
+
     if (video.parentNode !== view) {
         view.appendChild(video);
     }
@@ -507,7 +526,8 @@ function _detachVideo(video) {
 }
 
 // setInterval(function () {
-//     utils.forEach(rtc.subscribers, function (_, ns) {
+//     utils.forEach(rtc.subscribing, function (_, ns) {
 //         console.log(`subscriber[${ns.id()}].volume = ${ns.volume()}`);
 //     });
 // }, 1000);
+

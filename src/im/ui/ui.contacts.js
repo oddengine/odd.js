@@ -8,86 +8,90 @@
         components = UI.components,
 
         CLASS_CONTACTS = 'im-contacts',
-
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
             kind: 'Contacts',
-            layout: '',
+            tab: 'contacts',
+            label: '联系人',
+            layout: '[Contact:contact=]',
+            contacts: [],
+            active: '',
             visibility: true,
         };
 
     function Contacts(im, config, logger) {
-        EventDispatcher.call(this, 'Contacts', { logger: logger }, [MouseEvent.CLICK]);
+        EventDispatcher.call(this, 'Contacts', { logger: logger }, MouseEvent);
 
         var _this = this,
-            _im = im,
-            _logger = logger,
             _container;
 
         function _init() {
             _this.config = config;
             _this.components = {};
-
             _container = utils.createElement('div', CLASS_CONTACTS);
-
-            _buildComponents();
-            _setupComponents();
+            _this.update(config.contacts);
+            _this.active(config.active);
         }
 
-        function _buildComponents() {
-            var containers = [_container];
-
-            var layouts = _this.config.layout.split('|');
-            for (var i = 1; i < layouts.length; i++) {
-                var container = utils.createElement('div');
-                containers.push(container);
+        function _build(data) {
+            var arr;
+            while ((arr = _regi.exec(_this.config.layout)) !== null) {
+                var component = new components[arr[1]](data.id || arr[2], data, logger);
+                component.addGlobalListener(_onComponentEvent);
+                _container.appendChild(component.element());
+                _this.components[data.id] = component;
             }
-            utils.forEach(containers, function (i, container) {
-                var arr;
-                while ((arr = _regi.exec(layouts[i])) !== null) {
-                    try {
-                        _buildComponent(_content, arr[1], arr[2], arr[3]);
-                    } catch (err) {
-                        _logger.error('Failed to build component: type=' + arr[1] + ', name=' + arr[2] + ', Error=' + err.message);
-                    }
-                }
+        }
+
+        function _onComponentEvent(e) {
+            _this.active(e.data.id);
+            _this.forward(e);
+        }
+
+        _this.update = function (value) {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_onComponentEvent);
+                component.destroy();
             });
-        }
-
-        function _buildComponent(container, type, name, value) {
-            var component = new components[type](name, value, _logger);
-            if (utils.typeOf(component.addGlobalListener) === 'function') {
-                component.addGlobalListener(_this.forward);
+            _this.components = {};
+            utils.emptyElement(_container);
+            _this.config.contacts = value || [];
+            for (var i = 0; i < _this.config.contacts.length; i++) {
+                _build(_this.config.contacts[i]);
             }
-            var element = component.element();
+            return _this.config.contacts;
+        };
+
+        _this.data = function () {
+            return _this.config.contacts;
+        };
+
+        _this.active = function (value) {
             if (value !== undefined) {
-                var tooltip;
-                if (utils.typeOf(components[value]) === 'function') {
-                    tooltip = new components[value](name, value, _logger);
-                    element.insertAdjacentElement('afterbegin', tooltip.element());
-                } else {
-                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
-                    tooltip.innerHTML = value;
-                    element.insertAdjacentElement('afterbegin', tooltip);
-                }
-                component.tooltip = tooltip;
+                _this.config.active = value;
+                utils.forEach(_this.components, function (id, component) {
+                    component.state(id === String(value) ? 'on' : 'off');
+                });
             }
-            container.appendChild(element);
-            _this.components[name] = component;
-        }
-
-        function _setupComponents() {
-
-        }
+            return _this.config.active;
+        };
 
         _this.element = function () {
             return _container;
         };
 
         _this.resize = function (width, height) {
-            utils.forEach(_this.components, function (name, component) {
+            utils.forEach(_this.components, function (_, component) {
                 component.resize(width, height);
             });
+        };
+
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_onComponentEvent);
+                component.destroy();
+            });
+            _this.components = {};
         };
 
         _init();

@@ -166,7 +166,6 @@
                 _module.destroy();
                 _module.removeGlobalListener(_this.forward);
                 _module = undefined;
-                _container.innerHTML = '';
             }
         };
 

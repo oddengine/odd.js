@@ -1,43 +1,35 @@
-dialog.innerHTML = '';
+var container = document.getElementById('im');
+container.innerHTML = '';
 
 var utils = odd.utils,
     events = odd.events,
     Event = events.Event,
     NetStatusEvent = events.NetStatusEvent,
-    Level = events.Level,
-    Code = events.Code,
-    IM = odd.IM,
-    Sending = IM.CommandMessage.Sending,
-    Casting = IM.CommandMessage.Casting;
+    Code = events.Code;
 
 var users = {};
 
 var ui = odd.im.ui.create({ mode: 'file' });
 ui.addEventListener(Event.READY, onReady);
-ui.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
+ui.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
 ui.addEventListener(Event.CLOSE, onClose);
-ui.setup(dialog, {
-    maxRetries: -1,
+ui.setup(container, {
     skin: 'classic',
     url: 'wss://' + location.host + '/im',
     parameters: {
         token: '',
     },
+    retry: {
+        count: -1,
+    },
     plugins: [{
-        kind: 'Messages',
-        layout: '',
-        dialog: {
-            title: '[Button:close=][Label:title=][Button:more=]',
-            toolbar: '[Select:emojipicker=]',
-            label: 'Send',
-            maxlength: 500,
-        },
-        visibility: true,
-    }, {
         kind: 'Contacts',
         visibility: true,
     }, {
-        kind: 'Settings',
+        kind: 'Conversations',
+        visibility: true,
+    }, {
+        kind: 'Dashboard',
         visibility: true,
     }],
 }).then(async () => {
@@ -52,7 +44,7 @@ ui.setup(dialog, {
 
 function onReady(e) {
     ui.logger.log(`onReady: user=${ui.client().userId()}`);
-    window.addEventListener('beforeunload', function (e) {
+    window.addEventListener('beforeunload', function () {
         ui.leave('001');
         ui.leave('002');
     });
@@ -85,3 +77,4 @@ function onStatus(e) {
 function onClose(e) {
     ui.logger.log(`onClose: user=${ui.client().userId()}, reason=${e.data.reason}`);
 }
+

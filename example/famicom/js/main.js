@@ -1,21 +1,14 @@
 var events = odd.events,
     Event = events.Event,
-    NetStatusEvent = events.NetStatusEvent,
     Famicom = odd.Famicom,
-    UI = Famicom.UI;
-
-var ui = odd.famicom.ui.create({ level: 'debug' });
-var params = new URLSearchParams(location.search);
+    UI = Famicom.UI,
+    ui = odd.famicom.ui.create({ level: 'debug' });
 
 ui.addEventListener(Event.READY, onReady);
 ui.addEventListener(Event.ERROR, onError);
-ui.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
 ui.setup(game, {
     skin: 'classic',
-    controls: false,
-    url: server.value,
-    instance: params.get('instance') || '',
-    playerSlot: params.get('slot') || '0',
+    base: server.value,
     loader: {
         mode: 'cors',
         credentials: 'omit',
@@ -26,78 +19,54 @@ ui.setup(game, {
     },
     plugins: [{
         kind: 'Controlbar',
-        layout: '[Button:select=Select][Button:start=Start][JoyStick:joystick=]||[Button:b=B][Button:a=A]',
         visibility: true,
     }, {
         kind: 'Display',
-        layout: '[Button:mute=][Button:unmute=][Button:share=Share][Button:fullscreen=][Button:exitfullscreen=]',
-        open: false,
-        autohide: false,
-        stats: params.get('stats') === '1',
         visibility: true,
     }],
-});
+}).catch(onError);
 
-function onReady(e) {
+function onReady() {
     ui.logger.log('onReady');
+    syncLocation();
 }
 
 function onError(e) {
-    ui.logger.error(`onError: name=${e.data.name}, message=${e.data.message}`);
+    var err = e.data || e;
+    ui.logger.error(`onError: name=${err.name}, message=${err.message}`);
 }
 
-function onStatus(e) {
-    ui.logger.log(`onStatus: code=${e.data.code}, description=${e.data.description}`);
+function syncLocation() {
+    var current = new URL(ui.location());
+    instance.value = current.searchParams.get('instance') || '';
+    player.value = current.searchParams.get('player') || '';
+    var ports = ui.ports();
+    controllers.value = ports.length || controllers.value;
+    history.replaceState(null, '', current.href);
 }
 
-function syncInstance() {
-    instance.value = ui.config.instance || '';
-    var url = new URL(window.location.href);
-    if (ui.config.instance) {
-        url.searchParams.set('instance', ui.config.instance);
-    } else {
-        url.searchParams.delete('instance');
-    }
-    url.searchParams.delete('player');
-    url.searchParams.set('slot', ui.config.playerSlot || '0');
-    history.replaceState(null, '', url.toString());
-    syncPlayer();
+function onInitClick() {
+    ui.config.base = server.value;
+    ui.load(gameName.value, Number(controllers.value)).then(syncLocation).catch(onError);
 }
 
-function syncPlayer() {
-    var player = ui.config.playerSlot || '0';
-    for (var i = 0; i < 4; i++) {
-        var item = document.getElementById('player' + i);
-        item.setAttribute('data-active', String(i) === player);
-    }
+function onJoinClick() {
+    var url = `${server.value}/play?game=${gameName.value}&instance=${instance.value}&controllers=${controllers.value}`;
+    ui.play(url).then(syncLocation).catch(onError);
 }
 
-function onPlayerClick(index) {
-    ui.selectPlayer(index);
-    syncInstance();
+function onReconnectClick() {
+    var url = `${server.value}/play?game=${gameName.value}&instance=${instance.value}&player=${player.value}`;
+    ui.play(url).then(syncLocation).catch(onError);
 }
 
-function onInitClick(e) {
-    ui.config.url = server.value;
-    ui.init(gameName.value).then(syncInstance).catch(onActionError);
+function onLeaveClick() {
+    ui.stop().then(function () {
+        player.value = '';
+    }).catch(onError);
 }
 
-function onJoinClick(e) {
-    ui.config.url = server.value;
-    ui.join(instance.value).then(syncInstance).catch(onActionError);
+function onDestroyClick() {
+    ui.destroy('example').catch(onError);
 }
 
-function onLeaveClick(e) {
-    ui.leave().then(syncInstance).catch(onActionError);
-}
-
-function onDestroyClick(e) {
-    ui.destroyGame().then(syncInstance).catch(onActionError);
-}
-
-instance.value = ui.config.instance || '';
-syncPlayer();
-
-function onActionError(err) {
-    ui.logger.error(`Action failed: name=${err.name || 'Error'}, message=${err.message || err}`);
-}

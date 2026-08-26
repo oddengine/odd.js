@@ -20,7 +20,6 @@
                     '[Toggle:calling=off off=Call;on=Hang Up]' +
                     '|' +
                     '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
-                    '[Button:settings=Settings]' +
                     '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
             autohide: true,
             visibility: true,
@@ -87,8 +86,8 @@
 
         _this.state = function (name, value) {
             var component = _this.components[name];
-            if (component && component.value) {
-                component.value(value);
+            if (component && component.kind === 'Toggle') {
+                component.switch(value);
             }
         };
 
@@ -98,6 +97,14 @@
 
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
         };
 
         _init();

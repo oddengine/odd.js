@@ -47,6 +47,8 @@
     <script type='text/javascript' src='../../src/famicom/ui/components/components.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/components/components.button.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/components/components.joystick.js'></script>
+    <script type='text/javascript' src='../../src/famicom/ui/components/components.toggle.js'></script>
+    <script type='text/javascript' src='../../src/famicom/ui/components/components.label.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/ui.display.js'></script>
     <script type='text/javascript' src='../../src/famicom/ui/ui.controlbar.js'></script>
 </head>
@@ -55,17 +57,14 @@
     <div class='page'>
         <div id='game' class='game'></div>
         <div class='panel'>
-            <input id='server' type='text' value='https://localhost/game/' autocapitalize='off'>
+            <input id='server' type='text' value='https://localhost/game' autocapitalize='off'>
             <input id='instance' type='text' placeholder='instance' autocapitalize='off'>
-            <div class='players'>
-                <a id='player0' class='btn green-fill' onclick='onPlayerClick(0);'>P1</a>
-                <a id='player1' class='btn green-fill' onclick='onPlayerClick(1);'>P2</a>
-                <a id='player2' class='btn green-fill' onclick='onPlayerClick(2);'>P3</a>
-                <a id='player3' class='btn green-fill' onclick='onPlayerClick(3);'>P4</a>
-            </div>
+            <input id='player' type='text' placeholder='player' autocapitalize='off'>
+            <input id='controllers' type='number' min='1' max='4' value='1'>
             <input id='gameName' type='text' value='1943' autocapitalize='off'>
-            <a class='btn green-fill' onclick='onInitClick();'>Init</a>
+            <a class='btn green-fill' onclick='onInitClick();'>Play</a>
             <a class='btn green-fill' onclick='onJoinClick();'>Join</a>
+            <a class='btn green-fill' onclick='onReconnectClick();'>Reconnect</a>
             <a class='btn green-fill' onclick='onLeaveClick();'>Leave</a>
             <a class='btn green-fill' onclick='onDestroyClick();'>Destroy</a>
         </div>

@@ -37,6 +37,11 @@
 
         };
 
+        _this.destroy = function () {
+            _container.removeEventListener('click', _onClick);
+            _container.innerHTML = '';
+        };
+
         _init();
     }
 

@@ -139,6 +139,14 @@
 
         };
 
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
+        };
+
         _init();
     }
 

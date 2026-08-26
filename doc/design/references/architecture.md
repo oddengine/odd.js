@@ -31,6 +31,7 @@
   - [RTC SDK](rtc.md#rtc-sdk)
   - [IM SDK](im.md#im-sdk)
 - [Famicom cloud-gaming client](famicom.md#famicom-sdk) — **Verified**
+- [Composite App SDK](app.md#app-sdk) — **Verified**
 
 ## Target tree
 
@@ -107,14 +108,15 @@ odd.js
 ├── odd.im ───────── odd.im.ui
 ├── odd.rtc
 ├── odd.player ───── odd.player.ui
-└── odd.famicom ──── odd.famicom.ui
+├── odd.famicom ──── odd.famicom.ui
+└── odd.app ───────── odd.app.ui
 ```
 
 ## Features
 
 ### Multi-instance products
 
-Player, RTC, IM, and Famicom use per-SDK `get(id)` and `create()` registries. Player, IM, and Famicom UI bundles pair with core by the same id, while explicit destruction releases instance ownership.
+Player, RTC, IM, Famicom, and App use per-SDK `get(id)` and `create()` registries. Player, RTC, IM, Famicom, and App UI bundles pair with core by the same id, while explicit destruction releases instance ownership.
 
 ### 24/7 low-latency Player
 
@@ -122,7 +124,7 @@ FLV and FMP4 bound the retained live buffer with periodic SourceBuffer eviction.
 
 ### Core and UI are separately deployable
 
-Player, IM, and Famicom expose headless core bundles and optional UI bundles. The UI obtains the core instance with the same numeric id, forwards core events, and binds facade methods after `Event.BIND`. This keeps protocol/media logic usable without DOM policy while allowing a default UI.
+Player, IM, Famicom, and App expose headless core bundles and optional UI bundles. The UI obtains the core instance with the same numeric id and forwards core events. This keeps protocol/media logic usable without DOM policy while allowing a default UI.
 
 ### Ordered registries provide extension points
 
@@ -136,29 +138,33 @@ IO loaders, Player modules, codecs, formats, and UI plugins register constructor
 
 `EventDispatcher` supports typed listeners, global forwarding, `on<event>` callbacks, and instance ids. Player's View and Controller, SDK/UI pairs, loaders, codecs, parsers, and protocol objects use the same event envelope.
 
+### IM UI frames the composite App
+
+The IM UI root Tab owns Contacts and Messages, with Conversations and Conversation sharing the messages page. App only injects Play, Game, and Meeting pages. Section events reparent an existing media wrapper between its full page and the top-right popup, and move the Conversation plugin between its messages-page home and a media sidebar in mini presentation. App owns neither a second navigation system nor domain state.
+
 ### Protocol and media responsibilities are separated
 
 IM separates WebSocket framing (`NetConnection`), logical pipes (`NetStream`), message types, command payloads, and responders. RTC separates the SDK facade, per-session `NetStream`, constraints, statistics, beauty, metering, and mixers.
 
 ### Inputs converge before domain logic
 
-The Famicom UI layer translates keyboard, pointer, touch, joystick, and gamepad input into a small core key API. It reference-counts key presses, preventing one input source from releasing a key still held by another.
+A Famicom player connection may own multiple controller slots. UI maps keyboard, Gamepad buttons/axes, and mobile Display controls through the Location `ports` list before calling `keyDown(port, key)` / `keyUp(port, key)`. Core serializes every update as the two-byte `[port, keys]` protocol. Controlbar key entries remain non-interactive keyboard hints.
 
 ## Repeated patterns
 
 | Pattern | SDKs | Benefit |
 | --- | --- | --- |
-| `get(id)` + `create()` instance registry | Player, RTC, IM, Famicom and their UIs | Multi-instance use and stable core/UI pairing |
+| `get(id)` + `create()` instance registry | Player, RTC, IM, Famicom, App and their UIs | Multi-instance use and stable core/UI pairing |
 | `prototype.CONF` defaults | All product SDKs and plugins | Inspectable configuration composition |
 | `prototype.kind` registry | Common, Player, all UIs | Extensibility |
 | Explicit state enum | RTC, IM, Famicom | Lifecycle vocabulary |
-| Core events forwarded by UI | Player, IM, Famicom | UI stays an adapter |
+| Core events forwarded by UI | Player, IM, Famicom, App | UI stays an adapter |
 
 ## Architectural boundaries
 
 - Global IIFEs and concatenation order are the module system; there are no ES module imports.
-- `compile.sh` declares `/bin/sh` but uses array syntax associated with Bash, so build portability is limited.
+- `compile.sh` uses Bash arrays and declares `#!/usr/bin/env bash`; its ordered lists remain part of the module dependency contract.
 - Registry insertion uses `index || length`; index `0` cannot currently be selected.
 - `EventDispatcher` accepts listener source strings through `new Function`; treat untrusted strings as unsafe.
 - There is no automated test suite or package manifest in the repository.
-- Source reports version `2.5.15` while the repository commit is tagged/described as `v2.5.16`; use commit identity when a precise baseline matters.
+- The current refactoring baseline is commit `v3.0.00`; use commit identity and the [v3 style guide](v3-style.md) when a precise convention matters.

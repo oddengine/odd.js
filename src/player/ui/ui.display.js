@@ -11,6 +11,7 @@
         components = UI.components,
 
         CLASS_DISPLAY = 'pe-display',
+        CLASS_TOOLTIP = 'pe-tooltip',
 
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
         _default = {
@@ -96,13 +97,13 @@
             var reason = _this.components['reason'];
             if (reason) {
                 if (!err) {
-                    reason.text('');
+                    reason.set('');
                     return;
                 }
 
                 err.name = err.name || 'UnknownError';
                 err.message = err.message || 'An unknown error occurred.';
-                reason.text(err.name + ': ' + err.message);
+                reason.set(err.name + ': ' + err.message);
             }
         };
 
@@ -137,6 +138,14 @@
 
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
         };
 
         _init();

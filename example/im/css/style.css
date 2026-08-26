@@ -1,18 +1,9 @@
-﻿@import url("global.css") screen;
-
+@import url("global.css") screen;
 
 html,
-body {
-	width: 100%;
-	height: 100%;
-}
-
-/**
- * dialog
- */
-
-#dialog {
-	margin: 0 auto;
-	width: 100%;
-	height: 100%;
+body,
+#im {
+    width: 100%;
+    height: 100%;
+    margin: 0;
 }

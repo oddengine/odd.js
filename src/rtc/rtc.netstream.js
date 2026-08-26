@@ -105,12 +105,14 @@
                 case State.PLAYING:
                     return Promise.resolve();
                 default:
-                    _pc = new RTCPeerConnection(_this.config.rtcconfiguration);
+                    _pc = new RTCPeerConnection(_this.config.configuration);
                     _pc.addEventListener('negotiationneeded', _onNegotiationNeeded);
                     _pc.addEventListener('track', _onTrack);
                     _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
                     _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
-                    // _pc.addEventListener('icecandidate', _onIceCandidate);
+                    if (_this.config.trickle) {
+                        _pc.addEventListener('icecandidate', _onIceCandidate);
+                    }
 
                     _readyState = State.CONNECTED;
                     return Promise.resolve();
@@ -384,6 +386,13 @@
             _stream.getTracks().forEach(function (track) {
                 _this.addTrack(track, _stream);
             });
+            _video.muted = true;
+            _video.srcObject = _stream;
+            _video.play().catch(function (err) {
+                if (err.name !== 'AbortError') {
+                    _logger.warn(`Failed to play preview: id=${_this.config.id}, stream=${_name}, error=${err}`);
+                }
+            });
             return Promise.resolve();
         };
 
@@ -502,9 +511,10 @@
                         return;
                     }
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        _location = xhr.getResponseHeader('Location')
+                        _location = xhr.getResponseHeader('Location');
                         if (_location) {
                             _logger.log(`Location: ${_location}`);
+                            _location = new URL(_location, url).href;
                             _params = new URLSearchParams(new URL(_location).search);
                             _port = Number(_params.get('port'));
                             _setCookie(_params.toString(), Date.now() + 30000);
@@ -543,7 +553,7 @@
                         return;
                     }
                 };
-                xhr.onerror = function () {
+                xhr.onerror = function (err) {
                     _logger.error(`Loader ${err.name}: ${err.message}`);
                     reject(err);
                 };
@@ -577,7 +587,7 @@
                         return;
                     }
                 };
-                xhr.onerror = function () {
+                xhr.onerror = function (err) {
                     _logger.error(`Loader ${err.name}: ${err.message}`);
                     reject(err);
                 };
@@ -643,9 +653,18 @@
         function _onTrack(e) {
             var stream = e.streams[0];
             _logger.log(`onTrack: id=${_this.config.id}, stream=${_name}, kind=${e.track.kind}, track=${e.track.id}, stream=${stream.id}`);
+
             _subscribing.push(e.track);
             _audiometer.update(stream);
             _stream = stream;
+            if (_video.srcObject !== stream) {
+                _video.srcObject = stream;
+            }
+            _video.play().catch(function (err) {
+                if (err.name !== 'AbortError') {
+                    _logger.warn(`Failed to play stream: id=${_this.config.id}, stream=${_name}, error=${err}`);
+                }
+            });
             _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                 level: Level.STATUS,
                 code: Code.NETSTREAM_PLAY_START,
@@ -764,6 +783,23 @@
             return _audiometer.volume();
         };
 
+        _this.enabled = function (kind, value) {
+            if (_stream) {
+                _stream.getTracks().forEach(function (track) {
+                    if (track.kind === kind) {
+                        track.enabled = !!value;
+                    }
+                });
+            }
+            return _stream ? _stream.getTracks().some(function (track) {
+                return track.kind === kind && track.enabled;
+            }) : false;
+        };
+
+        _this.stream = function () {
+            return _stream;
+        };
+
         _this.getStats = async function () {
             return await _pc.getStats().then((report) => {
                 report.forEach((item) => {
@@ -873,3 +909,4 @@
 
     RTC.NetStream = NetStream;
 })(odd);
+

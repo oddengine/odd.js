@@ -14,7 +14,7 @@ var utils = odd.utils,
 
 var im = odd.im.create();
 im.addEventListener(Event.READY, onReady);
-im.addEventListener(NetStatusEvent.NET_STATUS, onStatus);
+im.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
 im.addEventListener(Event.CLOSE, onClose);
 im.setup({
     maxRetries: 0,
@@ -103,7 +103,7 @@ ui.setup(player, {
         visibility: true,
     }, {
         kind: 'Controlbar',
-        layout: '[Slider:timebar=Preview]|[Button:play=播放][Button:pause=暂停][Button:reload=重新加载][Button:stop=停止][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=反馈][Button:capture=截图][Button:download=下载][Button:dial=连麦][Button:hangup=断开连麦][Button:mute=静音][Button:unmute=取消静音][Slider:volumebar=80][Select:definition=清晰度][Button:danmuoff=关闭弹幕][Button:danmuon=打开弹幕][Button:fullpage=网页全屏][Button:exitfullpage=退出网页全屏][Button:fullscreen=全屏][Button:exitfullscreen=退出全屏]',
+        layout: '[Toggle:playing=off off=播放;on=暂停][Button:reload=重新加载][Button:stop=停止][Label:quote=Live broadcast][Label:time=00:00/00:00]||[Button:report=反馈][Button:capture=截图][Button:download=下载][Toggle:calling=off off=呼叫;on=挂断][Toggle:muted=off off=静音;on=取消静音][Slider:volume=80][Select:definition=清晰度][Toggle:comments=on off=开启弹幕;on=关闭弹幕][Toggle:theater=off off=进入剧院模式;on=退出剧院模式][Toggle:fullscreen=off off=进入全屏;on=退出全屏][Toggle:layout=right right=参会者在右侧;top=参会者在顶部;grid=网格]',
         autohide: false,
         visibility: true,
     }],
@@ -179,3 +179,4 @@ function onScreenshot(e) {
 function onPlayClick() {
     ui.play(url.value);
 }
+

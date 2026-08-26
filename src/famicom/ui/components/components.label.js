@@ -40,6 +40,10 @@
 
         };
 
+        _this.destroy = function () {
+            _container.innerHTML = '';
+        };
+
         _init();
     }
 

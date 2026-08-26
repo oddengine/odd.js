@@ -1,18 +1,12 @@
 (function (odd) {
     var utils = odd.utils,
-        OS = odd.OS,
-        css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
         NetStatusEvent = events.NetStatusEvent,
-        Level = events.Level,
-        Code = events.Code,
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
         IM = odd.IM,
-        Command = IM.Message.Command,
-        UserControl = IM.Message.UserControl,
 
         CLASS_WRAPPER = 'im-wrapper',
 
@@ -31,13 +25,19 @@
             _container,
             _wrapper,
             _nav,
-            _im;
+            _pages,
+            _tabs,
+            _homes,
+            _api;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
 
         function _init() {
             _this.logger = _logger;
             _this.plugins = {};
+            _pages = {};
+            _tabs = {};
+            _homes = {};
         }
 
         _this.id = function () {
@@ -56,32 +56,33 @@
             _wrapper.appendChild(_nav.element());
             _container.appendChild(_wrapper);
 
-            _im = IM.get(_this.id, null, _logger);
-            _im.addEventListener(Event.BIND, _onBind);
-            _im.addEventListener(Event.READY, _onReady);
-            _im.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
-            _im.addEventListener(Event.CLOSE, _onClose);
+            _api = IM.get(_id, _logger);
+            _api.addEventListener(Event.BIND, _onBind);
+            _api.addEventListener(Event.READY, _onReady);
+            _api.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            _api.addEventListener(Event.CLOSE, _onClose);
 
             _buildPlugins();
             _setupPlugins();
             _this.resize();
 
             window.addEventListener('resize', _this.resize);
-            return _im.setup(_this.config);
+            return _api.setup(_this.config);
         };
 
         function _onBind(e) {
-            _this.config = _im.config;
-            _this.client = _im.client;
-            _this.join = _im.join;
-            _this.leave = _im.leave;
-            _this.chmod = _im.chmod;
-            _this.invoke = _im.invoke;
-            _this.quit = _im.quit;
-            _this.send = _im.send;
-            _this.sendStatus = _im.sendStatus;
-            _this.call = _im.call;
-            _this.state = _im.state;
+            _this.config = _api.config;
+            _this.client = _api.client;
+            _this.connected = _api.connected;
+            _this.join = _api.join;
+            _this.leave = _api.leave;
+            _this.chmod = _api.chmod;
+            _this.invoke = _api.invoke;
+            _this.quit = _api.quit;
+            _this.send = _api.send;
+            _this.sendStatus = _api.sendStatus;
+            _this.call = _api.call;
+            _this.state = _api.state;
             _this.forward(e);
         }
 
@@ -111,7 +112,7 @@
                 plugins.push(utils.extendz({}, def, cfg));
             }
 
-            _this.config = utils.extendz({ id: _this.id }, IM.prototype.CONF, _default, config);
+            _this.config = utils.extendz({ id: _id }, IM.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
         }
 
@@ -135,12 +136,24 @@
                 }
 
                 try {
-                    var plugin = new UI[config.kind](_im, config, _logger);
+                    var plugin = new UI[config.kind](_api, config, _logger);
                     if (utils.typeOf(plugin.addGlobalListener) === 'function') {
                         plugin.addGlobalListener(_onPluginEvent);
                     }
-                    _nav.insert(config.kind.toLowerCase(), '', plugin.element());
+                    var tab = config.tab || config.kind.toLowerCase(),
+                        page = _tabs[tab];
+                    if (!page) {
+                        var content = utils.createElement('div', 'im-plugins im-plugins-' + tab);
+                        page = {
+                            content: content,
+                            index: _nav.insert(tab, config.label || '', content),
+                        };
+                        _tabs[tab] = page;
+                    }
+                    page.content.appendChild(plugin.element());
                     _this.plugins[config.kind] = plugin;
+                    _pages[config.kind] = page.index;
+                    _homes[config.kind] = page.content;
                 } catch (err) {
                     _logger.error('Failed to initialize plugin: index=' + i + ', kind=' + config.kind + '. Error=' + err.message);
                 }
@@ -149,10 +162,14 @@
 
         function _setupPlugins() {
             _wrapper.setAttribute('state', '');
+            _wrapper.setAttribute('navigation', _nav.length() > 1 ? 'on' : 'off');
         }
 
         function _onPluginEvent(e) {
             switch (e.type) {
+                case MouseEvent.CLICK:
+                    _onClick(e);
+                    break;
                 case Event.CHANGE:
                     _onChange(e);
                     break;
@@ -162,17 +179,21 @@
             }
         }
 
-        function _onChange(e) {
+        function _onClick(e) {
+            if (e.data.name === 'contact' || e.data.name === 'conversation') {
+                var conversation = _this.plugins['Conversation'];
+                if (conversation) {
+                    conversation.active(e.data.id, e.data.contact || e.data.conversation);
+                    if (_this.plugins['Conversations']) {
+                        _this.plugins['Conversations'].active(e.data.id);
+                    }
+                    _nav.active(_pages['Conversation']);
+                }
+            }
             _this.forward(e);
         }
 
-        function _onStatus(e) {
-            var level = e.data.level;
-            var code = e.data.code;
-            var description = e.data.description;
-            var info = e.data.info;
-            var method = { status: 'debug', warning: 'warn', error: 'error' }[level] || 'debug';
-            _logger[method](`IM.onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
+        function _onChange(e) {
             _this.forward(e);
         }
 
@@ -236,6 +257,35 @@
             return plugin;
         };
 
+        _this.restorePlugin = function (kind, presentation) {
+            var home = _homes[kind];
+            if (!home) {
+                throw { name: 'NotFoundError', message: 'IM UI plugin home not found: ' + kind + '.' };
+            }
+            return _this.attachPlugin(kind, home, presentation || 'full');
+        };
+
+        _this.insert = function (name, selector, content, option) {
+            if (!content || !content.nodeType) {
+                throw { name: 'DataError', message: 'IM UI tab content must be a DOM element.' };
+            }
+            var index = _nav.insert(name, selector || '', content, option);
+            _tabs[name] = { content: content, index: index };
+            _wrapper.setAttribute('navigation', _nav.length() > 1 ? 'on' : 'off');
+            return index;
+        };
+
+        _this.active = function (value) {
+            if (value !== undefined) {
+                _nav.active(value);
+            }
+            return _nav.name();
+        };
+
+        _this.page = function (value) {
+            return _nav.page(value);
+        };
+
         _this.element = function () {
             return _container;
         };
@@ -252,17 +302,30 @@
         };
 
         _this.destroy = function (reason) {
-            if (_im) {
-                _im.destroy(reason);
-                _im.removeEventListener(Event.BIND, _onBind);
-                _im.removeEventListener(Event.READY, _onReady);
-                _im.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
-                _im.removeEventListener(Event.CLOSE, _onClose);
-                if (_wrapper && _wrapper.parentNode) {
-                    _wrapper.parentNode.removeChild(_wrapper);
-                }
+            window.removeEventListener('resize', _this.resize);
+            if (_nav) {
+                _nav.removeGlobalListener(_this.forward);
             }
-            delete _instances[_this.id];
+
+            utils.forEach(_this.plugins, function (_, plugin) {
+                plugin.removeGlobalListener(_onPluginEvent);
+                plugin.destroy();
+            });
+            _this.plugins = {};
+
+            if (_api) {
+                _api.destroy(reason);
+                _api.removeEventListener(Event.BIND, _onBind);
+                _api.removeEventListener(Event.READY, _onReady);
+                _api.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
+                _api.removeEventListener(Event.CLOSE, _onClose);
+                _api = undefined;
+            }
+
+            if (_wrapper) {
+                _container.removeChild(_wrapper);
+            }
+            delete _instances[_id];
         };
 
         _init();
@@ -302,3 +365,4 @@
     odd.im.ui.create = UI.create;
     IM.UI = UI;
 })(odd);
+

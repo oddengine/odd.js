@@ -64,7 +64,7 @@
             _timebar = new components.Slider('timebar', undefined, _logger);
             _timebar.addGlobalListener(_this.forward);
             _container.appendChild(_timebar);
-            _this.components[name] = _timebar;
+            _this.components['timebar'] = _timebar;
 
             var layouts = _this.config.layout.split('|');
             if (layouts.length !== 3) {
@@ -123,6 +123,13 @@
             _this.components[name] = component;
         }
 
+        _this.state = function (name, value) {
+            var component = _this.components[name];
+            if (component && component.kind === 'Toggle') {
+                component.switch(value);
+            }
+        };
+
         _this.element = function () {
             return _container;
         };
@@ -172,6 +179,14 @@
                         break;
                 }
             });
+        };
+
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
         };
 
         _init();

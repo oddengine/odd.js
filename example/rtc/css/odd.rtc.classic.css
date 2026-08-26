@@ -1,0 +1,203 @@
+.pe-wrapper[kind="rtc"] {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    color: #f4f6f8;
+    background: #07090c;
+}
+
+.pe-wrapper[kind="rtc"] * {
+    box-sizing: border-box;
+}
+
+.pe-wrapper[kind="rtc"] .pe-content {
+    width: 100%;
+    height: 100%;
+    padding: 12px 12px 86px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 10px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-content video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 12px;
+    object-fit: cover;
+    background: #11151a;
+}
+
+.pe-wrapper[kind="rtc"][layout="right"] .pe-content:has(video:nth-child(2)) {
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 24%);
+}
+
+.pe-wrapper[kind="rtc"][layout="top"] .pe-content:has(video:nth-child(2)) {
+    grid-template-rows: minmax(120px, 24%) minmax(0, 1fr);
+}
+
+.pe-wrapper[kind="rtc"][layout="grid"] .pe-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pe-wrapper[kind="rtc"] .pe-controlbar {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    min-height: 62px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 3;
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 14px;
+    background: rgba(18, 22, 27, .94);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .38);
+    backdrop-filter: blur(18px);
+}
+
+.pe-wrapper[kind="rtc"] .pe-controlbar>div {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-controlbar .pe-left,
+.pe-wrapper[kind="rtc"] .pe-controlbar .pe-center,
+.pe-wrapper[kind="rtc"] .pe-controlbar .pe-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-controlbar .pe-center {
+    justify-content: center;
+}
+
+.pe-wrapper[kind="rtc"] .pe-controlbar .pe-right {
+    justify-content: flex-end;
+}
+
+.pe-wrapper[kind="rtc"] .pe-button,
+.pe-wrapper[kind="rtc"] .pe-toggle {
+    width: 42px;
+    height: 42px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 11px;
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+    cursor: pointer;
+}
+
+.pe-wrapper[kind="rtc"] .pe-button:hover,
+.pe-wrapper[kind="rtc"] .pe-toggle:hover {
+    background: rgba(255, 255, 255, .16);
+}
+
+.pe-wrapper[kind="rtc"] .pe-button::after,
+.pe-wrapper[kind="rtc"] .pe-toggle::after {
+    font: 700 11px/1 system-ui, sans-serif;
+}
+
+.pe-wrapper[kind="rtc"] .microphone::after {
+    content: "MIC";
+}
+
+.pe-wrapper[kind="rtc"] .camera::after {
+    content: "CAM";
+}
+
+.pe-wrapper[kind="rtc"] .sharing::after {
+    content: "SHR";
+}
+
+.pe-wrapper[kind="rtc"] .calling::after {
+    content: "CALL";
+}
+
+.pe-wrapper[kind="rtc"] .layout::after {
+    content: "LAY";
+}
+
+.pe-wrapper[kind="rtc"] .settings::after {
+    content: "SET";
+}
+
+.pe-wrapper[kind="rtc"] .fullscreen::after {
+    content: "FS";
+}
+
+.pe-wrapper[kind="rtc"] .pe-tooltip,
+.pe-wrapper[kind="rtc"] .pe-display {
+    display: none;
+}
+
+.pe-wrapper[kind="rtc"][microphone="off"] .microphone,
+.pe-wrapper[kind="rtc"][camera="off"] .camera {
+    color: #ff9b9b;
+    background: rgba(229, 72, 77, .20);
+}
+
+.pe-wrapper[kind="rtc"][sharing="on"] .sharing {
+    color: #09130f;
+    background: #48d7a4;
+}
+
+.pe-wrapper[kind="rtc"][calling="on"] .calling {
+    color: #fff;
+    background: #d94b54;
+}
+
+.pe-wrapper[kind="rtc"][fullscreen="true"] .fullscreen {
+    color: #09130f;
+    background: #48d7a4;
+}
+
+.pe-wrapper[kind="rtc"][controls="never"] .pe-controlbar,
+.pe-wrapper[kind="rtc"][controls="motion"] .pe-controlbar {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pe-wrapper[kind="rtc"][controls="motion"]:hover .pe-controlbar {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 720px) {
+    .pe-wrapper[kind="rtc"] .pe-content {
+        padding: 8px 8px 76px;
+    }
+
+    .pe-wrapper[kind="rtc"] .pe-controlbar {
+        right: 8px;
+        bottom: 8px;
+        left: 8px;
+        padding: 6px;
+    }
+
+    .pe-wrapper[kind="rtc"] .pe-controlbar>div {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .pe-wrapper[kind="rtc"] .pe-controlbar .pe-left,
+    .pe-wrapper[kind="rtc"] .pe-controlbar .pe-center,
+    .pe-wrapper[kind="rtc"] .pe-controlbar .pe-right {
+        gap: 6px;
+    }
+
+    .pe-wrapper[kind="rtc"] .pe-button,
+    .pe-wrapper[kind="rtc"] .pe-toggle {
+        width: 36px;
+        height: 36px;
+    }
+}

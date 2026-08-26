@@ -52,10 +52,10 @@ set scripts[2]=".\src\im\message\message.abort.js"
 set scripts[3]=".\src\im\message\message.ackwindowsize.js"
 set scripts[4]=".\src\im\message\message.ack.js"
 set scripts[5]=".\src\im\message\message.command.js"
-set scripts[7]=".\src\im\im.responder.js"
-set scripts[8]=".\src\im\im.netconnection.js"
-set scripts[9]=".\src\im\im.netstream.js"
-set length=10
+set scripts[6]=".\src\im\im.responder.js"
+set scripts[7]=".\src\im\im.netconnection.js"
+set scripts[8]=".\src\im\im.netstream.js"
+set length=9
 
 cd.>.\release\odd.im.js
 
@@ -75,17 +75,19 @@ goto loop3
 set scripts[0]=".\src\im\ui\ui.js"
 set scripts[1]=".\src\im\ui\components\components.js"
 set scripts[2]=".\src\im\ui\components\components.button.js"
-set scripts[3]=".\src\im\ui\components\components.dialog.js"
-set scripts[4]=".\src\im\ui\components\components.label.js"
-set scripts[5]=".\src\im\ui\components\components.panel.js"
-set scripts[6]=".\src\im\ui\components\components.select.js"
-set scripts[7]=".\src\im\ui\components\components.slider.js"
-set scripts[8]=".\src\im\ui\components\components.tab.js"
-set scripts[9]=".\src\im\ui\ui.messages.js"
-set scripts[10]=".\src\im\ui\ui.contacts.js"
-set scripts[11]=".\src\im\ui\ui.settings.js"
-set scripts[12]=".\src\im\ui\ui.workspace.js"
-set length=13
+set scripts[3]=".\src\im\ui\components\components.label.js"
+set scripts[4]=".\src\im\ui\components\components.avatar.js"
+set scripts[5]=".\src\im\ui\components\components.contact.js"
+set scripts[6]=".\src\im\ui\components\components.message.js"
+set scripts[7]=".\src\im\ui\components\components.messages.js"
+set scripts[8]=".\src\im\ui\components\components.composer.js"
+set scripts[9]=".\src\im\ui\components\components.settings.js"
+set scripts[10]=".\src\im\ui\components\components.tab.js"
+set scripts[11]=".\src\im\ui\ui.contacts.js"
+set scripts[12]=".\src\im\ui\ui.conversations.js"
+set scripts[13]=".\src\im\ui\ui.conversation.js"
+set scripts[14]=".\src\im\ui\ui.dashboard.js"
+set length=15
 
 cd.>.\release\odd.im.ui.js
 
@@ -174,11 +176,10 @@ set scripts[1]=".\src\famicom\ui\components\components.js"
 set scripts[2]=".\src\famicom\ui\components\components.button.js"
 set scripts[3]=".\src\famicom\ui\components\components.joystick.js"
 set scripts[4]=".\src\famicom\ui\components\components.toggle.js"
-set scripts[5]=".\src\famicom\ui\components\components.slider.js"
-set scripts[6]=".\src\famicom\ui\components\components.label.js"
-set scripts[7]=".\src\famicom\ui\ui.display.js"
-set scripts[8]=".\src\famicom\ui\ui.controlbar.js"
-set length=9
+set scripts[5]=".\src\famicom\ui\components\components.label.js"
+set scripts[6]=".\src\famicom\ui\ui.display.js"
+set scripts[7]=".\src\famicom\ui\ui.controlbar.js"
+set length=8
 
 cd.>.\release\odd.famicom.ui.js
 
@@ -235,22 +236,21 @@ set scripts[1]=".\src\player\ui\components\components.js"
 set scripts[2]=".\src\player\ui\components\components.button.js"
 set scripts[3]=".\src\player\ui\components\components.toggle.js"
 set scripts[4]=".\src\player\ui\components\components.label.js"
-set scripts[5]=".\src\player\ui\components\components.preview.js"
-set scripts[6]=".\src\player\ui\components\components.select.js"
-set scripts[7]=".\src\player\ui\components\components.slider.js"
-set scripts[8]=".\src\player\ui\components\components.panel.js"
-set scripts[9]=".\src\player\ui\components\components.settings.js"
-set scripts[10]=".\src\player\ui\ui.poster.js"
-set scripts[11]=".\src\player\ui\ui.chat.js"
-set scripts[12]=".\src\player\ui\ui.comments.js"
-set scripts[13]=".\src\player\ui\ui.display.js"
-set scripts[14]=".\src\player\ui\ui.ad.js"
-set scripts[15]=".\src\player\ui\ui.share.js"
-set scripts[16]=".\src\player\ui\ui.logo.js"
-set scripts[17]=".\src\player\ui\ui.controlbar.js"
-set scripts[18]=".\src\player\ui\ui.contextmenu.js"
-set scripts[19]=".\src\player\ui\ui.playlist.js"
-set length=20
+set scripts[5]=".\src\player\ui\components\components.select.js"
+set scripts[6]=".\src\player\ui\components\components.slider.js"
+set scripts[7]=".\src\player\ui\components\components.panel.js"
+set scripts[8]=".\src\player\ui\components\components.settings.js"
+set scripts[9]=".\src\player\ui\ui.poster.js"
+set scripts[10]=".\src\player\ui\ui.chat.js"
+set scripts[11]=".\src\player\ui\ui.comments.js"
+set scripts[12]=".\src\player\ui\ui.display.js"
+set scripts[13]=".\src\player\ui\ui.ad.js"
+set scripts[14]=".\src\player\ui\ui.logo.js"
+set scripts[15]=".\src\player\ui\ui.controlbar.js"
+set scripts[16]=".\src\player\ui\ui.contextmenu.js"
+set scripts[17]=".\src\player\ui\ui.playlist.js"
+set scripts[18]=".\src\player\ui\ui.dashboard.js"
+set length=19
 
 cd.>.\release\odd.player.ui.js
 
@@ -286,11 +286,7 @@ goto loop11
 :end11
 
 set scripts[0]=".\src\app\ui\ui.js"
-set scripts[1]=".\src\app\ui\components\components.js"
-set scripts[2]=".\src\app\ui\components\components.tabs.js"
-set scripts[3]=".\src\app\ui\components\components.composer.js"
-set scripts[4]=".\src\app\ui\components\components.controlbar.js"
-set length=5
+set length=1
 
 cd.>.\release\odd.app.ui.js
 

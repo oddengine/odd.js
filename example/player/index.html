@@ -90,33 +90,33 @@
     <script type='text/javascript' src='../../src/player/ui/ui.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.button.js'></script>
+    <script type='text/javascript' src='../../src/player/ui/components/components.toggle.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.label.js'></script>
-    <script type='text/javascript' src='../../src/player/ui/components/components.preview.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.select.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.slider.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.panel.js'></script>
     <script type='text/javascript' src='../../src/player/ui/components/components.settings.js'></script>
     <script type='text/javascript' src='../../src/player/ui/ui.poster.js'></script>
     <script type='text/javascript' src='../../src/player/ui/ui.chat.js'></script>
-    <script type='text/javascript' src='../../src/player/ui/ui.danmu.js'></script>
+    <script type='text/javascript' src='../../src/player/ui/ui.comments.js'></script>
+    <script type='text/javascript' src='../../src/player/ui/ui.dashboard.js'></script>
     <script type='text/javascript' src='../../src/player/ui/ui.display.js'></script>
-    <script type='text/javascript' src='../../src/player/ui/ui.ad.js'></script>
-    <script type='text/javascript' src='../../src/player/ui/ui.share.js'></script>
     <script type='text/javascript' src='../../src/player/ui/ui.logo.js'></script>
     <script type='text/javascript' src='../../src/player/ui/ui.controlbar.js'></script>
     <script type='text/javascript' src='../../src/player/ui/ui.contextmenu.js'></script>
+    <script type='text/javascript' src='../../src/player/ui/ui.ad.js'></script>
 </head>
 
 <body ontouchstart=''>
     <div id='player' style='margin: 40px auto 0; width: 100%; height: 400px; max-width: 640px; top: 0; left: 0;'>
-        <div class='pe-wrapper pe-ui-classic' mode='vod' state='ready' controls='always/motion/never' danmu='on' muted='false' fullpage='false' fullscreen='false'>
+        <div class='pe-wrapper pe-ui-classic' mode='vod' state='ready' controls='always/motion/never' comments='on' muted='false' theater='false' fullscreen='false'>
             <div class='pe-content'>
                 <video></video>
             </div>
             <div class='pe-poster'>
                 <img src='image/solution-vod-poster.png' />
             </div>
-            <div class='pe-danmu'>
+            <div class='pe-comments'>
                 <div></div>
             </div>
             <div class='pe-display'>
@@ -210,23 +210,17 @@
                                 <span class='pe-select-menu-option selected' value='2'>HD</span>
                             </div>
                         </div>
-                        <span class='pe-button danmuoff'>
-                            <span class='pe-tooltip'>Danmu Off</span>
+                        <span class='pe-button comments-off'>
+                            <span class='pe-tooltip'>Comments Off</span>
                         </span>
-                        <span class='pe-button danmuon'>
-                            <span class='pe-tooltip'>Danmu On</span>
+                        <span class='pe-button comments-on'>
+                            <span class='pe-tooltip'>Comments On</span>
                         </span>
-                        <span class='pe-button fullpage'>
-                            <span class='pe-tooltip'>Fullpage</span>
-                        </span>
-                        <span class='pe-button exitfullpage'>
-                            <span class='pe-tooltip'>Exit Fullpage</span>
+                        <span class='pe-button theater'>
+                            <span class='pe-tooltip'>Enter Theater Mode</span>
                         </span>
                         <span class='pe-button fullscreen'>
-                            <span class='pe-tooltip'>Fullscreen</span>
-                        </span>
-                        <span class='pe-button exitfullscreen'>
-                            <span class='pe-tooltip'>Exit Fullscreen</span>
+                            <span class='pe-tooltip'>Enter Fullscreen</span>
                         </span>
                     </div>
                 </div>

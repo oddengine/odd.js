@@ -18,9 +18,10 @@ English is canonical. Every reference has a sibling `*.zh.md` Chinese translatio
 ## Start shallow, then go deep
 
 1. **Product intent:** open the clickable [product goal tree](references/architecture.md#target-tree). Each target remains visible even when it is not implemented.
-2. **SDK ownership:** select [Common](references/common.md), [Player](references/player.md), [RTC](references/rtc.md), [IM](references/im.md), or [Famicom](references/famicom.md). Each module page contains its interfaces and events.
+2. **SDK ownership:** select [Common](references/common.md), [Player](references/player.md), [RTC](references/rtc.md), [IM](references/im.md), [Famicom](references/famicom.md), or [App](references/app.md). Each module page contains its interfaces and events.
 3. **Implementation:** inside each SDK, follow module, plugin, configuration, interface, event, and source-map sections.
 4. **Cross-cutting design:** read [architecture](references/architecture.md).
+5. **v3.0.00 conventions:** read [style and design direction](references/v3-style.md) before changing SDK or UI code.
 
 The navigation model is:
 

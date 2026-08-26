@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111923"/><stop offset=".52" stop-color="#080b10"/><stop offset="1" stop-color="#1c1021"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ff6b00" stop-opacity=".32"/><stop offset="1" stop-color="#ff6b00" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1240" cy="180" r="440" fill="url(#glow)"/>
+  <g transform="translate(115 120)" font-family="Inter,Arial">
+    <text y="20" fill="#ff792d" font-size="20" font-weight="700" letter-spacing="6">Q2 PRODUCT REVIEW</text>
+    <text y="142" fill="#fff" font-size="86" font-weight="700" letter-spacing="-4">One SDK.</text>
+    <text y="238" fill="#fff" font-size="86" font-weight="700" letter-spacing="-4">Four capabilities.</text>
+    <text y="300" fill="#9ba4af" font-size="22">Composable primitives for real-time media products.</text>
+    <g transform="translate(0 380)">
+      <g><rect width="265" height="145" rx="18" fill="#171c23" stroke="#30363e"/><text x="26" y="48" fill="#ff792d" font-size="21" font-weight="700">IM</text><text x="26" y="96" fill="#fff" font-size="31">Connected</text></g>
+      <g transform="translate(285)"><rect width="265" height="145" rx="18" fill="#171c23" stroke="#30363e"/><text x="26" y="48" fill="#4bd5ff" font-size="21" font-weight="700">RTC</text><text x="26" y="96" fill="#fff" font-size="31">1080P</text></g>
+      <g transform="translate(570)"><rect width="265" height="145" rx="18" fill="#171c23" stroke="#30363e"/><text x="26" y="48" fill="#a781ff" font-size="21" font-weight="700">PLAYER</text><text x="26" y="96" fill="#fff" font-size="31">Low latency</text></g>
+      <g transform="translate(855)"><rect width="265" height="145" rx="18" fill="#171c23" stroke="#30363e"/><text x="26" y="48" fill="#55dfa5" font-size="21" font-weight="700">GAME</text><text x="26" y="96" fill="#fff" font-size="31">32 ms</text></g>
+    </g>
+  </g>
+</svg>

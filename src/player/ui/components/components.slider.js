@@ -163,16 +163,21 @@
             return Math.max(0, Math.min(value, 100));
         }
 
-        _this.element = function () {
-            return _container;
-        };
-
         _this.tooltip = function () {
             return _tooltip;
         };
 
+        _this.element = function () {
+            return _container;
+        };
+
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            _container.removeEventListener('click', _onClick);
+            _container.innerHTML = '';
         };
 
         _init();

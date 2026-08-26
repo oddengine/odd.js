@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071018"/><stop offset=".55" stop-color="#111827"/><stop offset="1" stop-color="#05070a"/></linearGradient>
+    <radialGradient id="orb"><stop stop-color="#ff8a38"/><stop offset=".36" stop-color="#ff5f00"/><stop offset=".37" stop-color="#151922"/><stop offset=".5" stop-color="#151922"/><stop offset=".51" stop-color="#5b2cf0"/><stop offset=".72" stop-color="#131827"/><stop offset="1" stop-color="#06080d"/></radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1125" cy="435" r="278" fill="#ff6500" opacity=".15" filter="url(#glow)"/>
+  <circle cx="1125" cy="435" r="245" fill="url(#orb)"/>
+  <g fill="none" stroke-linecap="round">
+    <ellipse cx="1125" cy="435" rx="390" ry="150" stroke="#7b59ff" stroke-opacity=".42" stroke-width="3" transform="rotate(-18 1125 435)"/>
+    <ellipse cx="1125" cy="435" rx="330" ry="118" stroke="#ff7833" stroke-opacity=".5" stroke-width="2" transform="rotate(24 1125 435)"/>
+  </g>
+  <g font-family="Inter,Arial" fill="#fff">
+    <text x="120" y="280" font-size="18" font-weight="700" letter-spacing="7" fill="#ff792d">ODD ORIGINAL</text>
+    <text x="120" y="370" font-size="76" font-weight="700" letter-spacing="-3">UNIFIED</text>
+    <text x="120" y="452" font-size="76" font-weight="700" letter-spacing="-3">MEDIA SDK</text>
+    <text x="124" y="510" font-size="21" fill="#9ca5b2">IM · RTC · Player · Cloud Gaming</text>
+  </g>
+  <g opacity=".16" stroke="#fff">
+    <path d="M0 700h1600M0 760h1600M0 820h1600"/>
+    <path d="M200 650v250M400 650v250M600 650v250M800 650v250M1000 650v250M1200 650v250M1400 650v250"/>
+  </g>
+</svg>

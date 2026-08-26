@@ -37,12 +37,18 @@
 
         };
 
+        _this.destroy = function () {
+            _container.removeEventListener('click', _onClick);
+            _container.innerHTML = '';
+        };
+
         _init();
     }
 
     Button.prototype = Object.create(EventDispatcher.prototype);
     Button.prototype.constructor = Button;
     Button.prototype.kind = 'Button';
+
     components.Button = Button;
 })(odd);
 

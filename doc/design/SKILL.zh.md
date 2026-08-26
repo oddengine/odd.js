@@ -13,9 +13,10 @@
 ## 由浅入深
 
 1. **产品意图：**先打开可点击的[产品目标树](references/architecture.zh.md#目标树)。即使暂未实现，目标也继续保留。
-2. **SDK 归属：**选择 [Common](references/common.zh.md)、[Player](references/player.zh.md)、[RTC](references/rtc.zh.md)、[IM](references/im.zh.md) 或 [Famicom](references/famicom.zh.md)。每个模块页都已包含接口与事件。
+2. **SDK 归属：**选择 [Common](references/common.zh.md)、[Player](references/player.zh.md)、[RTC](references/rtc.zh.md)、[IM](references/im.zh.md)、[Famicom](references/famicom.zh.md) 或 [App](references/app.zh.md)。每个模块页都已包含接口与事件。
 3. **实现细节：**在每个 SDK 内继续查看模块、插件、配置、接口、事件和源码地图。
 4. **跨 SDK 设计：**查看[架构](references/architecture.zh.md)。
+5. **v3.0.00 约定：**修改 SDK 或 UI 前阅读[代码风格与设计方向](references/v3-style.zh.md)。
 
 导航模型为：
 

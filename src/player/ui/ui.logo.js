@@ -29,6 +29,7 @@
 
         function _init() {
             _this.config = config;
+            _this.components = {};
 
             _container = utils.createElement('div', CLASS_LOGO);
             _container.style = _this.config.style;
@@ -66,6 +67,14 @@
 
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
         };
 
         _init();

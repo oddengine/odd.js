@@ -83,6 +83,14 @@
 
         };
 
+        _this.destroy = function () {
+            _container.removeEventListener('touchstart', _onTouchStart);
+            _container.removeEventListener('touchmove', _onTouchMove);
+            _container.removeEventListener('touchend', _onTouchEnd);
+            _container.removeEventListener('touchcancel', _onTouchCancel);
+            _container.innerHTML = '';
+        };
+
         _init();
     }
 

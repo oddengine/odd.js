@@ -70,11 +70,14 @@ The protocol design allows one connection to host multiple logical pipes. RTC ca
 
 | Plugin | Status | Main role / configuration |
 | --- | --- | --- |
-| `Messages` | **Verified** | conversation tabs/dialogs and text message handling; `layout`, nested `dialog`, `visibility` |
-| `Contacts` | **Skeleton** | layout/component shell; `layout`, `visibility` |
-| `Settings` | **Skeleton** | layout/component shell; `layout`, `visibility` |
+| `Contacts` | **Implemented** | address-book plugin; creates an independent Contact component for each friend or group through `layout` |
+| `Conversations` | **Implemented** | recent-conversation list plugin; creates Contact components through `layout` and forwards selection to the UI coordinator |
+| `Conversation` | **Implemented** | single-conversation window; composes Messages and Composer through `layout` and coordinates IM send/receive |
+| `Dashboard` | **Implemented** | references Settings and other settings components through `layout`; Settings is not a plugin |
 
-UI components include Button, Dialog, Label, Panel, Select, Slider, and Tab. The current `Dialog` is a conversation composer/view, not the Player product target's Notify/Alert/Confirm abstraction.
+UI components include Button, Label, Tab, Avatar, Contact, Messages, Message, Composer, and Settings. Messages is the Message collection; Message uses `align="left|right"` for direction. Composer replaces the old Dialog while retaining its emoji data. Component-level Contacts, Conversations, and Transcript no longer exist. Components own their data, DOM, state, and teardown; plugins only assemble layouts and coordinate network events.
+
+Contacts uses the `contacts` tab, while Conversations and Conversation share the `messages` tab. A contact or recent-conversation click emits a semantic event; IM UI then activates Conversation and selects the messages tab. App can inject playback, game, and meeting pages into this same Tab instead of building another navigation system.
 
 ## Configuration
 
@@ -84,9 +87,8 @@ UI components include Button, Dialog, Label, Panel, Select, Slider, and Tab. The
 | --- | --- |
 | `url` | IM WebSocket endpoint |
 | `parameters.token` | connect parameter |
-| `maxRetries` | retry count; `-1` means unlimited |
-| `retryIn` | initial randomized retry delay |
-| `maxRetryInterval` | exponential-backoff ceiling |
+| `retry.delay` | base retry delay; each connection adds 0–3 seconds of jitter |
+| `retry.count` | retry count; `-1` means unlimited |
 
 `NetConnection` also has ACK-window/peer-bandwidth defaults. `NetStream` currently has no independent defaults.
 
@@ -96,7 +98,7 @@ UI components include Button, Dialog, Label, Panel, Select, Slider, and Tab. The
 
 ## Interfaces
 
-Methods from `join` through `state` are attached to the IM/UI facade only after the messaging `NetStream` binds.
+`setup()` always connects immediately and attaches the messaging `NetStream`, so callers can send as soon as it resolves. The public connection lifecycle is only `setup()` plus `destroy()`; there is no second `connect()` facade. Methods from `join` through `state` are attached when the messaging stream binds.
 
 The public IM API is split into the Core facade, the optional UI facade, and the `NetConnection`/`NetStream` instances returned or exposed by the Core. Protocol message parsers and UI plugin/component contracts are implementation details.
 
@@ -104,8 +106,8 @@ The public IM API is split into the Core facade, the optional UI facade, and the
 
 | Method | Arguments | Description |
 | --- | --- | --- |
-| `get` | id?: number, netConnection?: NetConnection, logger?: Logger \| LoggerConfig | Returns the stable IM Core for `id`, creating it when absent. Implemented by `IM.get` and exposed as `odd.im`. |
-| `create` | netConnection?: NetConnection, logger?: Logger \| LoggerConfig | Creates an IM Core using the next numeric id. |
+| `get` | id?: number, logger?: Logger \| LoggerConfig | Returns the stable IM Core for `id`, creating it when absent. Implemented by `IM.get` and exposed as `odd.im`. |
+| `create` | logger?: Logger \| LoggerConfig | Creates an IM Core using the next numeric id. |
 
 ### Core instance interfaces
 
@@ -116,6 +118,7 @@ Methods from `join` through `state` are attached after the messaging `NetStream`
 | `id` | — | Returns the registry id. |
 | `setup` | config?: IMConfig | Creates the connection and messaging stream, then connects. |
 | `client` | — | Returns the active `NetConnection`. |
+| `connected` | — | Returns whether the IM connection is in the connected state. |
 | `join` | resourceId: string | Joins a group/resource. |
 | `leave` | resourceId: string | Leaves a group/resource. |
 | `chmod` | resourceId: string, targetId: string, operator: string, mask: number | Changes a member permission mask. |
@@ -141,6 +144,15 @@ After binding, the UI forwards the Core instance interfaces from `client` throug
 | Method | Arguments | Description |
 | --- | --- | --- |
 | `setup` | container: HTMLElement, config: IMUIConfig | Builds the UI and initializes the paired Core. |
+| `presentation` | value?: 'full' \| 'mini' \| 'popup' | Reads or sets the UI presentation. |
+| `skin` | value?: string | Reads or sets the skin. |
+| `attach` | container: HTMLElement, presentation?: string | Reattaches the same IM wrapper to a container. |
+| `attachPlugin` | kind: string, container: HTMLElement, presentation?: string | Attaches a named plugin. |
+| `restorePlugin` | kind: string, presentation?: string | Restores a plugin to the original Tab container created by its layout. |
+| `insert` | name: string, selector: string \| HTMLElement, content: HTMLElement, option?: object | Inserts a page into the IM root Tab. |
+| `active` | value?: string \| number | Reads or selects the active root Tab. |
+| `page` | value: string \| number | Returns a root Tab page. |
+| `element` | — | Returns the current mount container. |
 | `resize` | — | Resizes the IM layout and plugins. |
 | `destroy` | reason?: string | Removes UI resources, destroys the paired Core, and unregisters the UI. |
 
@@ -215,7 +227,7 @@ All callbacks receive `{ type, data, target, srcElement, ... }`. The Properties 
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| CHANGE | name: string, value: unknown | A selection, tab, or slider value changed. |
+| CHANGE | name: string, value: unknown, tab?: string | A selection, tab, or slider value changed; root Tab changes also include the stable `tab` name. |
 | VISIBILITYCHANGE | name: string, state: 'visible' \| 'hidden' | A named panel became `visible` or `hidden`. |
 
 ### MouseEvent
@@ -257,6 +269,6 @@ The shared `Code` table contains the concrete `NET_STATUS` codes; see [Common ev
 ## Known boundaries
 
 - Pending responder entries have no timeout-based cleanup.
-- `Contacts` and `Settings` build shells but contain no domain behavior.
+- Contacts, Conversations, Conversation, and Dashboard assemble components; the old Dialog, Workspace, and component-level Contacts/Conversations/Transcript are removed.
 - There is no normalized user-list, call-state, mute, kick, or recording-control model.
 - UI content uses `innerHTML` in multiple places; untrusted text needs sanitization.

@@ -31,6 +31,7 @@
   - [RTC SDK](rtc.zh.md#rtc-sdk)
   - [IM SDK](im.zh.md#im-sdk)
 - [Famicom 云游戏客户端](famicom.zh.md#famicom-sdk) — **已验证**
+- [复合型 App SDK](app.zh.md#app-sdk) — **已验证**
 
 ## 目标树
 
@@ -107,14 +108,15 @@ odd.js
 ├── odd.im ───────── odd.im.ui
 ├── odd.rtc
 ├── odd.player ───── odd.player.ui
-└── odd.famicom ──── odd.famicom.ui
+├── odd.famicom ──── odd.famicom.ui
+└── odd.app ───────── odd.app.ui
 ```
 
 ## 功能特征
 
 ### 多实例产品
 
-Player、RTC、IM、Famicom 都使用各自的 `get(id)` 和 `create()` 实例表。Player、IM、Famicom UI 通过相同 id 与内核配对，显式销毁负责释放实例所有权。
+Player、RTC、IM、Famicom、App 都使用各自的 `get(id)` 和 `create()` 实例表。Player、RTC、IM、Famicom、App UI 通过相同 id 与内核配对，显式销毁负责释放实例所有权。
 
 ### Player 7×24 低延迟运行
 
@@ -122,7 +124,7 @@ FLV 和 FMP4 通过周期性清理 SourceBuffer 限制直播缓冲窗口。低�
 
 ### 内核和 UI 可独立部署
 
-Player、IM 和 Famicom 都提供无界面内核包与可选 UI 包。UI 用相同数字 id 获取内核实例，转发内核事件，并在 `Event.BIND` 后绑定门面方法。协议和媒体逻辑因此可以脱离 DOM 策略使用，同时又有默认 UI。
+Player、IM、Famicom、App 都提供无界面内核包与可选 UI 包。UI 用相同数字 id 获取内核实例并转发内核事件。协议和媒体逻辑因此可以脱离 DOM 策略使用，同时又有默认 UI。
 
 ### 有序注册表提供扩展点
 
@@ -136,29 +138,33 @@ IO 加载器、Player 模块、编解码器、格式和 UI 插件都通过 `prot
 
 `EventDispatcher` 支持类型监听、全局转发、`on<event>` 回调和实例 id。Player 的 View/Controller、SDK/UI、加载器、编解码器、解析器和协议对象共用同一种事件信封。
 
+### IM UI 作为复合 App 框架
+
+IM UI 主 Tab 原生承载联系人和消息，Conversations 与 Conversation 共用消息页。App 只向该 Tab 注入播放、游戏和会议页面；事件选择 section 后，现有媒体 wrapper 在 full 页面与右上 popup 之间移动，Conversation 插件在消息页与媒体右栏 mini 之间移动。App 不维护第二套导航或领域状态。
+
 ### 协议和媒体职责分离
 
 IM 将 WebSocket 帧（`NetConnection`）、逻辑管道（`NetStream`）、消息类型、命令负载和 Responder 分开。RTC 将 SDK 门面、单会话 `NetStream`、约束、统计、美颜、音量计和混流器分开。
 
 ### 多种输入先收敛再进入领域逻辑
 
-Famicom UI 将键盘、鼠标、触摸、摇杆和手柄统一转换为很小的内核按键接口，并对按键做引用计数，避免一个输入源松开仍被另一个输入源按住的键。
+Famicom 的一个玩家连接可以拥有多个手柄槽位。UI 按 Location `ports` 列表将键盘、Gamepad 按钮／摇杆轴和移动端 Display 控制映射到实际端口，再统一转换为 `keyDown(port, key)` / `keyUp(port, key)`；Core 将每次更新序列化为两个字节 `[port, keys]`。Controlbar 的键位项保持为不可点击的键盘提示。
 
 ## 重复模式
 
 | 模式 | SDK | 收益 |
 | --- | --- | --- |
-| `get(id)` + `create()` 实例表 | Player、RTC、IM、Famicom 及其 UI | 多实例和稳定的 core/UI 配对 |
+| `get(id)` + `create()` 实例表 | Player、RTC、IM、Famicom、App 及其 UI | 多实例和稳定的 core/UI 配对 |
 | `prototype.CONF` 默认值 | 全部产品 SDK 和插件 | 配置组合可检查 |
 | `prototype.kind` 注册表 | Common、Player、全部 UI | 可扩展 |
 | 显式状态枚举 | RTC、IM、Famicom | 统一生命周期词汇 |
-| UI 转发内核事件 | Player、IM、Famicom | UI 保持适配层定位 |
+| UI 转发内核事件 | Player、IM、Famicom、App | UI 保持适配层定位 |
 
 ## 架构边界
 
 - 全局 IIFE 与拼接顺序就是模块系统，没有 ES module import。
-- `compile.sh` 声明 `/bin/sh`，却使用更接近 Bash 的数组语法，构建可移植性有限。
+- `compile.sh` 使用 Bash 数组并声明 `#!/usr/bin/env bash`；有序清单仍属于模块依赖契约。
 - 注册表插入使用 `index || length`，当前无法指定索引 `0`。
 - `EventDispatcher` 会用 `new Function` 处理字符串监听器，不可信字符串并不安全。
 - 仓库没有自动化测试套件或包清单。
-- 源码版本为 `2.5.15`，仓库提交却标为 `v2.5.16`；需要精确基线时应使用提交标识。
+- 当前重构基线为提交 `v3.0.00`；需要精确约定时同时参考提交标识和 [v3 风格说明](v3-style.zh.md)。

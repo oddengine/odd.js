@@ -232,7 +232,7 @@
         }
 
         function _getStats(ns) {
-            var stream = ns.stream;
+            var stream = ns.stream();
             if (stream) {
                 ns.getStats().then((stats) => {
                     _logger.append(Logger.Level.LOG, [{
@@ -245,9 +245,12 @@
         }
 
         _this.destroy = function (reason) {
-            _stats.reset();
-            _this.unpublish();
+            if (_stats) {
+                _stats.stop();
+                _stats.removeEventListener(TimerEvent.TIMER, _onStats);
+            }
             _this.stop();
+            _this.dispatchEvent(Event.CLOSE, { reason: reason });
             delete _instances[_id];
         };
 
@@ -322,7 +325,14 @@
     };
 
     RTC.getSupportedCodecs = function (_logger) {
-
+        var codecs = { audio: [], video: [] };
+        ['audio', 'video'].forEach(function (kind) {
+            var capabilities = RTCRtpSender.getCapabilities(kind);
+            if (capabilities && capabilities.codecs) {
+                codecs[kind] = capabilities.codecs.slice(0);
+            }
+        });
+        return codecs;
     };
 
     RTC.get = function (id, logger) {

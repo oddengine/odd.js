@@ -13,7 +13,7 @@
         State = {
             INITIALIZED: 'initialized',
             CONNECTING: 'connecting',
-            CONNECTED: 'connected',
+            PLAYING: 'playing',
             CLOSING: 'closing',
             CLOSED: 'closed',
         },
@@ -44,6 +44,7 @@
             volume: 0.8,
             base: `${location.protocol}//${location.host}/game`,
             channel: 'game-input',
+            trickle: false,
             loader: {
                 mode: 'cors',        // cors, no-cors, same-origin
                 credentials: 'omit', // omit, include, same-origin
@@ -61,9 +62,11 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _video,
+            _canvas,
+            _context,
             _location,
             _params,
-            _port,
+            _ports,
             _pc,
             _channel,
             _stream,
@@ -78,9 +81,11 @@
         function _init() {
             _this.logger = _logger;
 
-            _location = _getCookie() || new URL();
+            _location = _getCookie() || new URL(location.href);
             _params = new URLSearchParams(_location.search);
-            _port = Number(_params.get('port') || 0);
+            _ports = (_params.get('ports') || '').split(',').filter(function (port) {
+                return port !== '';
+            }).map(Number);
             _keys = [0x00, 0x00, 0x00, 0x00];
             _stats = {
                 timestamp: 0,
@@ -119,6 +124,9 @@
             _video.volume = _this.config.volume;
             _container.appendChild(_video);
 
+            _canvas = utils.createElement('canvas');
+            _context = _canvas.getContext('2d');
+
             _bind();
             return Promise.resolve();
         };
@@ -128,8 +136,12 @@
             _this.dispatchEvent(Event.READY);
         }
 
-        _this.load = async function (game) {
-            return _this.play(`${_this.config.base}/play?game=${game}`);
+        _this.load = async function (game, controllers) {
+            var url = `${_this.config.base}/play?game=${game}`;
+            if (controllers !== undefined) {
+                url += `&controllers=${controllers}`;
+            }
+            return _this.play(url);
         };
 
         _this.play = async function (url) {
@@ -155,7 +167,7 @@
                 
                 await _pc.setLocalDescription(offer);
 
-                var response = await _post(`${_this.config.base}/play?${_params.toString()}`, offer.sdp);
+                var response = await _post(_location.href, offer.sdp);
                 var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
                 await _pc.setRemoteDescription(answer);
             } catch (err) {
@@ -173,7 +185,9 @@
             _pc.addEventListener('track', _onTrack);
             _pc.addEventListener('connectionstatechange', _onConnectionStateChange);
             _pc.addEventListener('iceconnectionstatechange', _onIceConnectionStateChange);
-            // _pc.addEventListener('icecandidate', _onIceCandidate);
+            if (_this.config.trickle) {
+                _pc.addEventListener('icecandidate', _onIceCandidate);
+            }
 
             _pc.addTransceiver('audio', { direction: 'recvonly' });
             _pc.addTransceiver('video', { direction: 'recvonly' });
@@ -247,12 +261,14 @@
                         return;
                     }
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        var location = xhr.getResponseHeader('Location')
+                        var location = xhr.getResponseHeader('Location');
                         if (location) {
                             _logger.log(`Location: ${location}`);
                             _location = new URL(location);
                             _params = new URLSearchParams(_location.search);
-                            _port = Number(_params.get('port'));
+                            _ports = (_params.get('ports') || '').split(',').filter(function (port) {
+                                return port !== '';
+                            }).map(Number);
                             _setCookie(location, Date.now() + 30000);
                         }
                         resolve(xhr.responseText);
@@ -289,7 +305,7 @@
                         return;
                     }
                 };
-                xhr.onerror = function () {
+                xhr.onerror = function (err) {
                     _logger.error(`Loader ${err.name}: ${err.message}`);
                     reject(err);
                 };
@@ -307,7 +323,7 @@
             }
             return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', `${_this.config.base}/stop?${_params.toString()}`, true);
+                xhr.open('DELETE', _location.href, true);
                 xhr.send();
                 xhr.onreadystatechange = function () {
                     if (xhr.readyState !== 4) {
@@ -318,12 +334,9 @@
                         reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
                         return;
                     }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                        return;
-                    }
+                    resolve();
                 };
-                xhr.onerror = function () {
+                xhr.onerror = function (err) {
                     _logger.error(`Loader ${err.name}: ${err.message}`);
                     reject(err);
                 };
@@ -352,7 +365,7 @@
                         return;
                     }
                 };
-                xhr.onerror = function () {
+                xhr.onerror = function (err) {
                     _logger.error(`Loader ${err.name}: ${err.message}`);
                     reject(err);
                 };
@@ -394,19 +407,19 @@
 
         function _onConnectionStateChange(e) {
             var pc = e.target;
-            _logger.log(`onConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.connectionState}`);
+            _logger.log(`onConnectionStateChange: id=${_this.config.id}, state=${pc.connectionState}`);
 
             switch (pc.connectionState) {
                 case 'failed':
                 case 'closed':
-                    _this.close(pc.connectionState);
+                    _this.stop();
                     break;
             }
         }
 
         function _onIceConnectionStateChange(e) {
             var pc = e.target;
-            _logger.log(`onIceConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.iceConnectionState}`);
+            _logger.log(`onIceConnectionStateChange: id=${_this.config.id}, state=${pc.iceConnectionState}`);
         }
 
         function _onIceCandidate(e) {
@@ -418,10 +431,10 @@
                     sdpMLineIndex: 0,
                 };
             }
-            _logger.log(`onIceCandidate: id=${_this.config.id}, stream=${_name}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
+            _logger.log(`onIceCandidate: id=${_this.config.id}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
 
             _patch(candidate).catch((err) => {
-                _logger.error(`Failed to send candidate: id=${_this.config.id}, stream=${_name}, error=${err}`);
+                _logger.error(`Failed to send candidate: id=${_this.config.id}, error=${err}`);
             });
         }
 
@@ -473,12 +486,20 @@
 
         _this.keyDown = function (port, key) {
             _keys[port] |= key;
-            _sendKeyState();
+            _sendKeyState(port);
         };
 
         _this.keyUp = function (port, key) {
             _keys[port] &= ~key;
-            _sendKeyState();
+            _sendKeyState(port);
+        };
+
+        _this.ports = function () {
+            return _ports.slice();
+        };
+
+        _this.location = function () {
+            return _location.href;
         };
 
         function _sendKeyState(port) {
@@ -521,13 +542,14 @@
             _this.dispatchEvent(MediaEvent.STATSCHANGE, {
                 stats: {
                     fps: current.framesPerSecond,
-                    decoded: (current.framesDecoded - stats.framesDecoded) / elapsed,
-                    dropped: (current.framesDropped - stats.framesDropped) / elapsed,
-                    nack: (current.nackCount - stats.nackCount) / elapsed,
-                    pli: (pliCount - stats.pliCount) / elapsed,
-                    freeze: (current.freezeCount - stats.freezeCount) / elapsed,
+                    decoded: (current.framesDecoded - _stats.framesDecoded) / elapsed,
+                    dropped: (current.framesDropped - _stats.framesDropped) / elapsed,
+                    nack: (current.nackCount - _stats.nackCount) / elapsed,
+                    pli: (current.pliCount - _stats.pliCount) / elapsed,
+                    freeze: (current.freezeCount - _stats.freezeCount) / elapsed,
                 },
             });
+            _stats = current;
         }
 
         function _setCookie(value, age) {
@@ -553,6 +575,22 @@
             return _video ? _video.muted : _this.config.muted;
         };
 
+        _this.capture = function (width, height, mime) {
+            _canvas.width = width || _video.videoWidth;
+            _canvas.height = height || _video.videoHeight;
+            _context.drawImage(_video, 0, 0, _canvas.width, _canvas.height);
+
+            var data;
+            try {
+                data = _canvas.toDataURL(mime || 'image/png');
+            } catch (err) {
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                return '';
+            }
+            _this.dispatchEvent(MediaEvent.SCREENSHOT, { image: data });
+            return data;
+        };
+
         _this.state = function () {
             return _state;
         };
@@ -569,13 +607,22 @@
             switch (_state) {
                 case State.INITIALIZED:
                 case State.CONNECTING:
-                case State.CONNECTED:
+                case State.PLAYING:
                     _state = State.CLOSING;
-                    _this.stop();
+
+                    await _this.stop();
+                    if (_params.get('instance')) {
+                        _params.delete('player');
+                        _params.delete('ports');
+                        _location.search = _params.toString();
+                        await _delete();
+                    }
 
                     if (_video) {
                         _video.removeEventListener('volumechange', _onVolumeChange);
                     }
+                    _canvas = null;
+                    _context = null;
                     if (_container) {
                         _container.innerHTML = '';
                     }

@@ -20,7 +20,9 @@
         _instances = {},
         _default = {
             url: `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/im`,
-            token: '',
+            parameters: {
+                token: '',
+            },
             retry: {
                 delay: 2000, // ms.
                 count: 0,    // -1: always
@@ -40,9 +42,10 @@
 
         function _init() {
             _this.logger = _logger;
-
-            _nc = nc;
             _retried = 0;
+
+            _timer = new utils.Timer(_this.config.retry.delay + Math.random() * 3000, 1, _logger);
+            _timer.addEventListener(TimerEvent.TIMER, _onTimer);
         }
 
         _this.id = function () {
@@ -62,9 +65,6 @@
             _ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _ns.addEventListener(Event.RELEASE, _onRelease);
 
-            _timer = new utils.Timer(_this.config.retry.delay + Math.random() * 3000, 1, _logger);
-            _timer.addEventListener(TimerEvent.TIMER, _onTimer);
-
             _bind();
             return await _connect();
         };
@@ -78,8 +78,8 @@
             _this.send = _ns.send;
             _this.sendStatus = _ns.sendStatus;
             _this.call = _ns.call;
+            _this.client = _ns.client;
             _this.state = _nc.state;
-            _this.connect = _connect;
             _this.dispatchEvent(Event.BIND);
         }
 
@@ -109,22 +109,25 @@
             var description = e.data.description;
             var info = e.data.info;
             var method = { status: 'debug', warning: 'warn', error: 'error' }[level] || 'debug';
-            _logger[method](`IM.onStatus: user=${_nc.userId()}, level=${level}, code=${code}, description=${description}, info=`, info);
+            _logger[method](`IM.onStatus: id=${_id}, level=${level}, code=${code}, description=${description}, info=`, info);
+
             _this.forward(e);
         }
 
         function _onRelease(e) {
-            _logger.log(`IM.onRelease: user=${_nc.userId()}, reason=${e.data.reason}`);
+            _logger.log(`IM.onRelease: id=${_id}, reason=${e.data.reason}`);
+
             _ns.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _ns.removeEventListener(Event.RELEASE, _onRelease);
+            _ns = undefined;
         }
 
         function _onClose(e) {
-            _logger.log(`IM.onClose: user=${_nc.userId()}, reason=${e.data.reason}`);
+            _logger.log(`IM.onClose: id=${_id}, reason=${e.data.reason}`);
             _this.forward(e);
 
             if (_retried++ < _this.config.retry.count || _this.config.retry.count === -1) {
-                _logger.debug(`IM about to reconnect: user=${_nc.userId()}, in=${_timer.delay}`);
+                _logger.debug(`IM about to reconnect: id=${_id}, in=${_timer.delay}`);
                 _timer.start();
             }
         }
@@ -134,21 +137,20 @@
         }
 
         _this.destroy = function (reason) {
-            if (_timer) {
-                _timer.reset();
+            _timer.reset();
+            _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
+
+            if (_ns) {
+                _ns.release(reason);
+                _ns.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+                _ns.removeEventListener(Event.RELEASE, _onRelease);
             }
-            switch (_this.state()) {
-                case State.INITIALIZED:
-                case State.CONNECTING:
-                case State.CONNECTED:
-                    if (_nc) {
-                        _nc.close(reason);
-                        _nc.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
-                        _nc.removeEventListener(Event.CLOSE, _onClose);
-                    }
-                    delete _instances[_id];
-                    break;
+            if (_nc) {
+                _nc.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+                _nc.removeEventListener(Event.CLOSE, _onClose);
+                _nc.close(reason);
             }
+            delete _instances[_id];
         };
 
         _init();

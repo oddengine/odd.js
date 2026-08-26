@@ -1,0 +1,108 @@
+.app-wrapper {
+    --app-border: rgba(255, 255, 255, .10);
+    --app-panel: #10141a;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    color: #f4f6f8;
+    background: #07090d;
+    font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.app-wrapper * {
+    box-sizing: border-box;
+}
+
+.app-wrapper[sidebar="on"] {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 28%);
+}
+
+.app-main,
+.app-aside,
+.app-popup,
+.app-context,
+.app-page {
+    min-width: 0;
+    min-height: 0;
+}
+
+.app-main,
+.app-main>* {
+    width: 100%;
+    height: 100%;
+}
+
+.app-main {
+    position: relative;
+    overflow: hidden;
+    background: #05070a;
+}
+
+.app-aside {
+    display: none;
+    overflow: hidden;
+    border-left: 1px solid var(--app-border);
+    background: var(--app-panel);
+}
+
+.app-wrapper[sidebar="on"] .app-aside {
+    display: flex;
+    flex-direction: column;
+}
+
+.app-popup {
+    width: 100%;
+    flex: 0 0 auto;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-bottom: 1px solid var(--app-border);
+    background: #000;
+}
+
+.app-popup:empty {
+    display: none;
+}
+
+.app-context {
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.app-context>* {
+    width: 100%;
+    height: 100%;
+}
+
+.app-wrapper[mode="media"] .app-popup {
+    display: none;
+}
+
+.app-page,
+.app-page>* {
+    width: 100%;
+    height: 100%;
+}
+
+.app-depot {
+    display: none;
+}
+
+.app-ui-violet {
+    --app-panel: #151126;
+}
+
+@media (max-width: 900px) {
+    .app-wrapper,
+    .app-wrapper[sidebar="on"] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .app-wrapper[sidebar="on"] .app-aside {
+        display: none;
+    }
+}
+

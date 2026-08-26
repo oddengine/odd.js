@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no,email=no">
+    <meta name="theme-color" content="#090d13">
+    <title>odd.js Composite App Demo</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="../player/css/odd.player.classic.css">
+    <link rel="stylesheet" href="../famicom/css/odd.famicom.classic.css">
+    <link rel="stylesheet" href="../im/css/odd.im.classic.css">
+    <link rel="stylesheet" href="../rtc/css/odd.rtc.classic.css">
+    <link rel="stylesheet" href="css/odd.app.classic.css">
+
+    <script src="../../release/odd.min.js"></script>
+</head>
+
+<body>
+    <header class="demo-toolbar">
+        <div>
+            <strong>odd.js App</strong>
+            <span>IM · RTC · 直播/点播 · 云游戏</span>
+        </div>
+        <div class="demo-actions">
+            <span id="smoke" class="demo-smoke" data-state="running">Smoke checking…</span>
+            <button id="theme" type="button">一键换肤</button>
+            <button id="multi" type="button">多实例</button>
+        </div>
+    </header>
+    <main class="demo-grid">
+        <div id="app" class="demo-app"></div>
+        <div id="app2" class="demo-app demo-app-secondary" hidden></div>
+    </main>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>

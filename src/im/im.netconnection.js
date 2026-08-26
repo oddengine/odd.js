@@ -257,8 +257,8 @@
         }
 
         function _onClose(e) {
-            _logger.log(`IM.NetConnection.onClose: user=${_this.userId()}, code=${e.code}, reason=${e.reason || 'EOF'}`);
-            _this.dispatchEvent(Event.CLOSE, { reason: `${e.code} ${e.reason || 'EOF'}` });
+            _logger.log(`IM.NetConnection.onClose: user=${_this.userId()}, code=${e.code}, reason=${e.reason}`);
+            _this.dispatchEvent(Event.CLOSE, { reason: `${e.code} ${e.reason}` });
             _readyState = State.CLOSED;
         }
 

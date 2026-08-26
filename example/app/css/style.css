@@ -1,0 +1,85 @@
+:root {
+    color-scheme: dark;
+    background: #05070a;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    overflow: hidden;
+    color: #f4f6f8;
+    background: #05070a;
+    font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+button,
+input,
+textarea {
+    font: inherit;
+}
+
+.demo-toolbar {
+    height: 56px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, .10);
+    background: #0b0e13;
+}
+
+.demo-toolbar strong,
+.demo-toolbar span {
+    margin-right: 10px;
+}
+
+.demo-toolbar span {
+    color: #9098a4;
+    font-size: 12px;
+}
+
+.demo-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.demo-actions button {
+    padding: 7px 11px;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 8px;
+    color: #fff;
+    background: rgba(255, 255, 255, .06);
+}
+
+.demo-grid {
+    height: calc(100% - 56px);
+    padding: 12px;
+}
+
+.demo-app {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 14px;
+}
+
+.demo-grid.multi {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.demo-smoke[data-state="passed"] {
+    color: #48d7a4;
+}
+
+.demo-smoke[data-state="failed"] {
+    color: #ff7d84;
+}

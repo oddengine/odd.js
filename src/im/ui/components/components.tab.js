@@ -9,15 +9,13 @@
         CLASS_TAB_HEAD = 'im-tab-head',
         CLASS_TAB_BODY = 'im-tab-body',
         CLASS_TAB_ITEM = 'im-tab-item',
-        CLASS_TAB_PAGE = 'im-tab-page',
-        CLASS_ACTIVE = 'active';
+        CLASS_TAB_PAGE = 'im-tab-page';
 
     function Tab(name, value, logger) {
         EventDispatcher.call(this, 'Tab', { logger: logger }, [Event.CHANGE]);
 
         var _this = this,
             _name,
-            _logger = logger,
             _container,
             _head,
             _body,
@@ -43,6 +41,10 @@
 
             var item = utils.createElement('div', CLASS_TAB_ITEM + ' ' + name);
             var page = utils.createElement('div', CLASS_TAB_PAGE + ' ' + name);
+            item.setAttribute('name', name);
+            item.setAttribute('state', 'off');
+            page.setAttribute('name', name);
+            page.setAttribute('state', 'off');
             item.addEventListener('click', _onClick);
             if (typeof selector === 'object') {
                 item.appendChild(selector);
@@ -61,29 +63,60 @@
             if (option.active === true) {
                 _this.active(option.index);
             }
+            return option.index;
         };
 
         function _onClick(e) {
-            var index = utils.indexOf(_head.children, e.target);
+            var index = utils.indexOf(_head.children, e.currentTarget);
             _this.active(index);
         }
 
-        _this.active = function (index) {
-            var origin;
+        _this.index = function (value) {
+            if (utils.typeOf(value) === 'number') {
+                return value;
+            }
+            for (var i = 0; i < _head.children.length; i++) {
+                if (_head.children[i].getAttribute('name') === value) {
+                    return i;
+                }
+            }
+            return -1;
+        };
+
+        _this.active = function (value) {
+            var index = _this.index(value),
+                origin;
+
+            if (index < 0 || index >= _head.children.length) {
+                return _active ? _active.getAttribute('name') : '';
+            }
 
             if (_active) {
                 origin = utils.indexOf(_head.children, _active);
-                _head.children[origin].classList.remove(CLASS_ACTIVE);
-                _body.children[origin].classList.remove(CLASS_ACTIVE);
+                _head.children[origin].setAttribute('state', 'off');
+                _body.children[origin].setAttribute('state', 'off');
             }
-            if (index >= 0) {
-                _head.children[index].classList.add(CLASS_ACTIVE);
-                _body.children[index].classList.add(CLASS_ACTIVE);
-            }
+            _head.children[index].setAttribute('state', 'on');
+            _body.children[index].setAttribute('state', 'on');
             _active = _head.children[index];
             if (index !== origin) {
-                _this.dispatchEvent(Event.CHANGE, { name: _name, value: index });
+                _this.dispatchEvent(Event.CHANGE, {
+                    name: _name,
+                    value: index,
+                    tab: _active.getAttribute('name'),
+                });
             }
+            return _active.getAttribute('name');
+        };
+
+        _this.name = function (index) {
+            index = index === undefined ? _this.index(_active && _active.getAttribute('name')) : _this.index(index);
+            return index >= 0 && index < _head.children.length ? _head.children[index].getAttribute('name') : '';
+        };
+
+        _this.page = function (value) {
+            var index = _this.index(value);
+            return index >= 0 && index < _body.children.length ? _body.children[index] : null;
         };
 
         _this.length = function () {
@@ -96,6 +129,11 @@
 
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            _container.removeEventListener('click', _onClick);
+            _container.innerHTML = '';
         };
 
         _init();

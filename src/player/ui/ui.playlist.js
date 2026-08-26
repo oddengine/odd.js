@@ -25,6 +25,7 @@
 
         function _init() {
             _this.config = config;
+            _this.components = {};
 
             _container = utils.createElement('section', CLASS_PLAYLIST);
 
@@ -113,6 +114,14 @@
 
         };
 
+        _this.destroy = function () {
+            utils.forEach(_this.components, function (_, component) {
+                component.removeGlobalListener(_this.forward);
+                component.destroy();
+            });
+            _this.components = {};
+        };
+
         _init();
     }
 
@@ -123,3 +132,4 @@
 
     UI.register(Playlist);
 })(odd);
+

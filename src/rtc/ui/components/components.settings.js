@@ -26,8 +26,16 @@
             _name = name;
         }
 
+        _this.element = function () {
+            return _container;
+        };
+
         _this.resize = function (width, height) {
 
+        };
+
+        _this.destroy = function () {
+            _container.innerHTML = '';
         };
 
         _init();
