@@ -70,14 +70,14 @@
 
 | 插件 | 状态 | 主要职责／配置 |
 | --- | --- | --- |
-| `Contacts` | **已实现** | 通讯录插件；按 `layout` 为好友和群聊创建独立 Contact 组件 |
-| `Conversations` | **已实现** | 最近会话列表插件；按 `layout` 创建 Contact 组件，并将选择事件交给 UI 协调器 |
+| `Contacts` | **已实现** | 通讯录插件；`add(id, type, name, avatar)`／`remove(id)` 增量管理联系人条目 |
+| `Conversations` | **已实现** | 最近会话列表；提供相同的 `add/remove`，并以 `update(id, date, message)` 更新最新消息摘要 |
 | `Conversation` | **已实现** | 单个会话窗口插件；按 `layout` 组合 Messages 与 Composer，并协调 IM Core 发送／接收 |
 | `Dashboard` | **已实现** | 按 `layout` 引用 Settings 等设置组件；Settings 不再是插件 |
 
-UI 组件包含 Button、Label、Tab、Avatar、Contact、Messages、Message、Composer 和 Settings。Messages 是 Message 的集合组件，Message 通过 `align="left|right"` 表达消息方向。旧 Dialog 已由 Composer 取代，表情数据保留在 Composer；组件级 Contacts、Conversations、Transcript 不再存在。组件负责自身数据、DOM、状态和销毁，插件只负责 layout 装配与网络事件协调。
+UI 组件包含 Button、Label、Tab、Avatar、Panel、Messages、Message、Composer 和 Settings。联系人及会话列表条目由对应插件直接增量管理，不再抽象 People／Group／Contact 组件。条目元素将 `id`、`type` 直接设置为属性，其中 `type` 当前为 `people` 或 `group`。Messages 是 Message 的集合组件，Message 通过 `align="left|right"` 表达消息方向；Composer 保留旧 Dialog 的表情数据。
 
-Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages` Tab。点击联系人或最近会话时，组件先发出语义事件，IM UI 再设置 Conversation 的活动对象并切换到消息 Tab。App 可以通过同一 Tab 的公开接口注入播放、游戏和会议页面，不需要另建导航。
+Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages` Tab。点击联系人或最近会话时，插件发出语义事件，IM UI 再设置 Conversation 的活动对象并切换到消息 Tab。Contacts 不接受 people/groups 列表配置，Conversations 不接受 `conversations` 配置；调用方在 setup 后通过增量接口装载条目。Tab 只构建按页面名分类的空白按钮，图标由 CSS 设置，插件不再配置 `label`。
 
 ## 配置
 
@@ -95,6 +95,8 @@ Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages
 ### UI
 
 `skin`、`plugins[]` 以及全部内核配置。插件配置由各插件的 `prototype.CONF` 合并而来。
+
+Settings 已支持由 `update({groups:[...]})` 一次传入的纵向分类；每组包含 `name`、`title`、`items` 及可选 `footer`，首次传入时构建结构，之后全量更新控件值。IM 的产品项暂不固化，建议优先按三类落地：通知（消息音、桌面通知、免打扰）、隐私与在线状态（已读回执、输入状态、黑名单）、消息与存储（回车发送、历史同步、附件自动下载和缓存清理）。摄像头、麦克风和发布 profile 仍由 RTC 或 Player Chat 设置拥有，避免 IM 重复管理媒体状态。
 
 ## 接口
 
@@ -149,7 +151,7 @@ Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages
 | `attach` | container: HTMLElement, presentation?: string | 将同一个 IM wrapper 重新挂载到指定容器。 |
 | `attachPlugin` | kind: string, container: HTMLElement, presentation?: string | 挂载指定插件。 |
 | `restorePlugin` | kind: string, presentation?: string | 将插件恢复到它由 layout 创建的原始 Tab 容器。 |
-| `insert` | name: string, selector: string \| HTMLElement, content: HTMLElement, option?: object | 向 IM 主 Tab 注入页面。 |
+| `insert` | name: string, content: HTMLElement, option?: object | 向 IM 主 Tab 注入页面；导航按钮保持空白并由 CSS 设置图标。 |
 | `active` | value?: string \| number | 读写当前主 Tab。 |
 | `page` | value: string \| number | 返回指定主 Tab 页面。 |
 | `element` | — | 返回当前挂载容器。 |
@@ -227,7 +229,7 @@ Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages
 
 | 类型 | 属性 | 含义 |
 | :--- | :--- | :--- |
-| CHANGE | name: string, value: unknown, tab?: string | 选择项、标签页或滑块值发生变化；主 Tab 同时提供稳定的 `tab` 名称。 |
+| CHANGE | name: string, value: unknown | 选择项、标签页或设置值发生变化；主 Tab 将稳定页面名放入 `value`。 |
 | VISIBILITYCHANGE | name: string, state: 'visible' \| 'hidden' | 指定面板变为 `visible` 或 `hidden`。 |
 
 ### MouseEvent
@@ -269,6 +271,6 @@ Contacts 使用 `contacts` Tab；Conversations 与 Conversation 共用 `messages
 ## 已知边界
 
 - 等待中的 Responder 没有基于超时的清理。
-- Contacts、Conversations、Conversation 和 Dashboard 已按组件装配；旧 Dialog、Workspace、组件级 Contacts/Conversations/Transcript 已移除。
+- Contacts、Conversations、Conversation 和 Dashboard 已按职责装配；People、Group、Contact、旧 Dialog、Workspace、组件级 Contacts/Conversations/Transcript 已移除。
 - 没有统一的用户列表、呼叫状态、闭麦、踢出或录制控制模型。
 - UI 多处使用 `innerHTML`，不可信文本需要先清洗。

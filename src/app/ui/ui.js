@@ -16,11 +16,6 @@
             game: 'game',
             meeting: 'meeting',
         },
-        _labels = {
-            play: '播放',
-            game: '游戏',
-            meeting: '会议',
-        },
         _default = {
             section: 'messages',
             skin: 'classic',
@@ -122,7 +117,7 @@
 
             utils.forEach(_media, function (section) {
                 _pages[section] = utils.createElement('div', 'app-page app-' + section);
-                _modules.im.insert(section, _labels[section], _pages[section]);
+                _modules.im.insert(section, _pages[section]);
             });
 
             _modules.player = odd.player.ui.create(_logger);
@@ -144,8 +139,8 @@
         }
 
         function _onIMChange(e) {
-            if (e.data.name === 'nav' && utils.indexOf(App.sections(), e.data.tab) !== -1) {
-                _app.section(e.data.tab);
+            if (e.data.name === 'nav' && utils.indexOf(App.sections(), e.data.value) !== -1) {
+                _app.section(e.data.value);
             }
         }
 

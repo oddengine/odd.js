@@ -12,6 +12,8 @@
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
         TimerEvent = events.TimerEvent,
+        RTC = odd.RTC,
+        Constraints = RTC.Constraints,
         Player = odd.Player,
 
         CLASS_WRAPPER = 'pe-wrapper',
@@ -419,6 +421,9 @@
 
         function _onChange(e) {
             var h = {
+                'profile': function () { _configureChat({ profile: e.data.value }); },
+                'camera': function () { _configureChat({ camera: e.data.value }); },
+                'microphone': function () { _configureChat({ microphone: e.data.value }); },
                 'timebar': function () {
                     var duration = _api.duration();
                     if (duration) {
@@ -436,6 +441,15 @@
                 h();
             } else {
                 _this.forward(e);
+            }
+        }
+
+        function _configureChat(config) {
+            var chat = _this.plugins['Chat'];
+            if (chat) {
+                chat.configure(config).catch(function (err) {
+                    _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                });
             }
         }
 
@@ -650,6 +664,33 @@
         function _showPanel(name) {
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard) {
+                if (name === 'settings') {
+                    var chat = _this.plugins['Chat'],
+                        profiles = [];
+                    utils.forEach(Constraints, function (profile) {
+                        profiles.push(profile);
+                    });
+                    dashboard.update('settings', {
+                        groups: [{
+                            name: 'chat',
+                            title: 'Chat',
+                            items: [{
+                                name: 'profile',
+                                type: 'select',
+                                value: chat ? chat.config.profile : '',
+                                options: profiles,
+                            }, {
+                                name: 'camera',
+                                type: 'checkbox',
+                                value: chat ? chat.config.camera : false,
+                            }, {
+                                name: 'microphone',
+                                type: 'checkbox',
+                                value: chat ? chat.config.microphone : false,
+                            }],
+                        }],
+                    });
+                }
                 dashboard.show(name);
             }
         }
@@ -817,7 +858,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', error=' + err.message);
         }
     };
 

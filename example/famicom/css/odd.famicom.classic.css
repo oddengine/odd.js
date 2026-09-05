@@ -86,8 +86,8 @@
     font-weight: 700;
 }
 
-.pe-wrapper[kind="famicom"] .pe-button,
-.pe-wrapper[kind="famicom"] .pe-toggle {
+.pe-wrapper[kind="famicom"] .pe-controlbar .pe-button,
+.pe-wrapper[kind="famicom"] .pe-controlbar .pe-toggle {
     width: 34px;
     height: 34px;
     position: relative;
@@ -98,52 +98,96 @@
     border-radius: 9px;
     color: #fff;
     background: rgba(255, 255, 255, .08);
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M256 192h512c35.392 0 64 28.608 64 64v512c0 35.392-28.608 64-64 64H256c-35.392 0-64-28.608-64-64V256c0-35.392 28.608-64 64-64z"/></svg>');
+    background-position: center;
+    background-repeat: no-repeat;
     cursor: pointer;
 }
 
-.pe-wrapper[kind="famicom"] .pe-button:hover,
-.pe-wrapper[kind="famicom"] .pe-toggle:hover {
+.pe-wrapper[kind="famicom"] .pe-controlbar .pe-button:hover,
+.pe-wrapper[kind="famicom"] .pe-controlbar .pe-toggle:hover {
     background: rgba(255, 255, 255, .16);
-}
-
-.pe-wrapper[kind="famicom"] .pe-button::after,
-.pe-wrapper[kind="famicom"] .pe-toggle::after {
-    font: 700 11px/1 system-ui, sans-serif;
-}
-
-.pe-wrapper[kind="famicom"] .pe-button.capture::after {
-    content: "CAP";
-}
-
-.pe-wrapper[kind="famicom"] .pe-toggle.muted::after {
-    content: "VOL";
-}
-
-.pe-wrapper[kind="famicom"] .pe-toggle.layout::after {
-    content: "LAY";
-}
-
-.pe-wrapper[kind="famicom"] .pe-button.settings::after {
-    content: "SET";
-}
-
-.pe-wrapper[kind="famicom"] .pe-toggle.theater::after {
-    content: "WEB";
-}
-
-.pe-wrapper[kind="famicom"] .pe-toggle.fullscreen::after {
-    content: "FS";
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M256 192h512c35.392 0 64 28.608 64 64v512c0 35.392-28.608 64-64 64H256c-35.392 0-64-28.608-64-64V256c0-35.392 28.608-64 64-64z"/></svg>');
 }
 
 .pe-wrapper[kind="famicom"] .pe-tooltip {
     display: none;
 }
 
+.pe-wrapper[kind="famicom"] .pe-dashboard {
+    inset: 0;
+    position: absolute;
+    z-index: 4;
+    pointer-events: none;
+}
+
+.pe-wrapper[kind="famicom"] .pe-panel {
+    width: min(560px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
+    padding: 18px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: none;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    color: #f4f6f8;
+    background: rgba(18, 22, 27, .98);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, .48);
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+}
+
+.pe-wrapper[kind="famicom"] .pe-panel>div {
+    line-height: 20px;
+    white-space: pre-line;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-group+.pe-settings-group {
+    margin-top: 20px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-title {
+    margin: 0 0 10px;
+    font-size: 15px;
+    line-height: 22px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content {
+    display: grid;
+    gap: 8px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content label {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content input {
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 8px;
+    color: #f4f6f8;
+    background: #11151a;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-footer {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .pe-wrapper[kind="famicom"][muted="true"] .pe-toggle.muted,
 .pe-wrapper[kind="famicom"][theater="true"] .pe-toggle.theater,
 .pe-wrapper[kind="famicom"][fullscreen="true"] .pe-toggle.fullscreen {
     color: #07110e;
-    background: #35d5a5;
+    background-color: #35d5a5;
 }
 
 .pe-wrapper[kind="famicom"][controls="never"] .pe-controlbar,
@@ -192,11 +236,6 @@
         background: rgba(10, 15, 20, .58);
     }
 
-    .pe-wrapper[kind="famicom"] .pe-display .pe-button::after {
-        content: attr(class);
-        font-size: 0;
-    }
-
     .pe-wrapper[kind="famicom"] .pe-display .pe-button.a {
         right: 20px;
         bottom: 70px;
@@ -221,6 +260,9 @@
         height: 28px;
         bottom: 24px;
         border-radius: 14px;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M256 192h512c35.392 0 64 28.608 64 64v512c0 35.392-28.608 64-64 64H256c-35.392 0-64-28.608-64-64V256c0-35.392 28.608-64 64-64z"/></svg>');
+        background-position: center;
+        background-repeat: no-repeat;
     }
 
     .pe-wrapper[kind="famicom"] .pe-display .pe-button.select {

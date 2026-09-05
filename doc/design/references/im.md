@@ -70,14 +70,14 @@ The protocol design allows one connection to host multiple logical pipes. RTC ca
 
 | Plugin | Status | Main role / configuration |
 | --- | --- | --- |
-| `Contacts` | **Implemented** | address-book plugin; creates an independent Contact component for each friend or group through `layout` |
-| `Conversations` | **Implemented** | recent-conversation list plugin; creates Contact components through `layout` and forwards selection to the UI coordinator |
+| `Contacts` | **Implemented** | address book; incrementally manages entries through `add(id, type, name, avatar)` / `remove(id)` |
+| `Conversations` | **Implemented** | recent conversations; exposes the same `add/remove` plus `update(id, date, message)` for the latest-message summary |
 | `Conversation` | **Implemented** | single-conversation window; composes Messages and Composer through `layout` and coordinates IM send/receive |
 | `Dashboard` | **Implemented** | references Settings and other settings components through `layout`; Settings is not a plugin |
 
-UI components include Button, Label, Tab, Avatar, Contact, Messages, Message, Composer, and Settings. Messages is the Message collection; Message uses `align="left|right"` for direction. Composer replaces the old Dialog while retaining its emoji data. Component-level Contacts, Conversations, and Transcript no longer exist. Components own their data, DOM, state, and teardown; plugins only assemble layouts and coordinate network events.
+UI components include Button, Label, Tab, Avatar, Panel, Messages, Message, Composer, and Settings. Contacts and Conversations incrementally own their list-entry DOM; there are no People, Group, or Contact components. Entry elements store `id` and `type` as attributes, where `type` is currently `people` or `group`. Messages is the Message collection, Message uses `align="left|right"`, and Composer retains the old Dialog emoji data.
 
-Contacts uses the `contacts` tab, while Conversations and Conversation share the `messages` tab. A contact or recent-conversation click emits a semantic event; IM UI then activates Conversation and selects the messages tab. App can inject playback, game, and meeting pages into this same Tab instead of building another navigation system.
+Contacts uses the `contacts` tab, while Conversations and Conversation share the `messages` tab. A contact or recent-conversation click emits a semantic event; IM UI activates Conversation and selects the messages tab. Contacts accepts no people/groups list config, and Conversations accepts no `conversations` config; callers populate them incrementally after setup. Tab builds empty buttons classified by page name, CSS supplies their images, and plugins no longer configure `label`.
 
 ## Configuration
 
@@ -95,6 +95,8 @@ Contacts uses the `contacts` tab, while Conversations and Conversation share the
 ### UI
 
 `skin`, `plugins[]`, plus all core keys. Plugin config is merged from each registered plugin's `prototype.CONF`.
+
+Settings accepts vertically ordered categories through one `update({groups:[...]})`; each group has `name`, `title`, `items`, and an optional `footer`. The first update builds the structure and later calls fully refresh control values. IM product settings remain intentionally open. Recommended first groups are Notifications (sound, desktop notifications, do-not-disturb), Privacy & Presence (read receipts, typing status, blocked users), and Messages & Storage (enter-to-send, history sync, attachment auto-download, cache clearing). Camera, microphone, and publishing profile remain owned by RTC or Player Chat settings so IM does not duplicate media state.
 
 ## Interfaces
 
@@ -149,7 +151,7 @@ After binding, the UI forwards the Core instance interfaces from `client` throug
 | `attach` | container: HTMLElement, presentation?: string | Reattaches the same IM wrapper to a container. |
 | `attachPlugin` | kind: string, container: HTMLElement, presentation?: string | Attaches a named plugin. |
 | `restorePlugin` | kind: string, presentation?: string | Restores a plugin to the original Tab container created by its layout. |
-| `insert` | name: string, selector: string \| HTMLElement, content: HTMLElement, option?: object | Inserts a page into the IM root Tab. |
+| `insert` | name: string, content: HTMLElement, option?: object | Inserts a page into the IM root Tab; the navigation button stays empty and CSS supplies its image. |
 | `active` | value?: string \| number | Reads or selects the active root Tab. |
 | `page` | value: string \| number | Returns a root Tab page. |
 | `element` | — | Returns the current mount container. |
@@ -227,7 +229,7 @@ All callbacks receive `{ type, data, target, srcElement, ... }`. The Properties 
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| CHANGE | name: string, value: unknown, tab?: string | A selection, tab, or slider value changed; root Tab changes also include the stable `tab` name. |
+| CHANGE | name: string, value: unknown | A selection, tab, or setting changed; root Tab places its stable page name in `value`. |
 | VISIBILITYCHANGE | name: string, state: 'visible' \| 'hidden' | A named panel became `visible` or `hidden`. |
 
 ### MouseEvent
@@ -269,6 +271,6 @@ The shared `Code` table contains the concrete `NET_STATUS` codes; see [Common ev
 ## Known boundaries
 
 - Pending responder entries have no timeout-based cleanup.
-- Contacts, Conversations, Conversation, and Dashboard assemble components; the old Dialog, Workspace, and component-level Contacts/Conversations/Transcript are removed.
+- Contacts, Conversations, Conversation, and Dashboard follow their scoped roles; People, Group, Contact, the old Dialog and Workspace, and component-level Contacts/Conversations/Transcript are removed.
 - There is no normalized user-list, call-state, mute, kick, or recording-control model.
 - UI content uses `innerHTML` in multiple places; untrusted text needs sanitization.

@@ -1,41 +1,33 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
-        MouseEvent = events.MouseEvent,
-        TimerEvent = events.TimerEvent,
         RTC = odd.RTC,
         UI = RTC.UI,
         components = UI.components,
 
         CLASS_DASHBOARD = 'pe-dashboard',
 
-        _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
+        _regi = /\[([a-z]+)\:([a-z]+)=([^\]]*)\]/gi,
         _default = {
             kind: 'Dashboard',
-            layout: '[Panel:stats=][Panel:settings=Settings]',
+            layout: '[Settings:settings=]',
             visibility: true,
         };
 
     function Dashboard(config, logger) {
-        EventDispatcher.call(this, 'Dashboard', { logger: logger }, [MouseEvent.CLICK]);
+        EventDispatcher.call(this, 'Dashboard', { logger: logger }, Event);
 
         var _this = this,
             _logger = logger,
-            _container,
-            _content;
+            _container;
 
         function _init() {
             _this.config = config;
             _this.components = {};
 
             _container = utils.createElement('div', CLASS_DASHBOARD);
-            _content = utils.createElement('div');
-            _content.addEventListener('click', _onClick);
-            _container.appendChild(_content);
-
             _buildComponents();
         }
 
@@ -43,65 +35,39 @@
             var arr;
             while ((arr = _regi.exec(_this.config.layout)) !== null) {
                 try {
-                    _buildComponent(_content, arr[1], arr[2], arr[3]);
+                    var component = new components[arr[1]](arr[2], arr[3], _logger);
+                    component.addGlobalListener(_this.forward);
+                    _container.appendChild(component.element());
+                    _this.components[arr[2]] = component;
                 } catch (err) {
-                    _logger.error('Failed to build component: type=' + arr[1] + ', name=' + arr[2] + ', Error=' + err.message);
+                    _logger.error('Failed to build component: type=' + arr[1] + ', name=' + arr[2] + ', error=' + err.message);
                 }
             }
-        }
-
-        function _buildComponent(container, type, name, value) {
-            var component = new components[type](name, value, _logger);
-            if (utils.typeOf(component.addGlobalListener) === 'function') {
-                component.addGlobalListener(_this.forward);
-            }
-            var element = component.element();
-            if (value !== undefined) {
-                var tooltip;
-                if (utils.typeOf(components[value]) === 'function') {
-                    tooltip = new components[value](name, value, _logger);
-                    element.insertAdjacentElement('afterbegin', tooltip.element());
-                } else {
-                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
-                    tooltip.innerHTML = value;
-                    element.insertAdjacentElement('afterbegin', tooltip);
-                }
-                component.tooltip = tooltip;
-            }
-            container.appendChild(element);
-            _this.components[name] = component;
         }
 
         _this.update = function (name, data) {
-            var panel = _this.components[name];
-            if (panel) {
-                panel.update(data);
-            }
-        };
-
-        _this.clear = function (name) {
-            var panel = _this.components[name];
-            if (panel) {
-                panel.clear();
+            var component = _this.components[name];
+            if (component) {
+                component.update(data);
             }
         };
 
         _this.show = function (name) {
             utils.forEach(_this.components, function (key, component) {
-                if (component.kind === 'Panel' && key !== name) {
+                if (key !== name) {
                     component.hide();
                 }
             });
-            var panel = _this.components[name];
-            if (panel) {
-                panel.show();
+            var component = _this.components[name];
+            if (component) {
+                component.show();
             }
         };
 
         _this.hide = function (name) {
-            var panel = _this.components[name];
-            if (panel) {
-                panel.hide();
+            var component = _this.components[name];
+            if (component) {
+                component.hide();
             }
         };
 
@@ -110,7 +76,9 @@
         };
 
         _this.resize = function (width, height) {
-
+            utils.forEach(_this.components, function (_, component) {
+                component.resize(width, height);
+            });
         };
 
         _this.destroy = function () {
@@ -119,6 +87,7 @@
                 component.destroy();
             });
             _this.components = {};
+            _container.innerHTML = '';
         };
 
         _init();

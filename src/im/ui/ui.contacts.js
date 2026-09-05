@@ -5,16 +5,13 @@
         MouseEvent = events.MouseEvent,
         IM = odd.IM,
         UI = IM.UI,
-        components = UI.components,
+        Avatar = UI.components.Avatar,
 
         CLASS_CONTACTS = 'im-contacts',
-        _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
+        CLASS_CONTACT = 'im-contact',
         _default = {
             kind: 'Contacts',
             tab: 'contacts',
-            label: '联系人',
-            layout: '[Contact:contact=]',
-            contacts: [],
             active: '',
             visibility: true,
         };
@@ -23,54 +20,79 @@
         EventDispatcher.call(this, 'Contacts', { logger: logger }, MouseEvent);
 
         var _this = this,
-            _container;
+            _container,
+            _items;
 
         function _init() {
             _this.config = config;
-            _this.components = {};
+            _items = {};
             _container = utils.createElement('div', CLASS_CONTACTS);
-            _this.update(config.contacts);
-            _this.active(config.active);
         }
 
-        function _build(data) {
-            var arr;
-            while ((arr = _regi.exec(_this.config.layout)) !== null) {
-                var component = new components[arr[1]](data.id || arr[2], data, logger);
-                component.addGlobalListener(_onComponentEvent);
-                _container.appendChild(component.element());
-                _this.components[data.id] = component;
+        _this.add = function (id, type, name, avatar) {
+            _this.remove(id);
+
+            var data = {
+                id: id,
+                type: type,
+                name: name,
+                avatar: avatar,
+            },
+                element = utils.createElement('div', CLASS_CONTACT),
+                image = new Avatar('avatar', data, logger),
+                title = utils.createElement('strong');
+            element.setAttribute('id', id);
+            element.setAttribute('type', type);
+            element.setAttribute('state', 'off');
+            element.addEventListener('click', _onClick);
+            title.textContent = name || id;
+            element.appendChild(image.element());
+            element.appendChild(title);
+            _container.appendChild(element);
+            _items[id] = {
+                data: data,
+                element: element,
+                avatar: image,
+            };
+            if (String(_this.config.active) === String(id)) {
+                element.setAttribute('state', 'on');
             }
-        }
+            return element;
+        };
 
-        function _onComponentEvent(e) {
-            _this.active(e.data.id);
-            _this.forward(e);
-        }
+        _this.remove = function (id) {
+            var item = _items[id];
+            if (!item) {
+                return;
+            }
+            item.element.removeEventListener('click', _onClick);
+            if (item.element.parentNode) {
+                item.element.parentNode.removeChild(item.element);
+            }
+            item.avatar.destroy();
+            delete _items[id];
+            if (String(_this.config.active) === String(id)) {
+                _this.config.active = '';
+            }
+        };
 
-        _this.update = function (value) {
-            utils.forEach(_this.components, function (_, component) {
-                component.removeGlobalListener(_onComponentEvent);
-                component.destroy();
+        function _onClick(e) {
+            var item = _items[e.currentTarget.getAttribute('id')];
+            if (!item) {
+                return;
+            }
+            _this.active(item.data.id);
+            _this.dispatchEvent(MouseEvent.CLICK, {
+                name: 'contact',
+                data: item.data,
             });
-            _this.components = {};
-            utils.emptyElement(_container);
-            _this.config.contacts = value || [];
-            for (var i = 0; i < _this.config.contacts.length; i++) {
-                _build(_this.config.contacts[i]);
-            }
-            return _this.config.contacts;
-        };
-
-        _this.data = function () {
-            return _this.config.contacts;
-        };
+        }
 
         _this.active = function (value) {
             if (value !== undefined) {
                 _this.config.active = value;
-                utils.forEach(_this.components, function (id, component) {
-                    component.state(id === String(value) ? 'on' : 'off');
+                utils.forEach(_items, function (id, item) {
+                    item.element.setAttribute('state', id === String(value) ? 'on' : 'off');
                 });
             }
             return _this.config.active;
@@ -80,18 +102,17 @@
             return _container;
         };
 
-        _this.resize = function (width, height) {
-            utils.forEach(_this.components, function (_, component) {
-                component.resize(width, height);
-            });
+        _this.resize = function () {
         };
 
         _this.destroy = function () {
-            utils.forEach(_this.components, function (_, component) {
-                component.removeGlobalListener(_onComponentEvent);
-                component.destroy();
+            var ids = [];
+            utils.forEach(_items, function (id) {
+                ids.push(id);
             });
-            _this.components = {};
+            for (var i = 0; i < ids.length; i++) {
+                _this.remove(ids[i]);
+            }
         };
 
         _init();
@@ -104,4 +125,5 @@
 
     UI.register(Contacts);
 })(odd);
+
 

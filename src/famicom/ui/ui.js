@@ -443,26 +443,6 @@
         }
 
         function _onClick(e) {
-            var display = _this.plugins['Display'],
-                key = {
-                    'select': Key.SELECT,
-                    'start': Key.START,
-                    'b': Key.B,
-                    'a': Key.A,
-                }[e.data.name];
-            if (e.target === display && key) {
-                var port = _api.ports()[0];
-                if (port === undefined) {
-                    return;
-                }
-                _api.keyDown(port, key);
-                setTimeout(function () {
-                    if (_api) {
-                        _api.keyUp(port, key);
-                    }
-                }, 50);
-                return;
-            }
             var h = {
                 'capture': _this.capture,
                 'muted': function () { _this.muted(e.data.state === 'on'); },
@@ -481,6 +461,15 @@
 
         function _onChange(e) {
             var h = {
+                'keyboard': function () {
+                    var binding = e.data.value;
+                    utils.forEach(_this.config.keyboard, function (code, value) {
+                        if (value[0] === binding.port && value[1] === binding.key) {
+                            delete _this.config.keyboard[code];
+                        }
+                    });
+                    _this.config.keyboard[binding.code] = [binding.port, binding.key];
+                },
                 'timebar': function () {
                     var duration = _api.duration();
                     if (duration) {
@@ -734,6 +723,17 @@
         function _showPanel(name) {
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard) {
+                if (name === 'settings') {
+                    dashboard.update('settings', {
+                        groups: [{
+                            name: 'P1',
+                            value: _this.config.keyboard,
+                        }, {
+                            name: 'P2',
+                            value: _this.config.keyboard,
+                        }],
+                    });
+                }
                 dashboard.show(name);
             }
         }
@@ -853,7 +853,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', error=' + err.message);
         }
     };
 

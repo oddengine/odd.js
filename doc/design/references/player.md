@@ -75,11 +75,11 @@ Rows follow the defined product layering order: the farther down a row appears, 
 
 | Target / current mapping | Status | Main role / configuration |
 | --- | --- | --- |
-| <a id="cap-content"></a>`Content` abstraction; current `Chat` mapping | **Planned abstraction / Partial mapping** | Live/WatchParty/RTC/IM target is not registered; `Chat` provides an RTC-dependent local/remote video list with `client`, `rtc`, `service`, `visibility` |
+| <a id="cap-content"></a>`Content` abstraction; current `Chat` mapping | **Planned abstraction / Partial mapping** | Live/WatchParty/RTC/IM target is not registered; `Chat` provides an RTC-dependent local/remote video list with `profile`, `camera`, `microphone`, `client`, `rtc`, `service`, `visibility` |
 | <a id="cap-subtitle-plugin"></a>`Subtitle` | **Planned** | No parser, renderer, or plugin |
 | <a id="cap-poster"></a>`Poster` | **Verified** | `file`, `cors`, `objectfit`, `visibility` |
-| <a id="cap-comment"></a>`Comment`; current `Danmu` | **Verified implementation / Naming mismatch** | Comment motion; `speed`, `lineHeight`, `enable`, `visibility` |
-| <a id="cap-dashboard"></a>`Dashboard`; current `Display` | **Partial target mapping** | State/error, metadata, and statistics panels; `layout`, `ondoubleclick`, `visibility` |
+| <a id="cap-comment"></a>`Comments` | **Verified implementation** | Moving comments; `speed`, `lineHeight`, `enable`, `visibility` |
+| <a id="cap-dashboard"></a>`Dashboard` | **Implemented** | Info/Stats Panels plus Settings; the Chat group edits profile, camera, and microphone |
 | `AD` | **Verified primitive** | Inserts/removes caller-provided DOM; `visibility` |
 | `Share` | **Verified primitive** | Inserts caller-provided DOM; `visibility` |
 | <a id="cap-logo"></a>`Logo` | **Verified** | `file`, `link`, `cors`, `target`, `style`, `visibility` |
@@ -163,8 +163,8 @@ After Core binding, the UI also forwards the Core instance interfaces above. The
 | --- | --- | --- |
 | `setup` | container: HTMLElement, config: PlayerUIConfig | Builds the UI and initializes the paired Core. |
 | `chat` | enable: boolean | Enables or disables the chat UI when the plugin is installed. |
-| `danmu` | enable: boolean | Enables or disables danmu rendering. |
-| `shoot` | text: string, data?: unknown | Sends a comment to the Danmu plugin. |
+| `comments` | enable: boolean | Enables or disables moving comments. |
+| `comment` | text: string, data?: unknown | Sends a moving comment to the Comments plugin. |
 | `displayAD` | element: HTMLElement | Displays content through the AD plugin. |
 | `removeAD` | — | Removes the content displayed by the AD plugin. |
 | `fullpage` | status?: boolean | Reads or sets page-filling mode. |
@@ -237,7 +237,7 @@ All callbacks receive `{ type, data, target, srcElement, ... }`. The Properties 
 
 | Type | Properties | Meaning |
 | :--- | :--- | :--- |
-| SHOOTING | text: string, data?: unknown | A danmu message was submitted. |
+| SHOOTING | text: string, data?: unknown | A moving comment was submitted. |
 | FULLPAGE | status: boolean | Full-page mode changed. |
 | FULLSCREEN | status: boolean | Browser fullscreen state changed. |
 | RESIZE | width: number, height: number | The Player UI was resized. |

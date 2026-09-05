@@ -2,6 +2,7 @@
     var utils = odd.utils,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
+        Event = events.Event,
         MouseEvent = events.MouseEvent,
         Player = odd.Player,
         UI = Player.UI,
@@ -16,7 +17,7 @@
         };
 
     function Playlist(config, logger) {
-        EventDispatcher.call(this, 'Playlist', { logger: logger }, MouseEvent);
+        EventDispatcher.call(this, 'Playlist', { logger: logger }, [Event.CHANGE, MouseEvent.CLICK]);
 
         var _this = this,
             _container,
@@ -56,7 +57,7 @@
                 option.appendChild(snapshot);
             }
 
-            var title = utils.createElement('strong')
+            var title = utils.createElement('strong');
             title.textContent = item.title;
             option.appendChild(title);
 
@@ -68,7 +69,7 @@
         }
 
         function _onItemClick(e) {
-            var index = indexOf(_list.children, e.target);
+            var index = utils.indexOf(_list.children, e.currentTarget);
             _this.select(index);
         }
 
@@ -98,7 +99,7 @@
 
                 var option = _list.children[_index];
                 option.classList.toggle('selected', true);
-                _this.dispatchEvent(Event.CHANGE, { name: _name, index: index });
+                _this.dispatchEvent(Event.CHANGE, { name: 'playlist', value: index });
             }
         };
 

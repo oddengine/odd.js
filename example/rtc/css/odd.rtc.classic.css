@@ -92,46 +92,17 @@
     border: 0;
     border-radius: 11px;
     color: #fff;
-    background: rgba(255, 255, 255, .08);
+    background-color: rgba(255, 255, 255, .08);
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="%23E6E6E6" class="icon" viewBox="0 0 1024 1024"><path d="M256 192h512c35.392 0 64 28.608 64 64v512c0 35.392-28.608 64-64 64H256c-35.392 0-64-28.608-64-64V256c0-35.392 28.608-64 64-64z"/></svg>');
+    background-position: center;
+    background-repeat: no-repeat;
     cursor: pointer;
 }
 
 .pe-wrapper[kind="rtc"] .pe-button:hover,
 .pe-wrapper[kind="rtc"] .pe-toggle:hover {
-    background: rgba(255, 255, 255, .16);
-}
-
-.pe-wrapper[kind="rtc"] .pe-button::after,
-.pe-wrapper[kind="rtc"] .pe-toggle::after {
-    font: 700 11px/1 system-ui, sans-serif;
-}
-
-.pe-wrapper[kind="rtc"] .microphone::after {
-    content: "MIC";
-}
-
-.pe-wrapper[kind="rtc"] .camera::after {
-    content: "CAM";
-}
-
-.pe-wrapper[kind="rtc"] .sharing::after {
-    content: "SHR";
-}
-
-.pe-wrapper[kind="rtc"] .calling::after {
-    content: "CALL";
-}
-
-.pe-wrapper[kind="rtc"] .layout::after {
-    content: "LAY";
-}
-
-.pe-wrapper[kind="rtc"] .settings::after {
-    content: "SET";
-}
-
-.pe-wrapper[kind="rtc"] .fullscreen::after {
-    content: "FS";
+    background-color: rgba(255, 255, 255, .16);
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="%2300AAEE" class="icon" viewBox="0 0 1024 1024"><path d="M256 192h512c35.392 0 64 28.608 64 64v512c0 35.392-28.608 64-64 64H256c-35.392 0-64-28.608-64-64V256c0-35.392 28.608-64 64-64z"/></svg>');
 }
 
 .pe-wrapper[kind="rtc"] .pe-tooltip,
@@ -139,25 +110,120 @@
     display: none;
 }
 
+.pe-wrapper[kind="rtc"] .pe-dashboard {
+    inset: 0;
+    position: absolute;
+    z-index: 4;
+    pointer-events: none;
+}
+
+.pe-wrapper[kind="rtc"] .pe-panel.settings {
+    width: min(560px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
+    padding: 18px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: none;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    background: rgba(18, 22, 27, .98);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, .48);
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+}
+
+.pe-wrapper[kind="rtc"] .pe-panel.settings>div {
+    display: grid;
+    gap: 16px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-group {
+    display: grid;
+    gap: 10px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-title {
+    margin: 0;
+    font-size: 15px;
+    line-height: 22px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-preview {
+    width: 100%;
+    height: min(240px, 30vh);
+    min-height: 180px;
+    display: block;
+    overflow: hidden;
+    border-radius: 10px;
+    object-fit: contain;
+    background: #07090c;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-content {
+    display: grid;
+    gap: 10px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-content label {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-content select {
+    min-width: 0;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 8px;
+    color: #f4f6f8;
+    background: #11151a;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.pe-wrapper[kind="rtc"] .pe-settings-footer button {
+    min-width: 88px;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    background: #1677ff;
+    cursor: pointer;
+}
+
 .pe-wrapper[kind="rtc"][microphone="off"] .microphone,
 .pe-wrapper[kind="rtc"][camera="off"] .camera {
     color: #ff9b9b;
-    background: rgba(229, 72, 77, .20);
+    background-color: rgba(229, 72, 77, .20);
 }
 
 .pe-wrapper[kind="rtc"][sharing="on"] .sharing {
     color: #09130f;
-    background: #48d7a4;
+    background-color: #48d7a4;
 }
 
 .pe-wrapper[kind="rtc"][calling="on"] .calling {
     color: #fff;
-    background: #d94b54;
+    background-color: #d94b54;
 }
 
 .pe-wrapper[kind="rtc"][fullscreen="true"] .fullscreen {
     color: #09130f;
-    background: #48d7a4;
+    background-color: #48d7a4;
+}
+
+.pe-wrapper[kind="rtc"][theater="true"] .theater {
+    color: #09130f;
+    background-color: #48d7a4;
 }
 
 .pe-wrapper[kind="rtc"][controls="never"] .pe-controlbar,

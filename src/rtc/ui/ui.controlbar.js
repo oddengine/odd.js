@@ -20,6 +20,8 @@
                     '[Toggle:calling=off off=Call;on=Hang Up]' +
                     '|' +
                     '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
+                    '[Button:settings=Settings]' +
+                    '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
                     '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
             autohide: true,
             visibility: true,
@@ -64,23 +66,8 @@
 
         function _buildComponent(container, type, name, value) {
             var component = new components[type](name, value, _logger);
-            if (utils.typeOf(component.addGlobalListener) === 'function') {
-                component.addGlobalListener(_this.forward);
-            }
-            var element = component.element();
-            if (value !== undefined) {
-                var tooltip;
-                if (utils.typeOf(components[value]) === 'function') {
-                    tooltip = new components[value](name, value, _logger);
-                    element.insertAdjacentElement('afterbegin', tooltip.element());
-                } else {
-                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
-                    tooltip.innerHTML = value;
-                    element.insertAdjacentElement('afterbegin', tooltip);
-                }
-                component.tooltip = tooltip;
-            }
-            container.appendChild(element);
+            component.addGlobalListener(_this.forward);
+            container.appendChild(component.element());
             _this.components[name] = component;
         }
 

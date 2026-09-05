@@ -3,29 +3,23 @@ var ui,
     violet = false,
     contacts = [{
         id: 'maya',
+        type: 'people',
         name: 'Maya Chen',
-        group: '好友',
-        status: '正在看直播',
-        time: '刚刚',
-        unread: 2,
-        online: true,
+        message: '正在看直播',
+        date: '刚刚',
     }, {
         id: 'leo',
+        type: 'people',
         name: 'Leo Wang',
-        group: '好友',
-        status: '在线',
-        time: '12:08',
-        online: true,
+        message: '在线',
+        date: '12:08',
     }, {
         id: 'design',
-        name: '产品设计群',
         type: 'group',
-        group: '群聊',
-        status: '8 人在线',
-        time: '昨天',
-        online: true,
+        name: '产品设计群',
+        message: '8 人在线',
+        date: '昨天',
     }],
-    conversations = [contacts[0], contacts[1], contacts[2]],
     messages = {
         maya: [{ from: 'Maya Chen', text: '晚上一起看直播？', time: '20:06' }],
         leo: [{ from: 'Leo Wang', text: '游戏房间已经准备好了。', time: '12:08' }],
@@ -41,11 +35,10 @@ if (!window.odd || !odd.app || !odd.app.ui) {
             im: {
                 plugins: [{
                     kind: 'Contacts',
-                    contacts: contacts,
+                    active: 'maya',
                 }, {
                     kind: 'Conversations',
                     active: 'maya',
-                    conversations: conversations,
                 }, {
                     kind: 'Dashboard',
                     visibility: false,
@@ -58,7 +51,13 @@ if (!window.odd || !odd.app || !odd.app.ui) {
             },
         },
     }).then(function () {
-        var smoke = document.getElementById('smoke');
+        var smoke = document.getElementById('smoke'),
+            im = ui.module('im');
+        contacts.forEach(function (item) {
+            im.plugins['Contacts'].add(item.id, item.type, item.name, item.avatar);
+            im.plugins['Conversations'].add(item.id, item.type, item.name, item.avatar);
+            im.plugins['Conversations'].update(item.id, item.date, item.message);
+        });
         ['im', 'player', 'game', 'meeting'].forEach(function (name) {
             if (!ui.module(name)) {
                 throw new Error('模块未初始化：' + name);

@@ -30,7 +30,7 @@
             _container.appendChild(_body);
         }
 
-        _this.insert = function (name, selector, content, option) {
+        _this.insert = function (name, content, option) {
             option = utils.extendz({ index: NaN, active: 'auto' }, option);
             if (isNaN(option.index)) {
                 option.index = _head.children.length;
@@ -39,18 +39,14 @@
                 option.active = true;
             }
 
-            var item = utils.createElement('div', CLASS_TAB_ITEM + ' ' + name);
+            var item = utils.createElement('button', CLASS_TAB_ITEM + ' ' + name);
             var page = utils.createElement('div', CLASS_TAB_PAGE + ' ' + name);
+            item.type = 'button';
             item.setAttribute('name', name);
             item.setAttribute('state', 'off');
             page.setAttribute('name', name);
             page.setAttribute('state', 'off');
             item.addEventListener('click', _onClick);
-            if (typeof selector === 'object') {
-                item.appendChild(selector);
-            } else {
-                item.innerHTML = selector;
-            }
             page.appendChild(content);
 
             if (option.index === 0) {
@@ -102,8 +98,7 @@
             if (index !== origin) {
                 _this.dispatchEvent(Event.CHANGE, {
                     name: _name,
-                    value: index,
-                    tab: _active.getAttribute('name'),
+                    value: _active.getAttribute('name'),
                 });
             }
             return _active.getAttribute('name');
@@ -132,7 +127,9 @@
         };
 
         _this.destroy = function () {
-            _container.removeEventListener('click', _onClick);
+            for (var i = 0; i < _head.children.length; i++) {
+                _head.children[i].removeEventListener('click', _onClick);
+            }
             _container.innerHTML = '';
         };
 

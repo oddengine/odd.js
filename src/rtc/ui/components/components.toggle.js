@@ -89,6 +89,10 @@
             return _container;
         };
 
+        _this.tooltip = function () {
+            return _tooltip;
+        };
+
         _this.resize = function () {
 
         };

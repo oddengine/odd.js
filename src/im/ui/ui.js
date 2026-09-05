@@ -146,7 +146,7 @@
                         var content = utils.createElement('div', 'im-plugins im-plugins-' + tab);
                         page = {
                             content: content,
-                            index: _nav.insert(tab, config.label || '', content),
+                            index: _nav.insert(tab, content),
                         };
                         _tabs[tab] = page;
                     }
@@ -180,17 +180,30 @@
         }
 
         function _onClick(e) {
-            if (e.data.name === 'contact' || e.data.name === 'conversation') {
-                var conversation = _this.plugins['Conversation'];
-                if (conversation) {
-                    conversation.active(e.data.id, e.data.contact || e.data.conversation);
-                    if (_this.plugins['Conversations']) {
-                        _this.plugins['Conversations'].active(e.data.id);
-                    }
-                    _nav.active(_pages['Conversation']);
-                }
+            var h = {
+                'contact': function () { _onContactClick(e); },
+                'conversation': function () { _onConversationClick(e); },
+            }[e.data.name];
+            if (h) {
+                h();
+            } else {
+                _this.forward(e);
             }
-            _this.forward(e);
+        }
+
+        function _onContactClick(e) {
+
+        }
+
+        function _onConversationClick(e) {
+            var conversation = _this.plugins['Conversation'];
+            if (conversation) {
+                conversation.active(e.data.id, e.data.contact || e.data.conversation);
+                if (_this.plugins['Conversations']) {
+                    _this.plugins['Conversations'].active(e.data.id);
+                }
+                _nav.active(_pages['Conversation']);
+            }
         }
 
         function _onChange(e) {
@@ -265,11 +278,11 @@
             return _this.attachPlugin(kind, home, presentation || 'full');
         };
 
-        _this.insert = function (name, selector, content, option) {
+        _this.insert = function (name, content, option) {
             if (!content || !content.nodeType) {
                 throw { name: 'DataError', message: 'IM UI tab content must be a DOM element.' };
             }
-            var index = _nav.insert(name, selector || '', content, option);
+            var index = _nav.insert(name, content, option);
             _tabs[name] = { content: content, index: index };
             _wrapper.setAttribute('navigation', _nav.length() > 1 ? 'on' : 'off');
             return index;
@@ -340,7 +353,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', error=' + err.message);
         }
     };
 

@@ -21,6 +21,8 @@
             presentation: 'full', // full, mini, popup
             skin: 'classic',
             profile: '720P_2',
+            camera: '',
+            microphone: '',
             whip: `${location.protocol}//${location.host}/whip/live`,
             whep: `${location.protocol}//${location.host}/whep/live`,
             trickle: false,
@@ -47,8 +49,12 @@
             _container,
             _wrapper,
             _content,
+            _constraints,
             _api,
-            _publisher,
+            _calling,
+            _sharing,
+            _preview,
+            _subscribing,
             _timer;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
@@ -56,6 +62,7 @@
         function _init() {
             _this.logger = _logger;
             _this.plugins = {};
+            _subscribing = {};
 
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
@@ -68,6 +75,7 @@
         _this.setup = async function (container, config) {
             _container = container;
             _parseConfig(config || {});
+            _constraints = _getConstraints(_this.config);
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
             _wrapper.setAttribute('kind', 'rtc');
@@ -112,6 +120,26 @@
 
             _this.config = utils.extendz({ id: _id }, RTC.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
+        }
+
+        function _getConstraints(config) {
+            var constraints = utils.extendz({}, Constraints[config.profile], {
+                audio: {
+                    deviceId: config.microphone || '',
+                },
+                video: {
+                    deviceId: config.camera || '',
+                    facingMode: 'user',
+                    cursor: 'always', // always, motion, never
+                },
+            });
+            if (_wrapper && _wrapper.getAttribute('microphone') === 'off') {
+                constraints.audio = false;
+            }
+            if (_wrapper && _wrapper.getAttribute('camera') === 'off') {
+                constraints.video = false;
+            }
+            return constraints;
         }
 
         function _buildPlugins() {
@@ -183,58 +211,146 @@
             _this.forward(e);
         }
 
-        _this.preview = async function (screensharing, withcamera, option) {
-            if (_publisher) {
-                _this.stop(_publisher.name());
+        _this.call = function () {
+            if (_calling) {
+                return Promise.resolve(_calling);
             }
-            _publisher = await _api.preview(Constraints[_this.config.profile], !!screensharing, !!withcamera, option);
-            _content.appendChild(_publisher.element());
-            _publisher.enabled('audio', _wrapper.getAttribute('microphone') === 'on');
-            _publisher.enabled('video', _wrapper.getAttribute('camera') === 'on');
-            _wrapper.setAttribute('sharing', screensharing ? 'on' : 'off');
-            _wrapper.setAttribute('calling', 'off');
-            return _publisher;
+            return _api.publish(_constraints, false, false).then(function (ns) {
+                _calling = ns;
+                ns.addEventListener(Event.RELEASE, _onStreamRelease);
+                ns.element().classList.add('pe-rtc-calling');
+                _content.appendChild(ns.element());
+                _wrapper.setAttribute('calling', 'on');
+                return ns;
+            });
         };
 
-        _this.publish = async function (screensharing, withcamera, option) {
-            if (_publisher) {
-                _this.stop(_publisher.name());
+        _this.hangup = function () {
+            if (_calling) {
+                _api.stop(_calling.name());
             }
-            _publisher = await _api.publish(Constraints[_this.config.profile], !!screensharing, !!withcamera, option);
-            _content.appendChild(_publisher.element());
-            _publisher.enabled('audio', _wrapper.getAttribute('microphone') === 'on');
-            _publisher.enabled('video', _wrapper.getAttribute('camera') === 'on');
-            _wrapper.setAttribute('sharing', screensharing ? 'on' : 'off');
-            _wrapper.setAttribute('calling', 'on');
-            return _publisher;
+            _wrapper.setAttribute('calling', 'off');
+            return Promise.resolve();
+        };
+
+        _this.share = function () {
+            if (_sharing) {
+                return Promise.resolve(_sharing);
+            }
+            return _api.publish(_constraints, true, false).then(function (ns) {
+                _sharing = ns;
+                ns.addEventListener(Event.RELEASE, _onStreamRelease);
+                ns.element().classList.add('pe-rtc-sharing');
+                _content.appendChild(ns.element());
+
+                var tracks = ns.stream().getVideoTracks();
+                if (tracks.length) {
+                    tracks[0].addEventListener('ended', _onSharingEnded);
+                }
+                _wrapper.setAttribute('sharing', 'on');
+                return ns;
+            });
+        };
+
+        _this.cancel = function () {
+            if (_sharing) {
+                _api.stop(_sharing.name());
+            }
+            _wrapper.setAttribute('sharing', 'off');
+            return Promise.resolve();
+        };
+
+        _this.microphone = function (enable) {
+            if (enable === undefined) {
+                return _wrapper.getAttribute('microphone') === 'on';
+            }
+            var calling = _wrapper.getAttribute('calling') === 'on';
+            return _this.hangup().then(function () {
+                _wrapper.setAttribute('microphone', enable ? 'on' : 'off');
+                _constraints = _getConstraints(_this.config);
+                if (calling) {
+                    return _this.call();
+                }
+            });
+        };
+
+        _this.camera = function (enable) {
+            if (enable === undefined) {
+                return _wrapper.getAttribute('camera') === 'on';
+            }
+            var calling = _wrapper.getAttribute('calling') === 'on';
+            return _this.hangup().then(function () {
+                _wrapper.setAttribute('camera', enable ? 'on' : 'off');
+                _constraints = _getConstraints(_this.config);
+                if (calling) {
+                    return _this.call();
+                }
+            });
         };
 
         _this.play = async function (name) {
             var ns = await _api.play(name);
+            _subscribing[name] = ns;
+            ns.addEventListener(Event.RELEASE, _onStreamRelease);
+            ns.element().classList.add('pe-rtc-subscribing');
             _content.appendChild(ns.element());
             return ns;
         };
 
         _this.stop = function (name) {
-            _api.stop(name);
-            if (_publisher && (!name || name === _publisher.name())) {
-                var element = _publisher.element();
-                if (element.parentNode) {
-                    element.parentNode.removeChild(element);
+            if (name !== undefined) {
+                if (_subscribing[name]) {
+                    _api.stop(name);
                 }
-                _publisher = null;
-                _wrapper.setAttribute('calling', 'off');
+                return;
+            }
+            var names = [];
+            utils.forEach(_subscribing, function (name) {
+                names.push(name);
+            });
+            for (var i = 0; i < names.length; i++) {
+                _api.stop(names[i]);
             }
         };
+
+        function _onSharingEnded(e) {
+            _this.cancel().catch(function (err) {
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            });
+        }
+
+        function _onStreamRelease(e) {
+            var ns = e.target,
+                element = ns.element();
+            ns.removeEventListener(Event.RELEASE, _onStreamRelease);
+            if (element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+
+            if (ns === _calling) {
+                _calling = null;
+                _wrapper.setAttribute('calling', 'off');
+            } else if (ns === _sharing) {
+                var tracks = ns.stream() ? ns.stream().getVideoTracks() : [];
+                if (tracks.length) {
+                    tracks[0].removeEventListener('ended', _onSharingEnded);
+                }
+                _sharing = null;
+                _wrapper.setAttribute('sharing', 'off');
+            } else if (ns === _preview) {
+                _preview = null;
+                var dashboard = _this.plugins['Dashboard'];
+                if (dashboard && dashboard.components['settings']) {
+                    dashboard.components['settings'].preview(null);
+                }
+            } else {
+                delete _subscribing[ns.name()];
+            }
+        }
 
         _this.layout = function (state) {
             if (state !== undefined) {
                 _wrapper.setAttribute('layout', state);
-
-                var controlbar = _this.plugins['Controlbar'];
-                if (controlbar) {
-                    controlbar.state('layout', state);
-                }
                 _this.resize();
                 _this.dispatchEvent(Event.CHANGE, { name: 'layout', value: state });
             }
@@ -252,6 +368,7 @@
                 }
 
                 _wrapper.setAttribute('theater', !!status);
+
                 _this.resize();
                 _this.dispatchEvent(UIEvent.THEATER, { status: status });
             }
@@ -260,7 +377,7 @@
 
         _this.fullscreen = function (status) {
             if (status !== undefined) {
-                var video = _publisher ? _publisher.element() : _content.querySelector('video');
+                var video = _sharing ? _sharing.element() : _calling ? _calling.element() : _content.querySelector('video');
                 if (!!status) {
                     var requestFullscreen = _wrapper.requestFullscreen
                         || _wrapper.webkitRequestFullScreen
@@ -355,6 +472,9 @@
                 case MouseEvent.DOUBLECLICK:
                     _onDoubleClick(e);
                     break;
+                case Event.CHANGE:
+                    _onChange(e);
+                    break;
                 default:
                     _this.forward(e);
                     break;
@@ -370,6 +490,7 @@
                 'layout': function () { _this.layout(e.data.state); },
                 'stats': function () { _showPanel(e.data.name); },
                 'settings': function () { _showPanel(e.data.name); },
+                'theater': function () { _this.theater(e.data.state !== 'off'); },
                 'fullscreen': function () { _this.fullscreen(e.data.state !== 'off'); },
             }[e.data.name];
             if (h) {
@@ -379,60 +500,72 @@
             }
         }
 
-        function _onMicrophoneClick(e) {
-            var state = e.data.state;
-            if (_publisher) {
-                _publisher.enabled('audio', state === 'on');
+        async function _onMicrophoneClick(e) {
+            try {
+                await _this.microphone(e.data.state === 'on');
+            } catch (err) {
+                _onControlError('microphone', err);
             }
-            _wrapper.setAttribute('microphone', state);
         }
 
-        function _onCameraClick(e) {
-            var state = e.data.state;
-            if (_publisher) {
-                _publisher.enabled('video', state === 'on');
+        async function _onCameraClick(e) {
+            try {
+                await _this.camera(e.data.state === 'on');
+            } catch (err) {
+                _onControlError('camera', err);
             }
-            _wrapper.setAttribute('camera', state);
         }
 
         async function _onSharingClick(e) {
-            var state = e.data.state,
-                previous = _wrapper.getAttribute('sharing'),
-                calling = _wrapper.getAttribute('calling') === 'on';
             try {
-                if (calling) {
-                    await _this.publish(state === 'on', false);
+                if (e.data.state === 'on') {
+                    await _this.share();
                 } else {
-                    await _this.preview(state === 'on', false);
+                    await _this.cancel();
                 }
             } catch (err) {
-                _wrapper.setAttribute('sharing', previous);
-
-                var controlbar = _this.plugins['Controlbar'];
-                if (controlbar) {
-                    controlbar.state('sharing', previous);
-                }
-                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                _onControlError('sharing', err);
             }
         }
 
         async function _onCallingClick(e) {
-            var state = e.data.state,
-                previous = _wrapper.getAttribute('calling'),
-                sharing = _wrapper.getAttribute('sharing') === 'on';
             try {
-                if (state === 'on') {
-                    await _this.publish(sharing, false);
+                if (e.data.state === 'on') {
+                    await _this.call();
                 } else {
-                    await _this.preview(sharing, false);
+                    await _this.hangup();
                 }
             } catch (err) {
-                _wrapper.setAttribute('calling', previous);
-                var controlbar = _this.plugins['Controlbar'];
-                if (controlbar) {
-                    controlbar.state('calling', previous);
-                }
-                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                _onControlError('calling', err);
+            }
+        }
+
+        function _onControlError(name, err) {
+            var enable = {
+                microphone: _constraints.audio !== false,
+                camera: _constraints.video !== false,
+                sharing: !!_sharing,
+                calling: !!_calling,
+            }[name];
+            _wrapper.setAttribute(name, enable ? 'on' : 'off');
+            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+        }
+
+        function _onChange(e) {
+            switch (e.data.name) {
+                case 'preview':
+                    _previewSettings(e.data.value).catch(function (err) {
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                    });
+                    break;
+                case 'save':
+                    _saveSettings(e.data.value).catch(function (err) {
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                    });
+                    break;
+                default:
+                    _this.forward(e);
+                    break;
             }
         }
 
@@ -526,8 +659,93 @@
 
         function _showPanel(name) {
             var dashboard = _this.plugins['Dashboard'];
-            if (dashboard) {
+            if (!dashboard) {
+                return;
+            }
+            if (name !== 'settings') {
                 dashboard.show(name);
+                return;
+            }
+
+            Promise.all([
+                RTC.getCameras(_logger),
+                RTC.getMicrophones(_logger),
+            ]).then(function (devices) {
+                var profiles = [];
+                utils.forEach(Constraints, function (profile) {
+                    profiles.push(profile);
+                });
+                dashboard.update('settings', {
+                    groups: [{
+                        name: 'video',
+                        title: 'Video',
+                        items: [{
+                            name: 'profile',
+                            type: 'select',
+                            value: _this.config.profile,
+                            options: profiles,
+                        }, {
+                            name: 'camera',
+                            type: 'select',
+                            value: _this.config.camera,
+                            options: devices[0],
+                        }],
+                    }, {
+                        name: 'audio',
+                        title: 'Audio',
+                        items: [{
+                            name: 'microphone',
+                            type: 'select',
+                            value: _this.config.microphone,
+                            options: devices[1],
+                        }],
+                    }],
+                });
+                dashboard.show('settings');
+            });
+        }
+
+        function _previewSettings(settings) {
+            if (_preview) {
+                _api.stop(_preview.name());
+            }
+            var config = utils.extendz({}, _this.config, settings);
+            return _api.preview(_getConstraints(config), false, false).then(function (ns) {
+                _preview = ns;
+                ns.addEventListener(Event.RELEASE, _onStreamRelease);
+
+                var dashboard = _this.plugins['Dashboard'];
+                if (dashboard && dashboard.components['settings']) {
+                    dashboard.components['settings'].preview(ns.element());
+                }
+                return ns;
+            });
+        }
+
+        async function _saveSettings(settings) {
+            var calling = _wrapper.getAttribute('calling') === 'on',
+                sharing = _wrapper.getAttribute('sharing') === 'on';
+            if (_preview) {
+                _api.stop(_preview.name());
+            }
+            await _this.hangup();
+            await _this.cancel();
+
+            _this.config.profile = settings.profile;
+            _this.config.camera = settings.camera;
+            _this.config.microphone = settings.microphone;
+            _constraints = _getConstraints(_this.config);
+
+            if (calling) {
+                await _this.call();
+            }
+            if (sharing) {
+                await _this.share();
+            }
+
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                dashboard.hide('settings');
             }
         }
 
@@ -549,6 +767,8 @@
 
             e.type = Event.ERROR;
             _onStateChange(e);
+            _this.hangup();
+            _this.cancel();
             _this.stop();
         }
 
@@ -653,7 +873,7 @@
             _default.plugins.splice(index || _default.plugins.length, 0, plugin);
             UI[plugin.prototype.kind] = plugin;
         } catch (err) {
-            console.error('Failed to register plugin ' + plugin.prototype.kind + ', Error=' + err.message);
+            console.error('Failed to register plugin ' + plugin.prototype.kind + ', error=' + err.message);
         }
     };
 

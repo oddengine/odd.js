@@ -16,17 +16,17 @@ WHIP/WHEP POST reads an absolute or relative `Location`; PATCH candidate and DEL
 
 ## UI event/state contract
 
-RTC UI registers a three-section Controlbar made from Button and Toggle components. The four primary click paths are complete:
+RTC Core retains its multi-stream flexibility. RTC UI builds a fixed conferencing model on top: stream 1 carries camera and microphone, while stream 2 is an independent screen share. Both use the same profile/constraint configuration but have separate publishing lifecycles.
 
 | Control | SDK action | Root attribute |
 | --- | --- | --- |
-| microphone | enable/disable local audio tracks | `microphone=on/off` |
-| camera | enable/disable local video tracks | `camera=on/off` |
-| sharing | rebuild preview/publish with display capture | `sharing=on/off` |
-| calling | switch between preview and WHIP publish | `calling=on/off` |
+| microphone | `microphone(enable)`; if stream 1 is publishing, hang up, update `_constraints`, then call again | `microphone=on/off` |
+| camera | `camera(enable)`; uses the same stop/update/republish flow as microphone | `camera=on/off` |
+| sharing | `share()` publishes stream 2; `cancel()` stops only stream 2 | `sharing=on/off` |
+| calling | `call()` publishes stream 1; `hangup()` stops only stream 1 | `calling=on/off` |
 
-`layout=right/top/grid` controls video layout. CSS derives control appearance and layout from these root attributes. Sharing/calling failures restore both Toggle and root state.
+If camera or microphone changes while stream 1 is idle, UI only updates `_constraints`; the next `call()` uses them. `play(name)`/`stop(name?)` manage subscriptions only. `layout=right/top/grid` controls video layout. Root attributes are the sole visible-state authority; Controlbar does not mirror the same state. CSS derives appearance and layout from those attributes.
 
-UI factories are `odd.rtc.ui(id?, logger?)` and `.create(logger?)`. UI exposes `setup`, `preview`, `publish`, `play`, `stop`, `layout`, `theater`, `fullscreen`, `presentation`, `skin`, `element`, `resize`, and `destroy`.
+UI factories are `odd.rtc.ui(id?, logger?)` and `.create(logger?)`. UI exposes `setup`, `call`, `hangup`, `share`, `cancel`, `microphone`, `camera`, `play`, `stop`, `layout`, `theater`, `fullscreen`, `presentation`, `skin`, `element`, `resize`, and `destroy`. Dashboard Settings are ordered as Video and Audio groups. Video owns a fixed preview `video`; Preview/Save events return device and profile changes to UI, and saving rebuilds either publishing stream that was previously active.
 
 Source: [`src/rtc`](../../../src/rtc).

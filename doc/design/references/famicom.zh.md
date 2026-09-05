@@ -40,6 +40,6 @@ byte 1: keys 位图
 
 ## UI
 
-工厂为 `odd.famicom.ui(id?, logger?)` 和 `.create(logger?)`。UI 绑定 Core 方法，注册 Display 与 Controlbar 插件，轮询 Gamepad，在失焦／页面隐藏时释放输入，并提供 presentation、theater、fullscreen、skin、resize、destroy。
+工厂为 `odd.famicom.ui(id?, logger?)` 和 `.create(logger?)`。UI 绑定 Core 方法，注册 Display、Controlbar、Dashboard 插件，轮询 Gamepad，在失焦／页面隐藏时释放输入，并提供 presentation、theater、fullscreen、skin、resize、destroy。Dashboard 的 stats 面板逐字段展示 `STATSCHANGE` 上报的 `fps/decoded/dropped/nack/pli/freeze` 等实时值；Settings 按 Player 1／Player 2 分类编辑现有键盘映射。
 
 源码：[`src/famicom`](../../../src/famicom)。服务端对应 odd.d `HttpGameHandler` 与 `FamicomPlayer`。

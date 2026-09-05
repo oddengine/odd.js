@@ -82,7 +82,7 @@
   - [3.1.4 IM](player.zh.md#cap-content) — IM 构建包映射 — **部分具备**
 - [3.2 Subtitle](player.zh.md#cap-subtitle-plugin) — **待实现**
 - [3.3 Poster](player.zh.md#cap-poster) — **已验证**
-- [3.4 Comment](player.zh.md#cap-comment) — 当前 `Danmu` — **实现已验证／名称不同**
+- [3.4 Comments](player.zh.md#cap-comment) — **实现已验证**
 - [3.5 Dashboard](player.zh.md#cap-dashboard) — 当前 `Display` — **目标映射部分具备**
   - [3.5.1 Metadata](player.zh.md#cap-dashboard) — **已验证**
   - [3.5.2 Stats：首帧、速率、丢帧](player.zh.md#cap-dashboard) — **已验证**

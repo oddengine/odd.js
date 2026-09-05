@@ -7,16 +7,13 @@
         Code = events.Code,
         IM = odd.IM,
         UI = IM.UI,
-        components = UI.components,
+        Avatar = UI.components.Avatar,
 
         CLASS_CONVERSATIONS = 'im-conversations',
-        _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
+        CLASS_CONVERSATION = 'im-conversation-item',
         _default = {
             kind: 'Conversations',
             tab: 'messages',
-            label: '消息',
-            layout: '[Contact:conversation=]',
-            conversations: [],
             active: '',
             visibility: true,
         };
@@ -25,34 +22,90 @@
         EventDispatcher.call(this, 'Conversations', { logger: logger }, MouseEvent);
 
         var _this = this,
-            _container;
+            _container,
+            _items;
 
         function _init() {
             _this.config = config;
-            _this.components = {};
+            _items = {};
             _container = utils.createElement('div', CLASS_CONVERSATIONS);
-            _this.update(config.conversations);
-            _this.active(config.active);
             im.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
         }
 
-        function _build(data) {
-            var arr;
-            while ((arr = _regi.exec(_this.config.layout)) !== null) {
-                var component = new components[arr[1]](data.id || arr[2], data, logger);
-                component.addGlobalListener(_onComponentEvent);
-                _container.appendChild(component.element());
-                _this.components[data.id] = component;
-            }
-        }
+        _this.add = function (id, type, name, avatar) {
+            _this.remove(id);
 
-        function _onComponentEvent(e) {
-            _this.active(e.data.id);
-            _this.dispatchEvent(MouseEvent.CLICK, {
-                name: 'conversation',
-                id: e.data.id,
-                conversation: e.data.contact,
-            });
+            var data = {
+                id: id,
+                type: type,
+                name: name,
+                avatar: avatar,
+            },
+                element = utils.createElement('div', CLASS_CONVERSATION),
+                image = new Avatar('avatar', data, logger),
+                copy = utils.createElement('span', 'im-entry-copy'),
+                line = utils.createElement('span', 'im-entry-line'),
+                title = utils.createElement('strong'),
+                date = utils.createElement('time'),
+                message = utils.createElement('small');
+            element.setAttribute('id', id);
+            element.setAttribute('type', type);
+            element.setAttribute('state', 'off');
+            element.addEventListener('click', _onClick);
+            title.textContent = name || id;
+            line.appendChild(title);
+            line.appendChild(date);
+            copy.appendChild(line);
+            copy.appendChild(message);
+            element.appendChild(image.element());
+            element.appendChild(copy);
+            _container.appendChild(element);
+            _items[id] = {
+                data: data,
+                element: element,
+                avatar: image,
+                date: date,
+                message: message,
+            };
+            if (String(_this.config.active) === String(id)) {
+                element.setAttribute('state', 'on');
+            }
+            return element;
+        };
+
+        _this.remove = function (id) {
+            var item = _items[id];
+            if (!item) {
+                return;
+            }
+            item.element.removeEventListener('click', _onClick);
+            if (item.element.parentNode) {
+                item.element.parentNode.removeChild(item.element);
+            }
+            item.avatar.destroy();
+            delete _items[id];
+            if (String(_this.config.active) === String(id)) {
+                _this.config.active = '';
+            }
+        };
+
+        _this.update = function (id, date, message) {
+            var item = _items[id];
+            if (item) {
+                item.date.textContent = date || '';
+                item.message.textContent = message || '';
+            }
+        };
+
+        function _onClick(e) {
+            var item = _items[e.currentTarget.getAttribute('id')];
+            if (item) {
+                _this.active(item.data.id);
+                _this.dispatchEvent(MouseEvent.CLICK, {
+                    name: 'conversation',
+                    data: item.data,
+                });
+            }
         }
 
         function _onStatus(e) {
@@ -61,54 +114,19 @@
             }
             var info = e.data.info,
                 message = info.Arguments,
-                id = message.cast === 'uni' ? message.user.id : message.room.id,
-                data = _this.data(),
-                found = false;
-            for (var i = 0; i < data.length; i++) {
-                if (data[i].id === id) {
-                    data[i].status = message.data;
-                    data[i].time = info.Timestamp;
-                    data[i].unread = (data[i].unread || 0) + 1;
-                    found = true;
-                    break;
-                }
+                data = message.cast === 'uni' ? message.user : message.room,
+                type = message.cast === 'uni' ? 'people' : 'group';
+            if (!_items[data.id]) {
+                _this.add(data.id, type, data.nick || data.name, data.avatar);
             }
-            if (!found) {
-                data.push({
-                    id: id,
-                    name: message.cast === 'uni' ? message.user.nick : message.room.nick,
-                    status: message.data,
-                    time: info.Timestamp,
-                    unread: 1,
-                });
-            }
-            _this.update(data);
+            _this.update(data.id, info.Timestamp, message.data);
         }
-
-        _this.update = function (value) {
-            utils.forEach(_this.components, function (_, component) {
-                component.removeGlobalListener(_onComponentEvent);
-                component.destroy();
-            });
-            _this.components = {};
-            utils.emptyElement(_container);
-            _this.config.conversations = value || [];
-            for (var i = 0; i < _this.config.conversations.length; i++) {
-                _build(_this.config.conversations[i]);
-            }
-            _this.active(_this.config.active);
-            return _this.config.conversations;
-        };
-
-        _this.data = function () {
-            return _this.config.conversations;
-        };
 
         _this.active = function (value) {
             if (value !== undefined) {
                 _this.config.active = value;
-                utils.forEach(_this.components, function (id, component) {
-                    component.state(id === String(value) ? 'on' : 'off');
+                utils.forEach(_items, function (id, item) {
+                    item.element.setAttribute('state', id === String(value) ? 'on' : 'off');
                 });
             }
             return _this.config.active;
@@ -118,20 +136,19 @@
             return _container;
         };
 
-        _this.resize = function (width, height) {
-            utils.forEach(_this.components, function (_, component) {
-                component.resize(width, height);
-            });
+        _this.resize = function () {
         };
 
         _this.destroy = function () {
             im.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
 
-            utils.forEach(_this.components, function (_, component) {
-                component.removeGlobalListener(_onComponentEvent);
-                component.destroy();
+            var ids = [];
+            utils.forEach(_items, function (id) {
+                ids.push(id);
             });
-            _this.components = {};
+            for (var i = 0; i < ids.length; i++) {
+                _this.remove(ids[i]);
+            }
         };
 
         _init();
@@ -144,4 +161,5 @@
 
     UI.register(Conversations);
 })(odd);
+
 

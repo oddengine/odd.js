@@ -4,7 +4,7 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
-        components = odd.Player.UI.components,
+        components = odd.RTC.UI.components,
 
         CLASS_PANEL = 'pe-panel';
 

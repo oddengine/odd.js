@@ -20,8 +20,11 @@
             _container = utils.createElement('span', CLASS_LABEL + ' ' + name);
             _container.innerHTML = value || '';
 
-            _tooltip = utils.createElement('span', CLASS_TOOLTIP);
-            _container.appendChild(_tooltip);
+            if (value !== undefined) {
+                _tooltip = utils.createElement('span', CLASS_TOOLTIP);
+                _tooltip.innerHTML = value;
+                _container.appendChild(_tooltip);
+            }
         }
 
         _this.set = function (text) {
@@ -34,6 +37,10 @@
 
         _this.element = function () {
             return _container;
+        };
+
+        _this.tooltip = function () {
+            return _tooltip;
         };
 
         _this.resize = function (width, height) {

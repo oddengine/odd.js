@@ -16,7 +16,6 @@
         _default = {
             kind: 'Conversation',
             tab: 'messages',
-            label: '消息',
             layout: '[Messages:messages=][Composer:composer=]',
             active: '',
             contacts: [],

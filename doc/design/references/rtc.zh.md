@@ -16,17 +16,17 @@ WHIP/WHEP POST 读取绝对或相对 `Location`；PATCH candidate 和 DELETE 关
 
 ## UI 事件／状态契约
 
-RTC UI 注册由 Button、Toggle 组件组成的三段式 Controlbar。四条主要点击路径已补齐：
+RTC Core 保持多流能力，RTC UI 在其上实现固定的会议模型：流 1 是摄像头和麦克风，流 2 是独立屏幕共享。两路流使用同一份 profile／约束配置，但拥有独立的发布生命周期。
 
 | 控件 | SDK 动作 | 根属性 |
 | --- | --- | --- |
-| microphone | 启用／停用本地音频 track | `microphone=on/off` |
-| camera | 启用／停用本地视频 track | `camera=on/off` |
-| sharing | 以屏幕采集重建 preview/publish | `sharing=on/off` |
-| calling | 在本地预览和 WHIP 发布之间切换 | `calling=on/off` |
+| microphone | `microphone(enable)`；若流 1 正在发布则先挂断、更新 `_constraints`、再呼叫 | `microphone=on/off` |
+| camera | `camera(enable)`；与麦克风使用同一条停止／更新／重发流程 | `camera=on/off` |
+| sharing | `share()` 发布流 2；`cancel()` 单独停止流 2 | `sharing=on/off` |
+| calling | `call()` 发布流 1；`hangup()` 单独停止流 1 | `calling=on/off` |
 
-`layout=right/top/grid` 控制视频布局。CSS 从这些根属性推导按钮外观和布局；共享／呼叫失败时同时恢复 Toggle 和根状态。
+禁用摄像头或麦克风时，如果流 1 未发布，只更新 `_constraints`，等下一次 `call()` 使用。`play(name)`／`stop(name?)` 只管理订阅。`layout=right/top/grid` 控制视频布局。根节点属性是唯一可见状态来源，Controlbar 不镜像保存同一份状态；CSS 从根属性推导按钮外观和布局。
 
-UI 工厂为 `odd.rtc.ui(id?, logger?)` 和 `.create(logger?)`。UI 提供 `setup`、`preview`、`publish`、`play`、`stop`、`layout`、`theater`、`fullscreen`、`presentation`、`skin`、`element`、`resize`、`destroy`。
+UI 工厂为 `odd.rtc.ui(id?, logger?)` 和 `.create(logger?)`。UI 提供 `setup`、`call`、`hangup`、`share`、`cancel`、`microphone`、`camera`、`play`、`stop`、`layout`、`theater`、`fullscreen`、`presentation`、`skin`、`element`、`resize`、`destroy`。Dashboard 的 Settings 按 Video／Audio 自上而下分类；Video 分类持有固定 `video` 预览元素，设备和 profile 修改经 Preview／Save 事件交回 UI，保存后按原发布状态重建两路流。
 
 源码：[`src/rtc`](../../../src/rtc)。

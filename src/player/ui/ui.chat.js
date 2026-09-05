@@ -20,6 +20,9 @@
         _default = {
             kind: 'Chat',
             client: null,
+            profile: '180P_1',
+            camera: true,
+            microphone: true,
             rtc: {},
             service: {},
             visibility: true,
@@ -36,7 +39,7 @@
 
         function _init() {
             _this.config = config;
-            _this.constraints = utils.extendz({}, Constraints[_this.config.profile || '180P_1']);
+            _this.constraints = _getConstraints(_this.config);
             _this.components = {};
 
             _this.rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
@@ -56,6 +59,34 @@
         function _bind() {
             _this.stop = _this.rtc.stop;
         }
+
+        function _getConstraints(config) {
+            var constraints = utils.extendz({}, Constraints[config.profile]);
+            if (config.camera === false) {
+                constraints.video = false;
+            }
+            if (config.microphone === false) {
+                constraints.audio = false;
+            }
+            return constraints;
+        }
+
+        _this.configure = async function (config) {
+            var publishing = '';
+            for (var id in _this.rtc.publishing) {
+                publishing = id;
+                break;
+            }
+            if (publishing) {
+                _this.rtc.stop(publishing);
+            }
+            _this.config = utils.extendz(_this.config, config || {});
+            _this.constraints = _getConstraints(_this.config);
+            if (publishing) {
+                await _this.publish();
+            }
+            return _this.config;
+        };
 
         _this.applyConstraints = function (constraints) {
             _this.constraints = utils.extendz(_this.constraints, constraints);

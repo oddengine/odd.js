@@ -75,11 +75,11 @@
 
 | 目标／当前映射 | 状态 | 主要职责／配置 |
 | --- | --- | --- |
-| <a id="cap-content"></a>`Content` 抽象；当前映射为 `Chat` | **抽象待实现／映射部分具备** | Live/WatchParty/RTC/IM 目标尚未注册；`Chat` 提供依赖 RTC 的本地／远端视频列表及 `client`、`rtc`、`service`、`visibility` |
+| <a id="cap-content"></a>`Content` 抽象；当前映射为 `Chat` | **抽象待实现／映射部分具备** | Live/WatchParty/RTC/IM 目标尚未注册；`Chat` 提供依赖 RTC 的本地／远端视频列表及 `profile`、`camera`、`microphone`、`client`、`rtc`、`service`、`visibility` |
 | <a id="cap-subtitle-plugin"></a>`Subtitle` | **待实现** | 没有解析器、渲染器或插件 |
 | <a id="cap-poster"></a>`Poster` | **已验证** | `file`、`cors`、`objectfit`、`visibility` |
-| <a id="cap-comment"></a>`Comment`；当前实现为 `Danmu` | **实现已验证／名称不同** | 弹幕运动；`speed`、`lineHeight`、`enable`、`visibility` |
-| <a id="cap-dashboard"></a>`Dashboard`；当前实现为 `Display` | **目标映射部分具备** | 状态／错误、元信息和统计面板；`layout`、`ondoubleclick`、`visibility` |
+| <a id="cap-comment"></a>`Comments` | **实现已验证** | 评论弹幕运动；`speed`、`lineHeight`、`enable`、`visibility` |
+| <a id="cap-dashboard"></a>`Dashboard` | **已实现** | Info／Stats Panel 和 Settings；Settings 的 Chat 分类可修改 profile、摄像头和麦克风 |
 | `AD` | **基础能力已验证** | 插入／移除调用方 DOM；`visibility` |
 | `Share` | **基础能力已验证** | 插入调用方 DOM；`visibility` |
 | <a id="cap-logo"></a>`Logo` | **已验证** | `file`、`link`、`cors`、`target`、`style`、`visibility` |
@@ -163,8 +163,8 @@ Core 绑定后，UI 也会转发上表中的 Core 实例接口；这里不再重
 | --- | --- | --- |
 | `setup` | container: HTMLElement, config: PlayerUIConfig | 构建 UI 并初始化配对的 Core。 |
 | `chat` | enable: boolean | 在插件已安装时启用或关闭聊天 UI。 |
-| `danmu` | enable: boolean | 启用或关闭弹幕。 |
-| `shoot` | text: string, data?: unknown | 向 Danmu 插件发送弹幕。 |
+| `comments` | enable: boolean | 启用或关闭评论弹幕。 |
+| `comment` | text: string, data?: unknown | 向 Comments 插件发送评论弹幕。 |
 | `displayAD` | element: HTMLElement | 通过 AD 插件显示内容。 |
 | `removeAD` | — | 移除 AD 插件显示的内容。 |
 | `fullpage` | status?: boolean | 读取或设置铺满页面模式。 |

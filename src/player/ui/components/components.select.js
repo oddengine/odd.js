@@ -4,6 +4,7 @@
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
+        MouseEvent = events.MouseEvent,
         components = odd.Player.UI.components,
 
         CLASS_SELECT = 'pe-select',
@@ -12,7 +13,7 @@
         CLASS_SELECT_OPTION = 'pe-select-option';
 
     function Select(name, value, logger) {
-        EventDispatcher.call(this, 'Select', { logger: logger }, [Event.CHANGE]);
+        EventDispatcher.call(this, 'Select', { logger: logger }, [Event.CHANGE, MouseEvent.CLICK]);
 
         var _this = this,
             _name = name,
@@ -41,6 +42,7 @@
 
         _this.append = function (label, value) {
             var option = utils.createElement('span', CLASS_SELECT_OPTION);
+            option.value = value === undefined ? _list.children.length : value;
             option.addEventListener('click', _onItemClick);
             option.innerHTML = label;
             _list.appendChild(option);
@@ -52,10 +54,8 @@
         };
 
         function _onItemClick(e) {
-            var index = indexOf(_list.children, e.target);
-            if (index !== _this.index()) {
-                _this.dispatchEvent(Event.CHANGE, { name: _name, index: index });
-            }
+            var index = utils.indexOf(_list.children, e.currentTarget);
+            _this.select(index);
             _list.style.visibility = 'hidden';
             _this.dispatchEvent(MouseEvent.CLICK, { name: _name, visibility: _list.style.visibility });
         }
@@ -80,8 +80,20 @@
 
                 var option = _list.children[_index];
                 _label.innerHTML = option.innerHTML;
-                _this.dispatchEvent(Event.CHANGE, { name: _name, index: index });
+                _this.dispatchEvent(Event.CHANGE, { name: _name, value: option.value });
             }
+        };
+
+        _this.value = function (value) {
+            if (value !== undefined) {
+                for (var i = 0; i < _list.children.length; i++) {
+                    if (_list.children[i].value === value) {
+                        _this.select(i);
+                        break;
+                    }
+                }
+            }
+            return isNaN(_index) ? undefined : _list.children[_index].value;
         };
 
         _this.index = function () {

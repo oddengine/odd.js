@@ -89,23 +89,8 @@
             }
 
             var component = new components[type](name, value, _logger);
-            if (utils.typeOf(component.addGlobalListener) === 'function') {
-                component.addGlobalListener(_this.forward);
-            }
-            var element = component.element();
-            if (value !== undefined) {
-                var tooltip;
-                if (utils.typeOf(components[value]) === 'function') {
-                    tooltip = new components[value](name, value, _logger);
-                    element.insertAdjacentElement('afterbegin', tooltip.element());
-                } else {
-                    tooltip = utils.createElement('span', CLASS_TOOLTIP);
-                    tooltip.innerHTML = value;
-                    element.insertAdjacentElement('afterbegin', tooltip);
-                }
-                component.tooltip = tooltip;
-            }
-            container.appendChild(element);
+            component.addGlobalListener(_this.forward);
+            container.appendChild(component.element());
             _this.components[name] = component;
         }
 

@@ -40,6 +40,6 @@ A PeerConnection may own multiple ports. UI maps local keyboard/Gamepad indexes 
 
 ## UI
 
-Factories are `odd.famicom.ui(id?, logger?)` and `.create(logger?)`. UI binds Core methods, registers Display and Controlbar plugins, polls Gamepads, releases held input on blur/visibility loss, and exposes presentation/theater/fullscreen/skin/resize/destroy.
+Factories are `odd.famicom.ui(id?, logger?)` and `.create(logger?)`. UI binds Core methods, registers Display, Controlbar, and Dashboard plugins, polls Gamepads, releases held input on blur/visibility loss, and exposes presentation/theater/fullscreen/skin/resize/destroy. Dashboard stats render each live `fps/decoded/dropped/nack/pli/freeze` field delivered by `STATSCHANGE`; Settings group existing keyboard bindings under Player 1 and Player 2.
 
 Source: [`src/famicom`](../../../src/famicom). Server counterpart: odd.d `HttpGameHandler` and `FamicomPlayer`.

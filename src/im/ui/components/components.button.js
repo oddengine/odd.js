@@ -21,8 +21,11 @@
             _container = utils.createElement('span', CLASS_BUTTON + ' ' + name);
             _container.addEventListener('click', _onClick);
 
-            _tooltip = utils.createElement('span', CLASS_TOOLTIP);
-            _container.appendChild(_tooltip);
+            if (value !== undefined) {
+                _tooltip = utils.createElement('span', CLASS_TOOLTIP);
+                _tooltip.innerHTML = value;
+                _container.appendChild(_tooltip);
+            }
         }
 
         function _onClick(e) {
@@ -31,6 +34,10 @@
 
         _this.element = function () {
             return _container;
+        };
+
+        _this.tooltip = function () {
+            return _tooltip;
         };
 
         _this.resize = function (width, height) {

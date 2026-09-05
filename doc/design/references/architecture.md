@@ -82,7 +82,7 @@ This tree describes what the product intends to provide. Status describes the cu
   - [3.1.4 IM](player.md#cap-content) — IM bundle mapping — **Partial**
 - [3.2 Subtitle](player.md#cap-subtitle-plugin) — **Planned**
 - [3.3 Poster](player.md#cap-poster) — **Verified**
-- [3.4 Comment](player.md#cap-comment) — current `Danmu` — **Verified implementation / naming mismatch**
+- [3.4 Comments](player.md#cap-comment) — **Verified implementation**
 - [3.5 Dashboard](player.md#cap-dashboard) — current `Display` — **Partial target mapping**
   - [3.5.1 Metadata](player.md#cap-dashboard) — **Verified**
   - [3.5.2 Stats: first frame, rate, dropped frames](player.md#cap-dashboard) — **Verified**
