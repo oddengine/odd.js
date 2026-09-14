@@ -22,6 +22,10 @@
         _default = {
             presentation: 'full', // full, mini, popup
             skin: 'classic',
+            game: '',
+            controllers: 1,
+            input: 'keyboard',
+            instance: '',
             joystick: {
                 center: 0.0,
                 direction: 8,
@@ -111,7 +115,7 @@
             _api.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
             _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
             _api.addEventListener(Event.ERROR, _onError);
-            _api.setup(_content, _this.config);
+            await _api.setup(_content, _this.config);
 
             _buildPlugins();
             _setupPlugins();
@@ -220,11 +224,27 @@
         }
 
         function _onBind(e) {
-            _this.load = _api.load;
-            _this.play = _api.play;
-            _this.stop = _api.stop;
+            _this.create = function (game) {
+                return _api.create(game || _this.config.game);
+            };
+            _this.list = _api.list;
+            _this.remove = _api.remove;
+            _this.load = function (instance, game) {
+                _releaseInput();
+                return _api.load(instance, game || _this.config.game);
+            };
+            _this.play = function (instance, controllers, player) {
+                _releaseInput();
+                return _api.play(instance, controllers === undefined ? _this.config.controllers : controllers, player);
+            };
+            _this.stop = function () {
+                _releaseInput();
+                return _api.stop();
+            };
             _this.keyDown = _api.keyDown;
             _this.keyUp = _api.keyUp;
+            _this.instance = _api.instance;
+            _this.player = _api.player;
             _this.ports = _api.ports;
             _this.location = _api.location;
             _this.capture = _api.capture;
@@ -443,6 +463,16 @@
         }
 
         function _onClick(e) {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard && e.srcElement === dashboard.components['settings']) {
+                _onGameAction(e.data.name).catch(function (err) {
+                    if (_api) {
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                    }
+                });
+                return;
+            }
+
             var h = {
                 'capture': _this.capture,
                 'muted': function () { _this.muted(e.data.state === 'on'); },
@@ -460,16 +490,24 @@
         }
 
         function _onChange(e) {
-            var h = {
-                'keyboard': function () {
-                    var binding = e.data.value;
-                    utils.forEach(_this.config.keyboard, function (code, value) {
-                        if (value[0] === binding.port && value[1] === binding.key) {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard && e.srcElement === dashboard.components['settings']) {
+                _releaseInput();
+                if (e.data.name === 'keyboard') {
+                    var input = e.data.value;
+                    utils.forEach(_this.config.keyboard, function (code, binding) {
+                        if (binding[0] === input.port && binding[1] === input.key) {
                             delete _this.config.keyboard[code];
                         }
                     });
-                    _this.config.keyboard[binding.code] = [binding.port, binding.key];
-                },
+                    _this.config.keyboard[input.code] = [input.port, input.key];
+                } else {
+                    _this.config[e.data.name] = e.data.value;
+                }
+                return;
+            }
+
+            var h = {
                 'timebar': function () {
                     var duration = _api.duration();
                     if (duration) {
@@ -488,6 +526,38 @@
             } else {
                 _this.forward(e);
             }
+        }
+
+        async function _onGameAction(action) {
+            var api = _api;
+            var instance = api.instance() || _this.config.instance;
+            var result;
+            switch (action) {
+                case 'create':
+                    instance = await _this.create();
+                    if (!instance || api !== _api) {
+                        return;
+                    }
+                    _this.config.instance = instance;
+                    result = await _this.play(instance);
+                    break;
+                case 'load':
+                    result = await _this.load(instance);
+                    break;
+                case 'join':
+                    result = await _this.play(_this.config.instance);
+                    break;
+                case 'leave':
+                    result = await _this.stop();
+                    break;
+                case 'destroy':
+                    result = await _this.remove(instance);
+                    break;
+            }
+            if (!result || api !== _api) {
+                return;
+            }
+            _showPanel('settings');
         }
 
         function _onMouseMove(e) {
@@ -552,7 +622,7 @@
         }
 
         function _onKeyDown(e) {
-            if (_shouldIgnoreKeyboardEvent(e.target) || e.repeat) {
+            if (_this.config.input !== 'keyboard' || _shouldIgnoreKeyboardEvent(e.target) || e.repeat) {
                 return;
             }
             var arr = _this.config.keyboard[e.code];
@@ -568,7 +638,7 @@
         }
 
         function _onKeyUp(e) {
-            if (_shouldIgnoreKeyboardEvent(e.target)) {
+            if (_this.config.input !== 'keyboard' || _shouldIgnoreKeyboardEvent(e.target)) {
                 return;
             }
             var arr = _this.config.keyboard[e.code];
@@ -592,7 +662,13 @@
         }
 
         function _pollGamepads() {
-            var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            var gamepads = [];
+            if (_this.config.input === 'gamepad' && !document.hidden && document.hasFocus() && navigator.getGamepads) {
+                gamepads = Array.prototype.filter.call(navigator.getGamepads(), function (gamepad) {
+                    return gamepad !== null;
+                });
+            }
+
             for (var port = 0; port < 4; port++) {
                 var gamepad = gamepads[port];
                 if (!gamepad) {
@@ -724,14 +800,31 @@
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard) {
                 if (name === 'settings') {
+                    var api = _api;
+                    if (api.instance()) {
+                        _this.config.instance = api.instance();
+                    }
                     dashboard.update('settings', {
-                        groups: [{
-                            name: 'P1',
-                            value: _this.config.keyboard,
-                        }, {
-                            name: 'P2',
-                            value: _this.config.keyboard,
-                        }],
+                        game: _this.config.game,
+                        controllers: _this.config.controllers,
+                        input: _this.config.input,
+                        instance: _this.config.instance,
+                        keyboard: _this.config.keyboard,
+                        ports: api.ports(),
+                    });
+
+                    api.list().then(function (games) {
+                        if (api !== _api || !games) {
+                            return;
+                        }
+                        if (!_this.config.game && games.length) {
+                            _this.config.game = games[0];
+                        }
+                        dashboard.update('settings', { game: _this.config.game, games: games, ports: api.ports() });
+                    }).catch(function (err) {
+                        if (api === _api) {
+                            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        }
                     });
                 }
                 dashboard.show(name);

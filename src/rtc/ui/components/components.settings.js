@@ -2,285 +2,175 @@
     var utils = odd.utils,
         events = odd.events,
         Event = events.Event,
+        Constraints = odd.RTC.Constraints,
         components = odd.RTC.UI.components,
         Panel = components.Panel,
 
-        CLASS_GROUP = 'pe-settings-group',
         CLASS_TITLE = 'pe-settings-title',
         CLASS_CONTENT = 'pe-settings-content',
         CLASS_FOOTER = 'pe-settings-footer',
         CLASS_PREVIEW = 'pe-settings-preview',
 
         _default = {
-            groups: [{
-                name: 'video',
-                title: 'Video',
-                preview: true,
-                items: [{
-                    name: 'profile',
-                    title: 'Profile',
-                    type: 'select',
-                }, {
-                    name: 'camera',
-                    title: 'Camera',
-                    type: 'select',
-                }],
-                footer: [{
-                    name: 'preview',
-                    title: 'Preview',
-                }, {
-                    name: 'save',
-                    title: 'Save',
-                }],
-            }, {
-                name: 'audio',
-                title: 'Audio',
-                items: [{
-                    name: 'microphone',
-                    title: 'Microphone',
-                    type: 'select',
-                }],
-            }],
+            profile: '720P_2',
+            camera: '',
+            microphone: '',
         };
 
-    function Settings(name, config, logger) {
+    function Settings(name, value, logger) {
         Panel.call(this, name, 'Settings', logger, [Event.CHANGE]);
 
         var _this = this,
-            _config,
-            _data,
-            _groups,
-            _content = _this.content(),
-            _destroy = _this.destroy,
+            _container,
+            _profile,
+            _camera,
+            _microphone,
             _video;
 
         function _init() {
-            _config = utils.extendz({}, _default);
-            _data = {};
-            _groups = {};
-            utils.forEach(_config.groups, function (_, group) {
-                _buildGroup(group);
-            });
+            _this.config = utils.extendz({}, _default);
+
+            _container = _this.element();
+
+            _buildVideo();
+            _buildAudio();
+            _this.update(_this.config);
         }
 
-        function _buildGroup(config) {
-            var element = utils.createElement('section', CLASS_GROUP),
-                title = utils.createElement('h3', CLASS_TITLE),
-                content = utils.createElement('div', CLASS_CONTENT),
-                group = {
-                    config: config,
-                    element: element,
-                    title: title,
-                    content: content,
-                    items: {},
-                    buttons: [],
-                };
-            element.setAttribute('name', config.name);
-            title.textContent = config.title || config.name;
-            element.appendChild(title);
-            element.appendChild(content);
-            if (config.preview) {
-                _video = utils.createElement('video', CLASS_PREVIEW);
-                _video.setAttribute('playsinline', '');
-                _video.setAttribute('autoplay', '');
-                _video.muted = true;
-                content.appendChild(_video);
-            }
-            utils.forEach(config.items || [], function (_, item) {
-                _buildItem(group, item);
+        function _buildVideo() {
+            var title = utils.createElement('h3', CLASS_TITLE);
+            title.textContent = 'Video';
+            _container.appendChild(title);
+
+            var content = utils.createElement('div', CLASS_CONTENT);
+            _container.appendChild(content);
+
+            _video = utils.createElement('video', CLASS_PREVIEW);
+            _video.setAttribute('playsinline', '');
+            _video.setAttribute('autoplay', '');
+            _video.muted = true;
+            content.appendChild(_video);
+
+            var label = utils.createElement('label');
+            label.textContent = 'Profile:';
+            content.appendChild(label);
+
+            _profile = utils.createElement('select');
+            _profile.name = 'profile';
+            _profile.onchange = _onChange;
+            label.appendChild(_profile);
+            utils.forEach(Constraints, function (name) {
+                var option = utils.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                _profile.appendChild(option);
             });
-            _buildFooter(group, config.footer);
-            _content.appendChild(element);
-            _groups[config.name] = group;
+
+            label = utils.createElement('label');
+            label.textContent = 'Camera:';
+            content.appendChild(label);
+
+            _camera = utils.createElement('select');
+            _camera.name = 'camera';
+            _camera.onchange = _onChange;
+            label.appendChild(_camera);
+
+            var footer = utils.createElement('footer', CLASS_FOOTER);
+            _container.appendChild(footer);
+
+            var button = utils.createElement('button');
+            button.type = 'button';
+            button.name = 'preview';
+            button.textContent = 'Preview';
+            button.onclick = _onClick;
+            footer.appendChild(button);
+
+            button = utils.createElement('button');
+            button.type = 'button';
+            button.name = 'save';
+            button.textContent = 'Save';
+            button.onclick = _onClick;
+            footer.appendChild(button);
         }
 
-        function _buildFooter(group, config) {
-            if (!config || !config.length) {
-                return;
-            }
-            group.footer = utils.createElement('footer', CLASS_FOOTER);
-            utils.forEach(config, function (_, item) {
-                var button = utils.createElement('button');
-                button.type = 'button';
-                button.name = item.name;
-                button.textContent = item.title || item.name;
-                button.addEventListener('click', _onFooterClick);
-                group.footer.appendChild(button);
-                group.buttons.push(button);
-            });
-            group.element.appendChild(group.footer);
-        }
+        function _buildAudio() {
+            var title = utils.createElement('h3', CLASS_TITLE);
+            title.textContent = 'Audio';
+            _container.appendChild(title);
 
-        function _buildItem(group, config) {
-            if (config.type === 'radio') {
-                var field = utils.createElement('div'),
-                    heading = utils.createElement('span'),
-                    radios = [];
-                heading.textContent = config.title || config.name;
-                field.appendChild(heading);
-                utils.forEach(config.options || [], function (_, option) {
-                    var label = utils.createElement('label'),
-                        input = utils.createElement('input'),
-                        text = utils.createElement('span'),
-                        object = utils.typeOf(option) === 'object',
-                        value = object ? option.value : option;
-                    input.type = 'radio';
-                    input.name = config.name;
-                    input.value = value;
-                    input.addEventListener('change', _onChange);
-                    text.textContent = object ? option.label || value : option;
-                    label.appendChild(input);
-                    label.appendChild(text);
-                    field.appendChild(label);
-                    radios.push(input);
-                });
-                group.content.appendChild(field);
-                group.items[config.name] = {
-                    config: config,
-                    elements: radios,
-                };
-                return;
-            }
-            var label = utils.createElement('label'),
-                title = utils.createElement('span'),
-                input = utils.createElement(config.type === 'select' ? 'select' : 'input');
-            title.textContent = config.title || config.name;
-            input.name = config.name;
-            if (config.type !== 'select') {
-                input.type = config.type || 'text';
-            }
-            input.addEventListener('change', _onChange);
-            label.appendChild(title);
-            label.appendChild(input);
-            group.content.appendChild(label);
-            group.items[config.name] = {
-                config: config,
-                element: input,
-            };
+            var content = utils.createElement('div', CLASS_CONTENT);
+            _container.appendChild(content);
+
+            var label = utils.createElement('label');
+            label.textContent = 'Microphone:';
+            content.appendChild(label);
+
+            _microphone = utils.createElement('select');
+            _microphone.name = 'microphone';
+            _microphone.onchange = _onChange;
+            label.appendChild(_microphone);
         }
 
         function _onChange(e) {
-            _this.dispatchEvent(Event.CHANGE, {
-                name: e.currentTarget.name,
-                value: _value(e.currentTarget),
-            });
+            var input = e.currentTarget,
+                value = input.type === 'checkbox' ? input.checked : input.value;
+            _this.config[input.name] = value;
+            _this.dispatchEvent(Event.CHANGE, { name: input.name, value: value });
         }
 
-        function _onFooterClick(e) {
-            _this.dispatchEvent(Event.CHANGE, {
-                name: e.currentTarget.name,
-                value: _settings(),
-            });
-        }
-
-        function _value(input) {
-            switch (input.type) {
-                case 'checkbox':
-                    return input.checked;
-                case 'number':
-                case 'range':
-                    return Number(input.value);
-                default:
-                    return input.value;
-            }
-        }
-
-        function _settings() {
-            var data = {};
-            utils.forEach(_groups, function (_, group) {
-                utils.forEach(group.items, function (name, item) {
-                    if (item.elements) {
-                        utils.forEach(item.elements, function (__, input) {
-                            if (input.checked) {
-                                data[name] = input.value;
-                            }
-                        });
-                    } else {
-                        data[name] = _value(item.element);
-                    }
-                });
-            });
-            return data;
-        }
-
-        function _updateItem(item, data) {
-            data = utils.typeOf(data) === 'object' ? data : { value: data };
-            if (item.elements) {
-                utils.forEach(item.elements, function (_, input) {
-                    input.checked = String(input.value) === String(data.value);
-                });
-                return;
-            }
-            var input = item.element;
-            if (item.config.type === 'select') {
-                utils.emptyElement(input);
-                utils.forEach(data.options || [], function (_, value) {
-                    var option = utils.createElement('option'),
-                        object = utils.typeOf(value) === 'object',
-                        key = object ? (value.value !== undefined ? value.value : value.deviceId) : value;
-                    option.value = key;
-                    option.textContent = object ? value.label || value.name || key : value;
-                    option.selected = key === data.value;
-                    input.appendChild(option);
-                });
-            } else if (item.config.type === 'checkbox') {
-                input.checked = data.value === true;
-            } else {
-                input.value = data.value === undefined ? '' : data.value;
-            }
+        function _onClick(e) {
+            _this.dispatchEvent(Event.CHANGE, { name: e.currentTarget.name, value: utils.extendz({}, _this.config) });
         }
 
         _this.update = function (data) {
-            _data = data || { groups: [] };
-            var groups = {};
-            utils.forEach(_data.groups || [], function (_, group) {
-                if (!_groups[group.name]) {
-                    _buildGroup(group);
-                }
-                groups[group.name] = group;
-            });
-            utils.forEach(_groups, function (name, group) {
-                var source = groups[name] || {},
-                    items = {};
-                group.title.textContent = source.title || group.config.title || name;
-                utils.forEach(source.items || [], function (_, item) {
-                    if (!group.items[item.name]) {
-                        _buildItem(group, item);
-                    }
-                    items[item.name] = item;
-                });
-                if (!group.footer) {
-                    _buildFooter(group, source.footer);
-                }
-                utils.forEach(group.items, function (key, item) {
-                    _updateItem(item, items[key]);
-                });
-            });
-            return _data;
+            data = utils.extendz({}, _default, data);
+            _this.config = {
+                profile: data.profile,
+                camera: data.camera,
+                microphone: data.microphone,
+            };
+
+            _profile.value = _this.config.profile;
+
+            if (data.cameras) {
+                _updateDevices(_camera, data.cameras, _this.config.camera);
+            } else {
+                _camera.value = _this.config.camera;
+            }
+            if (data.microphones) {
+                _updateDevices(_microphone, data.microphones, _this.config.microphone);
+            } else {
+                _microphone.value = _this.config.microphone;
+            }
+            return _this.config;
         };
 
+        function _updateDevices(input, devices, value) {
+            utils.emptyElement(input);
+            utils.forEach(devices, function (_, device) {
+                var option = utils.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || device.deviceId;
+                input.appendChild(option);
+            });
+            input.value = value;
+        }
+
         _this.preview = function (element) {
-            if (_video) {
-                _video.srcObject = element ? element.srcObject : null;
-            }
+            _video.srcObject = element ? element.srcObject : null;
         };
 
         _this.destroy = function () {
-            utils.forEach(_groups, function (_, group) {
-                utils.forEach(group.items, function (__, item) {
-                    utils.forEach(item.elements || [item.element], function (___, input) {
-                        input.removeEventListener('change', _onChange);
-                    });
-                });
-                utils.forEach(group.buttons, function (__, button) {
-                    button.removeEventListener('click', _onFooterClick);
-                });
+            _profile.onchange = null;
+            _camera.onchange = null;
+            _microphone.onchange = null;
+            _video.srcObject = null;
+
+            utils.forEach(_container.getElementsByTagName('button'), function (_, button) {
+                button.onclick = null;
             });
-            if (_video) {
-                _video.srcObject = null;
-            }
-            _groups = {};
-            _destroy();
+
+            _container.innerHTML = '';
         };
 
         _init();

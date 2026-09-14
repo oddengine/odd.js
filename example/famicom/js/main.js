@@ -9,6 +9,7 @@ ui.addEventListener(Event.ERROR, onError);
 ui.setup(game, {
     skin: 'classic',
     base: server.value,
+    token: token.value, // Supplied by the application; the server currently mocks authorization.
     loader: {
         mode: 'cors',
         credentials: 'omit',
@@ -28,7 +29,14 @@ ui.setup(game, {
 
 function onReady() {
     ui.logger.log('onReady');
+
+    var id = new URL(location.href).searchParams.get('instance');
     syncLocation();
+    if (id && !instance.value) {
+        instance.value = id;
+    }
+    server.readOnly = true;
+    token.readOnly = true;
 }
 
 function onError(e) {
@@ -37,36 +45,69 @@ function onError(e) {
 }
 
 function syncLocation() {
-    var current = new URL(ui.location());
-    instance.value = current.searchParams.get('instance') || '';
-    player.value = current.searchParams.get('player') || '';
+    instance.value = ui.instance() || instance.value;
+    player.value = ui.player();
+
     var ports = ui.ports();
     controllers.value = ports.length || controllers.value;
-    history.replaceState(null, '', current.href);
+
+    var url = new URL(location.href);
+    url.searchParams.set('instance', instance.value);
+    history.replaceState(null, '', url.href);
 }
 
 function onInitClick() {
-    ui.config.base = server.value;
-    ui.load(gameName.value, Number(controllers.value)).then(syncLocation).catch(onError);
+    ui.create(gameName.value).then(function (id) {
+        if (!id) {
+            return;
+        }
+        instance.value = id;
+        return ui.play(id, Number(controllers.value));
+    }).then(function (id) {
+        if (!id) {
+            return;
+        }
+        syncLocation();
+    }).catch(onError);
 }
 
 function onJoinClick() {
-    var url = `${server.value}/play?game=${gameName.value}&instance=${instance.value}&controllers=${controllers.value}`;
-    ui.play(url).then(syncLocation).catch(onError);
+    ui.play(instance.value, Number(controllers.value)).then(function (id) {
+        if (!id) {
+            return;
+        }
+        syncLocation();
+    }).catch(onError);
 }
 
 function onReconnectClick() {
-    var url = `${server.value}/play?game=${gameName.value}&instance=${instance.value}&player=${player.value}`;
-    ui.play(url).then(syncLocation).catch(onError);
+    ui.play(instance.value, Number(controllers.value), player.value).then(function (id) {
+        if (!id) {
+            return;
+        }
+        syncLocation();
+    }).catch(onError);
+}
+
+function onLoadClick() {
+    ui.load(instance.value, gameName.value).catch(onError);
 }
 
 function onLeaveClick() {
-    ui.stop().then(function () {
+    ui.stop().then(function (stopped) {
+        if (!stopped) {
+            return;
+        }
         player.value = '';
     }).catch(onError);
 }
 
 function onDestroyClick() {
-    ui.destroy('example').catch(onError);
+    ui.remove(instance.value).then(function (removed) {
+        if (!removed) {
+            return;
+        }
+        instance.value = ui.instance();
+        syncLocation();
+    }).catch(onError);
 }
-

@@ -32,6 +32,7 @@
                     '[Button:capture=Capture]' +
                     '[Toggle:muted=off off=Mute;on=Unmute]' +
                     '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
+                    '[Button:settings=Settings]' +
                     '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
                     '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
             visibility: true,

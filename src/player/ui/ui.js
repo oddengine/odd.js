@@ -12,8 +12,6 @@
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
         TimerEvent = events.TimerEvent,
-        RTC = odd.RTC,
-        Constraints = RTC.Constraints,
         Player = odd.Player,
 
         CLASS_WRAPPER = 'pe-wrapper',
@@ -665,30 +663,11 @@
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard) {
                 if (name === 'settings') {
-                    var chat = _this.plugins['Chat'],
-                        profiles = [];
-                    utils.forEach(Constraints, function (profile) {
-                        profiles.push(profile);
-                    });
+                    var chat = _this.plugins['Chat'];
                     dashboard.update('settings', {
-                        groups: [{
-                            name: 'chat',
-                            title: 'Chat',
-                            items: [{
-                                name: 'profile',
-                                type: 'select',
-                                value: chat ? chat.config.profile : '',
-                                options: profiles,
-                            }, {
-                                name: 'camera',
-                                type: 'checkbox',
-                                value: chat ? chat.config.camera : false,
-                            }, {
-                                name: 'microphone',
-                                type: 'checkbox',
-                                value: chat ? chat.config.microphone : false,
-                            }],
-                        }],
+                        profile: chat ? chat.config.profile : '',
+                        camera: chat ? chat.config.camera : false,
+                        microphone: chat ? chat.config.microphone : false,
                     });
                 }
                 dashboard.show(name);

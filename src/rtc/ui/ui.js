@@ -671,35 +671,12 @@
                 RTC.getCameras(_logger),
                 RTC.getMicrophones(_logger),
             ]).then(function (devices) {
-                var profiles = [];
-                utils.forEach(Constraints, function (profile) {
-                    profiles.push(profile);
-                });
                 dashboard.update('settings', {
-                    groups: [{
-                        name: 'video',
-                        title: 'Video',
-                        items: [{
-                            name: 'profile',
-                            type: 'select',
-                            value: _this.config.profile,
-                            options: profiles,
-                        }, {
-                            name: 'camera',
-                            type: 'select',
-                            value: _this.config.camera,
-                            options: devices[0],
-                        }],
-                    }, {
-                        name: 'audio',
-                        title: 'Audio',
-                        items: [{
-                            name: 'microphone',
-                            type: 'select',
-                            value: _this.config.microphone,
-                            options: devices[1],
-                        }],
-                    }],
+                    profile: _this.config.profile,
+                    camera: _this.config.camera,
+                    microphone: _this.config.microphone,
+                    cameras: devices[0],
+                    microphones: devices[1],
                 });
                 dashboard.show('settings');
             });

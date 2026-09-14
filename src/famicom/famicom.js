@@ -43,7 +43,9 @@
             muted: false,
             volume: 0.8,
             base: `${location.protocol}//${location.host}/game`,
-            channel: 'game-input',
+            token: '',
+            game: '',
+            controllers: 1,
             trickle: false,
             loader: {
                 mode: 'cors',        // cors, no-cors, same-origin
@@ -64,16 +66,19 @@
             _video,
             _canvas,
             _context,
-            _location,
-            _params,
-            _ports,
+            _resource,
             _pc,
             _channel,
             _stream,
-            _xhr,
+            _inputTimer,
             _keys,
             _timer,
             _stats,
+            _candidates,
+            _operation,
+            _busy,
+            _requests,
+            _cookie,
             _state;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, MediaEvent, NetStatusEvent);
@@ -81,11 +86,11 @@
         function _init() {
             _this.logger = _logger;
 
-            _location = _getCookie() || new URL(location.href);
-            _params = new URLSearchParams(_location.search);
-            _ports = (_params.get('ports') || '').split(',').filter(function (port) {
-                return port !== '';
-            }).map(Number);
+            _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
+            _candidates = [];
+            _operation = 0;
+            _busy = false;
+            _requests = [];
             _keys = [0x00, 0x00, 0x00, 0x00];
             _stats = {
                 timestamp: 0,
@@ -109,6 +114,20 @@
         _this.setup = async function (container, config) {
             _container = container;
             _this.config = utils.extendz({ id: _id }, _default, config);
+
+            var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(_this.config.token));
+            var identity = Array.prototype.map.call(new Uint8Array(digest), function (byte) {
+                return ('0' + byte.toString(16)).slice(-2);
+            }).join('');
+            _cookie = 'famicom-' + identity + '-' + encodeURIComponent(_url('play').href);
+            if (_state === State.CLOSED) {
+                throw { name: 'AbortError', message: 'The SDK was destroyed.' };
+            }
+            var saved = _getCookie();
+            if (saved) {
+                _resource.instance = saved.instance;
+                _resource.player = saved.player;
+            }
 
             _video = utils.createElement('video');
             _video.addEventListener('volumechange', _onVolumeChange);
@@ -136,48 +155,253 @@
             _this.dispatchEvent(Event.READY);
         }
 
-        _this.load = async function (game, controllers) {
-            var url = `${_this.config.base}/play?game=${game}`;
-            if (controllers !== undefined) {
-                url += `&controllers=${controllers}`;
+        _this.list = async function () {
+            if (!_this.config.token || _state === State.CLOSED) {
+                _logger.error(`Failed to list games: id=${_id}, a token and an active SDK are required.`);
+                return;
             }
-            return _this.play(url);
+            var response = await _request('GET', _url('list'));
+            return JSON.parse(response.responseText);
         };
 
-        _this.play = async function (url) {
-            if (url) {
-                var location = new URL(url);
-                var params = new URLSearchParams(location.search);
-                if (params.get('instance') !== _params.get('instance')) {
-                    await _this.stop();
-                }
-                _location = location;
-                _params = params;
+        _this.create = async function (game) {
+            game = game || _this.config.game;
+            if (_busy || !game || !_this.config.token || _state === State.CLOSED) {
+                _logger.error(`Failed to create: id=${_id}, game and token are required; finish pending requests first.`);
+                return;
             }
 
-            var game = _params.get('game');
-            _initPeerConnection();
-
+            var operation = _operation;
+            _busy = true;
             try {
-                var offer = await _pc.createOffer();
+                var url = _url('create');
+                url.searchParams.set('game', game);
+
+                var response = await _request('GET', url);
+                if (operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The operation was cancelled.' };
+                }
+                var resource = _parseLocation(response);
+                if (resource.player) {
+                    throw { name: 'DataError', message: 'Create returned a player resource.' };
+                }
+                return resource.instance;
+            } finally {
+                _busy = false;
+            }
+        };
+
+        _this.load = async function (instance, game) {
+            game = game || _this.config.game;
+            if (!instance || !game) {
+                _logger.error(`Failed to load: id=${_id}, instance and game are required.`);
+                return;
+            }
+            if (_busy || !_this.config.token || _state === State.CLOSED) {
+                _logger.error(`Failed to load: id=${_id}, token is required; finish pending requests first.`);
+                return;
+            }
+
+            var operation = _operation;
+            _busy = true;
+            try {
+                if (_resource.instance === instance) {
+                    _releaseKeys();
+                }
+                var url = _url('load');
+                url.searchParams.set('instance', instance);
+                url.searchParams.set('game', game);
+                await _request('GET', url);
+                if (operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The operation was cancelled.' };
+                }
+                return true;
+            } finally {
+                _busy = false;
+            }
+        };
+
+        _this.play = async function (instance, controllers, player) {
+            if (_busy || !_this.config.token || _state === State.CLOSED ||
+                _resource.instance && _resource.instance !== instance) {
+                _logger.error(`Failed to play: id=${_id}, instance=${instance}, token and active SDK are required; leave another game and finish pending requests first.`);
+                return;
+            }
+            if (!instance) {
+                _logger.error(`Failed to play: id=${_id}, instance is required.`);
+                return;
+            }
+            controllers = controllers === undefined ? _this.config.controllers : controllers;
+            if (!Number.isInteger(controllers) || controllers < 1 || controllers > 4) {
+                _logger.error(`Failed to play: id=${_id}, controllers must be between 1 and 4.`);
+                return;
+            }
+
+            player = player || (_resource.instance === instance ? _resource.player : '');
+            var previous = _resource;
+            _disconnect();
+
+            var operation = _operation;
+            _resource = { instance: instance, player: player, ports: [], location: '', etag: '' };
+            _busy = true;
+            _state = State.CONNECTING;
+
+            var url = _url('play');
+            url.searchParams.set('instance', instance);
+            url.searchParams.set('controllers', controllers);
+            if (player) {
+                url.searchParams.set('player', player);
+            }
+
+            var pc;
+            var resource;
+            try {
+                _initPeerConnection();
+                pc = _pc;
+
+                var offer = await pc.createOffer();
                 offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
-                _logger.log(`createOffer success: id=${_id}, game=${game}, sdp=\n${offer.sdp}`);
-                
-                await _pc.setLocalDescription(offer);
+                await pc.setLocalDescription(offer);
+                if (!_this.config.trickle && pc.iceGatheringState !== 'complete') {
+                    await new Promise(function (resolve, reject) {
+                        var timeout = setTimeout(function () {
+                            cleanup();
+                            reject({ name: 'TimeoutError', message: 'ICE gathering timed out.' });
+                        }, 10000);
 
-                var response = await _post(_location.href, offer.sdp);
-                var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
-                await _pc.setRemoteDescription(answer);
+                        function cleanup() {
+                            clearTimeout(timeout);
+                            pc.removeEventListener('icegatheringstatechange', onGathering);
+                            _this.removeEventListener(Event.CLOSE, onClose);
+                        }
+
+                        function onGathering() {
+                            if (pc.iceGatheringState === 'complete') {
+                                cleanup();
+                                resolve();
+                            }
+                        }
+
+                        function onClose() {
+                            cleanup();
+                            reject({ name: 'AbortError', message: 'The SDK was destroyed.' });
+                        }
+
+                        _this.addEventListener(Event.CLOSE, onClose);
+                        pc.addEventListener('icegatheringstatechange', onGathering);
+                        onGathering();
+                    });
+                }
+
+                if (operation !== _operation || pc !== _pc) {
+                    throw { name: 'AbortError', message: 'The connection was closed.' };
+                }
+                var response = await _request('POST', url, pc.localDescription.sdp, 'application/sdp');
+                resource = _parseLocation(response);
+                if (!resource.player || resource.instance !== instance) {
+                    throw { name: 'DataError', message: 'Play did not return a player resource.' };
+                }
+                if (operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The connection was closed.' };
+                }
+                await pc.setRemoteDescription({ type: 'answer', sdp: response.responseText });
+                if (operation !== _operation || pc !== _pc) {
+                    throw { name: 'AbortError', message: 'The connection was closed.' };
+                }
+                _resource = resource;
+
+                var candidates = _candidates.splice(0);
+                for (var candidate of candidates) {
+                    await _patch(candidate);
+                }
+                if (operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The connection was closed.' };
+                }
+
+                pc.getReceivers().forEach(function (receiver) {
+                    if (receiver.track && receiver.track.kind === 'video') {
+                        receiver.jitterBufferTarget = 40;
+                    }
+                });
+                _state = pc.connectionState === 'connected' ? State.PLAYING : State.CONNECTING;
+                _setCookie(Date.now() + 30000);
+                return resource.player;
             } catch (err) {
-                _logger.error(`Failed to play: id=${_id}, game=${game}, error=${err}`);
-                return Promise.reject(err);
+                if (pc === _pc) {
+                    _disconnect();
+                    _resource = previous;
+                }
+                if (resource && resource.player) {
+                    try {
+                        await _delete(new URL(resource.location), resource.etag);
+                    } catch (cleanup) {
+                        if (cleanup.status !== 412) {
+                            _logger.error(`Failed to release candidate player: ${cleanup.message}`);
+                        }
+                    }
+                } else if (err.status === 404 && _resource.instance === instance) {
+                    _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
+                    _setCookie(0);
+                }
+                throw err;
+            } finally {
+                _busy = false;
+            }
+        };
+
+        _this.stop = async function () {
+            if (_busy || _state === State.CLOSED || (_resource.player && !_this.config.token)) {
+                _logger.error(`Failed to stop: id=${_id}, token is required; finish pending requests first.`);
+                return;
             }
 
-            _setJitterBufferTarget();
-            _state = State.PLAYING;
-            return Promise.resolve();
+            var operation = _operation;
+            _busy = true;
+            try {
+                if (_resource.instance && _resource.player) {
+                    var url = _url('play');
+                    url.searchParams.set('instance', _resource.instance);
+                    url.searchParams.set('player', _resource.player);
+                    await _delete(url, _resource.etag);
+                }
+                if (operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The operation was cancelled.' };
+                }
+                _disconnect();
+                _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
+                _setCookie(0);
+                return true;
+            } finally {
+                _busy = false;
+            }
+        };
+
+        _this.remove = async function (instance) {
+            if (_busy || !instance || !_this.config.token || _state === State.CLOSED) {
+                _logger.error(`Failed to remove: id=${_id}, instance and token are required; finish pending requests first.`);
+                return;
+            }
+
+            var operation = _operation;
+            _busy = true;
+            try {
+                var url = _url('play');
+                url.searchParams.set('instance', instance);
+                await _delete(url);
+                if (operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The operation was cancelled.' };
+                }
+                if (_resource.instance === instance) {
+                    _disconnect();
+                    _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
+                    _setCookie(0);
+                }
+                return true;
+            } finally {
+                _busy = false;
+            }
         };
 
         function _initPeerConnection() {
@@ -192,7 +416,7 @@
             _pc.addTransceiver('audio', { direction: 'recvonly' });
             _pc.addTransceiver('video', { direction: 'recvonly' });
 
-            _channel = _pc.createDataChannel(_this.config.channel, {
+            _channel = _pc.createDataChannel('game-input', {
                 ordered: false,
                 maxPacketLifeTime: 20,
             });
@@ -238,138 +462,100 @@
             });
         }
 
-        function _setJitterBufferTarget() {
-            _pc.getReceivers().forEach(function (receiver) {
-                if (receiver.track && receiver.track.kind === 'video') {
-                    receiver.jitterBufferTarget = 40;
+        function _url(action) {
+            return new URL(_this.config.base.replace(/\/$/, '') + '/' + action, location.href);
+        }
+
+        function _request(method, url, body, type, etag) {
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                xhr.open(method, url.href, true);
+                xhr.timeout = 30000;
+                xhr.withCredentials = _this.config.loader.credentials === 'include';
+                xhr.setRequestHeader('Authorization', 'Bearer ' + _this.config.token);
+                if (type) {
+                    xhr.setRequestHeader('Content-Type', type);
+                }
+                if (etag) {
+                    xhr.setRequestHeader('If-Match', etag);
+                }
+
+                _requests.push(xhr);
+                xhr.onloadend = function () {
+                    var index = _requests.indexOf(xhr);
+                    if (index !== -1) {
+                        _requests.splice(index, 1);
+                    }
+                };
+                xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve(xhr);
+                    } else {
+                        reject({ name: 'NetworkError', message: xhr.status + ' ' + xhr.statusText, status: xhr.status });
+                    }
+                };
+                xhr.onerror = xhr.ontimeout = function () {
+                    reject({ name: 'NetworkError', message: 'The game request did not complete.' });
+                };
+                xhr.onabort = function () {
+                    reject({ name: 'AbortError', message: 'The game request was cancelled.' });
+                };
+
+                try {
+                    xhr.send(body);
+                } catch (err) {
+                    xhr.onloadend();
+                    reject(err);
                 }
             });
         }
 
-        async function _post(url, sdp) {
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', url, true);
-                xhr.setRequestHeader('Content-Type', 'application/sdp');
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
-                        return;
-                    }
-                    if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
-                        return;
-                    }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        var location = xhr.getResponseHeader('Location');
-                        if (location) {
-                            _logger.log(`Location: ${location}`);
-                            _location = new URL(location);
-                            _params = new URLSearchParams(_location.search);
-                            _ports = (_params.get('ports') || '').split(',').filter(function (port) {
-                                return port !== '';
-                            }).map(Number);
-                            _setCookie(location, Date.now() + 30000);
-                        }
-                        resolve(xhr.responseText);
-                        return;
-                    }
-                };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
-                };
-                xhr.send(sdp);
-            });
+        function _parseLocation(response) {
+            var value = response.getResponseHeader('Location');
+            if (!value) {
+                throw { name: 'DataError', message: 'The server did not return a game resource.' };
+            }
+            var base = _url('play');
+            var url = new URL(value, base);
+            var instance = url.searchParams.get('instance');
+            if (url.origin !== base.origin || url.pathname !== base.pathname || url.username || url.password || !instance) {
+                throw { name: 'DataError', message: 'Invalid game resource.' };
+            }
+
+            var player = url.searchParams.get('player') || '';
+            var values = url.searchParams.get('ports');
+            var ports = values ? values.split(',').map(Number) : [];
+            var etag = response.getResponseHeader('ETag') || '';
+            if ((values && !/^[0-3](,[0-3])*$/.test(values)) || ports.some(function (port, index) {
+                return !Number.isInteger(port) || port < 0 || port > 3 || ports.indexOf(port) !== index;
+            }) || (player ? !ports.length || !etag : ports.length)) {
+                throw { name: 'DataError', message: 'Invalid player or controller ports.' };
+            }
+            return { instance: instance, player: player, ports: ports, location: url.href, etag: etag };
         }
 
         async function _patch(candidate) {
-            if (_this.config.trickle !== true || _location == null) {
-                return Promise.resolve();
+            if (!_this.config.trickle) {
+                return;
             }
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('PATCH', _location.href, true);
-                xhr.setRequestHeader('Content-Type', 'application/trickle-ice-sdpfrag');
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
-                        return;
-                    }
-                    if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
-                        return;
-                    }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                        return;
-                    }
-                };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
-                };
-                if (candidate.candidate) {
-                    xhr.send(`a=${candidate.candidate}\na=end-of-candidates`);
-                } else {
-                    xhr.send('a=end-of-candidates');
+            if (!_resource.etag) {
+                _candidates.push(candidate);
+                return;
+            }
+
+            var body = 'a=mid:' + (candidate.sdpMid || '0') + '\r\n';
+            body += candidate.candidate ? 'a=' + candidate.candidate + '\r\n' : 'a=end-of-candidates\r\n';
+            await _request('PATCH', new URL(_resource.location), body, 'application/trickle-ice-sdpfrag', _resource.etag);
+        }
+
+        async function _delete(url, etag) {
+            try {
+                await _request('DELETE', url, undefined, undefined, etag);
+            } catch (err) {
+                if (err.status !== 404) {
+                    throw err;
                 }
-            });
-        }
-
-        async function _stop() {
-            if (!_params.get('instance') || !_params.get('player')) {
-                return Promise.resolve();
             }
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('DELETE', _location.href, true);
-                xhr.send();
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
-                        return;
-                    }
-                    if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
-                        return;
-                    }
-                    resolve();
-                };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
-                };
-            });
-        }
-
-        async function _delete() {
-            if (_location == null) {
-                return Promise.resolve();
-            }
-            return new Promise(function (resolve, reject) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('DELETE', _location.href, true);
-                xhr.send();
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
-                        return;
-                    }
-                    if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
-                        return;
-                    }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                        return;
-                    }
-                };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
-                };
-            });
         }
 
         function _onVolumeChange(e) {
@@ -377,13 +563,19 @@
         }
 
         function _onTrack(e) {
-            var stream = e.streams[0];
+            if (e.target !== _pc) {
+                return;
+            }
+            var stream = e.streams[0] || new MediaStream([e.track]);
             if (_video.srcObject !== stream) {
                 _stream = stream;
                 _video.srcObject = _stream;
                 _timer.start();
             }
             _video.play().catch(function (err) {
+                if (e.target !== _pc || !_video) {
+                    return;
+                }
                 switch (err.name) {
                     case 'AbortError':
                         _logger.debug(err.name + ': ' + err.message);
@@ -410,9 +602,16 @@
             _logger.log(`onConnectionStateChange: id=${_this.config.id}, state=${pc.connectionState}`);
 
             switch (pc.connectionState) {
+                case 'connected':
+                    if (pc === _pc) {
+                        _state = State.PLAYING;
+                    }
+                    break;
                 case 'failed':
                 case 'closed':
-                    _this.stop();
+                    if (pc === _pc) {
+                        _disconnect();
+                    }
                     break;
             }
         }
@@ -423,6 +622,9 @@
         }
 
         function _onIceCandidate(e) {
+            if (e.target !== _pc) {
+                return;
+            }
             var candidate = e.candidate;
             if (candidate == null) {
                 candidate = {
@@ -439,7 +641,14 @@
         }
 
         function _onDataChannelOpen(e) {
+            if (e.target !== _channel) {
+                return;
+            }
             _logger.debug(`onDataChannelOpen: ${e.target.label}`);
+            clearInterval(_inputTimer);
+            _inputTimer = setInterval(function () {
+                _resource.ports.forEach(_sendKeyState);
+            }, 50);
         }
 
         function _onDataChannelError(e) {
@@ -448,15 +657,26 @@
 
         function _onDataChannelClose(e) {
             _logger.log(`onDataChannelClose: ${e.target.label}`);
+            if (e.target === _channel) {
+                _disconnect();
+            }
         }
 
-        _this.stop = async function () {
+        function _disconnect() {
+            ++_operation;
+            _releaseKeys();
+            _candidates = [];
+            _resource.ports = [];
+            if (_state !== State.CLOSING && _state !== State.CLOSED) {
+                _state = State.INITIALIZED;
+            }
+
             if (_timer) {
                 _timer.reset();
             }
-            if (_xhr) {
-                _xhr.abort();
-            }
+            clearInterval(_inputTimer);
+            _inputTimer = null;
+
             if (_stream) {
                 _stream = null;
             }
@@ -467,6 +687,7 @@
                 _channel.close();
                 _channel = null;
             }
+
             if (_pc) {
                 _pc.removeEventListener('track', _onTrack);
                 _pc.removeEventListener('connectionstatechange', _onConnectionStateChange);
@@ -475,35 +696,54 @@
                 _pc.close();
                 _pc = null;
             }
+
             if (_video) {
                 _video.pause();
                 _video.srcObject = null;
             }
+        }
 
-            await _stop();
-            return Promise.resolve();
-        };
+        function _releaseKeys() {
+            _resource.ports.forEach(function (port) {
+                _keys[port] = 0;
+                _sendKeyState(port);
+            });
+        }
 
         _this.keyDown = function (port, key) {
+            if (_resource.ports.indexOf(port) === -1) {
+                return;
+            }
             _keys[port] |= key;
             _sendKeyState(port);
         };
 
         _this.keyUp = function (port, key) {
+            if (_resource.ports.indexOf(port) === -1) {
+                return;
+            }
             _keys[port] &= ~key;
             _sendKeyState(port);
         };
 
         _this.ports = function () {
-            return _ports.slice();
+            return _resource.ports.slice();
+        };
+
+        _this.instance = function () {
+            return _resource.instance;
+        };
+
+        _this.player = function () {
+            return _resource.player;
         };
 
         _this.location = function () {
-            return _location.href;
+            return _resource.location;
         };
 
         function _sendKeyState(port) {
-            if (_channel && _channel.readyState === 'open') {
+            if (_resource.ports.indexOf(port) !== -1 && _channel && _channel.readyState === 'open') {
                 try {
                     var payload = new Uint8Array([port, _keys[port]]);
                     _channel.send(payload);
@@ -515,7 +755,22 @@
 
         async function _onStatsTimer() {
             var pc = _pc;
-            var report = await pc.getStats();
+            if (!pc || pc.connectionState === 'closed') {
+                return;
+            }
+            if (pc.connectionState === 'connected') {
+                _setCookie(Date.now() + 30000);
+            }
+            var report;
+            try {
+                report = await pc.getStats();
+            } catch (err) {
+                _logger.debug(err.message);
+                return;
+            }
+            if (pc !== _pc) {
+                return;
+            }
 
             var current = {
                 timestamp: 0,
@@ -552,17 +807,29 @@
             _stats = current;
         }
 
-        function _setCookie(value, age) {
+        function _setCookie(age) {
+            if (!_cookie || (age && (!_resource.instance || !_resource.player || !_resource.etag))) {
+                return;
+            }
+            var value = age ? JSON.stringify({ instance: _resource.instance, player: _resource.player }) : '';
             var expires = new Date(age).toUTCString();
-            document.cookie = `famicom=${value}; expires=${expires}`;
+            document.cookie = `${_cookie}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
         }
 
         function _getCookie() {
             var cookies = document.cookie.split('; ');
             for (var cookie of cookies) {
-                var i = cookie.indexOf('=');
-                if (cookie.substring(0, i) === 'famicom') {
-                    return new URL(cookie.substring(i + 1));
+                var index = cookie.indexOf('=');
+                if (cookie.substring(0, index) === _cookie) {
+                    try {
+                        var data = JSON.parse(decodeURIComponent(cookie.substring(index + 1)));
+                        if (typeof data.instance === 'string' && data.instance &&
+                            typeof data.player === 'string' && data.player) {
+                            return { instance: data.instance, player: data.player };
+                        }
+                    } catch (err) {
+                        _logger.warn('Invalid game cookie.');
+                    }
                 }
             }
             return null;
@@ -603,35 +870,31 @@
 
         };
 
-        _this.destroy = async function (reason) {
-            switch (_state) {
-                case State.INITIALIZED:
-                case State.CONNECTING:
-                case State.PLAYING:
-                    _state = State.CLOSING;
-
-                    await _this.stop();
-                    if (_params.get('instance')) {
-                        _params.delete('player');
-                        _params.delete('ports');
-                        _location.search = _params.toString();
-                        await _delete();
-                    }
-
-                    if (_video) {
-                        _video.removeEventListener('volumechange', _onVolumeChange);
-                    }
-                    _canvas = null;
-                    _context = null;
-                    if (_container) {
-                        _container.innerHTML = '';
-                    }
-                    delete _instances[_id];
-
-                    _this.dispatchEvent(Event.CLOSE, { reason: reason });
-                    _state = State.CLOSED;
-                    break;
+        _this.destroy = function (reason) {
+            if (_state === State.CLOSING || _state === State.CLOSED) {
+                return;
             }
+            _state = State.CLOSING;
+            _disconnect();
+
+            var requests = _requests.splice(0);
+            requests.forEach(function (xhr) {
+                xhr.abort();
+            });
+            _timer.removeEventListener(TimerEvent.TIMER, _onStatsTimer);
+            if (_video) {
+                _video.removeEventListener('volumechange', _onVolumeChange);
+                _video = null;
+            }
+            _canvas = null;
+            _context = null;
+            if (_container) {
+                _container.innerHTML = '';
+            }
+            delete _instances[_id];
+
+            _state = State.CLOSED;
+            _this.dispatchEvent(Event.CLOSE, { reason: reason });
         };
 
         _init();

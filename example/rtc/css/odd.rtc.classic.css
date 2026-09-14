@@ -134,18 +134,8 @@
     pointer-events: auto;
 }
 
-.pe-wrapper[kind="rtc"] .pe-panel.settings>div {
-    display: grid;
-    gap: 16px;
-}
-
-.pe-wrapper[kind="rtc"] .pe-settings-group {
-    display: grid;
-    gap: 10px;
-}
-
 .pe-wrapper[kind="rtc"] .pe-settings-title {
-    margin: 0;
+    margin: 16px 0 10px;
     font-size: 15px;
     line-height: 22px;
 }

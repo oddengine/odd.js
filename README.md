@@ -1,8 +1,6 @@
 # odd.js
 
 - [Website](https://oddengine.com)
-- [English knowledge base](doc/design/SKILL.md)
-- [中文知识库](doc/design/SKILL.zh.md)
 
 odd.js is a modular Web SDK family for media playback, real-time communication, instant messaging, and cloud gaming. It provides a shared browser foundation together with Player, RTC, IM, Famicom, and composite App SDKs; keeps protocol and runtime logic separate from optional UI plugins; and supports multiple independently managed instances. The corresponding server-side runtime for communication, signaling, media routing, and cloud gaming is [odd.d](https://github.com/oddengine/odd.d).
 

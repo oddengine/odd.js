@@ -15,6 +15,11 @@
         _default = {
             presentation: 'full',
             skin: 'classic',
+            rtc: {
+                profile: '180P_1',
+                camera: true,
+                microphone: true,
+            },
             plugins: [],
         };
 
@@ -161,6 +166,12 @@
         }
 
         function _setupPlugins() {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard) {
+                dashboard.update('settings', _this.config.rtc);
+                dashboard.show('settings');
+            }
+
             _wrapper.setAttribute('state', '');
             _wrapper.setAttribute('navigation', _nav.length() > 1 ? 'on' : 'off');
         }
@@ -207,6 +218,16 @@
         }
 
         function _onChange(e) {
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard && e.srcElement === dashboard.components['settings']) {
+                switch (e.data.name) {
+                    case 'profile':
+                    case 'camera':
+                    case 'microphone':
+                        _this.config.rtc[e.data.name] = e.data.value;
+                        break;
+                }
+            }
             _this.forward(e);
         }
 
