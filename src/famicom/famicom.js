@@ -43,9 +43,6 @@
             muted: false,
             volume: 0.8,
             base: `${location.protocol}//${location.host}/game`,
-            token: '',
-            game: '',
-            controllers: 1,
             trickle: false,
             loader: {
                 mode: 'cors',        // cors, no-cors, same-origin
@@ -70,7 +67,6 @@
             _pc,
             _channel,
             _stream,
-            _inputTimer,
             _keys,
             _timer,
             _stats,
@@ -78,7 +74,6 @@
             _operation,
             _busy,
             _requests,
-            _cookie,
             _state;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, MediaEvent, NetStatusEvent);
@@ -112,22 +107,11 @@
         };
 
         _this.setup = async function (container, config) {
-            _container = container;
-            _this.config = utils.extendz({ id: _id }, _default, config);
-
-            var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(_this.config.token));
-            var identity = Array.prototype.map.call(new Uint8Array(digest), function (byte) {
-                return ('0' + byte.toString(16)).slice(-2);
-            }).join('');
-            _cookie = 'famicom-' + identity + '-' + encodeURIComponent(_url('play').href);
             if (_state === State.CLOSED) {
                 throw { name: 'AbortError', message: 'The SDK was destroyed.' };
             }
-            var saved = _getCookie();
-            if (saved) {
-                _resource.instance = saved.instance;
-                _resource.player = saved.player;
-            }
+            _container = container;
+            _this.config = utils.extendz({ id: _id }, _default, config);
 
             _video = utils.createElement('video');
             _video.addEventListener('volumechange', _onVolumeChange);
@@ -156,8 +140,8 @@
         }
 
         _this.list = async function () {
-            if (!_this.config.token || _state === State.CLOSED) {
-                _logger.error(`Failed to list games: id=${_id}, a token and an active SDK are required.`);
+            if (_state === State.CLOSED) {
+                _logger.error(`Failed to list games: id=${_id}, an active SDK is required.`);
                 return;
             }
             var response = await _request('GET', _url('list'));
@@ -165,75 +149,37 @@
         };
 
         _this.create = async function (game) {
-            game = game || _this.config.game;
-            if (_busy || !game || !_this.config.token || _state === State.CLOSED) {
-                _logger.error(`Failed to create: id=${_id}, game and token are required; finish pending requests first.`);
+            if (!game || _state === State.CLOSED) {
+                _logger.error(`Failed to create: id=${_id}, game and an active SDK are required.`);
                 return;
             }
 
-            var operation = _operation;
-            _busy = true;
-            try {
-                var url = _url('create');
-                url.searchParams.set('game', game);
+            var url = _url('create');
+            url.searchParams.set('game', game);
 
-                var response = await _request('GET', url);
-                if (operation !== _operation) {
-                    throw { name: 'AbortError', message: 'The operation was cancelled.' };
-                }
-                var resource = _parseLocation(response);
-                if (resource.player) {
-                    throw { name: 'DataError', message: 'Create returned a player resource.' };
-                }
-                return resource.instance;
-            } finally {
-                _busy = false;
+            var response = await _request('GET', url);
+            if (_state === State.CLOSED) {
+                throw { name: 'AbortError', message: 'The SDK was destroyed.' };
             }
+            var resource = _parseLocation(response);
+            if (resource.player) {
+                throw { name: 'DataError', message: 'Create returned a player resource.' };
+            }
+            return resource.instance;
         };
 
-        _this.load = async function (instance, game) {
-            game = game || _this.config.game;
-            if (!instance || !game) {
-                _logger.error(`Failed to load: id=${_id}, instance and game are required.`);
-                return;
-            }
-            if (_busy || !_this.config.token || _state === State.CLOSED) {
-                _logger.error(`Failed to load: id=${_id}, token is required; finish pending requests first.`);
-                return;
-            }
-
-            var operation = _operation;
-            _busy = true;
-            try {
-                if (_resource.instance === instance) {
-                    _releaseKeys();
-                }
-                var url = _url('load');
-                url.searchParams.set('instance', instance);
-                url.searchParams.set('game', game);
-                await _request('GET', url);
-                if (operation !== _operation) {
-                    throw { name: 'AbortError', message: 'The operation was cancelled.' };
-                }
-                return true;
-            } finally {
-                _busy = false;
-            }
-        };
-
-        _this.play = async function (instance, controllers, player) {
-            if (_busy || !_this.config.token || _state === State.CLOSED ||
+        _this.play = async function (instance, player) {
+            if (_busy || _state === State.CLOSED ||
                 _resource.instance && _resource.instance !== instance) {
-                _logger.error(`Failed to play: id=${_id}, instance=${instance}, token and active SDK are required; leave another game and finish pending requests first.`);
+                _logger.error(`Failed to play: id=${_id}, instance=${instance}, an active SDK is required; stop the current connection and finish pending requests first.`);
                 return;
             }
             if (!instance) {
                 _logger.error(`Failed to play: id=${_id}, instance is required.`);
                 return;
             }
-            controllers = controllers === undefined ? _this.config.controllers : controllers;
-            if (!Number.isInteger(controllers) || controllers < 1 || controllers > 4) {
-                _logger.error(`Failed to play: id=${_id}, controllers must be between 1 and 4.`);
+            if (player !== undefined && typeof player !== 'string') {
+                _logger.error(`Failed to play: id=${_id}, player must be a string.`);
                 return;
             }
 
@@ -248,7 +194,6 @@
 
             var url = _url('play');
             url.searchParams.set('instance', instance);
-            url.searchParams.set('controllers', controllers);
             if (player) {
                 url.searchParams.set('player', player);
             }
@@ -326,7 +271,6 @@
                     }
                 });
                 _state = pc.connectionState === 'connected' ? State.PLAYING : State.CONNECTING;
-                _setCookie(Date.now() + 30000);
                 return resource.player;
             } catch (err) {
                 if (pc === _pc) {
@@ -343,7 +287,6 @@
                     }
                 } else if (err.status === 404 && _resource.instance === instance) {
                     _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
-                    _setCookie(0);
                 }
                 throw err;
             } finally {
@@ -352,26 +295,30 @@
         };
 
         _this.stop = async function () {
-            if (_busy || _state === State.CLOSED || (_resource.player && !_this.config.token)) {
-                _logger.error(`Failed to stop: id=${_id}, token is required; finish pending requests first.`);
+            if (_busy || _state === State.CLOSED) {
+                _logger.error(`Failed to stop: id=${_id}, an active SDK is required; finish pending requests first.`);
                 return;
             }
 
-            var operation = _operation;
+            var resource = _resource;
             _busy = true;
             try {
                 if (_resource.instance && _resource.player) {
                     var url = _url('play');
                     url.searchParams.set('instance', _resource.instance);
                     url.searchParams.set('player', _resource.player);
-                    await _delete(url, _resource.etag);
+                    try {
+                        await _delete(url, resource.etag);
+                    } catch (err) {
+                        // The old player may already be gone or replaced by a reconnect.
+                        if (err.status !== 404 && err.status !== 412) throw err;
+                    }
                 }
-                if (operation !== _operation) {
+                if (resource !== _resource || _state === State.CLOSING || _state === State.CLOSED) {
                     throw { name: 'AbortError', message: 'The operation was cancelled.' };
                 }
                 _disconnect();
                 _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
-                _setCookie(0);
                 return true;
             } finally {
                 _busy = false;
@@ -379,30 +326,135 @@
         };
 
         _this.remove = async function (instance) {
-            if (_busy || !instance || !_this.config.token || _state === State.CLOSED) {
-                _logger.error(`Failed to remove: id=${_id}, instance and token are required; finish pending requests first.`);
+            if (_busy || !instance || _state === State.CLOSED) {
+                _logger.error(`Failed to remove: id=${_id}, instance and an active SDK are required; finish pending requests first.`);
                 return;
             }
 
-            var operation = _operation;
+            var resource = _resource;
             _busy = true;
             try {
                 var url = _url('play');
                 url.searchParams.set('instance', instance);
-                await _delete(url);
-                if (operation !== _operation) {
+                try {
+                    await _delete(url);
+                } catch (err) {
+                    if (err.status !== 404) throw err;
+                }
+                if (resource !== _resource || _state === State.CLOSING || _state === State.CLOSED) {
                     throw { name: 'AbortError', message: 'The operation was cancelled.' };
                 }
                 if (_resource.instance === instance) {
                     _disconnect();
                     _resource = { instance: '', player: '', ports: [], location: '', etag: '' };
-                    _setCookie(0);
                 }
                 return true;
             } finally {
                 _busy = false;
             }
         };
+
+        _this.sync = function () {
+            return _updatePorts('GET');
+        };
+
+        _this.allocate = async function () {
+            var result = await _updatePorts('POST');
+            return result ? result.allocatedPort : undefined;
+        };
+
+        _this.release = async function (port) {
+            if (_resource.ports.indexOf(port) === -1 || _resource.ports.length <= 1) {
+                _logger.error(`Failed to release: id=${_id}, keep at least one assigned port.`);
+                return;
+            }
+            var result = await _updatePorts('DELETE', port);
+            return result ? true : undefined;
+        };
+
+        async function _updatePorts(method, port) {
+            if (_busy || _state === State.CLOSED || !_pc || !_resource.player || !_resource.etag) {
+                _logger.error(`Failed to update ports: id=${_id}, a player and an idle SDK are required.`);
+                return;
+            }
+            var resource = _resource;
+            var operation = _operation;
+            var url = _url('ports');
+            url.searchParams.set('instance', resource.instance);
+            url.searchParams.set('player', resource.player);
+            _busy = true;
+            try {
+                if (method !== 'GET' && resource.revision === undefined) {
+                    var current = await _request('GET', url, undefined, undefined, resource.etag);
+                    _acceptPorts(current, resource, operation);
+                }
+                if (resource !== _resource || operation !== _operation) {
+                    throw { name: 'AbortError', message: 'The connection was replaced.' };
+                }
+                if (method !== 'GET') {
+                    url.searchParams.set('revision', resource.revision);
+                }
+                if (method === 'DELETE') {
+                    url.searchParams.set('port', port);
+                    _keys[port] = 0;
+                    _sendKeyState(port);
+                    resource.releasing = port;
+                }
+                var response = await _request(method, url, undefined, undefined, resource.etag);
+                return _acceptPorts(response, resource, operation, method, port);
+            } catch (err) {
+                if (resource === _resource && operation === _operation && method !== 'GET') {
+                    // The server may already have committed. Read back; never repeat the mutation.
+                    resource.revision = undefined;
+                    url.searchParams.delete('revision');
+                    url.searchParams.delete('port');
+                    try {
+                        var response = await _request('GET', url, undefined, undefined, resource.etag);
+                        _acceptPorts(response, resource, operation);
+                        err.synchronized = true;
+                    } catch (sync) {
+                        if (resource === _resource && operation === _operation) {
+                            _this.dispatchEvent(Event.CHANGE, { name: 'ports', value: {
+                                instance: resource.instance, player: resource.player,
+                                ports: resource.ports.slice(), canAllocate: false, unknown: true,
+                            } });
+                        }
+                        _logger.warn(`Failed to synchronize ports: ${sync.message}`);
+                    }
+                }
+                throw err;
+            } finally {
+                _busy = false;
+            }
+        }
+
+        function _acceptPorts(response, resource, operation, method, port) {
+            if (resource !== _resource || operation !== _operation) {
+                throw { name: 'AbortError', message: 'The connection was replaced.' };
+            }
+            var data = JSON.parse(response.responseText);
+            if (response.getResponseHeader('ETag') !== resource.etag ||
+                data.instance !== resource.instance || data.player !== resource.player ||
+                !Array.isArray(data.ports) || !data.ports.length || data.ports.length > 4 ||
+                !Number.isSafeInteger(data.revision) || data.revision < 0 ||
+                data.limit !== 4 || typeof data.canAllocate !== 'boolean' ||
+                method === 'POST' && !Number.isInteger(data.allocatedPort) ||
+                method === 'DELETE' && data.releasedPort !== port ||
+                data.ports.some(function (port, index) {
+                    return !Number.isInteger(port) || port < 0 || port > 3 || data.ports.indexOf(port) !== index;
+                }) || data.allocatedPort !== undefined && data.ports.indexOf(data.allocatedPort) === -1 ||
+                data.releasedPort !== undefined && data.ports.indexOf(data.releasedPort) !== -1) {
+                throw { name: 'DataError', message: 'Invalid controller assignment.' };
+            }
+            resource.ports.forEach(function (port) {
+                if (data.ports.indexOf(port) === -1) _keys[port] = 0;
+            });
+            resource.ports = data.ports.slice();
+            resource.revision = data.revision;
+            delete resource.releasing;
+            _this.dispatchEvent(Event.CHANGE, { name: 'ports', value: data });
+            return data;
+        }
 
         function _initPeerConnection() {
             _pc = new RTCPeerConnection(_this.config.configuration);
@@ -468,11 +520,17 @@
 
         function _request(method, url, body, type, etag) {
             return new Promise(function (resolve, reject) {
+                var token = utils.getCookie('token');
+                if (!token) {
+                    reject({ name: 'NotAllowedError', message: 'The application token cookie is missing.', status: 401 });
+                    return;
+                }
+
                 var xhr = new XMLHttpRequest();
                 xhr.open(method, url.href, true);
                 xhr.timeout = 30000;
                 xhr.withCredentials = _this.config.loader.credentials === 'include';
-                xhr.setRequestHeader('Authorization', 'Bearer ' + _this.config.token);
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
                 if (type) {
                     xhr.setRequestHeader('Content-Type', type);
                 }
@@ -491,7 +549,15 @@
                     if (xhr.status >= 200 && xhr.status < 300) {
                         resolve(xhr);
                     } else {
-                        reject({ name: 'NetworkError', message: xhr.status + ' ' + xhr.statusText, status: xhr.status });
+                        var error = { name: 'NetworkError', message: xhr.status + ' ' + xhr.statusText, status: xhr.status };
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            error.code = data.code;
+                            error.message = data.message || error.message;
+                        } catch (err) {
+                            // SDP and empty HTTP error responses do not carry JSON details.
+                        }
+                        reject(error);
                     }
                 };
                 xhr.onerror = xhr.ontimeout = function () {
@@ -567,7 +633,7 @@
                 return;
             }
             var stream = e.streams[0] || new MediaStream([e.track]);
-            if (_video.srcObject !== stream) {
+            if (_stream !== stream) {
                 _stream = stream;
                 _video.srcObject = _stream;
                 _timer.start();
@@ -645,10 +711,7 @@
                 return;
             }
             _logger.debug(`onDataChannelOpen: ${e.target.label}`);
-            clearInterval(_inputTimer);
-            _inputTimer = setInterval(function () {
-                _resource.ports.forEach(_sendKeyState);
-            }, 50);
+            _resource.ports.forEach(_sendKeyState);
         }
 
         function _onDataChannelError(e) {
@@ -667,6 +730,11 @@
             _releaseKeys();
             _candidates = [];
             _resource.ports = [];
+            delete _resource.revision;
+            delete _resource.releasing;
+            _this.dispatchEvent(Event.CHANGE, { name: 'ports', value: {
+                instance: _resource.instance, player: _resource.player, ports: [], disconnected: true,
+            } });
             if (_state !== State.CLOSING && _state !== State.CLOSED) {
                 _state = State.INITIALIZED;
             }
@@ -674,12 +742,7 @@
             if (_timer) {
                 _timer.reset();
             }
-            clearInterval(_inputTimer);
-            _inputTimer = null;
-
-            if (_stream) {
-                _stream = null;
-            }
+            _stream = null;
             if (_channel) {
                 _channel.removeEventListener('open', _onDataChannelOpen);
                 _channel.removeEventListener('error', _onDataChannelError);
@@ -711,7 +774,7 @@
         }
 
         _this.keyDown = function (port, key) {
-            if (_resource.ports.indexOf(port) === -1) {
+            if (_resource.ports.indexOf(port) === -1 || _resource.releasing === port) {
                 return;
             }
             _keys[port] |= key;
@@ -719,7 +782,7 @@
         };
 
         _this.keyUp = function (port, key) {
-            if (_resource.ports.indexOf(port) === -1) {
+            if (_resource.ports.indexOf(port) === -1 || _resource.releasing === port) {
                 return;
             }
             _keys[port] &= ~key;
@@ -757,9 +820,6 @@
             var pc = _pc;
             if (!pc || pc.connectionState === 'closed') {
                 return;
-            }
-            if (pc.connectionState === 'connected') {
-                _setCookie(Date.now() + 30000);
             }
             var report;
             try {
@@ -805,34 +865,6 @@
                 },
             });
             _stats = current;
-        }
-
-        function _setCookie(age) {
-            if (!_cookie || (age && (!_resource.instance || !_resource.player || !_resource.etag))) {
-                return;
-            }
-            var value = age ? JSON.stringify({ instance: _resource.instance, player: _resource.player }) : '';
-            var expires = new Date(age).toUTCString();
-            document.cookie = `${_cookie}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-        }
-
-        function _getCookie() {
-            var cookies = document.cookie.split('; ');
-            for (var cookie of cookies) {
-                var index = cookie.indexOf('=');
-                if (cookie.substring(0, index) === _cookie) {
-                    try {
-                        var data = JSON.parse(decodeURIComponent(cookie.substring(index + 1)));
-                        if (typeof data.instance === 'string' && data.instance &&
-                            typeof data.player === 'string' && data.player) {
-                            return { instance: data.instance, player: data.player };
-                        }
-                    } catch (err) {
-                        _logger.warn('Invalid game cookie.');
-                    }
-                }
-            }
-            return null;
         }
 
         _this.muted = function (status) {

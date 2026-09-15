@@ -61,13 +61,11 @@
         <div id='game' class='game'></div>
         <div class='panel'>
             <input id='server' type='text' value='https://localhost/game' autocapitalize='off'>
-            <input id='token' type='text' value='demo-token' placeholder='Application token' autocapitalize='off'>
+            <input id='token' type='text' value='demo-token' placeholder='Application token cookie' autocapitalize='off' onchange='onTokenChange();'>
             <input id='instance' type='text' placeholder='instance' autocapitalize='off'>
             <input id='player' type='text' placeholder='player' autocapitalize='off'>
-            <input id='controllers' type='number' min='1' max='4' value='1'>
             <input id='gameName' type='text' value='1943' autocapitalize='off'>
             <a class='btn green-fill' onclick='onInitClick();'>Create &amp; Play</a>
-            <a class='btn green-fill' onclick='onLoadClick();'>Load</a>
             <a class='btn green-fill' onclick='onJoinClick();'>Join</a>
             <a class='btn green-fill' onclick='onReconnectClick();'>Reconnect</a>
             <a class='btn green-fill' onclick='onLeaveClick();'>Leave</a>

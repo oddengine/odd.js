@@ -4,12 +4,18 @@ var events = odd.events,
     UI = Famicom.UI,
     ui = odd.famicom.ui.create({ level: 'debug' });
 
+var applicationToken = odd.utils.getCookie('token');
+if (applicationToken) {
+    token.value = applicationToken;
+} else {
+    onTokenChange();
+}
+
 ui.addEventListener(Event.READY, onReady);
 ui.addEventListener(Event.ERROR, onError);
 ui.setup(game, {
     skin: 'classic',
     base: server.value,
-    token: token.value, // Supplied by the application; the server currently mocks authorization.
     loader: {
         mode: 'cors',
         credentials: 'omit',
@@ -27,6 +33,11 @@ ui.setup(game, {
     }],
 }).catch(onError);
 
+function onTokenChange() {
+    document.cookie = 'token=' + encodeURIComponent(token.value) + '; path=/; SameSite=Lax' +
+        (location.protocol === 'https:' ? '; Secure' : '');
+}
+
 function onReady() {
     ui.logger.log('onReady');
 
@@ -36,7 +47,6 @@ function onReady() {
         instance.value = id;
     }
     server.readOnly = true;
-    token.readOnly = true;
 }
 
 function onError(e) {
@@ -47,9 +57,6 @@ function onError(e) {
 function syncLocation() {
     instance.value = ui.instance() || instance.value;
     player.value = ui.player();
-
-    var ports = ui.ports();
-    controllers.value = ports.length || controllers.value;
 
     var url = new URL(location.href);
     url.searchParams.set('instance', instance.value);
@@ -62,7 +69,7 @@ function onInitClick() {
             return;
         }
         instance.value = id;
-        return ui.play(id, Number(controllers.value));
+        return ui.play(id);
     }).then(function (id) {
         if (!id) {
             return;
@@ -72,7 +79,7 @@ function onInitClick() {
 }
 
 function onJoinClick() {
-    ui.play(instance.value, Number(controllers.value)).then(function (id) {
+    ui.play(instance.value).then(function (id) {
         if (!id) {
             return;
         }
@@ -81,16 +88,12 @@ function onJoinClick() {
 }
 
 function onReconnectClick() {
-    ui.play(instance.value, Number(controllers.value), player.value).then(function (id) {
+    ui.play(instance.value, player.value).then(function (id) {
         if (!id) {
             return;
         }
         syncLocation();
     }).catch(onError);
-}
-
-function onLoadClick() {
-    ui.load(instance.value, gameName.value).catch(onError);
 }
 
 function onLeaveClick() {

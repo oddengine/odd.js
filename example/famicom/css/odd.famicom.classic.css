@@ -166,7 +166,8 @@
     gap: 12px;
 }
 
-.pe-wrapper[kind="famicom"] .pe-settings-content input {
+.pe-wrapper[kind="famicom"] .pe-settings-content input,
+.pe-wrapper[kind="famicom"] .pe-settings-content select {
     min-width: 0;
     height: 34px;
     padding: 0 10px;
@@ -174,6 +175,70 @@
     border-radius: 8px;
     color: #f4f6f8;
     background: #11151a;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content+.pe-settings-title {
+    margin-top: 20px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-controller-slot {
+    min-width: 0;
+    margin: 8px 0;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 8px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-controller-slot legend {
+    padding: 0 6px;
+    font-weight: 600;
+}
+
+.pe-wrapper[kind="famicom"] .pe-controller-slot table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pe-wrapper[kind="famicom"] .pe-controller-slot th {
+    width: 80px;
+    text-align: left;
+    font-size: 12px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-controller-slot td {
+    padding: 3px 0;
+}
+
+.pe-wrapper[kind="famicom"] .pe-controller-slot input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 8px;
+    color: inherit;
+    background: #25333c;
+    cursor: pointer;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content :disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content :focus-visible {
+    outline: 2px solid #35d5a5;
+    outline-offset: 2px;
+}
+
+.pe-wrapper[kind="famicom"] .pe-settings-content p {
+    margin: 4px 0;
+    overflow-wrap: anywhere;
 }
 
 .pe-wrapper[kind="famicom"] .pe-settings-footer {

@@ -11,7 +11,6 @@
         TouchEvent = events.TouchEvent,
         TimerEvent = events.TimerEvent,
         Famicom = odd.Famicom,
-        Port = Famicom.Port,
         Key = Famicom.Key,
 
         CLASS_WRAPPER = 'pe-wrapper',
@@ -22,8 +21,6 @@
         _default = {
             presentation: 'full', // full, mini, popup
             skin: 'classic',
-            game: '',
-            controllers: 1,
             input: 'keyboard',
             instance: '',
             joystick: {
@@ -31,22 +28,14 @@
                 direction: 8,
             },
             keyboard: {
-                KeyW: [Port.P1, Key.UP],
-                KeyS: [Port.P1, Key.DOWN],
-                KeyA: [Port.P1, Key.LEFT],
-                KeyD: [Port.P1, Key.RIGHT],
-                KeyH: [Port.P1, Key.START],
-                KeyG: [Port.P1, Key.SELECT],
-                KeyJ: [Port.P1, Key.B],
-                KeyK: [Port.P1, Key.A],
-                ArrowUp: [Port.P2, Key.UP],
-                ArrowDown: [Port.P2, Key.DOWN],
-                ArrowLeft: [Port.P2, Key.LEFT],
-                ArrowRight: [Port.P2, Key.RIGHT],
-                Numpad3: [Port.P2, Key.START],
-                Numpad2: [Port.P2, Key.SELECT],
-                Numpad0: [Port.P2, Key.B],
-                NumpadDecimal: [Port.P2, Key.A],
+                wasd: {
+                    KeyW: Key.UP, KeyS: Key.DOWN, KeyA: Key.LEFT, KeyD: Key.RIGHT,
+                    KeyH: Key.START, KeyG: Key.SELECT, KeyJ: Key.B, KeyK: Key.A,
+                },
+                arrows: {
+                    ArrowUp: Key.UP, ArrowDown: Key.DOWN, ArrowLeft: Key.LEFT, ArrowRight: Key.RIGHT,
+                    Numpad3: Key.START, Numpad2: Key.SELECT, Numpad0: Key.B, NumpadDecimal: Key.A,
+                },
             },
             gamepad: {
                 threshold: 0.5,
@@ -76,6 +65,10 @@
             _keyboardkeys,
             _gamepadkeys,
             _gamepadframe,
+            _bindings,
+            _assignment,
+            _devices,
+            _touchPort,
             _timer;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, MediaEvent, UIEvent, MouseEvent, TouchEvent);
@@ -87,6 +80,10 @@
             _joystickkeys = {};
             _keyboardkeys = {};
             _gamepadkeys = {};
+            _bindings = { instance: '', player: '', slots: {} };
+            _assignment = { ports: [] };
+            _devices = {};
+            _touchPort = null;
 
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
@@ -115,6 +112,7 @@
             _api.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
             _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
             _api.addEventListener(Event.ERROR, _onError);
+            _api.addEventListener(Event.CHANGE, _onPortsChange);
             await _api.setup(_content, _this.config);
 
             _buildPlugins();
@@ -123,6 +121,8 @@
 
             window.addEventListener('resize', _this.resize);
             window.addEventListener('blur', _releaseInput);
+            window.addEventListener('gamepadconnected', _onGamepadConnected);
+            window.addEventListener('gamepaddisconnected', _onGamepadDisconnected);
             document.addEventListener('visibilitychange', _onVisibilityChange);
             _wrapper.addEventListener('pointerdown', _focus);
             _gamepadframe = requestAnimationFrame(_pollGamepads);
@@ -224,19 +224,28 @@
         }
 
         function _onBind(e) {
-            _this.create = function (game) {
-                return _api.create(game || _this.config.game);
-            };
+            _this.create = _api.create;
             _this.list = _api.list;
             _this.remove = _api.remove;
-            _this.load = function (instance, game) {
+            _this.play = async function (instance, player) {
+                var api = _api;
                 _releaseInput();
-                return _api.load(instance, game || _this.config.game);
+                var result = await api.play(instance, player);
+                if (!result || api !== _api) return result;
+                // Location already carries the assigned ports. Metadata may be retried independently.
+                _onPortsChange({ data: { name: 'ports', value: {
+                    instance: api.instance(), player: api.player(), ports: api.ports(),
+                } } });
+                try {
+                    await api.sync();
+                } catch (err) {
+                    _updateSettings('Connected; synchronize controller slots before adding or removing.');
+                }
+                return result;
             };
-            _this.play = function (instance, controllers, player) {
-                _releaseInput();
-                return _api.play(instance, controllers === undefined ? _this.config.controllers : controllers, player);
-            };
+            _this.sync = _api.sync;
+            _this.allocate = _api.allocate;
+            _this.release = _api.release;
             _this.stop = function () {
                 _releaseInput();
                 return _api.stop();
@@ -392,6 +401,11 @@
                 case MouseEvent.CLICK:
                     _onClick(e);
                     break;
+                case Event.VISIBILITYCHANGE:
+                    if (e.data.state === 'visible') _releaseInput();
+                    else if (e.data.name === 'settings') _wrapper.focus();
+                    _this.forward(e);
+                    break;
                 case Event.CHANGE:
                     _onChange(e);
                     break;
@@ -424,8 +438,8 @@
         }
 
         function _onTouch(index) {
-            var port = _api.ports()[0];
-            if (port === undefined) {
+            var port = _touchPort;
+            if (port === null || index && !_inputAllowed(port)) {
                 return;
             }
             var map4 = {
@@ -447,25 +461,22 @@
             var keys = (_this.config.joystick.direction === 4 ? map4[index] : map8[index]) || [];
             var pressed = {};
 
+            keys.forEach(function (key) { pressed[key] = true; });
+            var previous = _joystickkeys;
+            _joystickkeys = pressed;
             [Key.UP, Key.RIGHT, Key.DOWN, Key.LEFT].forEach(function (key) {
-                if (utils.indexOf(keys, key) === -1) {
-                    if (_joystickkeys[key]) {
-                        _api.keyUp(port, key);
-                    }
-                } else {
-                    pressed[key] = true;
-                    if (!_joystickkeys[key]) {
-                        _api.keyDown(port, key);
-                    }
+                if (previous[key] && !pressed[key] && !_keyHeld(port, key)) {
+                    _api.keyUp(port, key);
+                } else if (!previous[key] && pressed[key]) {
+                    _api.keyDown(port, key);
                 }
             });
-            _joystickkeys = pressed;
         }
 
         function _onClick(e) {
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard && e.srcElement === dashboard.components['settings']) {
-                _onGameAction(e.data.name).catch(function (err) {
+                _onGameAction(e.data).catch(function (err) {
                     if (_api) {
                         _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     }
@@ -492,17 +503,33 @@
         function _onChange(e) {
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard && e.srcElement === dashboard.components['settings']) {
-                _releaseInput();
-                if (e.data.name === 'keyboard') {
-                    var input = e.data.value;
-                    utils.forEach(_this.config.keyboard, function (code, binding) {
-                        if (binding[0] === input.port && binding[1] === input.key) {
-                            delete _this.config.keyboard[code];
-                        }
-                    });
-                    _this.config.keyboard[input.code] = [input.port, input.key];
-                } else {
-                    _this.config[e.data.name] = e.data.value;
+                var value = e.data.value;
+                try {
+                    if (e.data.name === 'keyboard') {
+                        var binding = _bindings.slots[value.port];
+                        if (!binding) return;
+                        var conflict = Object.values(_bindings.slots).some(function (other) {
+                            return other.port !== value.port && other.keyboard[value.code] !== undefined;
+                        });
+                        if (conflict) throw { message: 'This key is assigned to another player.' };
+                        _releaseInput(value.port);
+                        utils.forEach(binding.keyboard, function (code, key) {
+                            if (key === value.key) delete binding.keyboard[code];
+                        });
+                        if (value.code) binding.keyboard[value.code] = value.key;
+                        binding.profile = 'custom';
+                    } else if (e.data.name === 'binding') {
+                        _this.bind(value.port, value.source);
+                    } else if (e.data.name === 'touch') {
+                        _releaseInput(_touchPort);
+                        _touchPort = Number(value);
+                    } else if (e.data.name !== 'game') {
+                        _releaseInput();
+                        _this.config[e.data.name] = value;
+                    }
+                    _updateSettings('');
+                } catch (err) {
+                    _updateSettings(err.message);
                 }
                 return;
             }
@@ -530,34 +557,141 @@
 
         async function _onGameAction(action) {
             var api = _api;
-            var instance = api.instance() || _this.config.instance;
-            var result;
-            switch (action) {
-                case 'create':
-                    instance = await _this.create();
-                    if (!instance || api !== _api) {
-                        return;
-                    }
-                    _this.config.instance = instance;
-                    result = await _this.play(instance);
-                    break;
-                case 'load':
-                    result = await _this.load(instance);
-                    break;
-                case 'join':
-                    result = await _this.play(_this.config.instance);
-                    break;
-                case 'leave':
-                    result = await _this.stop();
-                    break;
-                case 'destroy':
-                    result = await _this.remove(instance);
-                    break;
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard.components['settings'].config.pending) return;
+            _releaseInput();
+            dashboard.update('settings', { pending: action.name, message: '' });
+            try {
+                var instance = api.instance() || _this.config.instance;
+                var result;
+                switch (action.name) {
+                    case 'create':
+                        if (!action.game) throw { message: 'Select a game to create.' };
+                        if (api.instance()) throw { message: 'Leave the current game before creating and joining another.' };
+                        instance = await _this.create(action.game);
+                        if (!instance || api !== _api) return;
+                        _this.config.instance = instance;
+                        result = await _this.play(instance);
+                        break;
+                    case 'join':
+                        if (!_this.config.instance) throw { message: 'Enter an instance to join.' };
+                        result = await _this.play(_this.config.instance);
+                        break;
+                    case 'allocate':
+                        result = await _this.allocate();
+                        break;
+                    case 'release':
+                        _releaseInput(action.port);
+                        result = await _this.release(action.port);
+                        break;
+                    case 'sync':
+                        result = await _this.sync();
+                        break;
+                    case 'leave':
+                        result = await _this.stop();
+                        break;
+                    case 'destroy':
+                        result = await _this.remove(instance);
+                        break;
+                }
+                if (api !== _api) return;
+                _updateSettings(result === undefined ? 'The operation is not available while the connection is busy.' : '');
+            } catch (err) {
+                if (api !== _api) return;
+                var message = {
+                    NoFreePort: 'No free controller slot is available.',
+                    PortsChanged: 'The controller allocation changed.',
+                    InvalidPortState: 'Keep at least one controller and wait for the connection to be ready.',
+                    PortNotOwned: 'This controller slot is not assigned to you.',
+                }[err.code] || err.message;
+                _updateSettings(message + (err.synchronized ? ' Current allocation synchronized.' : ''));
+            } finally {
+                if (api === _api) dashboard.update('settings', { pending: '' });
             }
-            if (!result || api !== _api) {
+        }
+
+        _this.bind = function (port, source) {
+            var binding = _bindings.slots[port];
+            if (!binding || _api.ports().indexOf(port) === -1) {
+                throw { name: 'InvalidStateError', message: 'Select an assigned controller slot.' };
+            }
+            _releaseInput(port);
+            if (source.type === 'gamepad') {
+                var device = source.index === null ? null : _devices[source.index];
+                if (source.index !== null && (!device || !device.connected)) {
+                    throw { name: 'NotFoundError', message: 'The gamepad is disconnected.' };
+                }
+                if (device && Object.values(_bindings.slots).some(function (other) {
+                    return other.port !== port && other.gamepad === device;
+                })) throw { name: 'InvalidStateError', message: 'This gamepad is assigned to another player.' };
+                binding.gamepad = device;
+            } else if (source.type === 'keyboard') {
+                var keys = _this.config.keyboard[source.profile];
+                if (source.profile !== 'custom' && !keys) {
+                    throw { name: 'NotFoundError', message: 'Unknown keyboard layout.' };
+                }
+                if (keys && Object.values(_bindings.slots).some(function (other) {
+                    return other.port !== port && Object.keys(keys).some(function (code) {
+                        return other.keyboard[code] !== undefined;
+                    });
+                })) throw { name: 'InvalidStateError', message: 'This keyboard layout conflicts with another player.' };
+                binding.profile = source.profile;
+                if (keys) binding.keyboard = utils.extendz({}, keys);
+            } else {
+                throw { name: 'TypeError', message: 'Unknown controller type.' };
+            }
+            _updateSettings('');
+        };
+
+        function _onPortsChange(e) {
+            if (e.data.name !== 'ports') return;
+            var data = e.data.value;
+            _assignment = data;
+            if (data.disconnected || data.unknown) {
+                _releaseInput();
+                _updateSettings();
                 return;
             }
-            _showPanel('settings');
+            if (_bindings.instance !== data.instance || _bindings.player !== data.player) {
+                _releaseInput();
+                _bindings = { instance: data.instance, player: data.player, slots: {} };
+                _touchPort = null;
+            }
+            utils.forEach(_bindings.slots, function (port, binding) {
+                if (data.ports.indexOf(binding.port) === -1) {
+                    _releaseInput(binding.port);
+                    delete _bindings.slots[port];
+                }
+            });
+            data.ports.forEach(function (port) {
+                if (_bindings.slots[port]) return;
+                var profile = Object.keys(_this.config.keyboard).find(function (name) {
+                    return !Object.values(_bindings.slots).some(function (binding) {
+                        return Object.keys(_this.config.keyboard[name]).some(function (code) {
+                            return binding.keyboard[code] !== undefined;
+                        });
+                    });
+                });
+                _bindings.slots[port] = { port: port, profile: profile || 'custom',
+                    keyboard: utils.extendz({}, _this.config.keyboard[profile] || {}), gamepad: null, ready: false };
+            });
+            if (data.ports.indexOf(_touchPort) === -1) {
+                _touchPort = null;
+                data.ports.some(function (port) { _touchPort = port; return true; });
+            }
+            _updateSettings();
+        }
+
+        function _updateSettings(message) {
+            var dashboard = _this.plugins['Dashboard'];
+            if (!dashboard || !_api) return;
+            var data = {
+                input: _this.config.input, instance: _api.instance() || _this.config.instance,
+                slots: _assignment, bindings: Object.values(_bindings.slots),
+                devices: Object.values(_devices), profiles: Object.keys(_this.config.keyboard), touch: _touchPort,
+            };
+            if (message !== undefined) data.message = message;
+            dashboard.update('settings', data);
         }
 
         function _onMouseMove(e) {
@@ -622,35 +756,37 @@
         }
 
         function _onKeyDown(e) {
-            if (_this.config.input !== 'keyboard' || _shouldIgnoreKeyboardEvent(e.target) || e.repeat) {
-                return;
-            }
-            var arr = _this.config.keyboard[e.code];
-            if (arr) {
-                var name = arr[0] + ':' + arr[1];
-                var port = _api.ports()[arr[0]];
-                if (port !== undefined && !_keyboardkeys[name]) {
-                    _keyboardkeys[name] = true;
-                    _api.keyDown(port, arr[1]);
-                }
+            if (_this.config.input !== 'keyboard' || _shouldIgnoreKeyboardEvent(e.target) || e.repeat) return;
+            utils.forEach(_bindings.slots, function (_, binding) {
+                var key = binding.keyboard[e.code];
+                if (key === undefined || _keyboardkeys[e.code] || !_inputAllowed(binding.port)) return;
+                _keyboardkeys[e.code] = { port: binding.port, key: key };
+                _api.keyDown(binding.port, key);
                 e.preventDefault();
-            }
+            });
         }
 
         function _onKeyUp(e) {
-            if (_this.config.input !== 'keyboard' || _shouldIgnoreKeyboardEvent(e.target)) {
-                return;
-            }
-            var arr = _this.config.keyboard[e.code];
-            if (arr) {
-                var name = arr[0] + ':' + arr[1];
-                var port = _api.ports()[arr[0]];
-                if (port !== undefined && _keyboardkeys[name]) {
-                    delete _keyboardkeys[name];
-                    _api.keyUp(port, arr[1]);
-                }
-                e.preventDefault();
-            }
+            var pressed = _keyboardkeys[e.code];
+            if (!pressed) return;
+            delete _keyboardkeys[e.code];
+            if (!_keyHeld(pressed.port, pressed.key)) _api.keyUp(pressed.port, pressed.key);
+            e.preventDefault();
+        }
+
+        function _keyHeld(port, key) {
+            return Object.values(_keyboardkeys).some(function (pressed) {
+                return pressed.port === port && pressed.key === key;
+            }) || !!(_gamepadkeys[port] && _gamepadkeys[port][key]) ||
+                (_touchPort === port && !!_joystickkeys[key]);
+        }
+
+        function _inputAllowed(port) {
+            var dashboard = _this.plugins['Dashboard'];
+            var settings = dashboard && dashboard.components['settings'];
+            return !_assignment.disconnected && !_assignment.unknown &&
+                _assignment.ports.indexOf(port) !== -1 && !document.hidden && document.hasFocus() &&
+                (!settings || settings.element().style.display === 'none' && !settings.config.pending);
         }
 
         function _shouldIgnoreKeyboardEvent(target) {
@@ -661,83 +797,91 @@
             return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
         }
 
-        function _pollGamepads() {
-            var gamepads = [];
-            if (_this.config.input === 'gamepad' && !document.hidden && document.hasFocus() && navigator.getGamepads) {
-                gamepads = Array.prototype.filter.call(navigator.getGamepads(), function (gamepad) {
-                    return gamepad !== null;
-                });
+        function _onGamepadConnected(e) {
+            var gamepad = e.gamepad;
+            if (!_devices[gamepad.index]) {
+                _devices[gamepad.index] = { index: gamepad.index, id: gamepad.id, connected: true };
+                _updateSettings();
             }
+        }
 
-            for (var port = 0; port < 4; port++) {
-                var gamepad = gamepads[port];
-                if (!gamepad) {
-                    _syncGamepad(port, {});
-                    continue;
+        function _onGamepadDisconnected(e) {
+            var device = _devices[e.gamepad.index];
+            if (!device) return;
+            device.connected = false;
+            delete _devices[e.gamepad.index];
+            utils.forEach(_bindings.slots, function (_, binding) {
+                if (binding.gamepad === device) _releaseInput(binding.port);
+            });
+            _updateSettings('Gamepad disconnected. Select a device to reconnect it.');
+        }
+
+        function _pollGamepads() {
+            var gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            utils.forEach(_devices, function (index, device) {
+                if (!gamepads[index] || gamepads[index].id !== device.id) {
+                    _onGamepadDisconnected({ gamepad: device });
                 }
+            });
+            Array.prototype.forEach.call(gamepads, function (gamepad) {
+                if (gamepad) _onGamepadConnected({ gamepad: gamepad });
+            });
+            utils.forEach(_bindings.slots, function (_, binding) {
+                var device = binding.gamepad;
+                var gamepad = device && device.connected && _devices[device.index] === device ? gamepads[device.index] : null;
                 var pressed = {};
-                utils.forEach(_this.config.gamepad.buttons, function (index, key) {
-                    var button = gamepad.buttons[index];
-                    if (button && (button.pressed || button.value >= _this.config.gamepad.threshold)) {
-                        pressed[key] = true;
-                    }
-                });
-                if (gamepad.axes.length >= 2) {
-                    if (gamepad.axes[0] <= -_this.config.gamepad.threshold) {
-                        pressed[Key.LEFT] = true;
-                    } else if (gamepad.axes[0] >= _this.config.gamepad.threshold) {
-                        pressed[Key.RIGHT] = true;
-                    }
-                    if (gamepad.axes[1] <= -_this.config.gamepad.threshold) {
-                        pressed[Key.UP] = true;
-                    } else if (gamepad.axes[1] >= _this.config.gamepad.threshold) {
-                        pressed[Key.DOWN] = true;
+                if (_this.config.input === 'gamepad' && gamepad) {
+                    utils.forEach(_this.config.gamepad.buttons, function (index, key) {
+                        var button = gamepad.buttons[index];
+                        if (button && (button.pressed || button.value >= _this.config.gamepad.threshold)) pressed[key] = true;
+                    });
+                    if (gamepad.axes.length >= 2) {
+                        if (gamepad.axes[0] <= -_this.config.gamepad.threshold) pressed[Key.LEFT] = true;
+                        else if (gamepad.axes[0] >= _this.config.gamepad.threshold) pressed[Key.RIGHT] = true;
+                        if (gamepad.axes[1] <= -_this.config.gamepad.threshold) pressed[Key.UP] = true;
+                        else if (gamepad.axes[1] >= _this.config.gamepad.threshold) pressed[Key.DOWN] = true;
                     }
                 }
-                _syncGamepad(port, pressed);
-            }
+                if (!_inputAllowed(binding.port)) binding.ready = false;
+                if (!binding.ready) {
+                    // Rebinding, focus changes and slot changes require neutral controls first.
+                    binding.ready = _inputAllowed(binding.port) && Object.keys(pressed).length === 0;
+                    pressed = {};
+                }
+                _syncGamepad(binding.port, pressed);
+            });
             _gamepadframe = requestAnimationFrame(_pollGamepads);
         }
 
         function _syncGamepad(port, pressed) {
-            var previous = _gamepadkeys[port] || {},
-                target = _api.ports()[port];
-            if (target === undefined) {
-                _gamepadkeys[port] = {};
-                return;
-            }
+            var previous = _gamepadkeys[port] || {};
+            _gamepadkeys[port] = pressed;
             utils.forEach(previous, function (key) {
-                if (!pressed[key]) {
-                    _api.keyUp(target, Number(key));
-                }
+                if (!pressed[key] && !_keyHeld(port, Number(key))) _api.keyUp(port, Number(key));
             });
             utils.forEach(pressed, function (key) {
-                if (!previous[key]) {
-                    _api.keyDown(target, Number(key));
-                }
+                if (!previous[key]) _api.keyDown(port, Number(key));
             });
-            _gamepadkeys[port] = pressed;
         }
 
-        function _releaseInput() {
-            utils.forEach(_keyboardkeys, function (name) {
-                var arr = name.split(':');
-                var port = _api.ports()[Number(arr[0])];
-                if (port !== undefined) {
-                    _api.keyUp(port, Number(arr[1]));
+        function _releaseInput(target) {
+            var all = typeof target !== 'number';
+            utils.forEach(_bindings.slots, function (_, binding) {
+                if (all || binding.port === target) binding.ready = false;
+            });
+            utils.forEach(_keyboardkeys, function (code, pressed) {
+                if (all || pressed.port === target) {
+                    delete _keyboardkeys[code];
+                    _api.keyUp(pressed.port, pressed.key);
                 }
             });
             utils.forEach(_gamepadkeys, function (port, keys) {
-                var target = _api.ports()[Number(port)];
-                utils.forEach(keys, function (key) {
-                    if (target !== undefined) {
-                        _api.keyUp(target, Number(key));
-                    }
-                });
+                if (all || Number(port) === target) {
+                    delete _gamepadkeys[port];
+                    utils.forEach(keys, function (key) { _api.keyUp(Number(port), Number(key)); });
+                }
             });
-            _keyboardkeys = {};
-            _gamepadkeys = {};
-            _onTouch(0);
+            if (all || _touchPort === target) _onTouch(0);
         }
 
         function _onVisibilityChange() {
@@ -799,28 +943,29 @@
         function _showPanel(name) {
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard) {
+                var panel = dashboard.components[name];
+                if (panel && panel.element().style.display !== 'none') {
+                    dashboard.hide(name);
+                    return;
+                }
                 if (name === 'settings') {
                     var api = _api;
                     if (api.instance()) {
                         _this.config.instance = api.instance();
                     }
-                    dashboard.update('settings', {
-                        game: _this.config.game,
-                        controllers: _this.config.controllers,
-                        input: _this.config.input,
-                        instance: _this.config.instance,
-                        keyboard: _this.config.keyboard,
-                        ports: api.ports(),
-                    });
+                    _releaseInput();
+                    _updateSettings();
+                    if (api.player()) {
+                        api.sync().catch(function (err) {
+                            if (api === _api) _updateSettings(err.message);
+                        });
+                    }
 
                     api.list().then(function (games) {
                         if (api !== _api || !games) {
                             return;
                         }
-                        if (!_this.config.game && games.length) {
-                            _this.config.game = games[0];
-                        }
-                        dashboard.update('settings', { game: _this.config.game, games: games, ports: api.ports() });
+                        dashboard.update('settings', { games: games });
                     }).catch(function (err) {
                         if (api === _api) {
                             _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
@@ -897,6 +1042,8 @@
             cancelAnimationFrame(_gamepadframe);
             window.removeEventListener('resize', _this.resize);
             window.removeEventListener('blur', _releaseInput);
+            window.removeEventListener('gamepadconnected', _onGamepadConnected);
+            window.removeEventListener('gamepaddisconnected', _onGamepadDisconnected);
             document.removeEventListener('visibilitychange', _onVisibilityChange);
             _wrapper.removeEventListener('pointerdown', _focus);
             _releaseInput();
@@ -925,6 +1072,7 @@
                 _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
                 _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
                 _api.removeEventListener(Event.ERROR, _onError);
+                _api.removeEventListener(Event.CHANGE, _onPortsChange);
                 _api = undefined;
             }
 
