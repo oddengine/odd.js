@@ -7,14 +7,13 @@ var utils = odd.utils,
     Level = events.Level,
     Code = events.Code,
     IM = odd.IM,
-    Sending = IM && IM.CommandMessage ? IM.CommandMessage.Sending : {},
-    Casting = IM && IM.CommandMessage ? IM.CommandMessage.Casting : {},
     RTC = odd.RTC,
     Constraints = RTC.Constraints,
 
-    _self = {},
-    _users = {},
-    _hasIM = IM && odd.im && IM.CommandMessage,
+    _hasIM = !!(IM && odd.im && IM.Protocol),
+    _joinedRoom,
+    _requestedRoom,
+    _roomGeneration = 0,
     _imReady = false,
     _pendingJoin,
     _detected = false,
@@ -25,9 +24,9 @@ var im;
 
 function onReady(e) {
     _imReady = true;
-    im.logger.log(`onReady: user=${im.client().userId()}`);
+    im.logger.log(`onReady: user=${im.userId()}`);
     if (_pendingJoin) {
-        im.join(_pendingJoin);
+        _joinRoom(_pendingJoin);
         _pendingJoin = undefined;
     }
 }
@@ -35,15 +34,17 @@ function onReady(e) {
 function onJoinClick(e) {
     var room = _value('in_room', '');
     if (_setupIM(room) && _imReady) {
-        im.join(room);
+        _joinRoom(room);
     }
 }
 
 function onLeaveClick(e) {
     rtc.stop();
-    if (_imReady) {
-        im.leave(_value('in_room', ''));
-    }
+    _roomGeneration++;
+    _pendingJoin = undefined;
+    var room = _requestedRoom || _joinedRoom;
+    _requestedRoom = _joinedRoom = undefined;
+    if (_imReady && room) { im.leave(room).catch(_imError); }
 }
 
 var rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
@@ -72,21 +73,19 @@ function _setupIM(room) {
         return false;
     }
     if (im) {
-        _pendingJoin = room;
+        if (!_imReady) { _pendingJoin = room; }
         return true;
     }
 
     _pendingJoin = room;
     im = odd.im.create();
     im.addEventListener(Event.READY, onReady);
-    im.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
+    im.addEventListener(IM.Event.MESSAGE, onMessage);
+    im.addEventListener(IM.Event.NOTIFY, onNotify);
     im.addEventListener(Event.CLOSE, onClose);
     im.setup({
-        maxRetries: 0,
+        retry: { count: 0 },
         url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/im',
-        parameters: {
-            token: '',
-        },
     }).catch((err) => {
         _imReady = false;
         _pendingJoin = undefined;
@@ -339,113 +338,88 @@ function onStatus(e) {
     var method = { status: 'log', warning: 'warn', error: 'error' }[level];
     rtc.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
 
-    switch (code) {
-        case Code.NETSTREAM_PUBLISH_START:
-            _setValue('in_data', info.stream);
-            if (_imReady === false) {
-                break;
-            }
-            im.send(Sending.STREAMING, Casting.MULTI, _value('in_room', ''), {
-                stream: info.stream,
-            });
-            break;
-        case Code.NETGROUP_CONNECT_SUCCESS:
-            if (_imReady === false) {
-                break;
-            }
-            _self = info.user;
-            _setValue('in_nick', info.user.nick);
-            utils.forEach(rtc.publishing, function (_, ns) {
-                var stream = ns.getProperty('@id') || ns.getProperty('stream');
-                if (stream) {
-                    im.send(Sending.STREAMING, Casting.MULTI, info.room.id, {
-                        stream: stream,
-                    });
-                }
-            });
-            break;
-        case Code.NETGROUP_LOCALCOVERAGE_NOTIFY:
-            if (_imReady === false) {
-                break;
-            }
-            _users = utils.extendz(info.list, _users);
-            _setValue('in_online', Object.keys(_users).length);
-            break;
-        case Code.NETGROUP_NEIGHBOR_CONNECT:
-            if (_imReady === false) {
-                break;
-            }
-            _users[info.user.id] = info.user;
-            _setValue('in_online', Object.keys(_users).length);
+    if (code === Code.NETSTREAM_PUBLISH_START) {
+        _setValue('in_data', info.stream);
+        _announce(info.stream);
+    }
+}
 
-            utils.forEach(rtc.publishing, function (_, ns) {
-                var stream = ns.getProperty('@id') || ns.getProperty('stream');
-                if (stream) {
-                    im.send(Sending.STREAMING, Casting.UNI, info.user.id, {
-                        stream: stream,
-                    });
-                }
-            });
-            break;
-        case Code.NETGROUP_NEIGHBOR_DISCONNECT:
-            if (_imReady === false) {
-                break;
-            }
-            delete _users[info.user.id];
-            _setValue('in_online', Object.keys(_users).length);
-            break;
-        case Code.NETGROUP_SENDTO_NOTIFY:
-        case Code.NETGROUP_POSTING_NOTIFY:
-            if (_imReady === false) {
-                break;
-            }
-            var m = info;
-            var args = m.Arguments;
-            switch (args.type) {
-                case Sending.STREAMING:
-                    if (args.user.id !== _self.id) {
-                        play(args.data.stream);
-                    }
-                    break;
-            }
-            break;
-        case Code.NETGROUP_CONNECT_CLOSED:
-        case Code.NETCONNECTION_CONNECT_CLOSED:
-            _imReady = false;
-            _users = {};
-            _setValue('in_online', 0);
-            break;
+function _imError(err) {
+    rtc.logger.warn(`IM request failed: ${err}`);
+}
+
+function _joinRoom(room) {
+    var generation = ++_roomGeneration, previous = _requestedRoom || _joinedRoom;
+    _requestedRoom = room;
+    _joinedRoom = undefined;
+    if (previous && previous !== room) { im.leave(previous).catch(_imError); }
+    im.join(room).then(function () {
+        if (generation !== _roomGeneration || !_imReady) { return; }
+        _joinedRoom = room;
+        _setValue('in_nick', im.userId());
+        // Relay JOIN has no member snapshot; do not display a fabricated count.
+        _setValue('in_online', '—');
+        utils.forEach(rtc.publishing, function (_, ns) {
+            _announce(ns.getProperty('@id') || ns.getProperty('stream'));
+        });
+    }).catch(_imError);
+}
+
+function _announce(stream) {
+    if (!_imReady || !_joinedRoom || typeof stream !== 'string' ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(stream)) {
+        return;
+    }
+    // Example application metadata inside the binary OBJECT extension.
+    im.send({ type: 'room', id: _joinedRoom }, stream, { ext: [
+        { key: 'application', type: IM.Protocol.Type.STRING, value: 'odd.example.rtc.stream.v1' }
+    ] }).catch(_imError);
+}
+
+function onMessage(e) {
+    var data = e.data;
+    if (!_imReady || data.messaging || data.target.type !== 'room' || data.target.id !== _joinedRoom ||
+        data.sender.id === im.userId() || !data.ext || data.ext.application !== 'odd.example.rtc.stream.v1' ||
+        typeof data.content !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(data.content)) {
+        return;
+    }
+    play(data.content);
+}
+
+function onNotify(e) {
+    if (e.data.event === IM.Protocol.Event.ROOM_REVOKED && e.data.payload.roomId === _joinedRoom) {
+        _joinedRoom = undefined;
+        _setValue('in_online', '—');
     }
 }
 
 function onClose(e) {
-    _imReady = false;
+    if (e.srcElement === im) {
+        _roomGeneration++;
+        _imReady = false;
+        _requestedRoom = _joinedRoom = undefined;
+        _setValue('in_online', '—');
+        im = undefined;
+    }
     rtc.logger.log(`onClose: reason=${e.data.reason}`);
 }
 
 async function onRecordClick(e) {
     for (var i in rtc.publishing) {
         var ns = rtc.publishing[i];
-        _writer = await ns.record('vod.webm', onDataAvailable);
+        // Save locally; live IM forwarding cannot reliably carry a recording.
+        _writer = await ns.record('vod.webm');
         _writer.addEventListener(SaverEvent.WRITEREND, onWriterEnd);
         break;
     }
 }
 
 function onStopRecordClick(e) {
-    _writer.abort();
-}
-
-function onDataAvailable(chunk) {
-    if (_imReady) {
-        im.send(Sending.FILE, '', undefined, { name: _writer.filename }, chunk);
-    }
+    if (_writer) { _writer.close(); }
 }
 
 function onWriterEnd(e) {
-    if (_imReady) {
-        im.send(Sending.FILE, '', undefined, { name: _writer.filename, event: 'end' });
-    }
+    if (_writer === e.srcElement) { _writer = undefined; }
 }
 
 function onBrightnessChange(e) {

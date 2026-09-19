@@ -3,29 +3,23 @@ player.innerHTML = '';
 var utils = odd.utils,
     events = odd.events,
     Event = events.Event,
-    NetStatusEvent = events.NetStatusEvent,
-    Level = events.Level,
-    Code = events.Code,
     IM = odd.IM,
-    Sending = IM.CommandMessage.Sending,
-    Casting = IM.CommandMessage.Casting,
 
     index = 0;
 
 var im = odd.im.create();
 im.addEventListener(Event.READY, onReady);
-im.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
+im.addEventListener(IM.Event.MESSAGE, onMessage);
 im.addEventListener(Event.CLOSE, onClose);
 im.setup({
-    maxRetries: 0,
-    url: 'wss://' + location.host + '/im',
-    parameters: {
-        token: '',
-    },
+    retry: { count: 0 },
+    url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/im',
 }).then(() => {
     im.join('001').catch((err) => {
         im.logger.error(`Failed to join 001: ${err}`);
     });
+}).catch((err) => {
+    im.logger.warn(`IM unavailable: ${err}`);
 });
 
 var ui = odd.player.ui.create({ mode: 'file' });
@@ -37,7 +31,7 @@ ui.addEventListener('screenshot', onScreenshot);
 ui.setup(player, {
     autoplay: false,
     bufferLength: 0.5,       // sec.
-    client: im.client(),
+    client: im,
     // file: 'ws://127.0.0.1/sample.mp4',
     file: 'http://localhost/live/_definst_/abc.flv',
     // file: 'ws://192.168.0.117/live/_definst_/abc.flv',
@@ -113,7 +107,7 @@ function onReady(e) {
     im.logger.log('onReady');
     window.addEventListener('beforeunload', function (e) {
         ui.stop();
-        im.leave('001');
+        im.close();
     });
     // ui.record('fragmented.mp4').then((writer) => {
     //     setTimeout(function () {
@@ -122,31 +116,19 @@ function onReady(e) {
     // });
 }
 
-function onStatus(e) {
-    var level = e.data.level;
-    var code = e.data.code;
-    var description = e.data.description;
-    var info = e.data.info;
-    var method = { status: 'log', warning: 'warn', error: 'error' }[level];
-    im.logger[method](`onStatus: level=${level}, code=${code}, description=${description}, info=`, info);
-
-    switch (code) {
-        case Code.NETGROUP_SENDTO_NOTIFY:
-        case Code.NETGROUP_POSTING_NOTIFY:
-            var m = info;
-            var args = m.Arguments;
-            switch (args.type) {
-                case Sending.STREAMING:
-                    for (var i = 0; i < ui.config.sources.length; i++) {
-                        var item = ui.config.sources[i];
-                        if (item.module === 'RTC') {
-                            item.file = item.file.replace(/\/[^\/?#]+([?#].*)?$/, '') + `/${args.data.stream}`;
-                            break;
-                        }
-                    }
-                    break;
-            }
+function onMessage(e) {
+    var data = e.data;
+    if (data.messaging || data.target.type !== 'room' || data.target.id !== '001' ||
+        !data.ext || data.ext.application !== 'odd.example.rtc.stream.v1' ||
+        typeof data.content !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(data.content)) {
+        return;
+    }
+    for (var i = 0; i < ui.config.sources.length; i++) {
+        var item = ui.config.sources[i];
+        if (item.module === 'RTC') {
+            item.file = item.file.replace(/\/[^\/?#]+([?#].*)?$/, '') + '/' + encodeURIComponent(data.content);
             break;
+        }
     }
 }
 

@@ -42,7 +42,7 @@
             playsinline: true,
             muted: false,
             volume: 0.8,
-            base: `${location.protocol}//${location.host}/game`,
+            base: `${location.protocol}//${location.host}/famicom`,
             trickle: false,
             loader: {
                 mode: 'cors',        // cors, no-cors, same-origin

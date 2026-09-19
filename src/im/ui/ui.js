@@ -66,6 +66,8 @@
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _api.addEventListener(Event.CLOSE, _onClose);
+            _api.addEventListener(IM.Event.NOTIFY, _this.forward);
+            _api.addEventListener(IM.Event.MESSAGE, _this.forward);
 
             _buildPlugins();
             _setupPlugins();
@@ -77,16 +79,18 @@
 
         function _onBind(e) {
             _this.config = _api.config;
-            _this.client = _api.client;
+            _this.userId = _api.userId;
             _this.connected = _api.connected;
             _this.join = _api.join;
             _this.leave = _api.leave;
-            _this.chmod = _api.chmod;
-            _this.invoke = _api.invoke;
-            _this.quit = _api.quit;
             _this.send = _api.send;
-            _this.sendStatus = _api.sendStatus;
             _this.call = _api.call;
+            _this.request = _api.request;
+            _this.reauth = _api.reauth;
+            _this.capabilities = _api.capabilities;
+            _this.watch = _api.watch;
+            _this.unwatch = _api.unwatch;
+            _this.interact = _api.interact;
             _this.state = _api.state;
             _this.forward(e);
         }
@@ -351,8 +355,10 @@
                 _api.destroy(reason);
                 _api.removeEventListener(Event.BIND, _onBind);
                 _api.removeEventListener(Event.READY, _onReady);
-                _api.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
+                _api.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
                 _api.removeEventListener(Event.CLOSE, _onClose);
+                _api.removeEventListener(IM.Event.NOTIFY, _this.forward);
+                _api.removeEventListener(IM.Event.MESSAGE, _this.forward);
                 _api = undefined;
             }
 

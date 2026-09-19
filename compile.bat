@@ -47,15 +47,12 @@ goto loop0
 :end0
 
 set scripts[0]=".\src\im\im.js"
-set scripts[1]=".\src\im\message\message.js"
-set scripts[2]=".\src\im\message\message.abort.js"
-set scripts[3]=".\src\im\message\message.ackwindowsize.js"
-set scripts[4]=".\src\im\message\message.ack.js"
-set scripts[5]=".\src\im\message\message.command.js"
-set scripts[6]=".\src\im\im.responder.js"
-set scripts[7]=".\src\im\im.netconnection.js"
-set scripts[8]=".\src\im\im.netstream.js"
-set length=9
+set scripts[1]=".\src\im\message\message.protocol.js"
+set scripts[2]=".\src\im\message\message.codec.js"
+set scripts[3]=".\src\im\message\message.schema.js"
+set scripts[4]=".\src\im\im.responder.js"
+set scripts[5]=".\src\im\im.requesttable.js"
+set length=6
 
 cd.>.\release\odd.im.js
 

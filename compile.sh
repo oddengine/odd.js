@@ -43,14 +43,11 @@ done
 
 scripts=()
 scripts[0]="./src/im/im.js"
-scripts[1]="./src/im/message/message.js"
-scripts[2]="./src/im/message/message.abort.js"
-scripts[3]="./src/im/message/message.ackwindowsize.js"
-scripts[4]="./src/im/message/message.ack.js"
-scripts[5]="./src/im/message/message.command.js"
-scripts[7]="./src/im/im.responder.js"
-scripts[8]="./src/im/im.netconnection.js"
-scripts[9]="./src/im/im.netstream.js"
+scripts[1]="./src/im/message/message.protocol.js"
+scripts[2]="./src/im/message/message.codec.js"
+scripts[3]="./src/im/message/message.schema.js"
+scripts[4]="./src/im/im.responder.js"
+scripts[5]="./src/im/im.requesttable.js"
 
 :>./release/odd.im.js
 

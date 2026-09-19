@@ -2,14 +2,13 @@
     var utils = odd.utils,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        NetStatusEvent = events.NetStatusEvent,
+
         MouseEvent = events.MouseEvent,
-        Code = events.Code,
+
         IM = odd.IM,
         UI = IM.UI,
         components = UI.components,
-        Sending = IM.CommandMessage.Sending,
-        Casting = IM.CommandMessage.Casting,
+        IMEvent = IM.Event,
 
         CLASS_CONVERSATION = 'im-conversation',
         _regi = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi,
@@ -45,7 +44,7 @@
                 composer.update(config.composer);
             }
             _this.active(config.active || (config.contacts[0] && config.contacts[0].id) || '');
-            im.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            im.addEventListener(IMEvent.MESSAGE, _onMessage);
         }
 
         function _buildComponents() {
@@ -65,19 +64,17 @@
             _this.forward(e);
         }
 
-        function _onStatus(e) {
-            if (e.data.code !== Code.NETGROUP_SENDTO_NOTIFY && e.data.code !== Code.NETGROUP_POSTING_NOTIFY) {
-                return;
-            }
-            var args = e.data.info.Arguments,
-                id = args.cast === Casting.UNI ? args.user.id : args.room.id,
+        function _onMessage(e) {
+            var data = e.data,
+                id = data.target.type === 'user' ?
+                    (data.sender.id === im.userId() ? data.target.id : data.sender.id) : data.target.id,
                 messages = _this.components['messages'];
             if (id === _this.config.active && messages) {
                 messages.append({
-                    from: args.user.nick,
-                    text: args.data,
-                    time: e.data.info.Timestamp,
-                    align: 'left',
+                    from: data.sender.id,
+                    text: typeof data.content === 'string' ? data.content : '[二进制消息]',
+                    time: new Date().toLocaleTimeString(),
+                    align: data.sender.id === im.userId() ? 'right' : 'left',
                 });
             }
         }
@@ -86,18 +83,10 @@
             if (!_this.config.active) {
                 return;
             }
-            var messages = _this.components['messages'],
-                contact = _findContact(_this.config.active),
-                casting = contact && (contact.type === 'group' || contact.type === 'channel') ? Casting.MULTI : Casting.UNI;
-            if (messages) {
-                messages.append({
-                    from: '我',
-                    text: text,
-                    time: '现在',
-                    align: 'right',
-                });
-            }
-            im.send(Sending.TEXT, casting, _this.config.active, text).catch(function (err) {
+            var contact = _findContact(_this.config.active),
+                type = contact && contact.type === 'group' ? 'group' :
+                    contact && contact.type === 'channel' ? 'room' : 'user';
+            im.send({ type: type, id: _this.config.active }, text).catch(function (err) {
                 logger.warn('Failed to send IM message: ' + (err.message || err));
             });
         }
@@ -149,7 +138,7 @@
         };
 
         _this.destroy = function () {
-            im.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            im.removeEventListener(IMEvent.MESSAGE, _onMessage);
 
             utils.forEach(_this.components, function (_, component) {
                 component.removeGlobalListener(_onComponentEvent);
