@@ -1,0 +1,37 @@
+src/player/module/module.flv.js
+  s_266cdd10f9b223::t_d8a060791a1b2a 33,178-180,183-185,191-193,202-204,210-212,217,221,234-236,268,285-287,329-332,335,339-340,344-367,987
+src/player/module/module.fmp4.js
+  s_266cdd10f9b223::t_552a4f2c439e02 26,164-166,169-171,177-179,188-190,196-198,203,207,217-219,251,270-272,314-317,320,324-325,329-352,771
+src/player/module/module.rtc.js
+  s_266cdd10f9b223::t_0da78c4f7588c2 22-23,91-93,95-98,101-104,109-116,118-119,121,123-124,128-132,143-155,157-162,166-168,170-176,178-180,182-185,188,190-191,193-202,217,223,252-255,258,264,267-290,343-345
+src/player/module/module.src.js
+  s_266cdd10f9b223::t_996c180f315684 18-20,73-75,83-91,93-126,140,171-174,177-200,224-226,232,244,247-249,251-259,262-267,271
+src/player/player.controller.js
+  s_266cdd10f9b223::t_1100a7191f3375 18,21-22,38,63,69-82,86-101,106-107,124,152,166-169,172-179,181-198,250-251
+src/player/player.js
+  s_266cdd10f9b223::t_b7579605e0ffd5 61,111
+src/player/player.model.js
+  s_266cdd10f9b223::t_4bb7c4cb9bbc37 17,24-30,32-37,41-45,55-57
+src/player/player.view.js
+  s_266cdd10f9b223::t_be6b2e5a9e7a34 19-20,46-47,53-54,57,61-87,138-139,192-194,196-203
+src/player/ui/components/components.select.js
+  s_266cdd10f9b223::t_c9da59b0ada60e 47,77-88,126-127
+src/player/ui/ui.js
+  s_266cdd10f9b223::t_58999d7d63d25e 36-37,57,106,217-223,239-257,464-472
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b128c5e8c083ae14319224f76e4f7588ce162052",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
