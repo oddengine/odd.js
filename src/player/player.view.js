@@ -16,6 +16,8 @@
             _model = model,
             _logger = logger,
             _module,
+            _source,
+            _definition,
             _canvas,
             _context;
 
@@ -41,25 +43,48 @@
                 _module.setup();
             } catch (err) {
                 _logger.error('Failed to init module ' + kind + '. ' + err.name + ': ' + err.message);
+                _this.destroy();
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: 'Failed to initialize the selected module.' });
             }
         };
 
         _this.play = function (program) {
             if (program === undefined) {
-                if (_module === undefined) {
-                    _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'Module not found while the source url doesn\'t provided.' });
+                if (!_module) {
+                    _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'No module initialized yet.' });
                     return;
                 }
-            } else if (_module === undefined || program.type !== _module.kind || !_module.isSupported(program)) {
-                var module = odd.module(program.type);
-                if (module == null) {
-                    _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'No supported module found.' });
-                    return;
-                }
-                _this.setup(module.prototype.kind);
+                _module.play();
                 return;
             }
 
+            var index = _model.definition(),
+                source = utils.typeOf(program.sources) === 'array' ? program.sources[index] : null;
+            if (!source || utils.typeOf(source.url) !== 'string' || !source.url) {
+                _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'The selected source does not exist.' });
+                return;
+            }
+            program = utils.extendz({}, program, { sources: [source] });
+
+            var module;
+            try {
+                module = odd.module(program);
+            } catch (err) {
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: 'Failed to inspect the selected source.' });
+                return;
+            }
+            if (!module) {
+                _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'No supported module found for the selected source.' });
+                return;
+            }
+
+            if (!_module || _module.kind !== module.prototype.kind || _source !== source.url || _definition !== index) {
+                _this.destroy();
+                _source = source.url;
+                _definition = index;
+                _this.setup(module.prototype.kind);
+                return;
+            }
             _module.play(program);
         };
 
@@ -110,7 +135,8 @@
 
         _this.definition = function (index) {
             if (utils.typeOf(index) === 'number' && index !== _model.definition()) {
-                if (index < _model.config.sources.length) {
+                var program = _model.program();
+                if (index >= 0 && index % 1 === 0 && program && utils.typeOf(program.sources) === 'array' && index < program.sources.length) {
                     _model.definition(index);
                     _this.dispatchEvent(Event.SWITCHING, { index: index });
                 } else {
@@ -163,9 +189,18 @@
 
         _this.destroy = function () {
             if (_module) {
-                _module.destroy();
-                _module.removeGlobalListener(_this.forward);
+                var module = _module,
+                    element = module.element();
+
                 _module = undefined;
+                _source = undefined;
+                _definition = undefined;
+                module.removeGlobalListener(_this.forward);
+                module.destroy();
+
+                if (element.parentNode === _container) {
+                    _container.removeChild(element);
+                }
             }
         };
 

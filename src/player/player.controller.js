@@ -15,10 +15,11 @@
             _model = model,
             _view = view,
             _logger = logger,
-            _program,
+            _switching,
             _stalled = 0,
             _retries = 0,
-            _retrying = false;
+            _retrying = false,
+            _retryTimer;
 
         function _init() {
             _view.addEventListener(Event.READY, _onReady);
@@ -34,7 +35,7 @@
             _view.addEventListener(Event.DURATIONCHANGE, _onDurationChange);
             _view.addEventListener(Event.LOADEDMETADATA, _this.forward);
             _view.addEventListener(Event.LOADEDDATA, _this.forward);
-            _view.addEventListener(Event.CANPLAY, _this.forward);
+            _view.addEventListener(Event.CANPLAY, _onCanPlay);
             _view.addEventListener(Event.PLAYING, _onStateChange);
             _view.addEventListener(Event.CANPLAYTHROUGH, _this.forward);
             _view.addEventListener(Event.PAUSE, _onStateChange);
@@ -59,28 +60,51 @@
 
         _this.play = function (program) {
             if (program === undefined) {
-                if (_model.state() === 'pause') {
+                if (_model.state() === Event.PAUSE) {
                     _view.play();
                     return;
                 }
-
                 program = _model.program();
-                if (program == null || utils.typeOf(program.sources) !== 'array') {
-                    _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'No supported source url found.' });
-                    return;
-                }
             }
-            _program = program;
-            _view.play(_program);
+            if (!program || utils.typeOf(program.sources) !== 'array' || !program.sources.length) {
+                _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'No media source provided.' });
+                return;
+            }
+
+            clearTimeout(_retryTimer);
+            _retryTimer = undefined;
+            if (program !== _model.program()) {
+                _switching = undefined;
+                _retries = 0;
+                _retrying = false;
+            }
+            _model.program(program);
+            _view.play(program);
         };
 
         _this.reload = function () {
-            _view.stop();
-            _this.play(_program);
+            if (_view) {
+                _view.stop();
+                _this.play(_model.program());
+            }
+        };
+
+        _this.stop = function () {
+            clearTimeout(_retryTimer);
+            _retryTimer = undefined;
+            _retrying = false;
+            _retries = 0;
+            _switching = undefined;
+
+            if (_view) {
+                _view.stop();
+            }
         };
 
         _this.destroy = function () {
             _model.config.maxRetries = 0;
+            clearTimeout(_retryTimer);
+            _retryTimer = undefined;
 
             if (_view) {
                 _view.destroy();
@@ -97,7 +121,7 @@
                 _view.removeEventListener(Event.DURATIONCHANGE, _onDurationChange);
                 _view.removeEventListener(Event.LOADEDMETADATA, _this.forward);
                 _view.removeEventListener(Event.LOADEDDATA, _this.forward);
-                _view.removeEventListener(Event.CANPLAY, _this.forward);
+                _view.removeEventListener(Event.CANPLAY, _onCanPlay);
                 _view.removeEventListener(Event.PLAYING, _onStateChange);
                 _view.removeEventListener(Event.CANPLAYTHROUGH, _this.forward);
                 _view.removeEventListener(Event.PAUSE, _onStateChange);
@@ -125,7 +149,7 @@
         function _onReady(e) {
             _logger.log(e.data.kind + ' module is ready.');
             _onStateChange(e);
-            _this.play(_program);
+            _this.play(_model.program());
         }
 
         function _onLoadStart(e) {
@@ -139,17 +163,39 @@
         }
 
         function _onSwitching(e) {
-            var current = _model.definition();
-            _logger.log('Switching definition ' + e.data.index + ': ' + current.file);
-
-            var offset = 0;
-            var video = _view.element();
-            if (video) {
-                offset = video.currentTime;
+            var program = _model.program();
+            if (!program) {
+                return;
             }
+
+            var video = _view.element();
+            _switching = {
+                index: e.data.index,
+                offset: program.vod && video && isFinite(video.currentTime) ? video.currentTime : 0,
+                paused: _model.state() === Event.PAUSE,
+            };
+            _retries = 0;
+            _retrying = false;
+            _logger.log('Switching definition: ' + e.data.index);
             _onStateChange(e);
-            _this.play(current.file, current);
-            _view.seek(offset);
+            _this.play(program);
+        }
+
+        function _onCanPlay(e) {
+            if (_switching) {
+                var switching = _switching;
+                _switching = undefined;
+
+                if (switching.offset > 0) {
+                    _view.seek(switching.offset);
+                }
+                if (switching.paused) {
+                    _view.pause();
+                }
+
+                _this.dispatchEvent(Event.SWITCHED, { index: switching.index });
+            }
+            _this.forward(e);
         }
 
         function _onRateChange(e) {
@@ -201,7 +247,8 @@
             if (_retries++ < _model.config.maxRetries || _model.config.maxRetries === -1) {
                 _logger.log('Retrying...');
                 _retrying = true;
-                setTimeout(_this.reload, _model.config.retrying);
+                clearTimeout(_retryTimer);
+                _retryTimer = setTimeout(_this.reload, _model.config.retrying);
             } else {
                 _view.stop();
                 _onStateChange(e);

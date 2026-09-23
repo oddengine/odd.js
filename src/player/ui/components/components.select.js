@@ -44,7 +44,7 @@
             var option = utils.createElement('span', CLASS_SELECT_OPTION);
             option.value = value === undefined ? _list.children.length : value;
             option.addEventListener('click', _onItemClick);
-            option.innerHTML = label;
+            option.textContent = label;
             _list.appendChild(option);
 
             if (isNaN(_index)) {
@@ -72,6 +72,18 @@
                 }
                 _this.resize();
             }
+        };
+
+        _this.clear = function () {
+            while (_list.firstChild) {
+                var option = _list.firstChild;
+                option.removeEventListener('click', _onItemClick);
+                _list.removeChild(option);
+            }
+
+            _index = NaN;
+            _label.textContent = '';
+            _list.style.visibility = 'hidden';
         };
 
         _this.select = function (index) {
@@ -111,6 +123,8 @@
         };
 
         _this.destroy = function () {
+            _this.clear();
+            _label.removeEventListener('click', _onClick);
             _container.innerHTML = '';
         };
 

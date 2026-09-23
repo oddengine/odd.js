@@ -58,7 +58,7 @@
              * @snapshot: The snapshot URL of the media source.
              * @title: The title of the media source.
              * @description: The description of the media source.
-             * @type: The type of media source. Can be 'SRC', 'FLV', 'FMP4', 'RTC', 'DASH', or 'HLS'.
+             * @type: The type of media source. Can be 'SRC', 'FLV', 'FMP4', or 'RTC'. Native HLS uses 'SRC'.
              * @vod: Whether the source is for video on demand (true) or live streaming (false).
              * @sources:
              *   @url: The URL of the media source.
@@ -108,7 +108,7 @@
             _this.pause = _view.pause;
             _this.reload = _controller.reload;
             _this.seek = _view.seek;
-            _this.stop = _view.stop;
+            _this.stop = _controller.stop;
             _this.muted = _view.muted;
             _this.volume = _view.volume;
             _this.definition = _view.definition;

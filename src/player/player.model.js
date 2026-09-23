@@ -14,23 +14,35 @@
         function _init() {
             _this.config = config;
 
-            _program = 0;
+            _program = config.playlist.length ? config.playlist[0] : null;
             _definition = 0;
             _duration = NaN;
             _state = '';
             _properties = {};
         }
 
-        _this.program = function (index) {
-            if (utils.typeOf(index) === 'number' && index !== _program && index < _this.config.playlist.length) {
-                _logger.log('Program change: ' + index);
-                _program = index;
+        _this.program = function (program) {
+            if (utils.typeOf(program) === 'number') {
+                if (program < 0 || program % 1 !== 0 || program >= _this.config.playlist.length) {
+                    _logger.error('The program index is not in the allowed range.');
+                    return _program;
+                }
+                program = _this.config.playlist[program];
             }
-            return _program < _this.config.playlist.length ? _this.config.playlist[_program] : null;
+            if (program && program !== _program) {
+                _program = program;
+                _definition = 0;
+                _duration = NaN;
+            }
+            return _program;
         };
 
         _this.definition = function (index) {
-            if (utils.typeOf(index) === 'number' && index !== _definition && index < _this.config.playlist[_program].sources.length) {
+            if (utils.typeOf(index) === 'number' && index !== _definition) {
+                if (!_program || utils.typeOf(_program.sources) !== 'array' || index < 0 || index % 1 !== 0 || index >= _program.sources.length) {
+                    _logger.error('The definition index is not in the allowed range.');
+                    return _definition;
+                }
                 _logger.log('Definition change: ' + index);
                 _definition = index;
             }
@@ -40,7 +52,9 @@
         _this.duration = function (duration) {
             if (utils.typeOf(duration) === 'number' && duration !== _duration) {
                 _logger.log('Duration change: ' + duration);
-                _this.config.playlist[_program].vod = !!duration;
+                if (_program && !isNaN(duration)) {
+                    _program.vod = isFinite(duration) && duration > 0;
+                }
                 _duration = duration;
             }
             return _duration;

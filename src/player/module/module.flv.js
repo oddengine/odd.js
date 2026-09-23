@@ -30,8 +30,7 @@
             _logger = logger,
             _video,
             _ready,
-            _program,
-            _definition,
+            _destroyed = false,
             _url,
             _ms,
             _sb,
@@ -60,7 +59,6 @@
             _this.config = config;
 
             _ready = false;
-            _definition = 0;
             _url = new utils.URL();
             _escaped = false;
             _buffering = false;
@@ -177,14 +175,22 @@
         }
 
         _this.setup = function () {
+            if (_destroyed) {
+                return;
+            }
             if (_ready === false) {
                 function handler() {
+                    if (_destroyed) {
+                        return;
+                    }
                     _ready = true;
                     _this.dispatchEvent(Event.READY, { kind: _this.kind });
                 }
                 if (_this.config.service.enable) {
                     _saver.register().then(handler).catch(function (err) {
-                        _this.dispatchEvent(Event.ERROR, err);
+                        if (!_destroyed) {
+                            _this.dispatchEvent(Event.ERROR, err);
+                        }
                     });
                 } else {
                     handler();
@@ -193,23 +199,26 @@
         };
 
         _this.play = function (program) {
+            if (_destroyed) {
+                return;
+            }
             if (_ready === false) {
                 _this.setup();
                 return;
             }
 
-            if (program && program.sources[_definition].url !== _url.href) {
-                var file = program.sources[_definition].url;
-                _logger.log('URL: ' + file);
+            if (program && program.sources[0].url !== _url.href) {
+                var file = program.sources[0].url;
+                _logger.log('Loading selected source.');
 
                 try {
                     _url.parse(file);
                 } catch (err) {
-                    _logger.error('Failed to parse url \"' + file + '\".');
+                    _logger.error('Failed to parse the selected source URL.');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     return;
                 }
-                _program = program;
+
                 _ended = false;
                 _demuxer.reset();
                 _remuxer.reset();
@@ -222,6 +231,9 @@
             }
 
             _video.play().catch(function (err) {
+                if (_destroyed) {
+                    return;
+                }
                 switch (err.name) {
                     case 'AbortError':
                         _logger.debug(err.name + ': ' + err.message);
@@ -253,6 +265,7 @@
         };
 
         _this.stop = function () {
+            _sourceTimer.reset();
             _removingTimer.reset();
             _statsTimer.reset();
             if (_loader) {
@@ -269,6 +282,9 @@
             _segments = [];
             _need2remove = 0;
             _url = new utils.URL();
+            if (_video.src) {
+                URL.revokeObjectURL(_video.src);
+            }
             _video.removeAttribute('src');
             _video.load();
             _video.controls = false;
@@ -310,14 +326,45 @@
         };
 
         _this.destroy = function () {
+            if (_destroyed) {
+                return;
+            }
+            _destroyed = true;
             _this.stop();
             _ready = false;
+
             _saver.removeEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.removeEventListener(SaverEvent.WRITEREND, _onWriterEnded);
             _removingTimer.removeEventListener(TimerEvent.TIMER, _onRemovingTimer);
+            _statsTimer.removeEventListener(TimerEvent.TIMER, _onStatsTimer);
+            _sourceTimer.removeEventListener(TimerEvent.TIMER, _onSourceTimer);
             _cleanupMSE();
             _cleanupMuxer();
             _cleanupLoader();
+
+            _video.removeEventListener('play', _onPlay);
+            _video.removeEventListener('waiting', _onWaiting);
+            _video.removeEventListener('loadstart', _this.forward);
+            _video.removeEventListener('progress', _this.forward);
+            _video.removeEventListener('suspend', _this.forward);
+            _video.removeEventListener('stalled', _this.forward);
+            _video.removeEventListener('abort', _this.forward);
+            _video.removeEventListener('timeout', _this.forward);
+            _video.removeEventListener('durationchange', _onDurationChange);
+            _video.removeEventListener('loadedmetadata', _this.forward);
+            _video.removeEventListener('loadeddata', _this.forward);
+            _video.removeEventListener('canplay', _this.forward);
+            _video.removeEventListener('playing', _this.forward);
+            _video.removeEventListener('canplaythrough', _this.forward);
+            _video.removeEventListener('pause', _onPause);
+            _video.removeEventListener('seeking', _this.forward);
+            _video.removeEventListener('seeked', _this.forward);
+            _video.removeEventListener('ratechange', _this.forward);
+            _video.removeEventListener('timeupdate', _onTimeUpdate);
+            _video.removeEventListener('volumechange', _onVolumeChange);
+            _video.removeEventListener('load', _this.forward);
+            _video.removeEventListener('ended', _this.forward);
+            _video.removeEventListener('error', _onError);
         };
 
         function _onPlay(e) {
@@ -937,7 +984,7 @@
                 return false;
             }
             var arr = ['.flv', ''];
-            if (arr.indexOf(url.filetype) === -1) {
+            if (arr.indexOf((url.filetype || '').toLowerCase()) === -1) {
                 return false;
             }
         }

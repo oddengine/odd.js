@@ -33,6 +33,8 @@
             _wrapper,
             _content,
             _api,
+            _program,
+            _updatingDefinition = false,
             _timer;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, IOEvent, NetStatusEvent, UIEvent);
@@ -52,6 +54,7 @@
         _this.setup = function (container, config) {
             _container = container;
             _parseConfig(config || {});
+            _program = _this.config.playlist[0];
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
             _wrapper.setAttribute('kind', 'player');
@@ -100,6 +103,7 @@
 
             _buildPlugins();
             _setupPlugins();
+            _updateDefinition();
             _this.resize();
             return Promise.resolve();
         };
@@ -210,7 +214,13 @@
         }
 
         function _onBind(e) {
-            _this.play = _api.play;
+            _this.play = function (program) {
+                _api.play(program);
+                if (program && utils.typeOf(program.sources) === 'array' && program.sources.length) {
+                    _program = program;
+                    _updateDefinition();
+                }
+            };
             _this.pause = _api.pause;
             _this.reload = _api.reload;
             _this.seek = _api.seek;
@@ -224,6 +234,25 @@
             _this.duration = _api.duration;
             _this.state = _api.state;
             _this.forward(e);
+        }
+
+        function _updateDefinition() {
+            var controlbar = _this.plugins['Controlbar'];
+            var definition = controlbar ? controlbar.components['definition'] : null;
+            if (!definition) {
+                return;
+            }
+
+            _updatingDefinition = true;
+            definition.clear();
+            if (_program && utils.typeOf(_program.sources) === 'array') {
+                for (var i = 0; i < _program.sources.length; i++) {
+                    var source = _program.sources[i];
+                    definition.append(source && source.label || String(i + 1), i);
+                }
+                definition.value(_api.definition());
+            }
+            _updatingDefinition = false;
         }
 
         _this.chat = function (enable) {
@@ -432,7 +461,15 @@
                     _api.volume(e.data.value / 100);
                 },
                 'definition': function () {
-                    _api.definition(parseInt(e.data.value));
+                    if (!_updatingDefinition) {
+                        _api.definition(parseInt(e.data.value, 10));
+                    }
+                },
+                'playlist': function () {
+                    var program = _this.config.playlist[e.data.value];
+                    if (program) {
+                        _this.play(program);
+                    }
                 },
             }[e.data.name];
             if (h) {

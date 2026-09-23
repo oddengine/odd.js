@@ -19,6 +19,8 @@
             _logger = logger,
             _video,
             _ready,
+            _destroyed = false,
+            _generation = 0,
             _url,
             _rtc,
             _loadStartAt,
@@ -86,26 +88,47 @@
         }
 
         _this.setup = function () {
+            if (_destroyed) {
+                return;
+            }
             if (_ready === false) {
-                _rtc.setup(_this.config.rtc).then(() => {
+                _rtc.setup(_this.config.rtc).then(function () {
+                    if (_destroyed) {
+                        return;
+                    }
                     _ready = true;
                     _this.dispatchEvent(Event.READY, { kind: _this.kind });
+                }).catch(function (err) {
+                    if (!_destroyed) {
+                        _this.dispatchEvent(Event.ERROR, { name: err.name || 'OperationError', message: 'Failed to initialize RTC playback.' });
+                    }
                 });
             }
         };
 
-        _this.play = async function (program) {
-            if (program && program.sources[_definition].url !== _url.href) {
-                var file = program.sources[_definition].url;
-                _logger.log('URL: ' + file);
+        _this.play = function (program) {
+            if (_destroyed) {
+                return;
+            }
+            if (!_ready) {
+                _this.setup();
+                return;
+            }
 
+            if (program && program.sources[0].url !== _url.href) {
+                var url;
                 try {
-                    _url.parse(file);
+                    url = new utils.URL(program.sources[0].url);
                 } catch (err) {
-                    _logger.error('Failed to parse url \"' + file + '\".');
-                    _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                    _logger.error('Failed to parse the selected source URL.');
+                    _this.dispatchEvent(Event.ERROR, { name: err.name, message: 'Invalid RTC source URL.' });
                     return;
                 }
+
+                _generation++;
+                _rtc.stop();
+                _url = url;
+                _video.srcObject = null;
 
                 _loadStartAt = new Date();
                 _firstAudioFrameReceivedIn = NaN;
@@ -115,50 +138,68 @@
                 _audioPacketsReceivedPerSecond = 0;
                 _videoPacketsReceivedPerSecond = 0;
                 _statsTimer.start();
-
                 _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
-                _video.srcObject = undefined;
 
-                _rtc.config.whep = _url.href.substring(0, _url.href.lastIndexOf('/'));
-                _rtc.play(_url.filename + _url.filetype).then(function (ns) {
+                var generation = _generation,
+                    index = _url.path.lastIndexOf('/'),
+                    name = _url.path.substring(index + 1) + (_url.search || ''),
+                    rtc = _rtc;
+                rtc.config.whep = _url.origin + _url.path.substring(0, index);
+                rtc.play(name).then(function (ns) {
+                    if (_destroyed || generation !== _generation) {
+                        ns.close('source changed');
+                        if (_destroyed) {
+                            rtc.destroy();
+                        }
+                        return;
+                    }
                     ns.addEventListener(NetStatusEvent.NETSTATUS, function (e) {
-                        switch (e.data.code) {
-                            case Code.NETSTREAM_PLAY_START:
-                                var stream = e.data.info.streams[0];
-                                _video.srcObject = stream;
-                                _video.play().catch(function (err) {
-                                    _logger.warn(`${err}`);
-                                });
-                                _video.controls = false;
-                                break;
+                        if (_destroyed || generation !== _generation) {
+                            return;
+                        }
+                        if (e.data.code === Code.NETSTREAM_PLAY_START) {
+                            _video.srcObject = e.data.info.streams[0];
+                            _this.play();
                         }
                     });
                     ns.addEventListener(Event.RELEASE, function (e) {
-                        _this.stop();
+                        if (!_destroyed && generation === _generation) {
+                            _this.stop();
+                        }
                     });
+
+                    // The first track can arrive before play() resolves.
+                    var stream = ns.stream();
+                    if (stream) {
+                        _video.srcObject = stream;
+                        _this.play();
+                    }
                 }).catch(function (err) {
-                    _logger.warn(`${err}`);
+                    if (!_destroyed && generation === _generation) {
+                        _this.dispatchEvent(Event.ERROR, { name: err.name || 'NetworkError', message: 'Failed to open the selected RTC source.' });
+                    }
                 });
+                return;
+            }
+            if (!_video.srcObject) {
+                return;
             }
 
+            var generation = _generation;
             _video.play().catch(function (err) {
-                switch (err.name) {
-                    case 'AbortError':
-                        _logger.debug(err.name + ': ' + err.message);
-                        break;
-                    case 'NotAllowedError':
-                        if (_video.muted == false) {
-                            _video.muted = true;
-                            _video.play().catch(function (err) {
-                                _logger.warn(`${err}`);
-                            });
-                            break;
-                        }
-                    default:
-                        _logger.error('Unexpected error occured, ' + err.name + ': ' + err.message);
-                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                        break;
+                if (_destroyed || generation !== _generation) {
+                    return;
                 }
+                if (err.name === 'AbortError') {
+                    _logger.debug('RTC playback was interrupted.');
+                    return;
+                }
+                if (err.name === 'NotAllowedError' && !_video.muted) {
+                    _video.muted = true;
+                    _this.play();
+                    return;
+                }
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: 'Failed to start RTC playback.' });
             });
             _video.controls = false;
         };
@@ -173,12 +214,13 @@
         };
 
         _this.stop = function () {
+            _generation++;
             _statsTimer.reset();
             if (_rtc) {
                 _rtc.stop();
             }
             _url = new utils.URL();
-            _video.srcObject = undefined;
+            _video.srcObject = null;
             _video.load();
             _video.controls = false;
             _this.dispatchEvent(Event.ENDED);
@@ -207,16 +249,45 @@
         };
 
         _this.destroy = function () {
+            if (_destroyed) {
+                return;
+            }
+            _destroyed = true;
             _this.stop();
             _ready = false;
+
             _statsTimer.removeEventListener(TimerEvent.TIMER, _onStatsTimer);
 
             if (_rtc) {
-                _rtc.destroy()
                 _rtc.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
                 _rtc.removeEventListener(Event.CLOSE, _onClose);
+                _rtc.destroy();
                 _rtc = undefined;
             }
+
+            _video.removeEventListener('play', _this.forward);
+            _video.removeEventListener('waiting', _this.forward);
+            _video.removeEventListener('loadstart', _this.forward);
+            _video.removeEventListener('progress', _this.forward);
+            _video.removeEventListener('suspend', _this.forward);
+            _video.removeEventListener('stalled', _this.forward);
+            _video.removeEventListener('abort', _this.forward);
+            _video.removeEventListener('timeout', _this.forward);
+            _video.removeEventListener('durationchange', _onDurationChange);
+            _video.removeEventListener('loadedmetadata', _this.forward);
+            _video.removeEventListener('loadeddata', _this.forward);
+            _video.removeEventListener('canplay', _this.forward);
+            _video.removeEventListener('playing', _this.forward);
+            _video.removeEventListener('canplaythrough', _this.forward);
+            _video.removeEventListener('pause', _this.forward);
+            _video.removeEventListener('seeking', _this.forward);
+            _video.removeEventListener('seeked', _this.forward);
+            _video.removeEventListener('ratechange', _this.forward);
+            _video.removeEventListener('timeupdate', _onTimeUpdate);
+            _video.removeEventListener('volumechange', _onVolumeChange);
+            _video.removeEventListener('load', _this.forward);
+            _video.removeEventListener('ended', _this.forward);
+            _video.removeEventListener('error', _onError);
         };
 
         function _onStatus(e) {
@@ -269,6 +340,9 @@
         }
 
         function _onError(e) {
+            if (_destroyed || !_video.error) {
+                return;
+            }
             var err = {
                 1: { name: 'AbortError', message: 'The operation was aborted.' },
                 2: { name: 'NetworkError', message: 'A network error occurred.' },
