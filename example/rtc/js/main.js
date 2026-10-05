@@ -2,6 +2,7 @@ var utils = odd.utils,
     Kernel = odd.Kernel,
     events = odd.events,
     Event = events.Event,
+    IMEvent = events.IMEvent,
     NetStatusEvent = events.NetStatusEvent,
     SaverEvent = events.SaverEvent,
     Level = events.Level,
@@ -80,8 +81,8 @@ function _setupIM(room) {
     _pendingJoin = room;
     im = odd.im.create();
     im.addEventListener(Event.READY, onReady);
-    im.addEventListener(IM.Event.MESSAGE, onMessage);
-    im.addEventListener(IM.Event.NOTIFY, onNotify);
+    im.addEventListener(IMEvent.MESSAGE, onMessage);
+    im.addEventListener(IMEvent.NOTIFY, onNotify);
     im.addEventListener(Event.CLOSE, onClose);
     im.setup({
         retry: { count: 0 },

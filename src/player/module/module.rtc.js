@@ -79,7 +79,7 @@
             _video.muted = _this.config.muted;
             _video.volume = _this.config.volume;
 
-            _rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
+            _rtc = odd.rtc.create(_logger);
             _rtc.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _rtc.addEventListener(Event.CLOSE, _onClose);
 

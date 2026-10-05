@@ -26,6 +26,7 @@
             whip: `${location.protocol}//${location.host}/whip/live`,
             whep: `${location.protocol}//${location.host}/whep/live`,
             trickle: false,
+            timeout: 5000,
             configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],
@@ -46,7 +47,9 @@
         var _this = this,
             _id = id,
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
-            _stats;
+            _stats,
+            _pending = [],
+            _readyState;
 
         EventDispatcher.call(this, 'RTC', { id: id, logger: _logger }, [Event.BIND, Event.READY, Event.ERROR, Event.RELEASE, Event.CLOSE], NetStatusEvent);
 
@@ -54,6 +57,7 @@
             _this.logger = _logger;
             _this.publishing = {};
             _this.subscribing = {};
+            _readyState = State.INITIALIZED;
         }
 
         _this.id = function () {
@@ -61,94 +65,107 @@
         };
 
         _this.setup = async function (config) {
+            if (_readyState !== State.INITIALIZED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC cannot be setup in state ' + _readyState + '.' });
+            }
+
             _this.config = utils.extendz({ id: _id }, _default, config);
+            _readyState = State.CONNECTING;
 
             _stats = new utils.Timer(1000, 0, _logger);
             _stats.addEventListener(TimerEvent.TIMER, _onStats);
 
             _bind();
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC setup was cancelled.' });
+            }
             return Promise.resolve();
         };
 
         function _bind() {
             _this.dispatchEvent(Event.BIND);
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
+            _readyState = State.CONNECTED;
             _this.dispatchEvent(Event.READY);
         }
 
         _this.preview = async function (constraints, screensharing, withcamera, option) {
-            var ns = new RTC.NetStream({
-                id: _id,
-                profile: _this.config.profile,
-                whip: _this.config.whip,
-                whep: _this.config.whep,
-                trickle: _this.config.trickle,
-                configuration: _this.config.configuration,
-                codecpreferences: _this.config.codecpreferences,
-                service: _this.config.service,
-            }, _logger);
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC is not ready: state=' + _readyState + '.' });
+            }
+
+            var ns = new RTC.NetStream(_this.config, _logger);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.applyConstraints(constraints);
-            await ns.attach();
+            _pending.push(ns);
 
             try {
+                await ns.attach();
                 await ns.preview(screensharing, withcamera, option);
+                if (_readyState !== State.CONNECTED || ns.state() !== State.CONNECTED) {
+                    throw { name: 'AbortError', message: 'RTC preview was cancelled.' };
+                }
                 _this.publishing[ns.name()] = ns;
+                return ns;
             } catch (err) {
-                _logger.error(`Failed to preview: id=${_id}, stream=${ns.name()}`);
-                return Promise.reject(err);
+                ns.close(err.message);
+                _logger.error('Failed to preview: id=' + _id + ', error=' + err.message);
+                throw err;
+            } finally {
+                var index = utils.indexOf(_pending, ns);
+                if (index !== -1) {
+                    _pending.splice(index, 1);
+                }
             }
-            return Promise.resolve(ns);
-        }
+        };
 
         _this.publish = async function (constraints, screensharing, withcamera, option) {
-            var ns = new RTC.NetStream({
-                id: _id,
-                profile: _this.config.profile,
-                whip: _this.config.whip,
-                whep: _this.config.whep,
-                trickle: _this.config.trickle,
-                configuration: _this.config.configuration,
-                codecpreferences: _this.config.codecpreferences,
-                service: _this.config.service,
-            }, _logger);
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC is not ready: state=' + _readyState + '.' });
+            }
+
+            var ns = new RTC.NetStream(_this.config, _logger);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.applyConstraints(constraints);
-            await ns.attach();
+            _pending.push(ns);
 
             try {
+                await ns.attach();
                 await ns.preview(screensharing, withcamera, option);
-            } catch (err) {
-                _logger.error(`Failed to preview: id=${_id}, stream=${ns.name()}`);
-                return Promise.reject(err);
-            }
-            try {
                 await ns.publish();
+                if (_readyState !== State.CONNECTED || ns.state() !== State.PUBLISHING) {
+                    throw { name: 'AbortError', message: 'RTC publishing was cancelled.' };
+                }
                 _this.publishing[ns.name()] = ns;
+                _stats.start();
+                return ns;
             } catch (err) {
-                _logger.error(`Failed to publish: id=${_id}, stream=${ns.name()}`);
-                return Promise.reject(err);
+                ns.close(err.message);
+                _logger.error('Failed to publish: id=' + _id + ', error=' + err.message);
+                throw err;
+            } finally {
+                var index = utils.indexOf(_pending, ns);
+                if (index !== -1) {
+                    _pending.splice(index, 1);
+                }
             }
-            _stats.start();
-            return Promise.resolve(ns);
         };
 
         _this.play = async function (name) {
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC is not ready: state=' + _readyState + '.' });
+            }
+
             if (_this.subscribing.hasOwnProperty(name)) {
                 _logger.error(`Already playing: id=${_id}, stream=${name}`);
                 return Promise.reject('playing');
             }
 
-            var ns = new RTC.NetStream({
-                id: _id,
-                whip: _this.config.whip,
-                whep: _this.config.whep,
-                trickle: _this.config.trickle,
-                configuration: _this.config.configuration,
-                codecpreferences: _this.config.codecpreferences,
-                service: _this.config.service,
-            }, _logger);
+            var ns = new RTC.NetStream(_this.config, _logger);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.setProperty('stream', name);
@@ -157,6 +174,9 @@
             try {
                 await ns.attach();
                 await ns.play(name, "all");
+                if (_readyState !== State.CONNECTED || ns.state() !== State.PLAYING) {
+                    throw { name: 'AbortError', message: 'RTC playback was cancelled.' };
+                }
             } catch (err) {
                 _logger.error(`Failed to play: id=${_id}, stream=${ns.name()}`);
                 delete _this.subscribing[name];
@@ -175,6 +195,12 @@
                 }
                 return;
             }
+            var pending = _pending.slice(0);
+            _pending = [];
+            for (var i = 0; i < pending.length; i++) {
+                pending[i].close('stopping');
+            }
+
             for (var name in _this.publishing) {
                 var ns = _this.publishing[name];
                 if (ns) {
@@ -201,7 +227,7 @@
                 case Code.NETSTREAM_FAILED:
                 case Code.NETSTREAM_PLAY_FAILED:
                 case Code.NETSTREAM_PLAY_RESET:
-                    var ns = e.target;
+                    var ns = e.srcElement;
                     ns.close(e.data.description);
                     break;
             }
@@ -209,7 +235,7 @@
         }
 
         function _onRelease(e) {
-            var ns = e.target;
+            var ns = e.srcElement;
             _logger.log(`RTC.onRelease: id=${_id}, reason=${e.data.reason}`);
 
             ns.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
@@ -244,14 +270,28 @@
             }
         }
 
+        _this.state = function () {
+            return _readyState;
+        };
+
         _this.destroy = function (reason) {
-            if (_stats) {
-                _stats.stop();
-                _stats.removeEventListener(TimerEvent.TIMER, _onStats);
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.CONNECTED:
+                    _readyState = State.CLOSING;
+
+                    if (_stats) {
+                        _stats.stop();
+                        _stats.removeEventListener(TimerEvent.TIMER, _onStats);
+                    }
+                    _this.stop();
+                    delete _instances[_id];
+
+                    _this.dispatchEvent(Event.CLOSE, { reason: reason });
+                    _readyState = State.CLOSED;
+                    break;
             }
-            _this.stop();
-            _this.dispatchEvent(Event.CLOSE, { reason: reason });
-            delete _instances[_id];
         };
 
         _init();
@@ -339,6 +379,10 @@
         if (id == null) {
             id = 0;
         }
+        if (utils.typeOf(id) === 'number' && id >= _id) {
+            _id = id + 1;
+        }
+
         var rtc = _instances[id];
         if (rtc === undefined) {
             rtc = new RTC(id, logger);

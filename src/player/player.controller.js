@@ -102,7 +102,7 @@
         };
 
         _this.destroy = function () {
-            _model.config.maxRetries = 0;
+            _model.config.retry.count = 0;
             clearTimeout(_retryTimer);
             _retryTimer = undefined;
 
@@ -244,11 +244,11 @@
                 return;
             }
 
-            if (_retries++ < _model.config.maxRetries || _model.config.maxRetries === -1) {
+            if (_retries++ < _model.config.retry.count || _model.config.retry.count === -1) {
                 _logger.log('Retrying...');
                 _retrying = true;
                 clearTimeout(_retryTimer);
-                _retryTimer = setTimeout(_this.reload, _model.config.retrying);
+                _retryTimer = setTimeout(_this.reload, _model.config.retry.delay);
             } else {
                 _view.stop();
                 _onStateChange(e);

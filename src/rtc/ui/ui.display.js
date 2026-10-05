@@ -81,13 +81,13 @@
             var reason = _this.components['reason'];
             if (reason) {
                 if (!err) {
-                    reason.text('');
+                    reason.set('');
                     return;
                 }
 
                 err.name = err.name || 'UnknownError';
                 err.message = err.message || 'An unknown error occurred.';
-                reason.text(err.name + ': ' + err.message);
+                reason.set(err.name + ': ' + err.message);
             }
         };
 
@@ -125,6 +125,10 @@
         };
 
         _this.destroy = function () {
+            _timer.stop();
+            _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
+            _content.removeEventListener('click', _onClick);
+
             utils.forEach(_this.components, function (_, component) {
                 component.removeGlobalListener(_this.forward);
                 component.destroy();

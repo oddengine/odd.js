@@ -42,7 +42,7 @@
             _this.constraints = _getConstraints(_this.config);
             _this.components = {};
 
-            _this.rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
+            _this.rtc = odd.rtc.create(_logger);
             _this.rtc.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             _this.rtc.addEventListener(Event.CLOSE, _onClose);
             _this.rtc.setup(_this.config.rtc);
@@ -123,6 +123,7 @@
                 }
             }).catch(function (err) {
                 _logger.warn(`${err}`);
+                throw err;
             });
         };
 
@@ -147,6 +148,7 @@
                 }
             }).catch(function (err) {
                 _logger.warn(`${err}`);
+                throw err;
             });
         };
 

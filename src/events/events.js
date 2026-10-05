@@ -69,6 +69,11 @@
             WRITEREND: 'writerend',     // writer
         },
 
+        IMEvent = {
+            NOTIFY: 'notify',   // type, data
+            MESSAGE: 'message', // type, data
+        },
+
         UIEvent = {
             SHOOTING: 'shooting',     // text, data
             THEATER: 'theater',       // status
@@ -186,6 +191,7 @@
     events.MediaStreamTrackEvent = MediaStreamTrackEvent;
     events.NetStatusEvent = NetStatusEvent;
     events.SaverEvent = SaverEvent;
+    events.IMEvent = IMEvent;
     events.UIEvent = UIEvent;
     events.MouseEvent = MouseEvent;
     events.TouchEvent = TouchEvent;

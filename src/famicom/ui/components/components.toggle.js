@@ -8,7 +8,7 @@
         CLASS_TOOLTIP = 'pe-tooltip',
         CLASS_TOGGLE = 'pe-toggle',
         
-        _regi = /^([a-z\d\-]+)(?:\s+(.*))?$/gi,
+        _regi = /^([a-z\d\-]+)(?:\s+(.*))?$/i,
         _kvgi = /([a-z\d\-]+)=([^;]*)/gi;
 
     function Toggle(name, value, logger) {

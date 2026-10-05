@@ -6,7 +6,9 @@
         NetStatusEvent = events.NetStatusEvent,
         UIEvent = events.UIEvent,
         MouseEvent = events.MouseEvent,
+        IMEvent = events.IMEvent,
         IM = odd.IM,
+        State = IM.State,
 
         CLASS_WRAPPER = 'im-wrapper',
 
@@ -15,6 +17,15 @@
         _default = {
             presentation: 'full',
             skin: 'classic',
+            user: {
+                name: '',
+                avatar: '',
+            },
+            labels: {
+                contacts: 'Contacts',
+                messages: 'Messages',
+                dashboard: 'Settings',
+            },
             rtc: {
                 profile: '180P_1',
                 camera: true,
@@ -29,13 +40,15 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
+            _avatar,
             _nav,
             _pages,
             _tabs,
             _homes,
-            _api;
+            _api,
+            _readyState;
 
-        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
+        EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent, IMEvent);
 
         function _init() {
             _this.logger = _logger;
@@ -43,6 +56,7 @@
             _pages = {};
             _tabs = {};
             _homes = {};
+            _readyState = State.INITIALIZED;
         }
 
         _this.id = function () {
@@ -50,6 +64,11 @@
         };
 
         _this.setup = async function (container, config) {
+            if (_readyState !== State.INITIALIZED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'IM UI cannot be setup in state ' + _readyState + '.' });
+            }
+            _readyState = State.CONNECTING;
+
             _container = container;
             _parseConfig(config);
 
@@ -58,20 +77,30 @@
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' im-ui-' + _this.config.skin);
             _wrapper.setAttribute('presentation', _normalizePresentation(_this.config.presentation));
+
+            var profile = utils.createElement('div', 'im-profile');
+            _avatar = new UI.components.Avatar('self', utils.extendz({}, _this.config.user, { online: false }), _logger);
+            profile.appendChild(_avatar.element());
+            _wrapper.appendChild(profile);
             _wrapper.appendChild(_nav.element());
             _container.appendChild(_wrapper);
 
             _api = IM.get(_id, _logger);
             _api.addEventListener(Event.BIND, _onBind);
             _api.addEventListener(Event.READY, _onReady);
-            _api.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            _api.addEventListener(NetStatusEvent.NETSTATUS, _this.forward);
+            _api.addEventListener(IMEvent.NOTIFY, _this.forward);
+            _api.addEventListener(IMEvent.MESSAGE, _this.forward);
+            _api.addEventListener(Event.ERROR, _this.forward);
             _api.addEventListener(Event.CLOSE, _onClose);
-            _api.addEventListener(IM.Event.NOTIFY, _this.forward);
-            _api.addEventListener(IM.Event.MESSAGE, _this.forward);
 
             _buildPlugins();
             _setupPlugins();
+            _readyState = State.CONNECTED;
             _this.resize();
+            if (_readyState !== State.CONNECTED) {
+                return;
+            }
 
             window.addEventListener('resize', _this.resize);
             return _api.setup(_this.config);
@@ -155,7 +184,7 @@
                         var content = utils.createElement('div', 'im-plugins im-plugins-' + tab);
                         page = {
                             content: content,
-                            index: _nav.insert(tab, content),
+                            index: _nav.insert(tab, content, { title: _this.config.labels[tab] || tab }),
                         };
                         _tabs[tab] = page;
                     }
@@ -196,7 +225,7 @@
 
         function _onClick(e) {
             var h = {
-                'contact': function () { _onContactClick(e); },
+                'contact': function () { _onConversationClick(e); },
                 'conversation': function () { _onConversationClick(e); },
             }[e.data.name];
             if (h) {
@@ -206,19 +235,26 @@
             }
         }
 
-        function _onContactClick(e) {
-
-        }
-
         function _onConversationClick(e) {
-            var conversation = _this.plugins['Conversation'];
-            if (conversation) {
-                conversation.active(e.data.id, e.data.contact || e.data.conversation);
-                if (_this.plugins['Conversations']) {
-                    _this.plugins['Conversations'].active(e.data.id);
-                }
-                _nav.active(_pages['Conversation']);
+            var data = e.data.data,
+                conversation = _this.plugins['Conversation'],
+                conversations = _this.plugins['Conversations'],
+                contacts = _this.plugins['Contacts'];
+            if (!data || !conversation) {
+                return;
             }
+
+            conversation.active(data.id, data);
+            if (contacts) {
+                contacts.active(data.id);
+            }
+            if (conversations) {
+                if (e.data.name === 'contact') {
+                    conversations.add(data.id, data.type, data.name, data.avatar);
+                }
+                conversations.active(data.id);
+            }
+            _nav.active(_pages['Conversation']);
         }
 
         function _onChange(e) {
@@ -237,10 +273,23 @@
 
         function _onClose(e) {
             _logger.log(`IM.onClose: ${e.data.reason}`);
-            _this.forward(e);
+            if (_readyState === State.CLOSING) {
+                _this.forward(e);
+                return;
+            }
+            _onStateChange(e);
         }
 
         function _onStateChange(e) {
+            if (_readyState !== State.CONNECTED) {
+                return;
+            }
+
+            if (e.type === Event.READY) {
+                _avatar.update(utils.extendz({ id: _api.userId() }, _this.config.user, { online: _api.connected() }));
+            } else {
+                _avatar.state('offline');
+            }
             _wrapper.setAttribute('state', e.type);
 
             _this.resize();
@@ -307,6 +356,7 @@
             if (!content || !content.nodeType) {
                 throw { name: 'DataError', message: 'IM UI tab content must be a DOM element.' };
             }
+            option = utils.extendz({ title: _this.config.labels[name] || name }, option);
             var index = _nav.insert(name, content, option);
             _tabs[name] = { content: content, index: index };
             _wrapper.setAttribute('navigation', _nav.length() > 1 ? 'on' : 'off');
@@ -329,6 +379,10 @@
         };
 
         _this.resize = function () {
+            if (!_wrapper || _readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return;
+            }
+
             var width = _wrapper.clientWidth;
             var height = _wrapper.clientHeight;
 
@@ -340,32 +394,51 @@
         };
 
         _this.destroy = function (reason) {
-            window.removeEventListener('resize', _this.resize);
-            if (_nav) {
-                _nav.removeGlobalListener(_this.forward);
-            }
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.CONNECTED:
+                    _readyState = State.CLOSING;
 
-            utils.forEach(_this.plugins, function (_, plugin) {
-                plugin.removeGlobalListener(_onPluginEvent);
-                plugin.destroy();
-            });
-            _this.plugins = {};
+                    window.removeEventListener('resize', _this.resize);
+                    if (_nav) {
+                        _nav.removeGlobalListener(_this.forward);
+                    }
 
-            if (_api) {
-                _api.destroy(reason);
-                _api.removeEventListener(Event.BIND, _onBind);
-                _api.removeEventListener(Event.READY, _onReady);
-                _api.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
-                _api.removeEventListener(Event.CLOSE, _onClose);
-                _api.removeEventListener(IM.Event.NOTIFY, _this.forward);
-                _api.removeEventListener(IM.Event.MESSAGE, _this.forward);
-                _api = undefined;
-            }
+                    utils.forEach(_this.plugins, function (_, plugin) {
+                        plugin.removeGlobalListener(_onPluginEvent);
+                        plugin.destroy();
+                    });
+                    _this.plugins = {};
 
-            if (_wrapper) {
-                _container.removeChild(_wrapper);
+                    if (_api) {
+                        _api.removeEventListener(Event.BIND, _onBind);
+                        _api.removeEventListener(Event.READY, _onReady);
+                        _api.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
+                        _api.removeEventListener(Event.ERROR, _this.forward);
+                        _api.removeEventListener(IMEvent.NOTIFY, _this.forward);
+                        _api.removeEventListener(IMEvent.MESSAGE, _this.forward);
+                    }
+
+                    if (_nav) {
+                        _nav.destroy();
+                    }
+                    if (_avatar) {
+                        _avatar.destroy();
+                    }
+                    if (_wrapper && _wrapper.parentNode) {
+                        _wrapper.parentNode.removeChild(_wrapper);
+                    }
+                    delete _instances[_id];
+
+                    if (_api) {
+                        _api.destroy(reason);
+                        _api.removeEventListener(Event.CLOSE, _onClose);
+                        _api = undefined;
+                    }
+                    _readyState = State.CLOSED;
+                    break;
             }
-            delete _instances[_id];
         };
 
         _init();

@@ -10,6 +10,7 @@
         MouseEvent = events.MouseEvent,
         TimerEvent = events.TimerEvent,
         RTC = odd.RTC,
+        State = RTC.State,
         Constraints = RTC.Constraints,
 
         CLASS_WRAPPER = 'pe-wrapper',
@@ -20,6 +21,7 @@
         _default = {
             presentation: 'full', // full, mini, popup
             skin: 'classic',
+            plugins: [],
             profile: '720P_2',
             camera: '',
             microphone: '',
@@ -55,7 +57,10 @@
             _sharing,
             _preview,
             _subscribing,
-            _timer;
+            _timer,
+            _pendingCall,
+            _pendingShare,
+            _readyState;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
 
@@ -63,6 +68,8 @@
             _this.logger = _logger;
             _this.plugins = {};
             _subscribing = {};
+            _readyState = State.INITIALIZED;
+            _api = RTC.get(_id, _logger);
 
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
@@ -73,6 +80,11 @@
         };
 
         _this.setup = async function (container, config) {
+            if (_readyState !== State.INITIALIZED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC UI cannot be setup in state ' + _readyState + '.' });
+            }
+            _readyState = State.CONNECTING;
+
             _container = container;
             _parseConfig(config || {});
             _constraints = _getConstraints(_this.config);
@@ -89,11 +101,19 @@
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(Event.ERROR, _onError);
             _api.addEventListener(NetStatusEvent.NETSTATUS, _this.forward);
-            _api.setup(_this.config);
+            try {
+                await _api.setup(_this.config);
+                if (_readyState !== State.CONNECTED) {
+                    throw { name: 'AbortError', message: 'RTC UI setup was cancelled.' };
+                }
 
-            _buildPlugins();
-            _setupPlugins();
-            _this.resize();
+                _buildPlugins();
+                _setupPlugins();
+                _this.resize();
+            } catch (err) {
+                _this.destroy(err.message);
+                throw err;
+            }
             return Promise.resolve();
         };
 
@@ -212,32 +232,79 @@
         }
 
         _this.call = function () {
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC UI is not ready: state=' + _readyState + '.' });
+            }
+
             if (_calling) {
                 return Promise.resolve(_calling);
             }
-            return _api.publish(_constraints, false, false).then(function (ns) {
+            if (_pendingCall) {
+                return _pendingCall.promise;
+            }
+
+            var operation = { cancelled: false };
+            _pendingCall = operation;
+            operation.promise = _api.publish(_constraints, false, false).then(function (ns) {
+                if (_readyState !== State.CONNECTED || operation.cancelled) {
+                    ns.close('cancelled');
+                    throw { name: 'AbortError', message: 'The call was cancelled.' };
+                }
                 _calling = ns;
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
                 ns.element().classList.add('pe-rtc-calling');
                 _content.appendChild(ns.element());
                 _wrapper.setAttribute('calling', 'on');
+
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('calling', 'on');
+                }
                 return ns;
+            }).finally(function () {
+                if (_pendingCall === operation) {
+                    _pendingCall = null;
+                }
             });
+            return operation.promise;
         };
 
         _this.hangup = function () {
+            if (_pendingCall) {
+                _pendingCall.cancelled = true;
+            }
             if (_calling) {
                 _api.stop(_calling.name());
             }
             _wrapper.setAttribute('calling', 'off');
+
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                controlbar.state('calling', 'off');
+            }
             return Promise.resolve();
         };
 
         _this.share = function () {
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC UI is not ready: state=' + _readyState + '.' });
+            }
+
             if (_sharing) {
                 return Promise.resolve(_sharing);
             }
-            return _api.publish(_constraints, true, false).then(function (ns) {
+            if (_pendingShare) {
+                return _pendingShare.promise;
+            }
+
+            var operation = { cancelled: false },
+                constraints = utils.extendz({}, _constraints, { video: Constraints[_this.config.profile].video });
+            _pendingShare = operation;
+            operation.promise = _api.publish(constraints, true, false).then(function (ns) {
+                if (_readyState !== State.CONNECTED || operation.cancelled) {
+                    ns.close('cancelled');
+                    throw { name: 'AbortError', message: 'Screen sharing was cancelled.' };
+                }
                 _sharing = ns;
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
                 ns.element().classList.add('pe-rtc-sharing');
@@ -248,15 +315,33 @@
                     tracks[0].addEventListener('ended', _onSharingEnded);
                 }
                 _wrapper.setAttribute('sharing', 'on');
+
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('sharing', 'on');
+                }
                 return ns;
+            }).finally(function () {
+                if (_pendingShare === operation) {
+                    _pendingShare = null;
+                }
             });
+            return operation.promise;
         };
 
         _this.cancel = function () {
+            if (_pendingShare) {
+                _pendingShare.cancelled = true;
+            }
             if (_sharing) {
                 _api.stop(_sharing.name());
             }
             _wrapper.setAttribute('sharing', 'off');
+
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                controlbar.state('sharing', 'off');
+            }
             return Promise.resolve();
         };
 
@@ -264,32 +349,58 @@
             if (enable === undefined) {
                 return _wrapper.getAttribute('microphone') === 'on';
             }
-            var calling = _wrapper.getAttribute('calling') === 'on';
-            return _this.hangup().then(function () {
-                _wrapper.setAttribute('microphone', enable ? 'on' : 'off');
-                _constraints = _getConstraints(_this.config);
-                if (calling) {
-                    return _this.call();
-                }
-            });
+
+            var tracks = _calling ? _calling.stream().getAudioTracks() : [],
+                restart = _calling && !tracks.length && enable;
+            for (var i = 0; i < tracks.length; i++) {
+                tracks[i].enabled = !!enable;
+            }
+            _wrapper.setAttribute('microphone', enable ? 'on' : 'off');
+            _constraints = _getConstraints(_this.config);
+
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                controlbar.state('microphone', enable ? 'on' : 'off');
+            }
+            if (restart) {
+                return _this.hangup().then(_this.call);
+            }
+            return Promise.resolve();
         };
 
         _this.camera = function (enable) {
             if (enable === undefined) {
                 return _wrapper.getAttribute('camera') === 'on';
             }
-            var calling = _wrapper.getAttribute('calling') === 'on';
-            return _this.hangup().then(function () {
-                _wrapper.setAttribute('camera', enable ? 'on' : 'off');
-                _constraints = _getConstraints(_this.config);
-                if (calling) {
-                    return _this.call();
-                }
-            });
+
+            var tracks = _calling ? _calling.stream().getVideoTracks() : [],
+                restart = _calling && !tracks.length && enable;
+            for (var i = 0; i < tracks.length; i++) {
+                tracks[i].enabled = !!enable;
+            }
+            _wrapper.setAttribute('camera', enable ? 'on' : 'off');
+            _constraints = _getConstraints(_this.config);
+
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                controlbar.state('camera', enable ? 'on' : 'off');
+            }
+            if (restart) {
+                return _this.hangup().then(_this.call);
+            }
+            return Promise.resolve();
         };
 
         _this.play = async function (name) {
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'RTC UI is not ready: state=' + _readyState + '.' });
+            }
+
             var ns = await _api.play(name);
+            if (_readyState !== State.CONNECTED) {
+                ns.close('cancelled');
+                return Promise.reject({ name: 'AbortError', message: 'RTC playback was cancelled.' });
+            }
             _subscribing[name] = ns;
             ns.addEventListener(Event.RELEASE, _onStreamRelease);
             ns.element().classList.add('pe-rtc-subscribing');
@@ -320,7 +431,7 @@
         }
 
         function _onStreamRelease(e) {
-            var ns = e.target,
+            var ns = e.srcElement,
                 element = ns.element();
             ns.removeEventListener(Event.RELEASE, _onStreamRelease);
             if (element.parentNode) {
@@ -330,6 +441,10 @@
             if (ns === _calling) {
                 _calling = null;
                 _wrapper.setAttribute('calling', 'off');
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('calling', 'off');
+                }
             } else if (ns === _sharing) {
                 var tracks = ns.stream() ? ns.stream().getVideoTracks() : [];
                 if (tracks.length) {
@@ -337,6 +452,10 @@
                 }
                 _sharing = null;
                 _wrapper.setAttribute('sharing', 'off');
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('sharing', 'off');
+                }
             } else if (ns === _preview) {
                 _preview = null;
                 var dashboard = _this.plugins['Dashboard'];
@@ -351,6 +470,10 @@
         _this.layout = function (state) {
             if (state !== undefined) {
                 _wrapper.setAttribute('layout', state);
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('layout', state);
+                }
                 _this.resize();
                 _this.dispatchEvent(Event.CHANGE, { name: 'layout', value: state });
             }
@@ -369,6 +492,10 @@
 
                 _wrapper.setAttribute('theater', !!status);
 
+                var controlbar = _this.plugins['Controlbar'];
+                if (controlbar) {
+                    controlbar.state('theater', status ? 'on' : 'off');
+                }
                 _this.resize();
                 _this.dispatchEvent(UIEvent.THEATER, { status: status });
             }
@@ -428,6 +555,7 @@
 
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
+                    controlbar.state('fullscreen', status ? 'on' : 'off');
                     css.style(controlbar.element(), {
                         'visibility': 'visible',
                     });
@@ -541,6 +669,10 @@
         }
 
         function _onControlError(name, err) {
+            if (_readyState !== State.CONNECTED || err.name === 'AbortError') {
+                return;
+            }
+
             var enable = {
                 microphone: _constraints.audio !== false,
                 camera: _constraints.video !== false,
@@ -548,6 +680,10 @@
                 calling: !!_calling,
             }[name];
             _wrapper.setAttribute(name, enable ? 'on' : 'off');
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                controlbar.state(name, enable ? 'on' : 'off');
+            }
             _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
         }
 
@@ -643,6 +779,10 @@
         }
 
         function _onReady(e) {
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
+            _readyState = State.CONNECTED;
             _onStateChange(e);
         }
 
@@ -671,6 +811,9 @@
                 RTC.getCameras(_logger),
                 RTC.getMicrophones(_logger),
             ]).then(function (devices) {
+                if (_readyState !== State.CONNECTED) {
+                    return;
+                }
                 dashboard.update('settings', {
                     profile: _this.config.profile,
                     camera: _this.config.camera,
@@ -679,6 +822,10 @@
                     microphones: devices[1],
                 });
                 dashboard.show('settings');
+            }).catch(function (err) {
+                if (_readyState === State.CONNECTED) {
+                    _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                }
             });
         }
 
@@ -688,6 +835,10 @@
             }
             var config = utils.extendz({}, _this.config, settings);
             return _api.preview(_getConstraints(config), false, false).then(function (ns) {
+                if (_readyState !== State.CONNECTED) {
+                    ns.close('cancelled');
+                    return;
+                }
                 _preview = ns;
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
 
@@ -756,7 +907,7 @@
             if (display) {
                 display.state(e.type);
                 if (e.type === Event.ERROR) {
-                    display.error(e.data);
+                    display.explain(e.data);
                 }
             }
 
@@ -788,6 +939,10 @@
             return _this.config.skin;
         };
 
+        _this.state = function () {
+            return _readyState;
+        };
+
         _this.element = function () {
             return _container;
         };
@@ -804,38 +959,54 @@
         };
 
         _this.destroy = function (reason) {
-            _timer.stop();
-            _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.CONNECTED:
+                    _readyState = State.CLOSING;
 
-            document.removeEventListener('mouseup', _onMouseUp);
-            _wrapper.removeEventListener('mouseup', _onMouseUp);
-            document.removeEventListener('mousedown', _onMouseDown);
-            _wrapper.removeEventListener('mousedown', _onMouseDown);
+                    _timer.stop();
+                    _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
 
-            document.removeEventListener('fullscreenchange', _onFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
-            document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
-            document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
+                    document.removeEventListener('mouseup', _onMouseUp);
+                    if (_wrapper) {
+                        _wrapper.removeEventListener('mousemove', _onMouseMove);
+                        _wrapper.removeEventListener('mouseup', _onMouseUp);
+                        _wrapper.removeEventListener('mousedown', _onMouseDown);
+                    }
+                    document.removeEventListener('mousedown', _onMouseDown);
 
-            utils.forEach(_this.plugins, function (_, plugin) {
-                plugin.removeGlobalListener(_onPluginEvent);
-                plugin.destroy();
-            });
-            _this.plugins = {};
+                    document.removeEventListener('fullscreenchange', _onFullscreenChange);
+                    document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
+                    document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
+                    document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
 
-            if (_api) {
-                _api.destroy(reason);
-                _api.removeEventListener(Event.BIND, _onBind);
-                _api.removeEventListener(Event.READY, _onReady);
-                _api.removeEventListener(Event.ERROR, _onError);
-                _api.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
-                _api = undefined;
+                    if (_api) {
+                        _api.stop();
+                    }
+
+                    utils.forEach(_this.plugins, function (_, plugin) {
+                        plugin.removeGlobalListener(_onPluginEvent);
+                        plugin.destroy();
+                    });
+                    _this.plugins = {};
+
+                    if (_api) {
+                        _api.removeEventListener(Event.BIND, _onBind);
+                        _api.removeEventListener(Event.READY, _onReady);
+                        _api.removeEventListener(Event.ERROR, _onError);
+                        _api.removeEventListener(NetStatusEvent.NETSTATUS, _this.forward);
+                        _api.destroy(reason);
+                        _api = undefined;
+                    }
+
+                    if (_wrapper && _wrapper.parentNode) {
+                        _wrapper.parentNode.removeChild(_wrapper);
+                    }
+                    _readyState = State.CLOSED;
+                    delete _instances[_id];
+                    break;
             }
-
-            if (_wrapper) {
-                _container.removeChild(_wrapper);
-            }
-            delete _instances[_id];
         };
 
         _init();
@@ -867,7 +1038,8 @@
     };
 
     UI.create = function (logger) {
-        return UI.get(_id++, logger);
+        var rtc = RTC.create(logger);
+        return UI.get(rtc.id(), logger);
     };
 
     odd.rtc.ui = UI.get;

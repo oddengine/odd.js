@@ -4,6 +4,12 @@
         EventDispatcher = events.EventDispatcher,
         components = odd.IM.UI.components,
 
+        State = {
+            SENDING: 'sending',
+            SENT: 'sent',
+            FAILED: 'failed',
+        },
+
         CLASS_MESSAGE = 'im-message';
 
     function Message(name, data, logger) {
@@ -13,6 +19,7 @@
             _data,
             _container,
             _avatar,
+            _indicator,
             _from,
             _time,
             _body;
@@ -20,6 +27,9 @@
         function _init() {
             _container = utils.createElement('article', CLASS_MESSAGE + (name ? ' ' + name : ''));
             _avatar = new components.Avatar('avatar', undefined, logger);
+            _indicator = utils.createElement('span', 'im-message-state');
+            _indicator.setAttribute('role', 'img');
+
             var bubble = utils.createElement('div', 'im-message-bubble'),
                 meta = utils.createElement('header');
             _from = utils.createElement('strong');
@@ -30,6 +40,7 @@
             bubble.appendChild(meta);
             bubble.appendChild(_body);
             _container.appendChild(_avatar.element());
+            _container.appendChild(_indicator);
             _container.appendChild(bubble);
             _this.update(data);
         }
@@ -40,12 +51,13 @@
             _avatar.update({
                 name: _data.from || '?',
                 avatar: _data.avatar,
-                online: true,
+                online: _data.online,
             });
             _avatar.element().hidden = _this.align() === 'right';
             _from.textContent = _data.from || '';
             _time.textContent = _data.time || '';
             _body.textContent = _data.text || '';
+            _this.state(_data.state || State.SENT);
             return _data;
         };
 
@@ -54,6 +66,17 @@
                 _container.setAttribute('align', value === 'right' ? 'right' : 'left');
             }
             return _container.getAttribute('align');
+        };
+
+        _this.state = function (value) {
+            if (value !== undefined) {
+                _data.state = value;
+                _container.setAttribute('state', value);
+                _container.setAttribute('aria-busy', value === State.SENDING);
+                _indicator.setAttribute('aria-label', value);
+                _indicator.hidden = value === State.SENT;
+            }
+            return _container.getAttribute('state');
         };
 
         _this.data = function () {
@@ -69,6 +92,7 @@
         };
 
         _this.destroy = function () {
+            _avatar.destroy();
             _container.innerHTML = '';
         };
 
@@ -78,6 +102,8 @@
     Message.prototype = Object.create(EventDispatcher.prototype);
     Message.prototype.constructor = Message;
     Message.prototype.kind = 'Message';
+
+    Message.State = State;
 
     components.Message = Message;
 })(odd);

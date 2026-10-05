@@ -2,9 +2,8 @@
     var utils = odd.utils,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
-        NetStatusEvent = events.NetStatusEvent,
         MouseEvent = events.MouseEvent,
-        Code = events.Code,
+        IMEvent = events.IMEvent,
         IM = odd.IM,
         UI = IM.UI,
         Avatar = UI.components.Avatar,
@@ -29,11 +28,14 @@
             _this.config = config;
             _items = {};
             _container = utils.createElement('div', CLASS_CONVERSATIONS);
-            im.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            im.addEventListener(IMEvent.MESSAGE, _onMessage);
         }
 
         _this.add = function (id, type, name, avatar) {
-            _this.remove(id);
+            var current = _items[id];
+            if (current) {
+                return current.element;
+            }
 
             var data = {
                 id: id,
@@ -108,18 +110,16 @@
             }
         }
 
-        function _onStatus(e) {
-            if (e.data.code !== Code.NETGROUP_SENDTO_NOTIFY && e.data.code !== Code.NETGROUP_POSTING_NOTIFY) {
-                return;
+        function _onMessage(e) {
+            var data = e.data,
+                id = data.target.type === 'user' || data.target.type === 'endpoint' ?
+                    (data.sender.id === im.userId() ? data.target.id : data.sender.id) : data.target.id,
+                type = data.target.type === 'room' ? 'channel' : data.target.type === 'group' ? 'group' : 'people';
+            if (!_items[id]) {
+                _this.add(id, type, id);
             }
-            var info = e.data.info,
-                message = info.Arguments,
-                data = message.cast === 'uni' ? message.user : message.room,
-                type = message.cast === 'uni' ? 'people' : 'group';
-            if (!_items[data.id]) {
-                _this.add(data.id, type, data.nick || data.name, data.avatar);
-            }
-            _this.update(data.id, info.Timestamp, message.data);
+            _this.update(id, new Date().toLocaleTimeString(),
+                typeof data.content === 'string' ? data.content : '[Binary]');
         }
 
         _this.active = function (value) {
@@ -140,7 +140,7 @@
         };
 
         _this.destroy = function () {
-            im.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
+            im.removeEventListener(IMEvent.MESSAGE, _onMessage);
 
             var ids = [];
             utils.forEach(_items, function (id) {
@@ -161,5 +161,4 @@
 
     UI.register(Conversations);
 })(odd);
-
 

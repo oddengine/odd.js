@@ -48,8 +48,14 @@
                 _fail('InvalidStateError', 'Next sequence number is still occupied.');
             }
             var sn = _this.next;
-            _this.records[sn] = { sequenceNumber: sn, opcode: opcode, messaging: messaging,
-                responder: responder, deadline: now + timeout, retired: false };
+            _this.records[sn] = {
+                sequenceNumber: sn,
+                opcode: opcode,
+                messaging: messaging,
+                responder: responder,
+                deadline: now + timeout,
+                retired: false,
+            };
             _this.next = sn === 65535 ? 1 : sn + 1;
             _this.pending++;
             _this.size++;
@@ -78,8 +84,12 @@
             for (var sn in _this.records) {
                 var record = _this.records[sn];
                 if (!record.retired && record.deadline <= now) {
-                    expired.push({ sequenceNumber: record.sequenceNumber, opcode: record.opcode,
-                        messaging: record.messaging, responder: record.responder });
+                    expired.push({
+                        sequenceNumber: record.sequenceNumber,
+                        opcode: record.opcode,
+                        messaging: record.messaging,
+                        responder: record.responder,
+                    });
                     _this.retire(record.sequenceNumber);
                 }
             }

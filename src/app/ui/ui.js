@@ -6,6 +6,7 @@
         UIEvent = events.UIEvent,
         AppEvent = events.AppEvent,
         App = odd.App,
+        State = App.State,
 
         CLASS_WRAPPER = 'app-wrapper',
 
@@ -19,8 +20,19 @@
         _default = {
             section: 'messages',
             skin: 'classic',
+            labels: {
+                media: 'Back to media',
+                play: 'Back to watching',
+                game: 'Back to game',
+                meeting: 'Back to meeting',
+            },
             modules: {
                 im: {
+                    labels: {
+                        play: 'Watch',
+                        game: 'Game',
+                        meeting: 'Meeting',
+                    },
                     plugins: [{
                         kind: 'Contacts',
                         visibility: true,
@@ -56,11 +68,12 @@
             _aside,
             _popup,
             _context,
-            _depot,
+            _return,
             _pages,
             _app,
             _modules,
-            _activeMedia;
+            _activeMedia,
+            _readyState;
 
         EventDispatcher.call(this, 'AppUI', { id: id, logger: _logger }, Event, UIEvent, AppEvent);
 
@@ -69,6 +82,7 @@
             _modules = {};
             _pages = {};
             _activeMedia = '';
+            _readyState = State.INITIALIZED;
         }
 
         _this.id = function () {
@@ -76,11 +90,21 @@
         };
 
         _this.setup = async function (container, config) {
+            if (_readyState !== State.INITIALIZED) {
+                _logger.error('App UI cannot be setup more than once: id=' + id + '.');
+                return;
+            }
+
+            _readyState = State.CONNECTING;
+
             _container = container;
             _app = App.get(id, _logger);
             _app.addEventListener(AppEvent.SECTION_CHANGE, _onSectionChange);
             _app.addEventListener(AppEvent.SKIN_CHANGE, _onSkinChange);
             await _app.setup(utils.extendz({}, _default, config || {}));
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
             _this.config = _app.config;
 
             _wrapper = utils.createElement('div', CLASS_WRAPPER + ' app-ui-' + _app.skin());
@@ -90,19 +114,34 @@
             _main = utils.createElement('main', 'app-main');
             _aside = utils.createElement('aside', 'app-aside');
             _popup = utils.createElement('div', 'app-popup');
-            _context = utils.createElement('div', 'app-context im-ui-classic');
-            _depot = utils.createElement('div', 'app-depot');
-            _depot.hidden = true;
+            _context = utils.createElement('div', 'app-context im-ui-' + _app.skin());
+            _return = utils.createElement('button', 'app-return');
+            _return.type = 'button';
+            _return.textContent = _this.config.labels.media;
+            _return.addEventListener('click', _onReturnClick);
             _aside.appendChild(_popup);
+            _aside.appendChild(_return);
             _aside.appendChild(_context);
             _wrapper.appendChild(_main);
             _wrapper.appendChild(_aside);
-            _wrapper.appendChild(_depot);
             _container.appendChild(_wrapper);
 
-            await _setupModules();
-            _modules.im.active(_app.section());
-            _render();
+            try {
+                await _setupModules();
+                if (_readyState !== State.CONNECTING) {
+                    return;
+                }
+                _readyState = State.READY;
+                _modules.im.active(_app.section());
+                _render();
+            } catch (err) {
+                _this.destroy(err.message);
+                throw err;
+            }
+
+            if (_readyState !== State.READY) {
+                return;
+            }
             window.addEventListener('resize', _this.resize);
             _this.dispatchEvent(Event.READY);
             return Promise.resolve();
@@ -112,40 +151,49 @@
             var config = _this.config.modules;
 
             _modules.im = odd.im.ui.create(_logger);
-            await _modules.im.setup(_main, config.im);
             _modules.im.addEventListener(Event.CHANGE, _onIMChange);
+            _modules.im.addGlobalListener(_this.forward);
+            _app.module('im', _modules.im);
+            await _modules.im.setup(_main, utils.extendz({}, config.im, { skin: _app.skin() }));
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
 
             utils.forEach(_media, function (section) {
                 _pages[section] = utils.createElement('div', 'app-page app-' + section);
                 _modules.im.insert(section, _pages[section]);
             });
 
+            _modules.meeting = odd.rtc.ui.create(_logger);
+            _modules.meeting.addGlobalListener(_this.forward);
+            _app.module('meeting', _modules.meeting);
+            await _modules.meeting.setup(_pages.meeting, utils.extendz({}, config.meeting, { skin: _app.skin() }));
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
+
             _modules.player = odd.player.ui.create(_logger);
-            await _modules.player.setup(_depot, config.player);
-            _modules.player.presentation(_pages.play, 'full');
+            _modules.player.addGlobalListener(_this.forward);
+            _app.module('player', _modules.player);
+            await _modules.player.setup(_pages.play, utils.extendz({}, config.player, { skin: _app.skin() }));
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
 
             _modules.game = odd.famicom.ui.create(_logger);
-            await _modules.game.setup(_depot, config.game);
-            _modules.game.presentation(_pages.game, 'full');
-
-            _modules.meeting = odd.rtc.ui.create(_logger);
-            await _modules.meeting.setup(_depot, config.meeting);
-            _modules.meeting.presentation(_pages.meeting, 'full');
-
-            utils.forEach(_modules, function (name, module) {
-                module.addGlobalListener(_this.forward);
-                _app.module(name, module);
-            });
+            _modules.game.addGlobalListener(_this.forward);
+            _app.module('game', _modules.game);
+            await _modules.game.setup(_pages.game, utils.extendz({}, config.game, { skin: _app.skin() }));
         }
 
         function _onIMChange(e) {
-            if (e.data.name === 'nav' && utils.indexOf(App.sections(), e.data.value) !== -1) {
+            if (_readyState === State.READY && e.data.name === 'nav' && utils.indexOf(App.sections(), e.data.value) !== -1) {
                 _app.section(e.data.value);
             }
         }
 
         function _onSectionChange(e) {
-            if (_wrapper) {
+            if (_readyState === State.READY) {
                 if (_modules.im.active() !== e.data.value) {
                     _modules.im.active(e.data.value);
                 }
@@ -157,11 +205,18 @@
         function _onSkinChange(e) {
             if (_wrapper) {
                 _wrapper.className = CLASS_WRAPPER + ' app-ui-' + e.data.value;
+                _context.className = 'app-context im-ui-' + e.data.value;
                 utils.forEach(_modules, function (_, module) {
                     module.skin(e.data.value);
                 });
             }
             _this.forward(e);
+        }
+
+        function _onReturnClick() {
+            if (_activeMedia) {
+                _app.section(_activeMedia);
+            }
         }
 
         function _render() {
@@ -176,7 +231,7 @@
                 _activeMedia = section;
                 _modules[module].presentation(_pages[section], 'full');
                 _wrapper.setAttribute('mode', 'media');
-                _wrapper.setAttribute('sidebar', 'on');
+                _wrapper.setAttribute('sidebar', _modules.im.plugins['Conversation'] ? 'on' : 'off');
                 if (_modules.im.plugins['Conversation']) {
                     _modules.im.attachPlugin('Conversation', _context, 'mini');
                 }
@@ -187,6 +242,7 @@
                 }
                 if (_activeMedia) {
                     _modules[_media[_activeMedia]].presentation(_popup, 'popup');
+                    _return.textContent = _this.config.labels[_activeMedia] || _this.config.labels.media;
                     _wrapper.setAttribute('sidebar', 'on');
                 } else {
                     _wrapper.setAttribute('sidebar', 'off');
@@ -212,6 +268,10 @@
         };
 
         _this.resize = function () {
+            if (_readyState !== State.READY) {
+                return;
+            }
+
             utils.forEach(_modules, function (_, module) {
                 module.resize();
             });
@@ -222,17 +282,37 @@
         };
 
         _this.destroy = function (reason) {
-            window.removeEventListener('resize', _this.resize);
-            _modules.im.removeEventListener(Event.CHANGE, _onIMChange);
-            utils.forEach(_modules, function (_, module) {
-                module.removeGlobalListener(_this.forward);
-                module.destroy(reason);
-            });
-            _app.removeEventListener(AppEvent.SECTION_CHANGE, _onSectionChange);
-            _app.removeEventListener(AppEvent.SKIN_CHANGE, _onSkinChange);
-            _app.destroy(reason);
-            _container.innerHTML = '';
-            delete _instances[id];
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.READY:
+                    _readyState = State.CLOSING;
+                    window.removeEventListener('resize', _this.resize);
+
+                    if (_modules.im) {
+                        _modules.im.removeEventListener(Event.CHANGE, _onIMChange);
+                    }
+                    utils.forEach(_modules, function (_, module) {
+                        module.removeGlobalListener(_this.forward);
+                        module.destroy(reason);
+                    });
+                    _modules = {};
+
+                    if (_app) {
+                        _app.removeEventListener(AppEvent.SECTION_CHANGE, _onSectionChange);
+                        _app.removeEventListener(AppEvent.SKIN_CHANGE, _onSkinChange);
+                        _app.destroy(reason);
+                    }
+                    if (_return) {
+                        _return.removeEventListener('click', _onReturnClick);
+                    }
+                    if (_wrapper && _wrapper.parentNode) {
+                        _wrapper.parentNode.removeChild(_wrapper);
+                    }
+                    delete _instances[id];
+                    _readyState = State.CLOSED;
+                    break;
+            }
         };
 
         _init();

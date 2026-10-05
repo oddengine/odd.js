@@ -79,12 +79,12 @@
 
         var _this = this,
             _logger = logger,
-            _state,
+            _parsing,
             _backpointer,
             _packet;
 
         function _init() {
-            _state = sw.f;
+            _parsing = sw.f;
             _backpointer = 0;
             _this.hasAudio = false;
             _this.hasVideo = false;
@@ -94,13 +94,13 @@
             var data = new Uint8Array(buffer);
 
             for (var i = 0; i < data.byteLength; i++) {
-                switch (_state) {
+                switch (_parsing) {
                     case sw.f:
                         if (data[i] !== 0x46) {
                             _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Not \"F\"' });
                             return;
                         }
-                        _state = sw.l;
+                        _parsing = sw.l;
                         break;
 
                     case sw.l:
@@ -108,7 +108,7 @@
                             _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Not \"L\"' });
                             return;
                         }
-                        _state = sw.v;
+                        _parsing = sw.v;
                         break;
 
                     case sw.v:
@@ -116,14 +116,14 @@
                             _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Not \"V\"' });
                             return;
                         }
-                        _state = sw.version;
+                        _parsing = sw.version;
                         break;
 
                     case sw.version:
                         if (data[i] !== 0x01) {
                             // Not strict
                         }
-                        _state = sw.flags;
+                        _parsing = sw.flags;
                         break;
 
                     case sw.flags:
@@ -133,43 +133,43 @@
                         if (!_this.hasAudio && !_this.hasVideo) {
                             // Not strict
                         }
-                        _state = sw.header0;
+                        _parsing = sw.header0;
                         break;
 
                     case sw.header0:
-                        _state = sw.header1;
+                        _parsing = sw.header1;
                         break;
 
                     case sw.header1:
-                        _state = sw.header2;
+                        _parsing = sw.header2;
                         break;
 
                     case sw.header2:
-                        _state = sw.header3;
+                        _parsing = sw.header3;
                         break;
 
                     case sw.header3:
-                        _state = sw.backpointer0;
+                        _parsing = sw.backpointer0;
                         break;
 
                     case sw.backpointer0:
                         _backpointer = data[i] << 24;
-                        _state = sw.backpointer1;
+                        _parsing = sw.backpointer1;
                         break;
 
                     case sw.backpointer1:
                         _backpointer |= data[i] << 16;
-                        _state = sw.backpointer2;
+                        _parsing = sw.backpointer2;
                         break;
 
                     case sw.backpointer2:
                         _backpointer |= data[i] << 8;
-                        _state = sw.backpointer3;
+                        _parsing = sw.backpointer3;
                         break;
 
                     case sw.backpointer3:
                         _backpointer |= data[i];
-                        _state = sw.type;
+                        _parsing = sw.type;
                         break;
 
                     case sw.type:
@@ -188,59 +188,59 @@
                                 _this.dispatchEvent(Event.ERROR, { name: 'TypeError', message: 'Unrecognized flv tag ' + utils.hex(data[i]) + '.' });
                                 return;
                         }
-                        _state = sw.length0;
+                        _parsing = sw.length0;
                         break;
 
                     case sw.length0:
                         _packet.length = data[i] << 16;
-                        _state = sw.length1;
+                        _parsing = sw.length1;
                         break;
 
                     case sw.length1:
                         _packet.length |= data[i] << 8;
-                        _state = sw.length2;
+                        _parsing = sw.length2;
                         break;
 
                     case sw.length2:
                         _packet.length |= data[i];
                         _packet.payload = new Uint8Array(_packet.length);
                         _packet.position = 0;
-                        _state = sw.timestamp0;
+                        _parsing = sw.timestamp0;
                         break;
 
                     case sw.timestamp0:
                         _packet.timestamp = data[i] << 16;
-                        _state = sw.timestamp1;
+                        _parsing = sw.timestamp1;
                         break;
 
                     case sw.timestamp1:
                         _packet.timestamp |= data[i] << 8;
-                        _state = sw.timestamp2;
+                        _parsing = sw.timestamp2;
                         break;
 
                     case sw.timestamp2:
                         _packet.timestamp |= data[i];
-                        _state = sw.timestamp3;
+                        _parsing = sw.timestamp3;
                         break;
 
                     case sw.timestamp3:
                         _packet.timestamp |= data[i] << 24;
-                        _state = sw.streamid0;
+                        _parsing = sw.streamid0;
                         break;
 
                     case sw.streamid0:
                         _packet.streamid = data[i] << 16;
-                        _state = sw.streamid1;
+                        _parsing = sw.streamid1;
                         break;
 
                     case sw.streamid1:
                         _packet.streamid |= data[i] << 8;
-                        _state = sw.streamid2;
+                        _parsing = sw.streamid2;
                         break;
 
                     case sw.streamid2:
                         _packet.streamid |= data[i];
-                        _state = sw.payload;
+                        _parsing = sw.payload;
                         break;
 
                     case sw.payload:
@@ -271,7 +271,7 @@
                                     break;
                             }
                             _this.dispatchEvent(MediaEvent.PACKET, { packet: _packet });
-                            _state = sw.backpointer0;
+                            _parsing = sw.backpointer0;
                         }
                         break;
 

@@ -18,6 +18,7 @@
             _module,
             _source,
             _definition,
+            _vod,
             _canvas,
             _context;
 
@@ -34,7 +35,13 @@
                 _this.destroy();
             }
             try {
-                _module = new Module[kind](_model.config, _logger);
+                var program = _model.program(),
+                    vod = program && program.vod === true,
+                    config = utils.extendz({}, _model.config, _model.config.live, vod ? _model.config.vod : {}, {
+                        mode: vod ? 'vod' : 'live',
+                        lowlatency: !vod,
+                    });
+                _module = new Module[kind](config, _logger);
                 _container.appendChild(_module.element());
 
                 _module.addGlobalListener(_this.forward);
@@ -78,10 +85,11 @@
                 return;
             }
 
-            if (!_module || _module.kind !== module.prototype.kind || _source !== source.url || _definition !== index) {
+            if (!_module || _module.kind !== module.prototype.kind || _source !== source.url || _definition !== index || _vod !== !!program.vod) {
                 _this.destroy();
                 _source = source.url;
                 _definition = index;
+                _vod = !!program.vod;
                 _this.setup(module.prototype.kind);
                 return;
             }

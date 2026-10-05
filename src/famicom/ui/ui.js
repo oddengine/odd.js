@@ -13,6 +13,14 @@
         Famicom = odd.Famicom,
         Key = Famicom.Key,
 
+        State = {
+            INITIALIZED: 'initialized',
+            CONNECTING: 'connecting',
+            READY: 'ready',
+            CLOSING: 'closing',
+            CLOSED: 'closed',
+        },
+
         CLASS_WRAPPER = 'pe-wrapper',
         CLASS_CONTENT = 'pe-content',
 
@@ -69,7 +77,8 @@
             _assignment,
             _devices,
             _touchPort,
-            _timer;
+            _timer,
+            _readyState;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, MediaEvent, UIEvent, MouseEvent, TouchEvent);
 
@@ -84,6 +93,7 @@
             _assignment = { ports: [] };
             _devices = {};
             _touchPort = null;
+            _readyState = State.INITIALIZED;
 
             _timer = new utils.Timer(3000, 1, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onTimer);
@@ -94,6 +104,11 @@
         };
 
         _this.setup = async function (container, config) {
+            if (_readyState !== State.INITIALIZED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'Famicom UI cannot be setup in state ' + _readyState + '.' });
+            }
+            _readyState = State.CONNECTING;
+
             _container = container;
             _parseConfig(config || {});
 
@@ -114,10 +129,17 @@
             _api.addEventListener(Event.ERROR, _onError);
             _api.addEventListener(Event.CHANGE, _onPortsChange);
             await _api.setup(_content, _this.config);
+            if (_readyState !== State.CONNECTING) {
+                return;
+            }
 
             _buildPlugins();
             _setupPlugins();
+            _readyState = State.READY;
             _this.resize();
+            if (_readyState !== State.READY) {
+                return;
+            }
 
             window.addEventListener('resize', _this.resize);
             window.addEventListener('blur', _releaseInput);
@@ -786,6 +808,7 @@
             var settings = dashboard && dashboard.components['settings'];
             return !_assignment.disconnected && !_assignment.unknown &&
                 _assignment.ports.indexOf(port) !== -1 && !document.hidden && document.hasFocus() &&
+                _wrapper.clientWidth > 0 && _wrapper.clientHeight > 0 && _wrapper.contains(document.activeElement) &&
                 (!settings || settings.element().style.display === 'none' && !settings.config.pending);
         }
 
@@ -988,7 +1011,7 @@
             if (display) {
                 display.state(e.type);
                 if (e.type === Event.ERROR) {
-                    display.error(e.data);
+                    display.explain(e.data);
                 }
             }
 
@@ -1001,6 +1024,7 @@
                 if (!_wrapper) {
                     throw { name: 'InvalidStateError', message: 'UI must be setup before presentation.' };
                 }
+                _releaseInput();
                 _container = container;
 
                 _wrapper.setAttribute('presentation', presentation);
@@ -1036,50 +1060,64 @@
         };
 
         _this.destroy = function (reason) {
-            _timer.stop();
-            _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.READY:
+                    _readyState = State.CLOSING;
 
-            cancelAnimationFrame(_gamepadframe);
-            window.removeEventListener('resize', _this.resize);
-            window.removeEventListener('blur', _releaseInput);
-            window.removeEventListener('gamepadconnected', _onGamepadConnected);
-            window.removeEventListener('gamepaddisconnected', _onGamepadDisconnected);
-            document.removeEventListener('visibilitychange', _onVisibilityChange);
-            _wrapper.removeEventListener('pointerdown', _focus);
-            _releaseInput();
+                    _timer.stop();
+                    _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
 
-            document.removeEventListener('mouseup', _onMouseUp);
-            _wrapper.removeEventListener('mouseup', _onMouseUp);
-            document.removeEventListener('mousedown', _onMouseDown);
-            _wrapper.removeEventListener('mousedown', _onMouseDown);
+                    cancelAnimationFrame(_gamepadframe);
+                    window.removeEventListener('resize', _this.resize);
+                    window.removeEventListener('blur', _releaseInput);
+                    window.removeEventListener('gamepadconnected', _onGamepadConnected);
+                    window.removeEventListener('gamepaddisconnected', _onGamepadDisconnected);
+                    document.removeEventListener('visibilitychange', _onVisibilityChange);
+                    if (_wrapper) {
+                        _wrapper.removeEventListener('pointerdown', _focus);
+                    }
+                    _releaseInput();
 
-            document.removeEventListener('fullscreenchange', _onFullscreenChange);
-            document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
-            document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
-            document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
+                    document.removeEventListener('mouseup', _onMouseUp);
+                    if (_wrapper) {
+                        _wrapper.removeEventListener('mousemove', _onMouseMove);
+                        _wrapper.removeEventListener('mouseup', _onMouseUp);
+                        _wrapper.removeEventListener('mousedown', _onMouseDown);
+                    }
+                    document.removeEventListener('mousedown', _onMouseDown);
 
-            utils.forEach(_this.plugins, function (_, plugin) {
-                plugin.removeGlobalListener(_onPluginEvent);
-                plugin.destroy();
-            });
-            _this.plugins = {};
+                    document.removeEventListener('fullscreenchange', _onFullscreenChange);
+                    document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
+                    document.removeEventListener('mozfullscreenchange', _onFullscreenChange);
+                    document.removeEventListener('MSFullscreenChange', _onFullscreenChange);
 
-            if (_api) {
-                _api.destroy(reason);
-                _api.removeEventListener(Event.BIND, _onBind);
-                _api.removeEventListener(Event.READY, _onReady);
-                _api.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
-                _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
-                _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
-                _api.removeEventListener(Event.ERROR, _onError);
-                _api.removeEventListener(Event.CHANGE, _onPortsChange);
-                _api = undefined;
+                    utils.forEach(_this.plugins, function (_, plugin) {
+                        plugin.removeGlobalListener(_onPluginEvent);
+                        plugin.destroy();
+                    });
+                    _this.plugins = {};
+
+                    if (_api) {
+                        _api.removeEventListener(Event.BIND, _onBind);
+                        _api.removeEventListener(Event.READY, _onReady);
+                        _api.removeEventListener(Event.VOLUMECHANGE, _onVolumeChange);
+                        _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
+                        _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
+                        _api.removeEventListener(Event.ERROR, _onError);
+                        _api.removeEventListener(Event.CHANGE, _onPortsChange);
+                        _api.destroy(reason);
+                        _api = undefined;
+                    }
+
+                    if (_wrapper && _wrapper.parentNode) {
+                        _wrapper.parentNode.removeChild(_wrapper);
+                    }
+                    delete _instances[_id];
+                    _readyState = State.CLOSED;
+                    break;
             }
-
-            if (_wrapper) {
-                _container.removeChild(_wrapper);
-            }
-            delete _instances[_id];
         };
 
         _init();

@@ -3,13 +3,13 @@ player.innerHTML = '';
 var utils = odd.utils,
     events = odd.events,
     Event = events.Event,
-    IM = odd.IM,
+    IMEvent = events.IMEvent,
 
     index = 0;
 
 var im = odd.im.create();
 im.addEventListener(Event.READY, onReady);
-im.addEventListener(IM.Event.MESSAGE, onMessage);
+im.addEventListener(IMEvent.MESSAGE, onMessage);
 im.addEventListener(Event.CLOSE, onClose);
 im.setup({
     retry: { count: 0 },

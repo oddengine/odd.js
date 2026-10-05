@@ -81,10 +81,6 @@
 	margin: 10px auto;
 }
 
-.pe-skin-def .pe-contextmenu ul li a:hover:not(.btn):link {
-	text-decoration: none;
-}
-
 
 /**
  * plan

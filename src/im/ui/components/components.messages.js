@@ -6,7 +6,7 @@
 
         CLASS_MESSAGES = 'im-conversation-messages';
 
-    function Messages(name, data, logger) {
+    function Messages(name, value, logger) {
         EventDispatcher.call(this, 'Messages', { logger: logger });
 
         var _this = this,
@@ -18,8 +18,8 @@
             _items = [];
             _data = [];
             _container = utils.createElement('div', CLASS_MESSAGES + (name ? ' ' + name : ''));
-            if (data && utils.typeOf(data) !== 'string') {
-                _this.update(data);
+            if (value && utils.typeOf(value) !== 'string') {
+                _this.update(value);
             }
         }
 
@@ -32,7 +32,16 @@
             return item;
         };
 
-        _this.update = function (value) {
+        _this.update = function (value, index) {
+            if (index !== undefined) {
+                var item = _items[index];
+                if (item) {
+                    _data[index] = value;
+                    item.update(value);
+                }
+                return _data;
+            }
+
             for (var i = 0; i < _items.length; i++) {
                 _items[i].destroy();
             }

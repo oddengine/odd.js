@@ -31,7 +31,11 @@
         }
 
         _this.insert = function (name, content, option) {
-            option = utils.extendz({ index: NaN, active: 'auto' }, option);
+            option = utils.extendz({
+                index: NaN,
+                active: 'auto',
+                title: name,
+            }, option);
             if (isNaN(option.index)) {
                 option.index = _head.children.length;
             }
@@ -39,10 +43,12 @@
                 option.active = true;
             }
 
-            var item = utils.createElement('button', CLASS_TAB_ITEM + ' ' + name);
-            var page = utils.createElement('div', CLASS_TAB_PAGE + ' ' + name);
+            var item = utils.createElement('button', CLASS_TAB_ITEM + ' ' + name),
+                page = utils.createElement('div', CLASS_TAB_PAGE + ' ' + name);
             item.type = 'button';
             item.setAttribute('name', name);
+            item.setAttribute('title', option.title);
+            item.setAttribute('aria-label', option.title);
             item.setAttribute('state', 'off');
             page.setAttribute('name', name);
             page.setAttribute('state', 'off');

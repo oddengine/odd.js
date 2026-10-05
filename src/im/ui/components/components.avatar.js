@@ -25,7 +25,7 @@
         _this.update = function (value) {
             _data = value || {};
             utils.emptyElement(_container);
-            _container.setAttribute('state', _data.online === false ? 'offline' : 'online');
+            _this.state(_data.online === true ? 'online' : _data.online === false ? 'offline' : '');
 
             if (_data.avatar) {
                 var image = utils.createElement('img', 'im-avatar-image');
@@ -44,10 +44,18 @@
                 _container.textContent = initials.toUpperCase();
             }
 
-            if (_data.online !== false) {
-                _container.appendChild(utils.createElement('i'));
-            }
+            var indicator = utils.createElement('i');
+            indicator.setAttribute('aria-hidden', 'true');
+            _container.appendChild(indicator);
             return _data;
+        };
+
+        _this.state = function (value) {
+            if (value !== undefined) {
+                _container.setAttribute('state', value);
+                _data.online = value === 'online' ? true : value === 'offline' ? false : undefined;
+            }
+            return _container.getAttribute('state');
         };
 
         _this.data = function () {

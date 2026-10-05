@@ -35,7 +35,8 @@
             _api,
             _program,
             _updatingDefinition = false,
-            _timer;
+            _timer,
+            _closed = false;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, IOEvent, NetStatusEvent, UIEvent);
 
@@ -51,7 +52,7 @@
             return _id;
         };
 
-        _this.setup = function (container, config) {
+        _this.setup = async function (container, config) {
             _container = container;
             _parseConfig(config || {});
             _program = _this.config.playlist[0];
@@ -99,7 +100,10 @@
             _api.addEventListener(SaverEvent.WRITEREND, _onWriterEnd);
             _api.addEventListener(Event.ENDED, _onStateChange);
             _api.addEventListener(Event.ERROR, _onError);
-            _api.setup(_content, _this.config);
+            await _api.setup(_content, _this.config);
+            if (_closed) {
+                return;
+            }
 
             _buildPlugins();
             _setupPlugins();
@@ -159,7 +163,7 @@
 
         function _setupPlugins() {
             _wrapper.setAttribute('presentation', _this.config.presentation);
-            _wrapper.setAttribute('mode', _this.config.mode);
+            _wrapper.setAttribute('mode', _program && _program.vod ? 'vod' : 'live');
             _wrapper.setAttribute('state', '');
 
             var controlbar = _this.plugins['Controlbar'];
@@ -215,11 +219,11 @@
 
         function _onBind(e) {
             _this.play = function (program) {
-                _api.play(program);
                 if (program && utils.typeOf(program.sources) === 'array' && program.sources.length) {
                     _program = program;
-                    _updateDefinition();
                 }
+                _api.play(program);
+                _updateDefinition();
             };
             _this.pause = _api.pause;
             _this.reload = _api.reload;
@@ -266,7 +270,10 @@
             var chat = _this.plugins['Chat'];
             if (chat) {
                 if (enable) {
-                    chat.publish().catch((err) => { });
+                    chat.publish().catch(function (err) {
+                        _this.chat(false);
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                    });
                 } else {
                     chat.stop();
                 }
@@ -494,7 +501,11 @@
                 'reload': _this.reload,
                 'stop': _this.stop,
                 'capture': _this.capture,
-                'download': function () { _this.record('fragmented.mp4'); },
+                'download': function () {
+                    Promise.resolve(_this.record('fragmented.mp4')).catch(function (err) {
+                        _this.dispatchEvent(Event.ERROR, { name: err.name || 'NotSupportedError', message: err.message || String(err) });
+                    });
+                },
                 'calling': function () { _this.chat(e.data.state === 'on'); },
                 'muted': function () { _this.muted(e.data.state === 'on'); },
                 'comments': function () { _this.comments(e.data.state !== 'off'); },
@@ -590,7 +601,7 @@
         }
 
         function _onDurationChange(e) {
-            _wrapper.setAttribute('mode', _this.config.mode);
+            _wrapper.setAttribute('mode', _program && _program.vod ? 'vod' : 'live');
             _this.forward(e);
         }
 
@@ -753,7 +764,7 @@
             if (display) {
                 display.state(e.type);
                 if (e.type === Event.ERROR) {
-                    display.error(e.data);
+                    display.explain(e.data);
                 }
             }
 
@@ -801,13 +812,21 @@
         };
 
         _this.destroy = function (reason) {
+            if (_closed) {
+                return;
+            }
+            _closed = true;
+
             _timer.stop();
             _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
 
             document.removeEventListener('mouseup', _onMouseUp);
-            _wrapper.removeEventListener('mouseup', _onMouseUp);
+            if (_wrapper) {
+                _wrapper.removeEventListener('mousemove', _onMouseMove);
+                _wrapper.removeEventListener('mouseup', _onMouseUp);
+                _wrapper.removeEventListener('mousedown', _onMouseDown);
+            }
             document.removeEventListener('mousedown', _onMouseDown);
-            _wrapper.removeEventListener('mousedown', _onMouseDown);
 
             document.removeEventListener('fullscreenchange', _onFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);
@@ -856,8 +875,8 @@
                 _api = undefined;
             }
 
-            if (_wrapper) {
-                _container.removeChild(_wrapper);
+            if (_wrapper && _wrapper.parentNode) {
+                _wrapper.parentNode.removeChild(_wrapper);
             }
             delete _instances[_id];
         };

@@ -107,10 +107,12 @@ scripts[0]="./src/rtc/ui/ui.js"
 scripts[1]="./src/rtc/ui/components/components.js"
 scripts[2]="./src/rtc/ui/components/components.button.js"
 scripts[3]="./src/rtc/ui/components/components.toggle.js"
-scripts[4]="./src/rtc/ui/components/components.panel.js"
-scripts[5]="./src/rtc/ui/components/components.settings.js"
-scripts[6]="./src/rtc/ui/ui.controlbar.js"
-scripts[7]="./src/rtc/ui/ui.dashboard.js"
+scripts[4]="./src/rtc/ui/components/components.label.js"
+scripts[5]="./src/rtc/ui/components/components.panel.js"
+scripts[6]="./src/rtc/ui/components/components.settings.js"
+scripts[7]="./src/rtc/ui/ui.controlbar.js"
+scripts[8]="./src/rtc/ui/ui.display.js"
+scripts[9]="./src/rtc/ui/ui.dashboard.js"
 
 :>./release/odd.rtc.ui.js
 

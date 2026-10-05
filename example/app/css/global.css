@@ -1,0 +1,26 @@
+:root {
+    color-scheme: dark;
+    background: #0d1117;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    color: #e6e6e6;
+    font: 14px/1.5 "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+}
+
+body * {
+    box-sizing: border-box;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}

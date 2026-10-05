@@ -74,7 +74,7 @@
             _operation,
             _busy,
             _requests,
-            _state;
+            _readyState;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, MediaEvent, NetStatusEvent);
 
@@ -96,7 +96,7 @@
                 pliCount: 0,
                 freezeCount: 0,
             };
-            _state = State.INITIALIZED;
+            _readyState = State.INITIALIZED;
 
             _timer = new utils.Timer(1000, 0, _logger);
             _timer.addEventListener(TimerEvent.TIMER, _onStatsTimer);
@@ -107,7 +107,7 @@
         };
 
         _this.setup = async function (container, config) {
-            if (_state === State.CLOSED) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
                 throw { name: 'AbortError', message: 'The SDK was destroyed.' };
             }
             _container = container;
@@ -136,11 +136,13 @@
 
         function _bind() {
             _this.dispatchEvent(Event.BIND);
-            _this.dispatchEvent(Event.READY);
+            if (_readyState !== State.CLOSING && _readyState !== State.CLOSED) {
+                _this.dispatchEvent(Event.READY);
+            }
         }
 
         _this.list = async function () {
-            if (_state === State.CLOSED) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
                 _logger.error(`Failed to list games: id=${_id}, an active SDK is required.`);
                 return;
             }
@@ -149,7 +151,7 @@
         };
 
         _this.create = async function (game) {
-            if (!game || _state === State.CLOSED) {
+            if (!game || _readyState === State.CLOSING || _readyState === State.CLOSED) {
                 _logger.error(`Failed to create: id=${_id}, game and an active SDK are required.`);
                 return;
             }
@@ -158,7 +160,7 @@
             url.searchParams.set('game', game);
 
             var response = await _request('GET', url);
-            if (_state === State.CLOSED) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
                 throw { name: 'AbortError', message: 'The SDK was destroyed.' };
             }
             var resource = _parseLocation(response);
@@ -169,7 +171,7 @@
         };
 
         _this.play = async function (instance, player) {
-            if (_busy || _state === State.CLOSED ||
+            if (_busy || _readyState === State.CLOSING || _readyState === State.CLOSED ||
                 _resource.instance && _resource.instance !== instance) {
                 _logger.error(`Failed to play: id=${_id}, instance=${instance}, an active SDK is required; stop the current connection and finish pending requests first.`);
                 return;
@@ -190,7 +192,7 @@
             var operation = _operation;
             _resource = { instance: instance, player: player, ports: [], location: '', etag: '' };
             _busy = true;
-            _state = State.CONNECTING;
+            _readyState = State.CONNECTING;
 
             var url = _url('play');
             url.searchParams.set('instance', instance);
@@ -270,7 +272,7 @@
                         receiver.jitterBufferTarget = 40;
                     }
                 });
-                _state = pc.connectionState === 'connected' ? State.PLAYING : State.CONNECTING;
+                _readyState = pc.connectionState === 'connected' ? State.PLAYING : State.CONNECTING;
                 return resource.player;
             } catch (err) {
                 if (pc === _pc) {
@@ -295,7 +297,7 @@
         };
 
         _this.stop = async function () {
-            if (_busy || _state === State.CLOSED) {
+            if (_busy || _readyState === State.CLOSING || _readyState === State.CLOSED) {
                 _logger.error(`Failed to stop: id=${_id}, an active SDK is required; finish pending requests first.`);
                 return;
             }
@@ -314,7 +316,7 @@
                         if (err.status !== 404 && err.status !== 412) throw err;
                     }
                 }
-                if (resource !== _resource || _state === State.CLOSING || _state === State.CLOSED) {
+                if (resource !== _resource || _readyState === State.CLOSING || _readyState === State.CLOSED) {
                     throw { name: 'AbortError', message: 'The operation was cancelled.' };
                 }
                 _disconnect();
@@ -326,7 +328,7 @@
         };
 
         _this.remove = async function (instance) {
-            if (_busy || !instance || _state === State.CLOSED) {
+            if (_busy || !instance || _readyState === State.CLOSING || _readyState === State.CLOSED) {
                 _logger.error(`Failed to remove: id=${_id}, instance and an active SDK are required; finish pending requests first.`);
                 return;
             }
@@ -341,7 +343,7 @@
                 } catch (err) {
                     if (err.status !== 404) throw err;
                 }
-                if (resource !== _resource || _state === State.CLOSING || _state === State.CLOSED) {
+                if (resource !== _resource || _readyState === State.CLOSING || _readyState === State.CLOSED) {
                     throw { name: 'AbortError', message: 'The operation was cancelled.' };
                 }
                 if (_resource.instance === instance) {
@@ -373,7 +375,7 @@
         };
 
         async function _updatePorts(method, port) {
-            if (_busy || _state === State.CLOSED || !_pc || !_resource.player || !_resource.etag) {
+            if (_busy || _readyState === State.CLOSING || _readyState === State.CLOSED || !_pc || !_resource.player || !_resource.etag) {
                 _logger.error(`Failed to update ports: id=${_id}, a player and an idle SDK are required.`);
                 return;
             }
@@ -670,7 +672,7 @@
             switch (pc.connectionState) {
                 case 'connected':
                     if (pc === _pc) {
-                        _state = State.PLAYING;
+                        _readyState = State.PLAYING;
                     }
                     break;
                 case 'failed':
@@ -735,8 +737,8 @@
             _this.dispatchEvent(Event.CHANGE, { name: 'ports', value: {
                 instance: _resource.instance, player: _resource.player, ports: [], disconnected: true,
             } });
-            if (_state !== State.CLOSING && _state !== State.CLOSED) {
-                _state = State.INITIALIZED;
+            if (_readyState !== State.CLOSING && _readyState !== State.CLOSED) {
+                _readyState = State.INITIALIZED;
             }
 
             if (_timer) {
@@ -891,7 +893,7 @@
         };
 
         _this.state = function () {
-            return _state;
+            return _readyState;
         };
 
         _this.element = function () {
@@ -903,30 +905,33 @@
         };
 
         _this.destroy = function (reason) {
-            if (_state === State.CLOSING || _state === State.CLOSED) {
-                return;
-            }
-            _state = State.CLOSING;
-            _disconnect();
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.CONNECTING:
+                case State.PLAYING:
+                    _readyState = State.CLOSING;
+                    _disconnect();
 
-            var requests = _requests.splice(0);
-            requests.forEach(function (xhr) {
-                xhr.abort();
-            });
-            _timer.removeEventListener(TimerEvent.TIMER, _onStatsTimer);
-            if (_video) {
-                _video.removeEventListener('volumechange', _onVolumeChange);
-                _video = null;
-            }
-            _canvas = null;
-            _context = null;
-            if (_container) {
-                _container.innerHTML = '';
-            }
-            delete _instances[_id];
+                    var requests = _requests.splice(0);
+                    requests.forEach(function (xhr) {
+                        xhr.abort();
+                    });
+                    _timer.removeEventListener(TimerEvent.TIMER, _onStatsTimer);
+                    if (_video) {
+                        _video.removeEventListener('volumechange', _onVolumeChange);
+                        _video = null;
+                    }
+                    _canvas = null;
+                    _context = null;
+                    if (_container) {
+                        _container.innerHTML = '';
+                    }
+                    delete _instances[_id];
 
-            _state = State.CLOSED;
-            _this.dispatchEvent(Event.CLOSE, { reason: reason });
+                    _this.dispatchEvent(Event.CLOSE, { reason: reason });
+                    _readyState = State.CLOSED;
+                    break;
+            }
         };
 
         _init();

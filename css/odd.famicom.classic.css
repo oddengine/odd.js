@@ -1,0 +1,328 @@
+@import url("odd.common.classic.css");
+
+.pe-ui-classic[kind="famicom"] {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    color: #f4f6f8;
+    background: #05070a;
+    outline: none;
+    user-select: none;
+}
+
+.pe-ui-classic[kind="famicom"] * {
+    box-sizing: border-box;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-content,
+.pe-ui-classic[kind="famicom"] .pe-content video {
+    width: 100%;
+    height: 100%;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-content video {
+    display: block;
+    object-fit: contain;
+    background: #000;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-display {
+    inset: 0;
+    position: absolute;
+    z-index: 2;
+    display: none;
+    pointer-events: none;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-display .pe-joystick,
+.pe-ui-classic[kind="famicom"] .pe-display .pe-button {
+    pointer-events: auto;
+    touch-action: none;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar {
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    min-height: 54px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 3;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 12px;
+    background: rgba(13, 17, 22, .92);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, .34);
+    backdrop-filter: blur(16px);
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar>div {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr auto;
+    align-items: center;
+    gap: 16px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-left,
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-center,
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-right {
+    justify-content: flex-end;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-label {
+    min-width: 34px;
+    color: rgba(255, 255, 255, .68);
+    font: 12px/28px ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-label.player {
+    color: #fff;
+    font-weight: 700;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-button,
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-toggle {
+    width: 34px;
+    height: 34px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 9px;
+    color: #fff;
+    background-color: rgba(255, 255, 255, .08);
+    background-position: center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-button:hover,
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-toggle:hover {
+    background-color: rgba(255, 255, 255, .16);
+}
+
+.pe-ui-classic[kind="famicom"] .pe-panel {
+    width: min(560px, calc(100% - 32px));
+    max-height: calc(100% - 32px);
+    padding: 18px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: none;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 14px;
+    color: #f4f6f8;
+    background: rgba(18, 22, 27, .98);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, .48);
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-panel>div {
+    line-height: 20px;
+    white-space: pre-line;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-title {
+    margin: 0 0 10px;
+    font-size: 15px;
+    line-height: 22px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content {
+    display: grid;
+    gap: 8px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content input,
+.pe-ui-classic[kind="famicom"] .pe-settings-content select {
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 8px;
+    color: #f4f6f8;
+    background: #11151a;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content+.pe-settings-title {
+    margin-top: 20px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controller-slot {
+    min-width: 0;
+    margin: 8px 0;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 8px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controller-slot legend {
+    padding: 0 6px;
+    font-weight: 600;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controller-slot table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controller-slot th {
+    width: 80px;
+    text-align: left;
+    font-size: 12px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controller-slot td {
+    padding: 3px 0;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controller-slot input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 8px;
+    color: inherit;
+    background: #25333c;
+    cursor: pointer;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content :disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content :focus-visible {
+    outline: 2px solid #00aaee;
+    outline-offset: 2px;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-settings-content p {
+    margin: 4px 0;
+    overflow-wrap: anywhere;
+}
+
+.pe-ui-classic[kind="famicom"][muted="true"] .pe-toggle.muted,
+.pe-ui-classic[kind="famicom"][theater="true"] .pe-toggle.theater,
+.pe-ui-classic[kind="famicom"][fullscreen="true"] .pe-toggle.fullscreen {
+    color: #fff;
+    background-color: rgba(0, 170, 238, .18);
+}
+
+.pe-ui-classic[kind="famicom"][controls="never"] .pe-controlbar,
+.pe-ui-classic[kind="famicom"][controls="motion"] .pe-controlbar {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pe-ui-classic[kind="famicom"][controls="motion"]:hover .pe-controlbar {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+    .pe-ui-classic[kind="famicom"] .pe-controlbar {
+        top: 8px;
+        bottom: auto;
+        min-height: 40px;
+        padding: 4px 8px;
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display {
+        display: block;
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display>div {
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-joystick {
+        width: 132px;
+        height: 132px;
+        bottom: max(24px, env(safe-area-inset-bottom));
+        left: 20px;
+        position: absolute;
+        border: 2px solid rgba(255, 255, 255, .35);
+        border-radius: 50%;
+        background: rgba(10, 15, 20, .52);
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button {
+        width: 54px;
+        height: 54px;
+        position: absolute;
+        border: 2px solid rgba(255, 255, 255, .34);
+        border-radius: 50%;
+        background: rgba(10, 15, 20, .58);
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.a {
+        right: 20px;
+        bottom: 70px;
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.a::before {
+        content: "A";
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.b {
+        right: 84px;
+        bottom: 30px;
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.b::before {
+        content: "B";
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.select,
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.start {
+        width: 60px;
+        height: 28px;
+        bottom: 24px;
+        border-radius: 14px;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.select {
+        left: calc(50% - 66px);
+    }
+
+    .pe-ui-classic[kind="famicom"] .pe-display .pe-button.start {
+        left: calc(50% + 6px);
+    }
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar>div {
+    overflow-x: auto;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-left,
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-center,
+.pe-ui-classic[kind="famicom"] .pe-controlbar .pe-right {
+    min-width: max-content;
+}
+
+.pe-ui-classic[kind="famicom"] .pe-display .pe-joystick,
+.pe-ui-classic[kind="famicom"] .pe-display .pe-button {
+    pointer-events: auto;
+}

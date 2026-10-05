@@ -22,6 +22,7 @@
             whip: `${location.protocol}//${location.host}/whip/live`,
             whep: `${location.protocol}//${location.host}/whep/live`,
             trickle: false,
+            timeout: 5000,
             configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],
@@ -55,6 +56,8 @@
             _audiometer,
             _recorder,
             _location,
+            _etag,
+            _requests = [],
             _saver,
             _writer,
             _stats,
@@ -100,6 +103,9 @@
 
         _this.attach = async function () {
             switch (_readyState) {
+                case State.CLOSING:
+                case State.CLOSED:
+                    return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
                 case State.CONNECTED:
                 case State.PUBLISHING:
                 case State.PLAYING:
@@ -214,6 +220,10 @@
         };
 
         _this.getUserMedia = async function (constraints) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+            }
+
             var stream;
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -222,10 +232,20 @@
                 _logger.error(`Failed to get user media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
             }
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                stream.getTracks().forEach(function (track) {
+                    track.stop();
+                });
+                return Promise.reject({ name: 'AbortError', message: 'RTC capture was cancelled.' });
+            }
             return Promise.resolve(stream);
         };
 
         _this.getDisplayMedia = async function (constraints) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+            }
+
             var stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia(constraints);
@@ -233,6 +253,12 @@
             } catch (err) {
                 _logger.error(`Failed to get display media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
                 return Promise.reject(err);
+            }
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                stream.getTracks().forEach(function (track) {
+                    track.stop();
+                });
+                return Promise.reject({ name: 'AbortError', message: 'RTC capture was cancelled.' });
             }
             return Promise.resolve(stream);
         };
@@ -367,6 +393,13 @@
                 stream = await _this.getUserMedia(_this.constraints);
             }
 
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                stream.getTracks().forEach(function (track) {
+                    track.stop();
+                });
+                throw { name: 'AbortError', message: 'RTC capture was cancelled.' };
+            }
+
             _name = stream.id;
             _screensharing = screensharing;
             _withcamera = withcamera;
@@ -375,6 +408,10 @@
         };
 
         _this.preview = async function (screensharing, withcamera, option) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+            }
+
             if (_stream == null) {
                 try {
                     await _this.createStream(screensharing, withcamera, option);
@@ -397,6 +434,10 @@
         };
 
         _this.publish = async function () {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+            }
+
             _setCodecPreferences('sender');
 
             try {
@@ -416,6 +457,9 @@
                 return Promise.reject(err);
             }
 
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
+            }
             _setMaxBitrate();
             _readyState = State.PUBLISHING;
             _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
@@ -497,100 +541,141 @@
         }
 
         async function _post(url, sdp) {
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC negotiation was cancelled.' });
+            }
             return new Promise(function (resolve, reject) {
+                var token = utils.getCookie('token');
+                if (!token) {
+                    reject({ name: 'NotAllowedError', message: 'The application token cookie is missing.' });
+                    return;
+                }
+
                 var xhr = new XMLHttpRequest();
                 xhr.open('POST', url, true);
+                xhr.timeout = _this.config.timeout;
                 xhr.setRequestHeader('Content-Type', 'application/sdp');
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
                 xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
+                    if (xhr.readyState !== 4 || xhr.status === 0) {
                         return;
                     }
                     if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        reject({ name: 'NetworkError', message: xhr.status + ' ' + xhr.statusText });
                         return;
                     }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        _location = xhr.getResponseHeader('Location');
-                        if (_location) {
-                            _logger.log(`Location: ${_location}`);
-                            _location = new URL(_location, url).href;
-                            _params = new URLSearchParams(new URL(_location).search);
-                            _port = Number(_params.get('port'));
-                            _setCookie(_params.toString(), Date.now() + 30000);
-                        }
-                        resolve(xhr.responseText);
+
+                    var location = xhr.getResponseHeader('Location');
+                    if (!location) {
+                        reject({ name: 'DataError', message: 'The RTC response has no Location.' });
                         return;
                     }
+                    try {
+                        _location = new URL(location, new URL(url, document.baseURI)).href;
+                    } catch (err) {
+                        reject({ name: 'DataError', message: 'The RTC response has an invalid Location.' });
+                        return;
+                    }
+                    _etag = xhr.getResponseHeader('ETag');
+                    _this.setProperty('@id', new URL(_location).pathname.split('/').pop());
+                    resolve(xhr.responseText);
                 };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
+                xhr.onerror = function () {
+                    reject({ name: 'NetworkError', message: 'Failed to negotiate the RTC stream.' });
                 };
+                xhr.ontimeout = function () {
+                    reject({ name: 'TimeoutError', message: 'RTC negotiation timed out.' });
+                };
+                xhr.onabort = function () {
+                    reject({ name: 'AbortError', message: 'RTC negotiation was cancelled.' });
+                };
+                xhr.onloadend = function () {
+                    var index = utils.indexOf(_requests, xhr);
+                    if (index !== -1) {
+                        _requests.splice(index, 1);
+                    }
+                };
+                _requests.push(xhr);
                 xhr.send(sdp);
             });
         }
 
         async function _patch(candidate) {
-            if (_this.config.trickle !== true || _location == null) {
-                return Promise.resolve();
+            if (_this.config.trickle !== true || !_location) {
+                return;
             }
             return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('PATCH', _location, true);
+                xhr.timeout = _this.config.timeout;
                 xhr.setRequestHeader('Content-Type', 'application/trickle-ice-sdpfrag');
+                xhr.setRequestHeader('Authorization', 'Bearer ' + utils.getCookie('token'));
+                if (_etag) {
+                    xhr.setRequestHeader('If-Match', _etag);
+                }
                 xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
+                    if (xhr.readyState !== 4 || xhr.status === 0) {
                         return;
                     }
                     if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        reject({ name: 'NetworkError', message: xhr.status + ' ' + xhr.statusText });
                         return;
                     }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                        return;
+                    _etag = xhr.getResponseHeader('ETag') || _etag;
+                    resolve();
+                };
+                xhr.onerror = function () {
+                    reject({ name: 'NetworkError', message: 'Failed to update the RTC candidate.' });
+                };
+                xhr.ontimeout = function () {
+                    reject({ name: 'TimeoutError', message: 'RTC candidate update timed out.' });
+                };
+                xhr.onabort = function () {
+                    reject({ name: 'AbortError', message: 'RTC candidate update was cancelled.' });
+                };
+                xhr.onloadend = function () {
+                    var index = utils.indexOf(_requests, xhr);
+                    if (index !== -1) {
+                        _requests.splice(index, 1);
                     }
                 };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
-                };
-                if (candidate.candidate) {
-                    xhr.send(`a=${candidate.candidate}\na=end-of-candidates`);
-                } else {
-                    xhr.send('a=end-of-candidates');
-                }
+                _requests.push(xhr);
+                xhr.send(candidate.candidate ? 'a=' + candidate.candidate + '\r\n' : 'a=end-of-candidates\r\n');
             });
         }
 
         async function _delete() {
-            if (_location == null) {
-                return Promise.resolve();
+            if (!_location) {
+                return;
             }
+            var location = _location;
+            _location = null;
+
             return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
-                xhr.open('DELETE', _location, true);
-                xhr.send();
+                xhr.open('DELETE', location, true);
+                xhr.timeout = _this.config.timeout;
+                xhr.setRequestHeader('Authorization', 'Bearer ' + utils.getCookie('token'));
+                if (_etag) {
+                    xhr.setRequestHeader('If-Match', _etag);
+                }
                 xhr.onreadystatechange = function () {
-                    if (xhr.readyState !== 4) {
+                    if (xhr.readyState !== 4 || xhr.status === 0) {
                         return;
                     }
                     if (xhr.status < 200 || xhr.status > 299) {
-                        _logger.error(`Loader NetworkError: ${xhr.status} ${xhr.statusText}`);
-                        reject({ name: 'NetworkError', message: `${xhr.status} ${xhr.statusText}` });
+                        reject({ name: 'NetworkError', message: xhr.status + ' ' + xhr.statusText });
                         return;
                     }
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve();
-                        return;
-                    }
+                    resolve();
                 };
-                xhr.onerror = function (err) {
-                    _logger.error(`Loader ${err.name}: ${err.message}`);
-                    reject(err);
+                xhr.onerror = function () {
+                    reject({ name: 'NetworkError', message: 'Failed to release the RTC stream.' });
                 };
+                xhr.ontimeout = function () {
+                    reject({ name: 'TimeoutError', message: 'RTC stream release timed out.' });
+                };
+                xhr.send();
             });
         }
 
@@ -617,6 +702,10 @@
         };
 
         _this.play = async function (name) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+            }
+
             _name = name;
 
             _pc.addTransceiver('audio', { direction: 'recvonly' });
@@ -640,6 +729,9 @@
                 return Promise.reject(err);
             }
 
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC playback was cancelled.' });
+            }
             _setJitterBufferTarget();
             _readyState = State.PLAYING;
             return Promise.resolve();
@@ -829,11 +921,20 @@
 
         _this.close = function (reason) {
             switch (_readyState) {
+                case State.INITIALIZED:
                 case State.CONNECTED:
                 case State.PUBLISHING:
                 case State.PLAYING:
                     _readyState = State.CLOSING;
-                    _delete();
+
+                    var requests = _requests.slice(0);
+                    for (var i = 0; i < requests.length; i++) {
+                        requests[i].abort();
+                    }
+                    _requests = [];
+                    _delete().catch(function (err) {
+                        _logger.warn('Failed to release RTC resource: ' + err.message);
+                    });
 
                     var senders = _pc.getSenders();
                     senders.forEach(function (sender) {
@@ -864,6 +965,13 @@
                         }
                     });
                     if (_videomixer) {
+                        _videomixer.forEach(function (element) {
+                            if (element.srcObject) {
+                                element.srcObject.getTracks().forEach(function (track) {
+                                    track.stop();
+                                });
+                            }
+                        });
                         _videomixer.stop();
                         _videomixer = undefined;
                     }
@@ -886,15 +994,13 @@
                         _pc.close();
                         _pc = undefined;
                     }
-
                     _subscribing = [];
                     _audiometer.stop();
-                // fallthrough
-                case State.INITIALIZED:
+
                     _this.dispatchEvent(Event.RELEASE, { reason: reason });
-                    _stream = null;
-                    _video.srcObject = undefined;
                     _readyState = State.CLOSED;
+                    _stream = null;
+                    _video.srcObject = null;
                     break;
             }
         };

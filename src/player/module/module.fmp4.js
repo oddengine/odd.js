@@ -506,11 +506,12 @@
             _appendBuffer();
 
             if (_writer) {
-                if (_writer.readyState === WriterState.INIT && e.data.packet.get('Keyframe')) {
+                if (_writer.readyState === WriterState.INIT && pkt.get('Keyframe') && _ftyp && _moov) {
                     _writer.start();
                     _writer.write(_ftyp.payload);
+                    _writer.write(_moov.payload);
                 }
-                _writer.write(segment);
+                _writer.write(pkt.payload);
             }
         }
 

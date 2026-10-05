@@ -109,7 +109,7 @@
 
         function _init() {
             _packet = new AV.Packet();
-            _packet.state = sw.size0;
+            _packet.parsing = sw.size0;
         }
 
         _this.append = function (buffer) {
@@ -121,30 +121,30 @@
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     break;
                 }
-                if (_packet.state === sw.complete) {
+                if (_packet.parsing === sw.complete) {
                     _this.dispatchEvent(MediaEvent.PACKET, { packet: _packet });
                     _packet = new AV.Packet();
-                    _packet.state = sw.size0;
+                    _packet.parsing = sw.size0;
                 }
             }
         };
 
         function _parse(dst, data, byteOffset) {
             for (var i = byteOffset; i < data.byteLength; i++) {
-                switch (dst.state) {
+                switch (dst.parsing) {
                     case sw.size0:
                         dst.length = data[i] << 24;
-                        dst.state = sw.size1;
+                        dst.parsing = sw.size1;
                         break;
 
                     case sw.size1:
                         dst.length |= data[i] << 16;
-                        dst.state = sw.size2;
+                        dst.parsing = sw.size2;
                         break;
 
                     case sw.size2:
                         dst.length |= data[i] << 8;
-                        dst.state = sw.size3;
+                        dst.parsing = sw.size3;
                         break;
 
                     case sw.size3:
@@ -152,31 +152,31 @@
                         dst.payload = new Uint8Array(dst.length);
                         dst.payload.set([dst.length >> 24, dst.length >> 16, dst.length >> 8, dst.length], 0);
                         dst.position = 4;
-                        dst.state = sw.type0;
+                        dst.parsing = sw.type0;
                         break;
 
                     case sw.type0:
                         dst.set('Type', String.fromCharCode(data[i]));
                         dst.payload.set([data[i]], dst.position++);
-                        dst.state = sw.type1;
+                        dst.parsing = sw.type1;
                         break;
 
                     case sw.type1:
                         dst.set('Type', dst.get('Type') + String.fromCharCode(data[i]));
                         dst.payload.set([data[i]], dst.position++);
-                        dst.state = sw.type2;
+                        dst.parsing = sw.type2;
                         break;
 
                     case sw.type2:
                         dst.set('Type', dst.get('Type') + String.fromCharCode(data[i]));
                         dst.payload.set([data[i]], dst.position++);
-                        dst.state = sw.type3;
+                        dst.parsing = sw.type3;
                         break;
 
                     case sw.type3:
                         dst.set('Type', dst.get('Type') + String.fromCharCode(data[i]));
                         dst.payload.set([data[i]], dst.position++);
-                        dst.state = sw.payload;
+                        dst.parsing = sw.payload;
                         break;
 
                     case sw.payload:
@@ -185,7 +185,7 @@
                         dst.position += n;
                         i += n;
                         if (dst.position === dst.length) {
-                            dst.state = sw.complete;
+                            dst.parsing = sw.complete;
 
                             var type = dst.get('Type');
                             var offset = 8;
@@ -212,7 +212,7 @@
                                     var content = new Uint8Array(dst.payload.buffer, offset);
                                     for (var j = 0; j < content.byteLength; /* void */) {
                                         var sub = new AV.Packet();
-                                        sub.state = sw.size0;
+                                        sub.parsing = sw.size0;
                                         j += _parse(sub, content, j);
                                     }
                                     break;

@@ -9,7 +9,9 @@
         _sections = ['contacts', 'messages', 'play', 'game', 'meeting'],
         State = {
             INITIALIZED: 'initialized',
+            CONNECTING: 'connecting',
             READY: 'ready',
+            CLOSING: 'closing',
             CLOSED: 'closed',
         },
         AppEvent = {
@@ -28,14 +30,14 @@
         var _this = this,
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _modules,
-            _state;
+            _readyState;
 
         EventDispatcher.call(this, 'App', { id: id, logger: _logger }, Event, AppEvent);
 
         function _init() {
             _this.logger = _logger;
             _modules = {};
-            _state = State.INITIALIZED;
+            _readyState = State.INITIALIZED;
         }
 
         _this.id = function () {
@@ -43,18 +45,28 @@
         };
 
         _this.setup = function (config) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'App cannot be setup in state ' + _readyState + '.' });
+            }
+
             _this.config = utils.extendz({ id: id }, _default, config || {});
-            _this.section(_this.config.section);
-            _state = State.READY;
+            if (utils.indexOf(_sections, _this.config.section) === -1) {
+                _logger.error('Unknown App section: ' + _this.config.section + '.');
+                _this.config.section = _default.section;
+            }
+            _readyState = State.READY;
             _this.dispatchEvent(Event.BIND);
-            _this.dispatchEvent(Event.READY);
+            if (_readyState === State.READY) {
+                _this.dispatchEvent(Event.READY);
+            }
             return Promise.resolve();
         };
 
         _this.section = function (value) {
             if (value !== undefined) {
                 if (utils.indexOf(_sections, value) === -1) {
-                    throw { name: 'DataError', message: 'Unknown App section: ' + value + '.' };
+                    _logger.error('Unknown App section: ' + value + '.');
+                    return _this.config && _this.config.section;
                 }
                 var previous = _this.config && _this.config.section;
                 if (_this.config) {
@@ -90,17 +102,21 @@
         };
 
         _this.state = function () {
-            return _state;
+            return _readyState;
         };
 
         _this.destroy = function (reason) {
-            if (_state === State.CLOSED) {
-                return;
+            switch (_readyState) {
+                case State.INITIALIZED:
+                case State.READY:
+                    _readyState = State.CLOSING;
+                    _modules = {};
+                    delete _instances[id];
+
+                    _this.dispatchEvent(Event.CLOSE, { reason: reason });
+                    _readyState = State.CLOSED;
+                    break;
             }
-            _modules = {};
-            _state = State.CLOSED;
-            _this.dispatchEvent(Event.CLOSE, { reason: reason });
-            delete _instances[id];
         };
 
         _init();
