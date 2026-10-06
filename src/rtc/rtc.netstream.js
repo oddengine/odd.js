@@ -467,7 +467,7 @@
                 code: Code.NETSTREAM_PUBLISH_START,
                 description: 'publish start',
                 info: {
-                    stream: _this.getProperty('@id') || _this.getProperty('stream'),
+                    stream: _name,
                     id: _this.getProperty('@id'),
                     location: _location,
                 },
