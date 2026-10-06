@@ -1,0 +1,19 @@
+src/rtc/rtc.netstream.js
+  s_266cdd10f9b223::t_89b3915f003abf 470
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "9c057f727f4023225dacca0d64ea6488368174a6",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
