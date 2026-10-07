@@ -55,9 +55,33 @@ rtc.setup({
     profile: sl_profiles.value || '180P_1',
     whip: location.protocol + '//' + location.host + '/whip/live',
     whep: location.protocol + '//' + location.host + '/whep/live',
+    // Add ?simulcast=1 to publish three encodings on a capable browser.
+    video: {
+        encodings: new URLSearchParams(location.search).get('simulcast') === '1' ? [
+            {
+                rid: 'high',
+                scaleResolutionDownBy: 1,
+                maxBitrate: 1200000,
+                maxFramerate: 30,
+            },
+            {
+                rid: 'medium',
+                scaleResolutionDownBy: 2,
+                maxBitrate: 400000,
+                maxFramerate: 30,
+            },
+            {
+                rid: 'low',
+                scaleResolutionDownBy: 4,
+                maxBitrate: 150000,
+                maxFramerate: 15,
+            },
+        ] : [],
+    },
     codecpreferences: [
         'audio/opus',
         'video/H264',
+        'video/H265',
         'video/rtx',
     ],
 });

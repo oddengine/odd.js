@@ -32,9 +32,13 @@
                     urls: ["stun:stun.l.google.com:19302"],
                 }],
             },
+            video: {
+                encodings: [],
+            },
             codecpreferences: [
                 'audio/opus',
                 'video/H264',
+                'video/H265',
             ],
             service: {
                 script: 'js/sw.js',

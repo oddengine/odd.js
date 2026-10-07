@@ -28,9 +28,13 @@
                     urls: ["stun:stun.l.google.com:19302"],
                 }],
             },
+            video: {
+                encodings: [],
+            },
             codecpreferences: [
                 'audio/opus',
                 'video/H264',
+                'video/H265',
             ],
             service: {
                 script: 'js/sw.js',
@@ -217,6 +221,11 @@
                     maxBitrate: bitrate,
                 },
             });
+            if (_readyState === State.PUBLISHING) {
+                _setMaxBitrate().catch(function (err) {
+                    _logger.warn(`Failed to set max bitrate: id=${_this.config.id}, stream=${_name}, error=${err}`);
+                });
+            }
         };
 
         _this.getUserMedia = async function (constraints) {
@@ -264,11 +273,27 @@
         };
 
         _this.addTrack = function (track, stream) {
+            var sender;
+            if (track.kind === 'video' && _this.config.video.encodings.length) {
+                var encodings = _this.config.video.encodings.map(function (encoding) {
+                    if (!encoding.rid || !Number.isFinite(encoding.maxBitrate) || encoding.maxBitrate <= 0) {
+                        throw { name: 'TypeError', message: 'Each video encoding requires a RID and a positive bitrate limit.' };
+                    }
+                    return utils.extendz({}, encoding);
+                });
+                var transceiver = _pc.addTransceiver(track, {
+                    direction: 'sendonly',
+                    streams: [stream],
+                    sendEncodings: encodings,
+                });
+                sender = transceiver.sender;
+            } else {
+                sender = _pc.addTrack(track, stream);
+            }
             track.addEventListener('ended', _onEnded);
             track.addEventListener('mute', _onMute);
             track.addEventListener('unmute', _onUnmute);
 
-            var sender = _pc.addTrack(track, stream);
             _logger.log(`AddTrack: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);
             if (sender.track.id !== track.id) {
                 _logger.warn(`Track id changed: id=${_this.config.id}, stream=${_name}, ${sender.track.id} != ${track.id}`);
@@ -438,9 +463,8 @@
                 return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
             }
 
-            _setCodecPreferences('sender');
-
             try {
+                await _setCodecPreferences('sender');
                 var offer = await _pc.createOffer();
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
                 _logger.log(`createOffer success: id=${_this.config.id}, stream=${_name}, sdp=\n${offer.sdp}`);
@@ -458,7 +482,20 @@
             if (_readyState !== State.CONNECTED) {
                 return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
             }
-            _setMaxBitrate();
+            try {
+                await _setMaxBitrate();
+                _pc.getSenders().forEach(function (sender) {
+                    if (sender.track && sender.track.kind === 'video') {
+                        _logger.log('Video encodings negotiated:', sender.getParameters().encodings);
+                    }
+                });
+            } catch (err) {
+                _this.close();
+                return Promise.reject(err);
+            }
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
+            }
             _readyState = State.PUBLISHING;
             _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
                 level: Level.STATUS,
@@ -473,61 +510,86 @@
             return Promise.resolve();
         };
 
-        function _setCodecPreferences(type) {
-            var audiocodecs = [];
-            var videocodecs = [];
+        async function _setCodecPreferences(type) {
             var factory = type === 'sender' ? RTCRtpSender : RTCRtpReceiver;
-
-            var ac = factory.getCapabilities('audio');
-            if (ac && ac.codecs) {
-                ac.codecs.forEach(function (codec) {
-                    if (codec.mimeType === 'audio/opus') {
-                        audiocodecs.push(codec);
-                    }
-                });
-            }
-            var vc = factory.getCapabilities('video');
-            if (vc && vc.codecs) {
-                vc.codecs.forEach(function (codec) {
-                    if (codec.mimeType === 'video/rtx' ||
-                        codec.mimeType === 'video/H264' && codec.sdpFmtpLine &&
-                        codec.sdpFmtpLine.indexOf('packetization-mode=1') !== -1 &&
-                        codec.sdpFmtpLine.indexOf('profile-level-id=42e01f') !== -1) {
-                        videocodecs.push(codec);
-                    }
-                });
-            }
-            _pc.getTransceivers().forEach(function (transceiver) {
-                switch (transceiver[type].track.kind) {
-                    case 'audio':
-                        transceiver.setCodecPreferences(audiocodecs);
-                        break;
-                    case 'video':
-                        transceiver.setCodecPreferences(videocodecs);
-                        break;
-                }
+            var preferences = _this.config.codecpreferences.map(function (mimeType) {
+                return mimeType.toLowerCase();
             });
+            var transceivers = _pc.getTransceivers();
+            for (var i = 0; i < transceivers.length; i++) {
+                var transceiver = transceivers[i];
+                var track = transceiver[type].track;
+                if (!track) {
+                    continue;
+                }
+
+                var capabilities = factory.getCapabilities(track.kind);
+                var codecs = [];
+                preferences.forEach(function (mimeType) {
+                    if (mimeType !== 'audio/opus' && mimeType !== 'video/h264' && mimeType !== 'video/h265') {
+                        return;
+                    }
+                    if (capabilities && capabilities.codecs) {
+                        capabilities.codecs.forEach(function (codec) {
+                            if (codec.mimeType.toLowerCase() !== mimeType) {
+                                return;
+                            }
+                            if (mimeType === 'video/h264' &&
+                                !/(?:^|;)\s*packetization-mode=1(?:;|$)/i.test(codec.sdpFmtpLine || '')) {
+                                return;
+                            }
+                            codecs.push(codec);
+                        });
+                    }
+                });
+                if (codecs.length === 0) {
+                    return Promise.reject({ name: 'NotSupportedError', message: 'No compatible ' + track.kind + ' codec.' });
+                }
+                if (track.kind === 'video') {
+                    capabilities.codecs.forEach(function (codec) {
+                        if (codec.mimeType.toLowerCase() === 'video/rtx') {
+                            codecs.push(codec);
+                        }
+                    });
+                }
+                transceiver.setCodecPreferences(codecs);
+            }
         }
 
-        function _setMaxBitrate() {
-            _pc.getSenders().forEach(function (sender) {
-                var track = sender.track;
-                if (track && track.kind === 'video' && _this.constraints.video && _this.constraints.video.maxBitrate) {
-                    var bitrate = _this.constraints.video.maxBitrate * 1000;
-                    var parameters = sender.getParameters();
-                    if (parameters.encodings == null) {
-                        parameters.encodings = [{}];
-                    }
-                    parameters.encodings.forEach(function (encoding) {
-                        encoding.maxBitrate = bitrate;
-                    });
-                    sender.setParameters(parameters).then(function () {
-                        _logger.log(`Set max bitrate: id=${_this.config.id}, stream=${_name}, value=${bitrate}`);
-                    }).catch(function (err) {
-                        _logger.warn(`Failed to set max bitrate: id=${_this.config.id}, stream=${_name}, value=${bitrate}, error=${err}`);
-                    });
+        async function _setMaxBitrate() {
+            var senders = _pc.getSenders();
+            for (var i = 0; i < senders.length; i++) {
+                var sender = senders[i];
+                if (!sender.track || sender.track.kind !== 'video' ||
+                    !_this.constraints.video || !_this.constraints.video.maxBitrate) {
+                    continue;
                 }
-            });
+
+                var bitrate = _this.constraints.video.maxBitrate * 1000;
+                var parameters = sender.getParameters();
+                var configured = _this.config.video.encodings;
+                var maximum = 0;
+                configured.forEach(function (encoding) {
+                    maximum = Math.max(maximum, encoding.maxBitrate || 0);
+                });
+                if (!parameters.encodings || parameters.encodings.length === 0) {
+                    return Promise.reject({ name: 'InvalidStateError', message: 'Video sender encodings are unavailable.' });
+                }
+                if (parameters.encodings.length > 1 && maximum === 0) {
+                    return Promise.reject({ name: 'TypeError', message: 'Simulcast encodings require explicit bitrate limits.' });
+                }
+                for (var j = 0; j < parameters.encodings.length; j++) {
+                    var encoding = parameters.encodings[j];
+                    var option = configured.find(function (item) { return item.rid === encoding.rid; });
+                    if (parameters.encodings.length > 1 && !option) {
+                        return Promise.reject({ name: 'InvalidModificationError', message: 'Negotiated video RID differs from its configuration.' });
+                    }
+                    var ratio = option && maximum ? option.maxBitrate / maximum : 1;
+                    encoding.maxBitrate = Math.max(1, Math.round(bitrate * ratio));
+                }
+                await sender.setParameters(parameters);
+                _logger.log(`Set max bitrate: id=${_this.config.id}, stream=${_name}, value=${bitrate}`);
+            }
         }
 
         function _setJitterBufferTarget() {
@@ -708,9 +770,8 @@
 
             _pc.addTransceiver('audio', { direction: 'recvonly' });
             _pc.addTransceiver('video', { direction: 'recvonly' });
-            _setCodecPreferences('receiver');
-
             try {
+                await _setCodecPreferences('receiver');
                 var offer = await _pc.createOffer();
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
                 _logger.log(`createOffer success: id=${_this.config.id}, stream=${_name}, sdp=\n${offer.sdp}`);

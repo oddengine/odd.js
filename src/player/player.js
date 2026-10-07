@@ -51,6 +51,7 @@
                 codecpreferences: [
                     'audio/opus',
                     'video/H264',
+                    'video/H265',
                 ],
             },
             /**
