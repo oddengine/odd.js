@@ -1,0 +1,25 @@
+example/rtc/js/main.js
+  s_266cdd10f9b223::t_cbfd8e1dd816f5 58-80,84
+src/player/player.js
+  s_266cdd10f9b223::t_e0e93a5caece3d 54
+src/rtc/rtc.js
+  s_266cdd10f9b223::t_cb8b10846d4bd3 35-37,41
+src/rtc/rtc.netstream.js
+  s_266cdd10f9b223::t_c6b0afe6b59762 31-33,37,224-228,276-292,467,485-498,513,515-524,526-530,532-542,545-546,548-556,559-585,587-588,590-592,774
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "07eab9cb0e97264106889d780b13523ab7bed04e",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
