@@ -1,0 +1,35 @@
+compile.sh
+  s_266cdd10f9b223::t_425bd02ec5de52 164-177
+src/events/events.js
+  s_266cdd10f9b223::t_eacd66bcbe3110 50-53
+src/player/av/codec/codec.aac.js
+  s_266cdd10f9b223::t_c8c3c458f776f7 15,124-126
+src/player/av/codec/codec.avc.js
+  s_266cdd10f9b223::t_6e8a18fc25ee08 38-39,76,95,113-115,120-121,130,135-137,142-143,167,170,178,185,189,220-225
+src/player/av/codec/codec.hevc.js
+  s_266cdd10f9b223::t_ccd37bf5c8a3ea 1-237
+src/player/av/codec/codec.opus.js
+  s_266cdd10f9b223::t_824874470b254f 1-112
+src/player/av/format/format.flv.js
+  s_266cdd10f9b223::t_187ff208b9339e 33,48,256-283,286-299,301,307-309
+src/player/av/format/format.fmp4.js
+  s_266cdd10f9b223::t_d43c59401e5ede 12,46,196,200,212,214,226,233-253,500,502,524-543,571,599-601
+src/player/module/module.flv.js
+  s_266cdd10f9b223::t_52f7084b649f94 40,67,162,173,225,285,484-491,518-550,553-554,556-565,567-592,595-596,598-607,609-621,623-628,634-641,644,650-657,660,705,707-709,717,719-721,729,749,766-774,776-787,821-822,826-827,839-840,850
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0a4d94b2f07c25a64e59e8f223a8a4ca8c333967",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
