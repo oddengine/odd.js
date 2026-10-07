@@ -442,9 +442,7 @@
 
             try {
                 var offer = await _pc.createOffer();
-                offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
-                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
                 _logger.log(`createOffer success: id=${_this.config.id}, stream=${_name}, sdp=\n${offer.sdp}`);
 
                 await _pc.setLocalDescription(offer);
@@ -714,9 +712,7 @@
 
             try {
                 var offer = await _pc.createOffer();
-                offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
-                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
                 _logger.log(`createOffer success: id=${_this.config.id}, stream=${_name}, sdp=\n${offer.sdp}`);
 
                 await _pc.setLocalDescription(offer);

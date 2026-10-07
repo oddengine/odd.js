@@ -207,9 +207,7 @@
                 pc = _pc;
 
                 var offer = await pc.createOffer();
-                offer.sdp = offer.sdp.replace(/a=extmap:\d+ http:\/\/www.ietf.org\/id\/draft-holmer-rmcat-transport-wide-cc-extensions-01(\n|\r\n)/gi, '');
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
-                offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ transport-cc(\n|\r\n)/gi, '');
                 await pc.setLocalDescription(offer);
                 if (!_this.config.trickle && pc.iceGatheringState !== 'complete') {
                     await new Promise(function (resolve, reject) {
