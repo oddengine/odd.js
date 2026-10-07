@@ -1,19 +1,130 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="format-detection" content="telephone=no,email=no">
-    <title>odd.js IM Example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="odd-api" content="/api/v1">
+    <title>odd.js IM · Users and rooms</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="../../css/odd.im.classic.css">
-    <script src="../../release/odd.min.js"></script>
+    <!-- Load the current SDK sources; no release build is required. -->
+    <script defer src="../../src/odd.js"></script>
+    <script defer src="../../src/utils/utils.js"></script>
+    <script defer src="../../src/utils/utils.amf.js"></script>
+    <script defer src="../../src/utils/utils.bitstream.js"></script>
+    <script defer src="../../src/utils/utils.browser.js"></script>
+    <script defer src="../../src/utils/utils.crypt.js"></script>
+    <script defer src="../../src/utils/utils.css.js"></script>
+    <script defer src="../../src/utils/utils.endian.js"></script>
+    <script defer src="../../src/utils/utils.filesaver.js"></script>
+    <script defer src="../../src/utils/utils.golomb.js"></script>
+    <script defer src="../../src/utils/utils.logger.js"></script>
+    <script defer src="../../src/utils/utils.url.js"></script>
+    <script defer src="../../src/utils/utils.xml2json.js"></script>
+    <script defer src="../../src/utils/mpd/mpd.js"></script>
+    <script defer src="../../src/utils/mpd/mpd.matchers.js"></script>
+    <script defer src="../../src/utils/mpd/mpd.matchers.datetime.js"></script>
+    <script defer src="../../src/utils/mpd/mpd.matchers.duration.js"></script>
+    <script defer src="../../src/utils/mpd/mpd.matchers.numeric.js"></script>
+    <script defer src="../../src/utils/mpd/mpd.matchers.string.js"></script>
+    <script defer src="../../src/events/events.js"></script>
+    <script defer src="../../src/events/events.eventdispatcher.js"></script>
+    <script defer src="../../src/utils/utils.streamsaver.js"></script>
+    <script defer src="../../src/utils/utils.timer.js"></script>
+    <script defer src="../../src/io/io.js"></script>
+    <script defer src="../../src/io/io.fetch.js"></script>
+    <script defer src="../../src/io/io.mozstream.js"></script>
+    <script defer src="../../src/io/io.msstream.js"></script>
+    <script defer src="../../src/io/io.websocket.js"></script>
+    <script defer src="../../src/io/io.xhr.js"></script>
+    <script defer src="../../src/im/im.js"></script>
+    <script defer src="../../src/im/message/message.protocol.js"></script>
+    <script defer src="../../src/im/message/message.codec.js"></script>
+    <script defer src="../../src/im/message/message.schema.js"></script>
+    <script defer src="../../src/im/im.responder.js"></script>
+    <script defer src="../../src/im/im.requesttable.js"></script>
+    <script defer src="../../src/im/ui/ui.js"></script>
+    <script defer src="../../src/im/ui/components/components.js"></script>
+    <script defer src="../../src/im/ui/components/components.button.js"></script>
+    <script defer src="../../src/im/ui/components/components.label.js"></script>
+    <script defer src="../../src/im/ui/components/components.avatar.js"></script>
+    <script defer src="../../src/im/ui/components/components.panel.js"></script>
+    <script defer src="../../src/im/ui/components/components.message.js"></script>
+    <script defer src="../../src/im/ui/components/components.messages.js"></script>
+    <script defer src="../../src/im/ui/components/components.composer.js"></script>
+    <script defer src="../../src/im/ui/components/components.settings.js"></script>
+    <script defer src="../../src/im/ui/components/components.tab.js"></script>
+    <script defer src="../../src/im/ui/ui.contacts.js"></script>
+    <script defer src="../../src/im/ui/ui.conversations.js"></script>
+    <script defer src="../../src/im/ui/ui.conversation.js"></script>
+    <script defer src="../../src/im/ui/ui.dashboard.js"></script>
+    <script defer src="js/main.js"></script>
 </head>
-
 <body>
-    <div id="im"></div>
-    <script src="js/main.js"></script>
+    <aside id="account">
+        <h1>Odd Engine IM</h1>
+        <p id="status" role="status"></p>
+        <section id="signed-out">
+            <form id="login">
+                <h2>Sign in</h2>
+                <label>Email <input name="email" type="email" autocomplete="username" required></label>
+                <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+                <button type="submit">Sign in</button>
+            </form>
+            <details>
+                <summary>Register or reset password</summary>
+                <form id="challenge">
+                    <label>Email <input name="email" type="email" required></label>
+                    <label>Purpose <select name="purpose"><option value="register">Register</option><option value="reset">Reset password</option></select></label>
+                    <button type="submit">Send verification code</button>
+                </form>
+                <form id="verify">
+                    <label>Code <input name="code" inputmode="numeric" pattern="[0-9]{8}" required></label>
+                    <label>Display name <input name="name" maxlength="128"></label>
+                    <label>New password <input name="password" type="password" minlength="12" autocomplete="new-password" required></label>
+                    <button type="submit">Confirm</button>
+                </form>
+            </details>
+        </section>
+        <section id="signed-in" hidden>
+            <p id="identity"></p>
+            <button id="logout" type="button">Sign out</button>
+            <button id="reconnect" type="button">Reconnect IM</button>
+            <form id="room-create">
+                <h2>Create a room</h2>
+                <label>Name <input name="name" maxlength="128" required></label>
+                <label>Visibility <select name="visibility"><option value="public">Public</option><option value="private">Private</option></select></label>
+                <button type="submit">Create</button>
+            </form>
+            <form id="room-join">
+                <h2>Enter a room</h2>
+                <label>Room ID <input id="room-id" name="room" required></label>
+                <button type="submit">Enter</button>
+                <button id="leave" type="button">Leave</button>
+                <button id="close-room" type="button">Close room</button>
+            </form>
+            <button id="refresh-rooms" type="button">Refresh rooms</button>
+            <ul id="rooms"></ul>
+            <button id="more-rooms" type="button" hidden>More rooms</button>
+            <details>
+                <summary>Manage current room</summary>
+                <form id="member">
+                    <label>User ID <input name="userId" required></label>
+                    <label>Role <input name="role" value="member" required></label>
+                    <label>State <select name="state"><option value="active">Active / invite</option><option value="left">Remove</option><option value="banned">Ban</option></select></label>
+                    <label><input name="muted" type="checkbox"> Muted</label>
+                    <button type="submit">Save member</button>
+                </form>
+                <form id="transfer">
+                    <label>New owner ID <input name="userId" required></label>
+                    <button type="submit">Transfer ownership</button>
+                </form>
+                <button id="refresh-members" type="button">Refresh members</button>
+                <ul id="members"></ul>
+                <button id="more-members" type="button" hidden>More members</button>
+            </details>
+        </section>
+    </aside>
+    <main id="im" aria-label="Messages"></main>
 </body>
-
 </html>
