@@ -1,0 +1,21 @@
+src/im/im.js
+  s_266cdd10f9b223::t_c336c82b49ef33 98-103,165-167,171,183,234,259,298-304,321,326-377,379-391,394,461,472-489,501-512,523,527-534,538,541-556,581-583,619,622-637,683-696,729,745-747
+src/im/message/message.schema.js
+  s_266cdd10f9b223::t_c7e593d82836f3 7,121,244-249,251-253,255,258-260,262,264-267
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8cb7072e9330ce2f829f1e3ae4c3d3d5cc0f83d5",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
