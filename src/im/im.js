@@ -95,6 +95,12 @@
             return _readyState === State.CONNECTED;
         };
 
+        // Capability availability is distinct from resource authorization or M mode.
+        _this.supports = function (opcode) {
+            return _readyState === State.CONNECTED && !!_attempt &&
+                _integer(opcode, 1, 254) && !!_attempt.opcodes && !!_attempt.opcodes[opcode];
+        };
+
         _this.userId = function () {
             return _attempt && _attempt.session ? _attempt.session.principal.id : '';
         };
@@ -156,9 +162,13 @@
                 generation: ++_generation,
                 socket: null,
                 session: null,
+                opcodes: null,
+                notifications: [],
+                notificationBytes: 0,
                 requests: new IM.RequestTable(_generation),
                 maxPacketBytes: Protocol.MAX_PACKET_SIZE,
                 deadline: null,
+                deadlineAt: _clock() + _this.config.connectTimeout,
                 maintenance: null,
                 resolve: null,
                 reject: null,
@@ -170,7 +180,7 @@
             _attempt = attempt;
             _readyState = State.CONNECTING;
             attempt.deadline = setTimeout(function () {
-                _end(attempt, _error('TimeoutError', 'IM handshake or SESSION_READY timed out.'));
+                _end(attempt, _error('TimeoutError', 'IM session initialization timed out.'));
             }, _this.config.connectTimeout);
 
             // Providers obtain a fresh one-use ticket for each connection attempt.
@@ -221,7 +231,7 @@
                         if (e.data && e.data.byteLength > attempt.maxPacketBytes) {
                             throw _error('QuotaExceededError', 'Received packet exceeds the negotiated limit.');
                         }
-                        _receive(attempt, Protocol.decode(e.data));
+                        _receive(attempt, Protocol.decode(e.data), e.data.byteLength);
                     } catch (err) {
                         _end(attempt, err);
                     }
@@ -246,7 +256,7 @@
             }]));
         }
 
-        function _receive(attempt, message) {
+        function _receive(attempt, message, size) {
             if (message.opcode === Protocol.Opcode.STATUS) {
                 if (!attempt.session) {
                     throw _error('DataError', 'STATUS before SESSION_READY.');
@@ -284,9 +294,14 @@
                 }
                 attempt.session = payload;
                 attempt.maxPacketBytes = payload.maxPacketBytes;
-                _readyState = State.CONNECTED;
                 attempt.maintenance = setInterval(function () { _maintain(attempt); }, 250);
-                _restore(attempt);
+                _request(attempt, Protocol.Opcode.CAPS, [], false).then(function () {
+                    if (_attempt === attempt) {
+                        return _restore(attempt);
+                    }
+                }).catch(function (err) {
+                    _end(attempt, err);
+                });
                 return;
             }
             if (!attempt.session) {
@@ -303,28 +318,80 @@
             if (!known) {
                 return;
             }
-            if (event >= Protocol.Event.ROOM_MESSAGE && event <= Protocol.Event.ENDPOINT_MESSAGE) {
-                _message(message, payload);
-                if (_attempt !== attempt) {
-                    return;
-                }
-            }
-            if (event === Protocol.Event.ROOM_REVOKED && typeof payload.roomId === 'string') {
-                delete _rooms[payload.roomId];
-            }
-            _this.dispatchEvent(IMEvent.NOTIFY, {
+            var notification = {
                 event: event,
                 messaging: message.messaging,
                 payload: payload,
                 fields: message.fields,
-            });
-            if (_attempt === attempt && event === Protocol.Event.SESSION_REVOKED) {
-                _manual = true;
-                _end(attempt, _error('NotAllowedError', 'IM session revoked.'));
+            };
+            switch (event) {
+                case Protocol.Event.SESSION_REVOKED:
+                    _schema(message.fields, [
+                        { key: 'event', type: Protocol.Type.UINT16 },
+                        { key: 'revision', type: Protocol.Type.UINT64 },
+                        { key: 'reason', type: Protocol.Type.STRING },
+                    ]);
+                    if (message.messaging) {
+                        throw _error('DataError', 'Session revocation requires Relay mode.');
+                    }
+                    _manual = true;
+                    _readyState = State.CLOSING;
+                    _rooms = Object.create(null);
+                    _this.dispatchEvent(IMEvent.NOTIFY, notification);
+                    _end(attempt, _error('NotAllowedError', 'IM session revoked.'));
+                    return;
+
+                case Protocol.Event.ROOM_REVOKED:
+                    _schema(message.fields, [
+                        { key: 'event', type: Protocol.Type.UINT16 },
+                        { key: 'roomId', type: Protocol.Type.STRING },
+                        { key: 'revision', type: Protocol.Type.UINT64 },
+                    ]);
+                    if (message.messaging || !payload.roomId || Protocol.text(payload.roomId).length > 128) {
+                        throw _error('DataError', 'Invalid room revocation.');
+                    }
+                    delete _rooms[payload.roomId];
+                    for (var i = 0; i < attempt.notifications.length; i++) {
+                        var pending = attempt.notifications[i];
+                        if (pending && pending.notification.payload.roomId === payload.roomId) {
+                            attempt.notificationBytes -= pending.size;
+                            attempt.notifications[i] = null;
+                        }
+                    }
+                    if (_readyState === State.CONNECTING) {
+                        // No drain is running yet; discard holes so repeated
+                        // revocations cannot retain an ever-growing slot array.
+                        attempt.notifications = attempt.notifications.filter(function (pending) {
+                            return pending !== null;
+                        });
+                    }
+                    _this.dispatchEvent(IMEvent.NOTIFY, notification);
+                    return;
             }
+
+            var data = null;
+            if (event >= Protocol.Event.ROOM_MESSAGE && event <= Protocol.Event.ENDPOINT_MESSAGE) {
+                data = _parseMessage(message, payload);
+                if (!message.messaging && _milliseconds(data.meta.expiresAt) <= Date.now()) {
+                    return;
+                }
+            }
+            if (_readyState === State.CONNECTING || attempt.notifications.length) {
+                if (size > _this.config.maxBufferedBytes - attempt.notificationBytes) {
+                    throw _error('QuotaExceededError', 'IM startup notification queue is full.');
+                }
+                attempt.notifications.push({
+                    notification: notification,
+                    data: data,
+                    size: size,
+                });
+                attempt.notificationBytes += size;
+                return;
+            }
+            _notify(attempt, notification, data);
         }
 
-        function _message(message, payload) {
+        function _parseMessage(message, payload) {
             var names = ['room', 'group', 'user', 'endpoint'],
                 kind = names[payload.event - Protocol.Event.ROOM_MESSAGE],
                 target = kind === 'room' ? 'roomId' : kind === 'group' ? 'groupId' : 'userId',
@@ -373,9 +440,6 @@
                     (payload.meta.messageSequence.high === 0 && payload.meta.messageSequence.low === 0)))) {
                 throw _error('DataError', 'Invalid notification identity or metadata.');
             }
-            if (!message.messaging && _milliseconds(payload.meta.expiresAt) <= Date.now()) {
-                return;
-            }
 
             var body = message.fields[bodyIndex].value,
                 content = body[message.messaging ? 1 : 0],
@@ -394,7 +458,7 @@
             if ((content.type === Protocol.Type.STRING ? Protocol.text(content.value).length : content.value.length) > 16384) {
                 throw _error('DataError', 'Message content is too large.');
             }
-            _this.dispatchEvent(IMEvent.MESSAGE, {
+            return {
                 target: {
                     type: kind,
                     id: payload[target],
@@ -405,7 +469,24 @@
                 messaging: message.messaging,
                 content: content.value,
                 ext: payload.body.ext,
-            });
+            };
+        }
+
+        function _notify(attempt, notification, data) {
+            if (_attempt !== attempt || _readyState !== State.CONNECTED) {
+                return;
+            }
+            if (data) {
+                // A Relay message can expire while waiting for session readiness.
+                if (!data.messaging && _milliseconds(data.meta.expiresAt) <= Date.now()) {
+                    return;
+                }
+                _this.dispatchEvent(IMEvent.MESSAGE, data);
+                if (_attempt !== attempt || _readyState !== State.CONNECTED) {
+                    return;
+                }
+            }
+            _this.dispatchEvent(IMEvent.NOTIFY, notification);
         }
 
         function _restore(attempt) {
@@ -417,8 +498,18 @@
                         return;
                     }
                     var intention = _rooms[roomId];
-                    return _this.request(Protocol.Opcode.ROOM_JOIN, [_field('roomId', Protocol.Type.STRING, roomId)], false,
-                        _roomResult(roomId)).catch(function (err) {
+                    return _request(attempt, Protocol.Opcode.ROOM_JOIN,
+                        [_field('roomId', Protocol.Type.STRING, roomId)], false, _roomResult(roomId)).then(function () {
+                            if (_attempt !== attempt || _rooms[roomId] === intention) {
+                                return;
+                            }
+                            // A revoke or leave may invalidate an in-flight restoration.
+                            // Remove any subscription the late JOIN may have installed.
+                            return _request(attempt, Protocol.Opcode.ROOM_LEAVE,
+                                [_field('roomId', Protocol.Type.STRING, roomId)], false).catch(function (err) {
+                                    _end(attempt, err);
+                                });
+                        }).catch(function (err) {
                             if (_attempt !== attempt) {
                                 return;
                             }
@@ -429,17 +520,40 @@
                         });
                 });
             });
-            chain.then(function () {
+            return chain.then(function () {
                 if (_attempt !== attempt) {
+                    return;
+                }
+                if (_clock() >= attempt.deadlineAt) {
+                    _end(attempt, _error('TimeoutError', 'IM session initialization timed out.'));
+                    return;
+                }
+                if (_milliseconds(attempt.session.expiresAt) <= Date.now()) {
+                    _end(attempt, _error('NotAllowedError', 'IM authentication expired.'));
                     return;
                 }
                 clearTimeout(attempt.deadline);
                 attempt.deadline = null;
                 _retried = 0;
+                _readyState = State.CONNECTED;
                 attempt.resolve(_this);
                 _this.dispatchEvent(Event.READY);
-            }).catch(function (err) {
-                _end(attempt, err);
+
+                // Keep slots stable: a callback may revoke a room, append a
+                // notification through an adapter, or close this attempt.
+                for (var i = 0; i < attempt.notifications.length; i++) {
+                    if (_attempt !== attempt || _readyState !== State.CONNECTED) {
+                        return;
+                    }
+                    var pending = attempt.notifications[i];
+                    if (pending) {
+                        attempt.notifications[i] = null;
+                        attempt.notificationBytes -= pending.size;
+                        _notify(attempt, pending.notification, pending.data);
+                    }
+                }
+                attempt.notifications = [];
+                attempt.notificationBytes = 0;
             });
         }
 
@@ -464,6 +578,9 @@
 
             clearTimeout(attempt.deadline);
             clearInterval(attempt.maintenance);
+            attempt.opcodes = null;
+            attempt.notifications = [];
+            attempt.notificationBytes = 0;
 
             var socket = attempt.socket;
             if (socket) {
@@ -499,9 +616,24 @@
 
         // Validator receives the successful info fields before resolving the API promise.
         _this.request = function (opcode, fields, messaging, validator) {
-            var attempt = _attempt;
-            if (!attempt || !attempt.session || _readyState !== State.CONNECTED) {
+            if (_readyState !== State.CONNECTED) {
                 return Promise.reject(_error('InvalidStateError', 'IM is not ready.'));
+            }
+            return _request(_attempt, opcode, fields, messaging, validator);
+        };
+
+        function _request(attempt, opcode, fields, messaging, validator) {
+            if (!attempt || _attempt !== attempt || !attempt.session ||
+                (_readyState !== State.CONNECTING && _readyState !== State.CONNECTED) ||
+                (!attempt.opcodes && opcode !== Protocol.Opcode.CAPS)) {
+                return Promise.reject(_error('InvalidStateError', 'IM session is unavailable.'));
+            }
+            if (_readyState === State.CONNECTING && _clock() >= attempt.deadlineAt) {
+                return Promise.reject(_error('TimeoutError', 'IM session initialization timed out.'));
+            }
+            if (_integer(opcode, 3, 254) && !(opcode >= 0x80 && opcode <= 0x8F) &&
+                attempt.opcodes && !attempt.opcodes[opcode]) {
+                return Promise.reject(_error('NotSupportedError', 'The server did not advertise this IM operation.'));
             }
             if (_milliseconds(attempt.session.expiresAt) <= Date.now()) {
                 var expired = _error('NotAllowedError', 'IM authentication expired.');
@@ -548,6 +680,20 @@
                                 if (validator) {
                                     validator(info);
                                 }
+                                if (_attempt !== attempt) {
+                                    reject(_error('AbortError', 'IM session changed while handling the response.'));
+                                    return;
+                                }
+                                if (opcode === Protocol.Opcode.CAPS) {
+                                    var opcodes = Object.create(null);
+                                    data.info.opcodes.forEach(function (item) {
+                                        opcodes[item.value] = true;
+                                    });
+                                    attempt.opcodes = opcodes;
+                                    attempt.maxPacketBytes = Math.min(attempt.session.maxPacketBytes,
+                                        data.info.maxPacketBytes, Protocol.MAX_PACKET_SIZE);
+                                    attempt.requests.maxPending = Math.min(64, data.info.maxPending);
+                                }
                                 resolve(data.info || Object.create(null));
                             } catch (err) {
                                 reject(err);
@@ -580,7 +726,7 @@
                     reject(err);
                 }
             });
-        };
+        }
 
         function _roomResult(roomId) {
             return function (info) {
@@ -596,6 +742,9 @@
         }
 
         _this.join = function (roomId) {
+            if (_readyState !== State.CONNECTED) {
+                return Promise.reject(_error('InvalidStateError', 'IM is not ready.'));
+            }
             if (Object.keys(_rooms).length >= 128 && !_rooms[roomId]) {
                 return Promise.reject(_error('QuotaExceededError', 'Too many room intentions.'));
             }

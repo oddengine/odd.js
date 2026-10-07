@@ -4,6 +4,7 @@
         Type = Protocol.Type,
         Opcode = Protocol.Opcode,
         Status = Protocol.Status,
+        EventCode = Protocol.Event,
         HEADER_SIZE = Protocol.HEADER_SIZE,
         MAX_PACKET_SIZE = Protocol.MAX_PACKET_SIZE,
         MAX_PEER_PACKET_SIZE = Protocol.MAX_PEER_PACKET_SIZE,
@@ -117,7 +118,7 @@
     // not room membership, online presence or the availability of durable storage.
     function _validateMessageRequest(message) {
         _validateEnvelope(message, 'public');
-        prepare(message.fields, true, 0, { count: 0 }, MAX_PACKET_SIZE - HEADER_SIZE);
+        // encode/decode enforce structural bounds; this layer checks the schema.
         var rules, targetCount;
         switch (message.opcode) {
             case Opcode.ROOM_MESSAGE: rules = [{ key: 'roomId', type: Type.STRING }]; break;
@@ -240,17 +241,30 @@
         }
         if (opcode === Opcode.CAPS) {
             if (fields[0].value !== 2 || !_integer(fields[3].value, HEADER_SIZE, MAX_PACKET_SIZE) ||
-                !_integer(fields[4].value, 1, 65535)) { _fail('DataError', 'Invalid server capabilities.'); }
+                !_integer(fields[4].value, 1, 65535)) {
+                _fail('DataError', 'Invalid server capabilities.');
+            }
+
+            var opcodes = Object.create(null),
+                events = Object.create(null);
             fields[1].value.forEach(function (item) {
-                if (item.type !== Type.UINT8) {
-                    _fail('DataError', 'Invalid capability opcode type.');
+                if (item.type !== Type.UINT8 || !_integer(item.value, 1, 254) ||
+                    (item.value >= 0x80 && item.value <= 0x8F) || opcodes[item.value]) {
+                    _fail('DataError', 'Invalid or repeated public capability opcode.');
                 }
+                opcodes[item.value] = true;
             });
             fields[2].value.forEach(function (item) {
-                if (item.type !== Type.UINT16) {
-                    _fail('DataError', 'Invalid capability event type.');
+                if (item.type !== Type.UINT16 || !_integer(item.value, 1, 0xFEFF) ||
+                    (item.value & 255) === 0 || events[item.value]) {
+                    _fail('DataError', 'Invalid or repeated public capability event.');
                 }
+                events[item.value] = true;
             });
+            if (!opcodes[Opcode.STATUS] || !opcodes[Opcode.NOTIFY] || !opcodes[Opcode.CAPS] ||
+                !events[EventCode.SESSION_READY]) {
+                _fail('DataError', 'Required session capabilities are missing.');
+            }
         }
         if (items) {
             items.forEach(function (item) {
