@@ -47,6 +47,10 @@
             AACSPECIFICCONFIG: 'aacspecificconfig', // packet
             AACSAMPLE: 'aacsample',                 // packet
             AVCCONFIGRECORD: 'avcconfigrecord',     // packet
+            HEVCCONFIGRECORD: 'hevcconfigrecord',
+            HEVCSAMPLE: 'hevcsample',
+            OPUSSPECIFICCONFIG: 'opusspecificconfig',
+            OPUSSAMPLE: 'opussample',
             AVCSAMPLE: 'avcsample',                 // packet
             SEI: 'sei',                             // packet, nalu
             ENDOFSTREAM: 'endofstream',             // packet

@@ -30,7 +30,7 @@
             NELLYMOSER: 0x6,
             G_711_A_LAW_LOGARITHMIC_PCM: 0x7,
             G_711_MU_LAW_LOGARITHMIC_PCM: 0x8,
-            RESERVED: 0x9,
+            OPUS: 0x9,
             AAC: 0xA,
             SPEEX: 0xB,
             MP3_8_kHz: 0xE,
@@ -45,6 +45,7 @@
             VP6_ALPHA: 0x5,
             SCREEN_VIDEO_2: 0x6,
             AVC: 0x7,
+            HEVC: 0xC,
         },
         sw = {
             f: 0,
@@ -252,23 +253,59 @@
                         if (_packet.position === _packet.length) {
                             switch (_packet.kind) {
                                 case Packet.KindAudio:
-                                    _packet.set('Format', (_packet.payload[0] >> 4) & 0x0F);
-                                    _packet.set('SampleRate', (_packet.payload[0] >> 2) & 0x03);
-                                    _packet.set('SampleSize', (_packet.payload[0] >> 1) & 0x01);
-                                    _packet.set('SampleType', _packet.payload[0] & 0x01);
-                                    _packet.set('DataType', _packet.payload[1]); // Extra parsing
-                                    _packet.position = 1;
+                                    if (_packet.length < 2) {
+                                        _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Incomplete FLV audio header.' });
+                                        return;
+                                    }
+                                    var format = _packet.payload[0] >> 4;
+                                    var type = _packet.payload[1];
+                                    _packet.position = 2;
+                                    if (format === 9) {
+                                        if (_packet.length < 5) {
+                                            _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Incomplete enhanced audio header.' });
+                                            return;
+                                        }
+                                        var fourcc = String.fromCharCode.apply(null, _packet.payload.subarray(1, 5));
+                                        if (fourcc !== 'Opus' && fourcc !== 'mp4a') {
+                                            _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Unsupported enhanced audio codec.' });
+                                            return;
+                                        }
+                                        format = fourcc === 'Opus' ? Formats.OPUS : Formats.AAC;
+                                        type = _packet.payload[0] & 15;
+                                        _packet.position = 5;
+                                    }
+                                    if (type > 2 || (format === Formats.AAC && (_packet.payload[0] >> 4) !== 9 && type === 2)) {
+                                        _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Unsupported audio packet type.' });
+                                        return;
+                                    }
+                                    _packet.set('Format', format);
+                                    _packet.set('DataType', type);
+                                    _packet.set('CTS', 0);
                                     break;
                                 case Packet.KindVideo:
-                                    _packet.set('FrameType', (_packet.payload[0] >> 4) & 0x0F);
-                                    _packet.set('Codec', _packet.payload[0] & 0x0F);
-                                    _packet.set('DataType', _packet.payload[1]); // Extra parsing
+                                    if (_packet.length < 5) {
+                                        _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Incomplete FLV video header.' });
+                                        return;
+                                    }
+                                    _packet.set('FrameType', (_packet.payload[0] >> 4) & 15);
+                                    _packet.set('Codec', _packet.payload[0] & 15);
+                                    _packet.set('DataType', _packet.payload[1]);
+                                    var cts = _packet.payload[2] << 16 | _packet.payload[3] << 8 | _packet.payload[4];
+                                    cts = cts & 0x800000 ? cts - 0x1000000 : cts;
+                                    if ((_packet.payload[0] & 0x80) || _packet.payload[1] > 2 || cts !== 0) {
+                                        _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Unsupported FLV video header or composition time.' });
+                                        return;
+                                    }
+                                    _packet.set('CTS', cts);
                                     _packet.set('Keyframe', _packet.get('FrameType') === Frames.KEYFRAME);
-                                    _packet.position = 1;
+                                    _packet.position = 5;
                                     break;
                                 case Packet.KindScript:
                                     _packet.position = 0;
                                     break;
+                            }
+                            if (_packet.get('DataType') === 2 && _packet.position !== _packet.length) {
+                                throw { name: 'DataError', message: 'Unexpected sequence end payload.' };
                             }
                             _this.dispatchEvent(MediaEvent.PACKET, { packet: _packet });
                             _parsing = sw.backpointer0;

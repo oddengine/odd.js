@@ -35,7 +35,8 @@
 
         var _this = this,
             _info = info,
-            _logger = logger;
+            _logger = logger,
+            _started = false;
 
         function _init() {
             _this.MimeType = 'video/mp4';
@@ -61,16 +62,7 @@
         }
 
         _this.parse = function (pkt) {
-            if (pkt.left() < 4) {
-                _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Data not enough while parsing AVC packet.' });
-                return;
-            }
-
             _info.Timestamp = Math.max(pkt.timestamp, _info.AudioTimestamp);
-
-            var v = new DataView(pkt.payload.buffer);
-            pkt.set('DataType', v.getUint8(pkt.position++));
-            pkt.set('CTS', v.getUint8(pkt.position++) << 16 | v.getUint8(pkt.position++) << 8 | v.getUint8(pkt.position++)); // CompositionTime
 
             switch (pkt.get('DataType')) {
                 case DataTypes.SEQUENCE_HEADER:
@@ -81,6 +73,7 @@
                     _parseNalUnits(pkt);
                     break;
                 case DataTypes.END_OF_SEQUENCE:
+                    _started = false;
                     _logger.debug('AVC sequence end.');
                     _this.dispatchEvent(MediaEvent.ENDOFSTREAM, { packet: pkt });
                     break;
@@ -99,7 +92,7 @@
             _this.AVCC = pkt.payload.subarray(pkt.position);
 
             var i = 0;
-            var v = new DataView(pkt.payload.buffer, pkt.position);
+            var v = new DataView(pkt.payload.buffer, pkt.payload.byteOffset + pkt.position, pkt.left());
 
             _this.ConfigurationVersion = v.getUint8(i++);
             _this.ProfileIndication = v.getUint8(i++);
@@ -117,12 +110,15 @@
             }
 
             var numOfSequenceParameterSets = v.getUint8(i++) & 0x1F;
+            if (!numOfSequenceParameterSets) {
+                throw { name: 'DataError', message: 'AVC SPS is missing.' };
+            }
             for (var j = 0; j < numOfSequenceParameterSets; j++) {
                 var sequenceParameterSetLength = v.getUint16(i);
                 i += 2;
 
-                if (sequenceParameterSetLength === 0) {
-                    continue;
+                if (!sequenceParameterSetLength || i + sequenceParameterSetLength > v.byteLength) {
+                    throw { name: 'DataError', message: 'Invalid AVC SPS length.' };
                 }
 
                 var sps = _this.AVCC.subarray(i, i + sequenceParameterSetLength);
@@ -131,19 +127,20 @@
                     _this.SPS.parse(sps);
                     _this.RefSampleDuration = Math.floor(_info.Timescale * info.FrameRate.Den / info.FrameRate.Num);
                 } catch (err) {
-                    // Ignore parsing issue, leave it to the decoder.
-                    _logger.warn(err.name + ': ' + err.message);
-                    break;
+                    throw err;
                 }
             }
 
             var numOfPictureParameterSets = v.getUint8(i++);
+            if (!numOfPictureParameterSets) {
+                throw { name: 'DataError', message: 'AVC PPS is missing.' };
+            }
             for (var j = 0; j < numOfPictureParameterSets; j++) {
                 var pictureParameterSetLength = v.getUint16(i);
                 i += 2;
 
-                if (pictureParameterSetLength === 0) {
-                    continue;
+                if (!pictureParameterSetLength || i + pictureParameterSetLength > v.byteLength) {
+                    throw { name: 'DataError', message: 'Invalid AVC PPS length.' };
                 }
 
                 // PPS is useless for extracting video information.
@@ -167,9 +164,10 @@
             _info.VideoTimestamp = pkt.timestamp;
 
             var i = 0;
-            var v = new DataView(pkt.payload.buffer, pkt.position);
+            var v = new DataView(pkt.payload.buffer, pkt.payload.byteOffset + pkt.position, pkt.left());
             var data = pkt.payload.subarray(pkt.position);
             var nalus = [];
+            pkt.set('Keyframe', false);
 
             pkt.set('DTS', _info.TimeBase + pkt.timestamp);
             pkt.set('PTS', pkt.get('CTS') + pkt.get('DTS'));
@@ -177,18 +175,18 @@
             pkt.set('NALUs', nalus);
 
             while (i < v.byteLength) {
-                if (i + 4 >= v.byteLength) {
+                if (!_this.NalLengthSize || i + _this.NalLengthSize >= v.byteLength) {
                     _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Data not enough for next NALU.' });
                     return;
                 }
 
                 var naluSize = 0;
                 for (var j = 0; j < _this.NalLengthSize; j++) { // NalLengthSize: 1, 2 or 4 bytes
-                    naluSize = naluSize << 8 | v.getUint8(i + j);
+                    naluSize = naluSize * 256 + v.getUint8(i + j);
                 }
                 i += _this.NalLengthSize;
 
-                if (i + naluSize > v.byteLength) {
+                if (!naluSize || i + naluSize > v.byteLength) {
                     _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Malformed Nalus near timestamp ' + pkt.get('DTS') + '.' });
                     return;
                 }
@@ -219,6 +217,12 @@
                 i += naluSize;
             }
 
+            if (!_started && !pkt.get('Keyframe')) {
+                return;
+            }
+            _started = true;
+            _this.Flags.SampleDependsOn = pkt.get('Keyframe') ? 2 : 1;
+            _this.Flags.IsNonSync = pkt.get('Keyframe') ? 0 : 1;
             _this.dispatchEvent(MediaEvent.AVCSAMPLE, { packet: pkt });
         }
 

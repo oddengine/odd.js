@@ -9,7 +9,7 @@
         MediaStream = Format.MediaStream,
 
         types = {
-            avc1: [], avcC: [], btrt: [], dinf: [],
+            avc1: [], avcC: [], hvc1: [], hvcC: [], Opus: [], dOps: [], btrt: [], dinf: [],
             dref: [], esds: [], ftyp: [], hdlr: [],
             mdat: [], mdhd: [], mdia: [], mfhd: [],
             minf: [], moof: [], moov: [], mp4a: [],
@@ -43,7 +43,7 @@
             0x69, 0x73, 0x6F, 0x6D, // major_brand: isom
             0x00, 0x00, 0x00, 0x01, // minor_version: 0x01
             0x69, 0x73, 0x6F, 0x6D, // isom
-            0x61, 0x76, 0x63, 0x31, // avc1
+            0x69, 0x73, 0x6F, 0x36, // iso6
         ]),
         VIDEO_HDLR = new Uint8Array([
             0x00, 0x00, 0x00, 0x00, // version(0) + flags
@@ -193,9 +193,11 @@
                                 case 'stsd':
                                     offset += 8;
                                     break;
+                                case 'hvc1':
                                 case 'avc1':
                                     offset += 78;
                                     break;
+                                case 'Opus':
                                 case 'mp4a':
                                     offset += 28;
                                     break;
@@ -207,7 +209,9 @@
                                 case 'minf':
                                 case 'stbl':
                                 case 'stsd':
+                                case 'hvc1':
                                 case 'avc1':
+                                case 'Opus':
                                 case 'mp4a':
                                     var content = new Uint8Array(dst.payload.buffer, offset);
                                     for (var j = 0; j < content.byteLength; /* void */) {
@@ -219,12 +223,33 @@
                                 case 'avcC':
                                     var content = new Uint8Array(dst.payload.buffer, offset);
                                     var codec = "avc1.";
-                                    utils.forEach(content.subarray(9, 13), function (j, c) {
+                                    utils.forEach(content.subarray(1, 4), function (j, c) {
                                         var hex = utils.padStart(c.toString(16), 2, '0');
                                         codec += hex;
                                     });
                                     _this.info.MimeType = 'video/mp4';
                                     _this.info.Codecs.push(codec);
+                                    break;
+                                case 'hvcC':
+                                    var packet = new AV.Packet();
+                                    packet.payload = new Uint8Array(dst.payload.buffer, offset);
+                                    packet.length = packet.payload.length;
+                                    packet.position = 0;
+                                    packet.timestamp = 0;
+                                    packet.set('DataType', 0);
+                                    var source = new AV.Codec.HEVC(_this.info, _logger);
+                                    source.parse(packet);
+                                    break;
+                                case 'dOps':
+                                    var content = new Uint8Array(dst.payload.buffer, offset);
+                                    if (content.length !== 11 || content[0] !== 0 || content[10] !== 0 ||
+                                        (content[1] !== 1 && content[1] !== 2)) {
+                                        throw { name: 'NotSupportedError', message: 'Unsupported Opus sample entry.' };
+                                    }
+                                    _this.info.Codecs.push('opus');
+                                    if (!_this.info.MimeType) {
+                                        _this.info.MimeType = 'audio/mp4';
+                                    }
                                     break;
                                 case 'esds':
                                     var content = new Uint8Array(dst.payload.buffer, offset);
@@ -472,9 +497,9 @@
         // Sample Description Box
         _this.stsd = function (track) {
             if (track.kind === MediaStreamTrack.KindAudio) {
-                return _this.box(types.stsd, STSD, _this.mp4a(track));
+                return _this.box(types.stsd, STSD, track.source.kind === 'Opus' ? _this.opus(track) : _this.mp4a(track));
             } else {
-                return _this.box(types.stsd, STSD, _this.avc1(track));
+                return _this.box(types.stsd, STSD, _this.visualSampleEntry(track));
             }
         };
 
@@ -494,6 +519,26 @@
             ]);
             var esds = _this.esds(track);
             return _this.box(types.mp4a, data, esds);
+        };
+
+        _this.opus = function (track) {
+            var source = track.source;
+            var data = new Uint8Array(28);
+            var view = new DataView(data.buffer);
+            view.setUint16(6, 1);
+            view.setUint16(16, source.Channels);
+            view.setUint16(18, 16);
+            view.setUint32(24, 48000 * 65536);
+
+            var config = new Uint8Array(11);
+            var output = new DataView(config.buffer);
+            output.setUint8(0, 0);
+            output.setUint8(1, source.Channels);
+            output.setUint16(2, source.PreSkip);
+            output.setUint32(4, source.InputSampleRate);
+            output.setInt16(8, source.OutputGain);
+            output.setUint8(10, 0);
+            return _this.box(types.Opus, data, _this.box(types.dOps, config));
         };
 
         _this.esds = function (track) {
@@ -523,7 +568,7 @@
             ]));
         };
 
-        _this.avc1 = function (track) {
+        _this.visualSampleEntry = function (track) {
             var w = _this.info.CodecWidth;
             var h = _this.info.CodecHeight;
             var data = new Uint8Array([
@@ -551,8 +596,9 @@
                 0x18,                   // depth
                 0xFF, 0xFF,             // pre_defined = -1
             ]);
-            var avcc = _this.box(types.avcC, track.source.AVCC);
-            return _this.box(types.avc1, data, avcc);
+            var hevc = track.source.kind === 'HEVC';
+            var config = _this.box(hevc ? types.hvcC : types.avcC, hevc ? track.source.HVCC : track.source.AVCC);
+            return _this.box(hevc ? types.hvc1 : types.avc1, data, config);
         };
 
         // Track Extends Box

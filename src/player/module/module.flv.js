@@ -37,6 +37,7 @@
             _escaped,
             _buffering,
             _ended,
+            _failed,
             _loader,
             _demuxer,
             _remuxer,
@@ -63,6 +64,7 @@
             _escaped = false;
             _buffering = false;
             _ended = false;
+            _failed = false;
             _sb = {};
             _segments = [];
             _writer = null;
@@ -157,7 +159,7 @@
             _demuxer.addEventListener(MediaEvent.PACKET, _onFlvPacket);
             _demuxer.addEventListener(MediaStreamTrackEvent.ADDTRACK, _onAddTrack);
             _demuxer.addEventListener(MediaStreamTrackEvent.REMOVETRACK, _onRemoveTrack);
-            _demuxer.addEventListener(Event.ERROR, _this.forward);
+            _demuxer.addEventListener(Event.ERROR, _onDecodeError);
 
             _remuxer = new Format.FMP4(_logger);
             _remuxer.addEventListener(Event.ERROR, _this.forward);
@@ -168,7 +170,7 @@
             _demuxer.removeEventListener(MediaEvent.PACKET, _onFlvPacket);
             _demuxer.removeEventListener(MediaStreamTrackEvent.ADDTRACK, _onAddTrack);
             _demuxer.removeEventListener(MediaStreamTrackEvent.REMOVETRACK, _onRemoveTrack);
-            _demuxer.removeEventListener(Event.ERROR, _this.forward);
+            _demuxer.removeEventListener(Event.ERROR, _onDecodeError);
 
             _remuxer.close();
             _remuxer.removeEventListener(Event.ERROR, _this.forward);
@@ -220,6 +222,7 @@
                 }
 
                 _ended = false;
+            _failed = false;
                 _demuxer.reset();
                 _remuxer.reset();
                 _remuxer.info = _demuxer.info;
@@ -279,6 +282,7 @@
             _escaped = false;
             _buffering = false;
             _ended = false;
+            _failed = true;
             _segments = [];
             _need2remove = 0;
             _url = new utils.URL();
@@ -477,7 +481,14 @@
             _bytesReceived += e.data.loaded;
             _bytesReceivedPerSecond += e.data.loaded;
             _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { BytesReceived: _bytesReceived } });
-            _demuxer.append(e.data.buffer);
+            if (_failed) {
+                return;
+            }
+            try {
+                _demuxer.append(e.data.buffer);
+            } catch (err) {
+                _onDecodeError({ data: err });
+            }
         }
 
         function _onLoadEnd(e) {
@@ -504,108 +515,149 @@
         }
 
         function _onFlvPacket(e) {
-            var pkt = e.data.packet;
-            // _logger.log(pkt.kind + ': ' + pkt.timestamp);
-            switch (pkt.kind) {
-                case Packet.KindVideo:
-                    if (pkt.get('Codec') !== Codecs.AVC) {
-                        _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Video codec ' + utils.hex(pkt.get('Codec')) + ' not supported.' });
-                        return;
-                    }
-                    var track = _demuxer.getVideoTracks()[0];
-                    if (pkt.get('DataType') === Codec.AVC.DataTypes.SEQUENCE_HEADER) {
-                        if (track) {
-                            _logger.warn('Video track already exists, ignored.');
+            if (_failed) {
+                return;
+            }
+            try {
+                var pkt = e.data.packet;
+                // _logger.log(pkt.kind + ': ' + pkt.timestamp);
+                switch (pkt.kind) {
+                    case Packet.KindVideo:
+                        if (pkt.get('Codec') !== Codecs.AVC && pkt.get('Codec') !== Codecs.HEVC) {
+                            throw { name: 'NotSupportedError', message: 'Unsupported FLV video codec.' };
+                        }
+                        var track = _demuxer.getVideoTracks()[0];
+                        if (pkt.get('DataType') === Codec.AVC.DataTypes.SEQUENCE_HEADER) {
+                            if (track) {
+                                var configuration = pkt.payload.subarray(pkt.position);
+                                if (track.source.kind !== (pkt.get('Codec') === Codecs.AVC ? 'AVC' : 'HEVC') ||
+                                    !track.configuration || configuration.length !== track.configuration.length ||
+                                    configuration.some(function (value, index) { return value !== track.configuration[index]; })) {
+                                    throw { name: 'NotSupportedError', message: 'Cannot change an active video configuration.' };
+                                }
+                                track.ended = false;
+                                return;
+                            }
+                            var source = new Codec[pkt.get('Codec') === Codecs.AVC ? 'AVC' : 'HEVC'](_demuxer.info, _logger);
+                            track = new MediaStreamTrack(MediaStreamTrack.KindVideo, source, _logger);
+                            track.configuration = new Uint8Array(pkt.payload.subarray(pkt.position));
+                            track.ended = false;
+                            _demuxer.addTrack(track);
+                        } else if (pkt.timestamp > 0 && pkt.timestamp <= _demuxer.info.VideoTimestamp) {
+                            // _logger.warn('Unordered video packet: ' + pkt.timestamp + ' <= ' + _demuxer.info.VideoTimestamp);
+                            // return;
+                        }
+                        if (track && track.ended && pkt.get('DataType') === 2) {
                             return;
                         }
-                        var source = new Codec['AVC'](_demuxer.info, _logger);
-                        track = new MediaStreamTrack(MediaStreamTrack.KindVideo, source, _logger);
-                        _demuxer.addTrack(track);
-                    } else if (pkt.timestamp > 0 && pkt.timestamp <= _demuxer.info.VideoTimestamp) {
-                        // _logger.warn('Unordered video packet: ' + pkt.timestamp + ' <= ' + _demuxer.info.VideoTimestamp);
-                        // return;
-                    }
-                    _videoPacketsReceivedPerSecond++;
-                    track.source.parse(pkt);
-                    if (isNaN(_firstVideoFrameReceivedIn) && pkt.get('DataType') === Codec.AVC.DataTypes.NALU) {
-                        if (_writer && isNaN(_firstAudioFrameReceivedIn)) {
-                            _writeInitSegment();
+                        if (!track || (track.ended && pkt.get('DataType') !== 0)) {
+                            throw { name: 'InvalidStateError', message: 'Video sequence is not active.' };
                         }
-                        _firstVideoFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
-                        _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstVideoFrameReceivedIn: _firstVideoFrameReceivedIn } });
-                    }
-                    break;
+                        _videoPacketsReceivedPerSecond++;
+                        track.source.parse(pkt);
+                        if (isNaN(_firstVideoFrameReceivedIn) && pkt.get('DataType') === Codec.AVC.DataTypes.NALU) {
+                            if (_writer && isNaN(_firstAudioFrameReceivedIn)) {
+                                _writeInitSegment();
+                            }
+                            _firstVideoFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
+                            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstVideoFrameReceivedIn: _firstVideoFrameReceivedIn } });
+                        }
+                        break;
 
-                case Packet.KindAudio:
-                    if (pkt.get('Format') !== Formats.AAC) {
-                        _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Audio format ' + utils.hex(pkt.get('Format')) + ' not supported.' });
-                        return;
-                    }
-                    var track = _demuxer.getAudioTracks()[0];
-                    if (pkt.get('DataType') === Codec.AAC.DataTypes.SPECIFIC_CONFIG) {
-                        if (track) {
-                            _logger.warn('Audio track already exists, ignored.');
+                    case Packet.KindAudio:
+                        if (pkt.get('Format') !== Formats.AAC && pkt.get('Format') !== Formats.OPUS) {
+                            throw { name: 'NotSupportedError', message: 'Unsupported FLV audio codec.' };
+                        }
+                        var track = _demuxer.getAudioTracks()[0];
+                        if (pkt.get('DataType') === Codec.AAC.DataTypes.SPECIFIC_CONFIG) {
+                            if (track) {
+                                var configuration = pkt.payload.subarray(pkt.position);
+                                if (track.source.kind !== (pkt.get('Format') === Formats.AAC ? 'AAC' : 'Opus') ||
+                                    !track.configuration || configuration.length !== track.configuration.length ||
+                                    configuration.some(function (value, index) { return value !== track.configuration[index]; })) {
+                                    throw { name: 'NotSupportedError', message: 'Cannot change an active audio configuration.' };
+                                }
+                                track.ended = false;
+                                return;
+                            }
+                            var source = new Codec[pkt.get('Format') === Formats.AAC ? 'AAC' : 'Opus'](_demuxer.info, _logger);
+                            track = new MediaStreamTrack(MediaStreamTrack.KindAudio, source, _logger);
+                            track.configuration = new Uint8Array(pkt.payload.subarray(pkt.position));
+                            track.ended = false;
+                            _demuxer.addTrack(track);
+                        } else if (pkt.timestamp > 0 && pkt.timestamp <= _demuxer.info.AudioTimestamp) {
+                            // _logger.warn('Drops unordered audio packet: ' + pkt.timestamp + ' <= ' + _demuxer.info.AudioTimestamp);
+                            // return;
+                        }
+                        if (track && track.ended && pkt.get('DataType') === 2) {
                             return;
                         }
-                        var source = new Codec['AAC'](_demuxer.info, _logger);
-                        track = new MediaStreamTrack(MediaStreamTrack.KindAudio, source, _logger);
-                        _demuxer.addTrack(track);
-                    } else if (pkt.timestamp > 0 && pkt.timestamp <= _demuxer.info.AudioTimestamp) {
-                        // _logger.warn('Drops unordered audio packet: ' + pkt.timestamp + ' <= ' + _demuxer.info.AudioTimestamp);
-                        // return;
-                    }
-                    _audioPacketsReceivedPerSecond++;
-                    track.source.parse(pkt);
-                    if (isNaN(_firstAudioFrameReceivedIn) && pkt.get('DataType') === Codec.AAC.DataTypes.RAW_FRAME_DATA) {
-                        if (_writer && isNaN(_firstVideoFrameReceivedIn)) {
-                            _writeInitSegment();
+                        if (!track || (track.ended && pkt.get('DataType') !== 0)) {
+                            throw { name: 'InvalidStateError', message: 'Audio sequence is not active.' };
                         }
-                        _firstAudioFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
-                        _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstAudioFrameReceivedIn: _firstAudioFrameReceivedIn } });
-                    }
-                    break;
+                        _audioPacketsReceivedPerSecond++;
+                        track.source.parse(pkt);
+                        if (isNaN(_firstAudioFrameReceivedIn) && pkt.get('DataType') === Codec.AAC.DataTypes.RAW_FRAME_DATA) {
+                            if (_writer && isNaN(_firstVideoFrameReceivedIn)) {
+                                _writeInitSegment();
+                            }
+                            _firstAudioFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
+                            _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstAudioFrameReceivedIn: _firstAudioFrameReceivedIn } });
+                        }
+                        break;
 
-                case Packet.KindScript:
-                    var v = new AMF.Value();
-                    var i = AMF.decode(v, pkt.payload.buffer, pkt.position);
-                    v.key = v.get();
-                    i += AMF.decode(v, pkt.payload.buffer, pkt.position + i);
+                    case Packet.KindScript:
+                        var v = new AMF.Value();
+                        var i = AMF.decode(v, pkt.payload.buffer, pkt.position);
+                        v.key = v.get();
+                        i += AMF.decode(v, pkt.payload.buffer, pkt.position + i);
 
-                    var data = {};
-                    utils.forEach(v.get(), function (i, item) { data[item.key] = item.get(); });
-                    _logger.log(v.key + ':', data);
-                    if (v.key === 'onMetaData') {
-                        _setMetaData(v);
-                    }
-                    break;
+                        var data = {};
+                        utils.forEach(v.get(), function (i, item) { data[item.key] = item.get(); });
+                        _logger.log(v.key + ':', data);
+                        if (v.key === 'onMetaData') {
+                            _setMetaData(v);
+                        }
+                        break;
 
-                default:
-                    _logger.error('Unrecognized flv tag ' + utils.hex(pkt.kind) + '.');
-                    break;
+                    default:
+                        _logger.error('Unrecognized flv tag ' + utils.hex(pkt.kind) + '.');
+                        break;
+                }
+            } catch (err) {
+                _onDecodeError({ data: err });
             }
         }
 
         function _onAddTrack(e) {
             var track = e.data.track.clone();
-            track.source.addEventListener(MediaEvent.AVCCONFIGRECORD, _onAvcConfigRecord);
-            track.source.addEventListener(MediaEvent.AACSPECIFICCONFIG, _onAacSpecificConfig);
-            track.source.addEventListener(MediaEvent.AVCSAMPLE, _onAvcSample);
-            track.source.addEventListener(MediaEvent.AACSAMPLE, _onAacSample);
+            track.source.addEventListener(MediaEvent.AVCCONFIGRECORD, _onVideoConfigRecord);
+            track.source.addEventListener(MediaEvent.HEVCCONFIGRECORD, _onVideoConfigRecord);
+            track.source.addEventListener(MediaEvent.AACSPECIFICCONFIG, _onAudioSpecificConfig);
+            track.source.addEventListener(MediaEvent.OPUSSPECIFICCONFIG, _onAudioSpecificConfig);
+            track.source.addEventListener(MediaEvent.AVCSAMPLE, _onVideoSample);
+            track.source.addEventListener(MediaEvent.HEVCSAMPLE, _onVideoSample);
+            track.source.addEventListener(MediaEvent.AACSAMPLE, _onAudioSample);
+            track.source.addEventListener(MediaEvent.OPUSSAMPLE, _onAudioSample);
             track.source.addEventListener(MediaEvent.SEI, _this.forward);
             track.source.addEventListener(MediaEvent.ENDOFSTREAM, _onEndOfStream);
-            track.source.addEventListener(Event.ERROR, _this.forward);
+            track.source.addEventListener(Event.ERROR, _onDecodeError);
             _remuxer.addTrack(track);
         }
 
         function _onRemoveTrack(e) {
             var track = _remuxer.getTrackById(e.data.track.id);
-            track.source.removeEventListener(MediaEvent.AVCCONFIGRECORD, _onAvcConfigRecord);
-            track.source.removeEventListener(MediaEvent.AACSPECIFICCONFIG, _onAacSpecificConfig);
-            track.source.removeEventListener(MediaEvent.AVCSAMPLE, _onAvcSample);
-            track.source.removeEventListener(MediaEvent.AACSAMPLE, _onAacSample);
+            track.source.removeEventListener(MediaEvent.AVCCONFIGRECORD, _onVideoConfigRecord);
+            track.source.removeEventListener(MediaEvent.HEVCCONFIGRECORD, _onVideoConfigRecord);
+            track.source.removeEventListener(MediaEvent.AACSPECIFICCONFIG, _onAudioSpecificConfig);
+            track.source.removeEventListener(MediaEvent.OPUSSPECIFICCONFIG, _onAudioSpecificConfig);
+            track.source.removeEventListener(MediaEvent.AVCSAMPLE, _onVideoSample);
+            track.source.removeEventListener(MediaEvent.HEVCSAMPLE, _onVideoSample);
+            track.source.removeEventListener(MediaEvent.AACSAMPLE, _onAudioSample);
+            track.source.removeEventListener(MediaEvent.OPUSSAMPLE, _onAudioSample);
             track.source.removeEventListener(MediaEvent.SEI, _this.forward);
             track.source.removeEventListener(MediaEvent.ENDOFSTREAM, _onEndOfStream);
-            track.source.removeEventListener(Event.ERROR, _this.forward);
+            track.source.removeEventListener(Event.ERROR, _onDecodeError);
             track.stop();
             _remuxer.removeTrack(track);
         }
@@ -650,9 +702,11 @@
             _this.dispatchEvent(MediaEvent.INFOCHANGE, { info: info });
         }
 
-        function _onAvcConfigRecord(e) {
+        function _onVideoConfigRecord(e) {
             var track = _remuxer.getVideoTracks()[0];
-            _addSourceBuffer(track);
+            if (!_addSourceBuffer(track)) {
+                return;
+            }
 
             var segment = _remuxer.getInitSegment(track);
             segment.kind = track.kind;
@@ -660,9 +714,11 @@
             _appendBuffer();
         }
 
-        function _onAacSpecificConfig(e) {
+        function _onAudioSpecificConfig(e) {
             var track = _remuxer.getAudioTracks()[0];
-            _addSourceBuffer(track);
+            if (!_addSourceBuffer(track)) {
+                return;
+            }
 
             var segment = _remuxer.getInitSegment(track);
             segment.kind = track.kind;
@@ -670,7 +726,7 @@
             _appendBuffer();
         }
 
-        function _onAvcSample(e) {
+        function _onVideoSample(e) {
             var track = _remuxer.getVideoTracks()[0];
             if (_demuxer.hasAudio && !_demuxer.hasVideo) {
                 _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Video sample arrived unexpectedly.' });
@@ -690,7 +746,7 @@
             }
         }
 
-        function _onAacSample(e) {
+        function _onAudioSample(e) {
             var track = _remuxer.getAudioTracks()[0];
             if (_demuxer.hasVideo && !_demuxer.hasAudio) {
                 _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Audio sample arrived unexpectedly.' });
@@ -707,7 +763,28 @@
             }
         }
 
+        function _onDecodeError(e) {
+            if (_failed) {
+                return;
+            }
+            _failed = true;
+            _this.stop();
+            _this.dispatchEvent(Event.ERROR, { name: e.data.name, message: e.data.message });
+        }
+
         function _onEndOfStream(e) {
+            if (e.data && e.data.packet) {
+                var packet = e.data.packet;
+                var track = packet.kind === Packet.KindVideo ? _demuxer.getVideoTracks()[0] : _demuxer.getAudioTracks()[0];
+                if (track) {
+                    track.ended = true;
+                }
+                // A codec sequence may restart; transport EOF ends the MediaSource.
+                return;
+            }
+            if (_failed) {
+                return;
+            }
             _ended = true;
             if (_ms.readyState !== 'open') {
                 return;
@@ -741,13 +818,13 @@
             var source = track.source;
             var type = source.MimeType + '; codecs="' + source.Codec + '"';
             if (MediaSource.isTypeSupported(type) === false) {
-                _logger.warn(type + ' not supported!');
-                return;
+                _onDecodeError({ data: { name: 'NotSupportedError', message: type + ' is not supported by this device.' } });
+                return false;
             }
 
             if (_ms.readyState === 'closed') {
-                _this.dispatchEvent(Event.ERROR, { name: 'InvalidStateError', message: 'MediaSource is already closed while adding SourceBuffer.' });
-                return;
+                _onDecodeError({ data: { name: 'InvalidStateError', message: 'MediaSource is already closed while adding SourceBuffer.' } });
+                return false;
             }
 
             _logger.log('Adding SourceBuffer: ' + type);
@@ -759,7 +836,8 @@
                 sb.kind = track.kind;
                 _sb[sb.kind] = sb;
             } catch (err) {
-                _logger.error(err.name + ': ' + err.message);
+                _onDecodeError({ data: { name: err.name, message: err.message } });
+                return false;
             }
 
             _this.dispatchEvent(MediaEvent.INFOCHANGE, {
@@ -769,6 +847,7 @@
                     Timescale: _demuxer.info.Timescale,
                 }
             });
+            return true;
         }
 
         function _clearSourceBuffer() {

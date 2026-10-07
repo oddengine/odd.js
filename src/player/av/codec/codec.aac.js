@@ -12,6 +12,7 @@
         DataTypes = {
             SPECIFIC_CONFIG: 0x00,
             RAW_FRAME_DATA: 0x01,
+            END_OF_SEQUENCE: 0x02,
         },
         AOT = {
             NULL: 0,
@@ -108,16 +109,7 @@
         }
 
         _this.parse = function (pkt) {
-            if (pkt.left() < 1) {
-                _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Data not enough while parsing AAC packet.' });
-                return;
-            }
-
             _info.Timestamp = Math.max(pkt.timestamp, _info.VideoTimestamp);
-
-            var v = new DataView(pkt.payload.buffer);
-            pkt.set('DataType', v.getUint8(pkt.position++));
-            pkt.set('CTS', 0); // CompositionTime
 
             switch (pkt.get('DataType')) {
                 case DataTypes.SPECIFIC_CONFIG:
@@ -128,6 +120,9 @@
                     break;
                 case DataTypes.RAW_FRAME_DATA:
                     _parseRawFrameData(pkt);
+                    break;
+                case DataTypes.END_OF_SEQUENCE:
+                    _this.dispatchEvent(MediaEvent.ENDOFSTREAM, { packet: pkt });
                     break;
                 default:
                     _this.dispatchEvent(Event.ERROR, { name: 'TypeError', message: 'Unrecognized AAC packet type: ' + _this.DataType });
