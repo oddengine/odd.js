@@ -44,7 +44,8 @@
         var _this = this,
             _container,
             _title,
-            _readyState;
+            _readyState,
+            _permission = null;
 
         function _init() {
             _this.config = config;
@@ -63,6 +64,7 @@
             _readyState = State.READY;
             _this.active(config.active || (config.contacts[0] && config.contacts[0].id) || '');
             im.addEventListener(IMEvent.MESSAGE, _onMessage);
+            im.addEventListener(Event.READY, _onReady);
         }
 
         function _buildComponents() {
@@ -84,6 +86,10 @@
                 _send(e.data.text);
             }
             _this.forward(e);
+        }
+
+        function _onReady() {
+            _this.active(_this.config.active);
         }
 
         function _onMessage(e) {
@@ -162,6 +168,16 @@
                     contact && contact.type === 'channel' ? 'room' : 'user',
                 Protocol = IM.Protocol;
             try {
+                if (_permission && _permission.target === id) {
+                    var result = await _permission.promise;
+                    if (result.error) {
+                        throw result.error;
+                    }
+                }
+                if (_readyState !== State.READY || id !== _this.config.active) {
+                    _update(id, message, MessageState.FAILED);
+                    return;
+                }
                 await im.send({ type: type, id: id }, text, {
                     ext: [{
                         key: 'clientMessageId',
@@ -226,6 +242,19 @@
                     composer.conversation(value);
                     composer.state(value ? 'off' : 'empty');
                 }
+                _permission = null;
+                if (value && im.connected()) {
+                    var type = contact && contact.type === 'group' ? 'group' :
+                        contact && contact.type === 'channel' ? 'room' : 'user';
+                    _permission = {
+                        target: value,
+                        promise: im.refresh({ type: type, id: value }, IM.Protocol.Action.MESSAGE_PUBLISH).then(function (info) {
+                            return { info: info };
+                        }, function (err) {
+                            return { error: err };
+                        }),
+                    };
+                }
                 _container.setAttribute('data-conversation', value || '');
             }
             return _this.config.active;
@@ -257,6 +286,8 @@
                     _readyState = State.CLOSING;
 
                     im.removeEventListener(IMEvent.MESSAGE, _onMessage);
+                    im.removeEventListener(Event.READY, _onReady);
+                    _permission = null;
 
                     utils.forEach(_this.components, function (_, component) {
                         component.removeGlobalListener(_onComponentEvent);

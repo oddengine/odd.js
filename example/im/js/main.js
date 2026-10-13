@@ -118,7 +118,7 @@
             selected = '';
             if (ui) {
                 try {
-                    await ui.leave(id);
+                    await ui.unsubscribe({ type: 'room', id: id });
                 } catch (err) {
                     disconnect();
                     throw err;
@@ -139,7 +139,7 @@
             selected = '';
             if (ui) {
                 try {
-                    await ui.leave(id);
+                    await ui.unsubscribe({ type: 'room', id: id });
                 } catch (err) {
                     disconnect();
                     throw err;
@@ -292,13 +292,13 @@
             if (current !== generation || ui !== client) {
                 return;
             }
-            if (event.data.event === Protocol.Event.ROOM_REVOKED && event.data.payload.roomId === joining) {
+            if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && event.data.payload.target.id === joining) {
                 selected = '';
                 disconnect();
                 status.textContent = 'Room permission changed during subscription. Reconnect to continue.';
                 return;
             }
-            if (event.data.event === Protocol.Event.ROOM_REVOKED && event.data.payload.roomId === selected) {
+            if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && event.data.payload.target.id === selected) {
                 removeRoom(selected);
                 selected = '';
                 status.textContent = 'Room permission expired or was revoked. Enter the room again to refresh it.';
@@ -309,6 +309,9 @@
             await client.setup(document.getElementById('im'), {
                 skin: 'classic',
                 url: session.im.url,
+                credentials: async function () {
+                    return request('/session/im-ticket', 'POST', { audience: session.im.audience });
+                },
                 retry: { count: 0 },
                 user: session.user,
                 plugins: [
@@ -328,7 +331,7 @@
                     if (!room.member || room.member.state !== 'active' || room.state !== 'active') {
                         selected = '';
                     } else {
-                        await client.join(room.id);
+                        await client.subscribe({ type: 'room', id: room.id });
                         if (current !== generation || client !== ui) {
                             return;
                         }
@@ -372,12 +375,12 @@
 
         try {
             var room = await request('/rooms/' + encodeURIComponent(id) + '/members/me', 'PUT', {});
-            await client.join(id);
+            await client.subscribe({ type: 'room', id: id });
             if (current !== generation || client !== ui) {
                 return;
             }
             if (previous && previous !== id) {
-                await client.leave(previous);
+                await client.unsubscribe({ type: 'room', id: previous });
                 if (current !== generation || client !== ui) {
                     return;
                 }
@@ -461,13 +464,13 @@
                 if (!room.member || room.member.state !== 'active' || room.state !== 'active') {
                     var id = selected;
                     selected = '';
-                    await client.leave(id);
+                    await client.unsubscribe({ type: 'room', id: id });
                     if (current !== generation || client !== ui) {
                         return;
                     }
                     removeRoom(id);
                 } else {
-                    await client.join(room.id);
+                    await client.subscribe({ type: 'room', id: room.id });
                 }
             }
             if (current !== generation || ui !== client) {

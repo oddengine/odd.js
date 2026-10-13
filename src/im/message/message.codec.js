@@ -176,7 +176,7 @@
         var prepared = _prepare(message.fields, true, 0, { count: 0 }, _packetLimit(scope) - HEADER_SIZE),
             output = new Uint8Array(HEADER_SIZE + prepared.size),
             view = new DataView(output.buffer);
-        output[0] = 0xA2;
+        output[0] = (0xA0 | Protocol.VERSION);
         output[1] = message.messaging ? 1 : 0;
         view.setUint16(2, message.sequenceNumber);
         output[4] = message.opcode;
@@ -265,7 +265,7 @@
         if (input.length < HEADER_SIZE || input.length > limit) {
             _fail('DataError', 'Invalid packet length.');
         }
-        if (input[0] !== 0xA2) {
+        if (input[0] !== (0xA0 | Protocol.VERSION)) {
             _fail('VersionError', 'Unsupported magic/version.');
         }
         if (input[1] & 0xFE) {
@@ -402,6 +402,10 @@
         return output.join('');
     }
 
+    Protocol.compare64 = function (left, right) {
+        return left.high === right.high ? (left.low === right.low ? 0 : left.low < right.low ? -1 : 1) :
+            left.high < right.high ? -1 : 1;
+    };
     Protocol.encode = _encode;
     Protocol.decode = _decode;
     Protocol.uint = _uint;

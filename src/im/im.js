@@ -70,7 +70,10 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _readyState = State.INITIALIZED,
             _attempt = null,
-            _rooms = Object.create(null),
+            _subscriptions = Object.create(null),
+            _permissions = Object.create(null),
+            _refreshing = Object.create(null),
+            _permissionVersions = Object.create(null),
             _retryTimer = null,
             _retried = 0,
             _manual = false,
@@ -93,12 +96,6 @@
 
         _this.connected = function () {
             return _readyState === State.CONNECTED;
-        };
-
-        // Capability availability is distinct from resource authorization or M mode.
-        _this.supports = function (opcode) {
-            return _readyState === State.CONNECTED && !!_attempt &&
-                _integer(opcode, 1, 254) && !!_attempt.opcodes && !!_attempt.opcodes[opcode];
         };
 
         _this.userId = function () {
@@ -140,7 +137,7 @@
                 return Promise.reject(_error('NotSupportedError', 'Use handshake credentials; post-upgrade token authentication was removed.'));
             }
 
-            _rooms = Object.create(null);
+            _subscriptions = Object.create(null);
             _manual = false;
             _retried = 0;
             _this.dispatchEvent(Event.BIND);
@@ -162,7 +159,6 @@
                 generation: ++_generation,
                 socket: null,
                 session: null,
-                opcodes: null,
                 notifications: [],
                 notificationBytes: 0,
                 requests: new IM.RequestTable(_generation),
@@ -195,7 +191,7 @@
                 }
                 credentials = credentials || {};
 
-                var protocols = ['odd.im.v2'];
+                var protocols = ['odd.im.v3'];
                 if (credentials.ticket !== undefined) {
                     if (typeof credentials.ticket !== 'string' || !/^[A-Za-z0-9_-]{1,4096}$/.test(credentials.ticket)) {
                         throw _error('DataError', 'Handshake ticket must be unpadded base64url.');
@@ -218,10 +214,10 @@
                     if (_attempt !== attempt) {
                         return;
                     }
-                    if (socket.protocol !== 'odd.im.v2') {
-                        _end(attempt, _error('DataError', 'The server did not select odd.im.v2.'));
+                    if (socket.protocol !== 'odd.im.v3') {
+                        _end(attempt, _error('DataError', 'The server did not select odd.im.v3.'));
                     }
-                    // SESSION_READY, not the open callback, supplies authenticated identity.
+                    // IM_CONNECT_SUCCESS, not the open callback, supplies authenticated identity.
                 };
                 socket.onmessage = function (e) {
                     if (_attempt !== attempt) {
@@ -259,7 +255,7 @@
         function _receive(attempt, message, size) {
             if (message.opcode === Protocol.Opcode.STATUS) {
                 if (!attempt.session) {
-                    throw _error('DataError', 'STATUS before SESSION_READY.');
+                    throw _error('DataError', 'STATUS before IM_CONNECT_SUCCESS.');
                 }
                 attempt.requests.complete(message, attempt.generation);
                 return;
@@ -269,122 +265,118 @@
             }
 
             var event = message.fields[0].value,
-                payload = _object(message.fields);
-            if (event === Protocol.Event.SESSION_READY) {
+                fields = message.fields[1].value,
+                payload = _object(fields);
+            if (event === Protocol.Event.IM_CONNECT_SUCCESS) {
                 if (attempt.session || message.messaging) {
-                    throw _error('DataError', 'Duplicate or invalid SESSION_READY.');
+                    throw _error('DataError', 'Duplicate or invalid IM_CONNECT_SUCCESS.');
                 }
-                _schema(message.fields, [
-                    { key: 'event', type: Protocol.Type.UINT16 },
+                _schema(fields, [
                     { key: 'sessionId', type: Protocol.Type.BYTES },
                     { key: 'principal', type: Protocol.Type.OBJECT },
+                    { key: 'deviceId', type: Protocol.Type.STRING },
                     { key: 'authRevision', type: Protocol.Type.UINT64 },
                     { key: 'expiresAt', type: Protocol.Type.UINT64 },
+                    { key: 'protocolVersion', type: Protocol.Type.UINT8 },
+                    { key: 'serverVersion', type: Protocol.Type.STRING },
                     { key: 'maxPacketBytes', type: Protocol.Type.UINT32 },
+                    { key: 'maxPending', type: Protocol.Type.UINT16 },
                 ]);
-                Protocol.validateFields(message.fields[2].value, [
+                Protocol.validateFields(fields[1].value, [
                     { key: 'kind', type: Protocol.Type.UINT8 },
                     { key: 'id', type: Protocol.Type.STRING },
                 ]);
                 if (payload.sessionId.length !== 16 || !_integer(payload.principal.kind, 1, 3) ||
                     !payload.principal.id || Protocol.text(payload.principal.id).length > 128 ||
+                    payload.protocolVersion !== Protocol.VERSION || !payload.serverVersion ||
                     !_integer(payload.maxPacketBytes, Protocol.HEADER_SIZE, Protocol.MAX_PACKET_SIZE) ||
-                    _milliseconds(payload.expiresAt) <= Date.now()) {
+                    !_integer(payload.maxPending, 1, 65535) || _milliseconds(payload.expiresAt) <= Date.now()) {
                     throw _error('DataError', 'Invalid authenticated session metadata.');
                 }
                 attempt.session = payload;
                 attempt.maxPacketBytes = payload.maxPacketBytes;
+                attempt.requests.maxPending = Math.min(64, payload.maxPending);
                 attempt.maintenance = setInterval(function () { _maintain(attempt); }, 250);
-                _request(attempt, Protocol.Opcode.CAPS, [], false).then(function () {
-                    if (_attempt === attempt) {
-                        return _restore(attempt);
-                    }
-                }).catch(function (err) {
-                    _end(attempt, err);
-                });
+                _restore(attempt).catch(function (err) { _end(attempt, err); });
                 return;
             }
             if (!attempt.session) {
-                throw _error('DataError', 'Expected SESSION_READY first.');
+                throw _error('DataError', 'Expected IM_CONNECT_SUCCESS first.');
             }
 
             var known = false;
-            for (var key in Protocol.Event) {
-                if (Protocol.Event[key] === event) {
+            for (var name in Protocol.Event) {
+                if (Protocol.Event[name] === event) {
                     known = true;
                     break;
                 }
             }
             if (!known) {
-                return;
+                throw _error('NotSupportedError', 'Unknown server state event.');
             }
             var notification = {
                 event: event,
                 messaging: message.messaging,
                 payload: payload,
-                fields: message.fields,
+                fields: fields,
             };
             switch (event) {
-                case Protocol.Event.SESSION_REVOKED:
-                    _schema(message.fields, [
-                        { key: 'event', type: Protocol.Type.UINT16 },
+                case Protocol.Event.IM_AUTHENTICATE_REVOKED:
+                    _schema(fields, [
                         { key: 'revision', type: Protocol.Type.UINT64 },
                         { key: 'reason', type: Protocol.Type.STRING },
                     ]);
-                    if (message.messaging) {
-                        throw _error('DataError', 'Session revocation requires Relay mode.');
-                    }
                     _manual = true;
-                    _readyState = State.CLOSING;
-                    _rooms = Object.create(null);
+                    _subscriptions = Object.create(null);
+                    _permissions = Object.create(null);
                     _this.dispatchEvent(IMEvent.NOTIFY, notification);
                     _end(attempt, _error('NotAllowedError', 'IM session revoked.'));
                     return;
 
-                case Protocol.Event.ROOM_REVOKED:
-                    _schema(message.fields, [
-                        { key: 'event', type: Protocol.Type.UINT16 },
-                        { key: 'roomId', type: Protocol.Type.STRING },
+                case Protocol.Event.IM_SUBSCRIBE_STOP:
+                    _schema(fields, [
+                        { key: 'subscriptionId', type: Protocol.Type.STRING },
+                        { key: 'target', type: Protocol.Type.OBJECT },
                         { key: 'revision', type: Protocol.Type.UINT64 },
+                        { key: 'generation', type: Protocol.Type.UINT64 },
+                        { key: 'reason', type: Protocol.Type.STRING },
                     ]);
-                    if (message.messaging || !payload.roomId || Protocol.text(payload.roomId).length > 128) {
-                        throw _error('DataError', 'Invalid room revocation.');
-                    }
-                    delete _rooms[payload.roomId];
-                    for (var i = 0; i < attempt.notifications.length; i++) {
-                        var pending = attempt.notifications[i];
-                        if (pending && pending.notification.payload.roomId === payload.roomId) {
-                            attempt.notificationBytes -= pending.size;
-                            attempt.notifications[i] = null;
+                    Protocol.validateTarget(fields[1].value);
+                    for (var key in _subscriptions) {
+                        if (_subscriptions[key].id === payload.subscriptionId) {
+                            delete _subscriptions[key];
                         }
                     }
-                    if (_readyState === State.CONNECTING) {
-                        // No drain is running yet; discard holes so repeated
-                        // revocations cannot retain an ever-growing slot array.
-                        attempt.notifications = attempt.notifications.filter(function (pending) {
-                            return pending !== null;
-                        });
-                    }
+                    _permissionVersions[_targetKey(payload.target, message.messaging)] = payload;
+                    delete _permissions[_targetKey(payload.target, message.messaging)];
                     _this.dispatchEvent(IMEvent.NOTIFY, notification);
                     return;
+
+                case Protocol.Event.IM_PERMISSION_CHANGE:
+                    _schema(fields, [
+                        { key: 'target', type: Protocol.Type.OBJECT },
+                        { key: 'revision', type: Protocol.Type.UINT64 },
+                        { key: 'generation', type: Protocol.Type.UINT64 },
+                        { key: 'actions', type: Protocol.Type.UINT64 },
+                        { key: 'reason', type: Protocol.Type.STRING },
+                    ]);
+                    Protocol.validateTarget(fields[0].value);
+                    // Admission/refresh is explicit. An unsolicited update can
+                    // invalidate a cached grant but cannot invent a new one.
+                    _permissionVersions[_targetKey(payload.target, message.messaging)] = payload;
+                    delete _permissions[_targetKey(payload.target, message.messaging)];
+                    break;
             }
 
-            var data = null;
-            if (event >= Protocol.Event.ROOM_MESSAGE && event <= Protocol.Event.ENDPOINT_MESSAGE) {
-                data = _parseMessage(message, payload);
-                if (!message.messaging && _milliseconds(data.meta.expiresAt) <= Date.now()) {
-                    return;
-                }
+            var data = event === Protocol.Event.IM_MESSAGE_RECEIVE ? _parseMessage(message, payload) : null;
+            if (data && !message.messaging && _milliseconds(data.meta.expiresAt) <= Date.now()) {
+                return;
             }
             if (_readyState === State.CONNECTING || attempt.notifications.length) {
                 if (size > _this.config.maxBufferedBytes - attempt.notificationBytes) {
                     throw _error('QuotaExceededError', 'IM startup notification queue is full.');
                 }
-                attempt.notifications.push({
-                    notification: notification,
-                    data: data,
-                    size: size,
-                });
+                attempt.notifications.push({ notification: notification, data: data, size: size });
                 attempt.notificationBytes += size;
                 return;
             }
@@ -392,38 +384,25 @@
         }
 
         function _parseMessage(message, payload) {
-            var names = ['room', 'group', 'user', 'endpoint'],
-                kind = names[payload.event - Protocol.Event.ROOM_MESSAGE],
-                target = kind === 'room' ? 'roomId' : kind === 'group' ? 'groupId' : 'userId',
-                rules = [
-                    { key: 'event', type: Protocol.Type.UINT16 },
-                    { key: target, type: Protocol.Type.STRING },
-                ];
-            if (kind === 'endpoint') {
-                rules.push({ key: 'endpointId', type: Protocol.Type.STRING });
-            }
-            rules.push(
+            var fields = message.fields[1].value;
+            _schema(fields, [
+                { key: 'target', type: Protocol.Type.OBJECT },
                 { key: 'sender', type: Protocol.Type.OBJECT },
                 { key: 'meta', type: Protocol.Type.OBJECT },
-                { key: 'body', type: Protocol.Type.OBJECT }
-            );
-            _schema(message.fields, rules);
-            if (message.messaging && (kind === 'room' || kind === 'endpoint')) {
-                throw _error('DataError', 'This message event only supports Relay.');
-            }
-
-            var bodyIndex = kind === 'endpoint' ? 5 : 4;
-            // Public notification fields: event, target(s), sender, meta, body.
-            Protocol.validateFields(message.fields[bodyIndex - 2].value, [
+                { key: 'body', type: Protocol.Type.OBJECT },
+            ]);
+            Protocol.validateMessageRequest({
+                opcode: Protocol.Opcode.PUBLISH,
+                sequenceNumber: 1,
+                messaging: message.messaging,
+                fields: [fields[0], fields[3]],
+            });
+            Protocol.validateFields(fields[1].value, [
                 { key: 'kind', type: Protocol.Type.UINT8 },
                 { key: 'id', type: Protocol.Type.STRING },
-                {
-                    key: 'deviceId',
-                    type: Protocol.Type.STRING,
-                    required: false,
-                },
+                { key: 'deviceId', type: Protocol.Type.STRING, required: false },
             ]);
-            Protocol.validateFields(message.fields[bodyIndex - 1].value, message.messaging ? [
+            Protocol.validateFields(fields[2].value, message.messaging ? [
                 { key: 'messageId', type: Protocol.Type.BYTES },
                 { key: 'conversationId', type: Protocol.Type.STRING },
                 { key: 'messageSequence', type: Protocol.Type.UINT64 },
@@ -431,43 +410,21 @@
                 { key: 'eventId', type: Protocol.Type.BYTES },
                 { key: 'expiresAt', type: Protocol.Type.UINT64 },
             ]);
-            if (!payload[target] || Protocol.text(payload[target]).length > 128 ||
-                !_integer(payload.sender.kind, 1, 3) || !payload.sender.id || Protocol.text(payload.sender.id).length > 128 ||
+            if (!_integer(payload.sender.kind, 1, 3) || !payload.sender.id ||
+                Protocol.text(payload.sender.id).length > 128 ||
                 (message.messaging ? payload.meta.messageId.length : payload.meta.eventId.length) !== 16 ||
-                (kind === 'endpoint' && (!payload.endpointId || Protocol.text(payload.endpointId).length > 128)) ||
-                (payload.sender.deviceId !== undefined && (!payload.sender.deviceId || Protocol.text(payload.sender.deviceId).length > 128)) ||
-                (message.messaging && (!payload.meta.conversationId || Protocol.text(payload.meta.conversationId).length > 128 ||
+                (message.messaging && (payload.target.id !== payload.meta.conversationId ||
                     (payload.meta.messageSequence.high === 0 && payload.meta.messageSequence.low === 0)))) {
                 throw _error('DataError', 'Invalid notification identity or metadata.');
             }
-
-            var body = message.fields[bodyIndex].value,
-                content = body[message.messaging ? 1 : 0],
-                bodyRules = [];
-            if (!content || (content.type !== Protocol.Type.STRING && content.type !== Protocol.Type.BYTES)) {
-                throw _error('DataError', 'Invalid message content.');
-            }
-            if (message.messaging) {
-                bodyRules.push({ key: 'clientMessageId', type: Protocol.Type.BYTES });
-            }
-            bodyRules.push({ key: 'content', type: content.type });
-            _schema(body, bodyRules);
-            if (message.messaging && body[0].value.length !== 16) {
-                throw _error('DataError', 'Invalid clientMessageId.');
-            }
-            if ((content.type === Protocol.Type.STRING ? Protocol.text(content.value).length : content.value.length) > 16384) {
-                throw _error('DataError', 'Message content is too large.');
-            }
             return {
-                target: {
-                    type: kind,
-                    id: payload[target],
-                    endpointId: payload.endpointId,
-                },
+                target: payload.target,
                 sender: payload.sender,
                 meta: payload.meta,
                 messaging: message.messaging,
-                content: content.value,
+                type: payload.body.type,
+                content: payload.body.content,
+                clientMessageId: payload.body.clientMessageId,
                 ext: payload.body.ext,
             };
         }
@@ -487,37 +444,31 @@
                 }
             }
             _this.dispatchEvent(IMEvent.NOTIFY, notification);
+            if (_attempt === attempt) {
+                _this.dispatchEvent(NetStatusEvent.NETSTATUS, { code: notification.event, data: notification.payload });
+            }
         }
 
         function _restore(attempt) {
-            var rooms = Object.keys(_rooms),
+            var keys = Object.keys(_subscriptions),
                 chain = Promise.resolve();
-            rooms.forEach(function (roomId) {
+            keys.forEach(function (key) {
                 chain = chain.then(function () {
-                    if (_attempt !== attempt || !_rooms[roomId]) {
+                    var intention = _subscriptions[key];
+                    if (_attempt !== attempt || !intention) {
                         return;
                     }
-                    var intention = _rooms[roomId];
-                    return _request(attempt, Protocol.Opcode.ROOM_JOIN,
-                        [_field('roomId', Protocol.Type.STRING, roomId)], false, _roomResult(roomId)).then(function () {
-                            if (_attempt !== attempt || _rooms[roomId] === intention) {
-                                return;
-                            }
-                            // A revoke or leave may invalidate an in-flight restoration.
-                            // Remove any subscription the late JOIN may have installed.
-                            return _request(attempt, Protocol.Opcode.ROOM_LEAVE,
-                                [_field('roomId', Protocol.Type.STRING, roomId)], false).catch(function (err) {
-                                    _end(attempt, err);
-                                });
-                        }).catch(function (err) {
-                            if (_attempt !== attempt) {
-                                return;
-                            }
-                            if (_rooms[roomId] === intention) {
-                                delete _rooms[roomId];
-                            }
-                            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                        });
+                    intention.id = null;
+                    intention.promise = null;
+                    return _subscribe(attempt, key, intention).catch(function (err) {
+                        if (_attempt !== attempt) {
+                            return;
+                        }
+                        if (_subscriptions[key] === intention) {
+                            delete _subscriptions[key];
+                        }
+                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                    });
                 });
             });
             return chain.then(function () {
@@ -538,6 +489,10 @@
                 _readyState = State.CONNECTED;
                 attempt.resolve(_this);
                 _this.dispatchEvent(Event.READY);
+                if (_attempt !== attempt) {
+                    return;
+                }
+                _this.dispatchEvent(NetStatusEvent.NETSTATUS, { code: Protocol.Event.IM_CONNECT_SUCCESS, data: attempt.session });
 
                 // Keep slots stable: a callback may revoke a room, append a
                 // notification through an adapter, or close this attempt.
@@ -562,7 +517,9 @@
                 return;
             }
             attempt.requests.expire(_clock()).forEach(function (item) {
-                item.responder.reject(_error('TimeoutError', 'IM request timed out; the remote result is unknown.'));
+                var err = _error('TimeoutError', 'IM request timed out; the remote result is unknown.');
+                err.code = Protocol.Status.UNKNOWN;
+                item.responder.reject(err);
             });
             if (_milliseconds(attempt.session.expiresAt) <= Date.now()) {
                 _end(attempt, _error('NotAllowedError', 'IM authentication expired.'));
@@ -573,12 +530,15 @@
             if (_attempt !== attempt) {
                 return;
             }
+            var connected = _readyState === State.CONNECTED;
             _readyState = State.CLOSING;
             _attempt = null;
 
             clearTimeout(attempt.deadline);
             clearInterval(attempt.maintenance);
-            attempt.opcodes = null;
+            _permissions = Object.create(null);
+            _refreshing = Object.create(null);
+            _permissionVersions = Object.create(null);
             attempt.notifications = [];
             attempt.notificationBytes = 0;
 
@@ -593,12 +553,18 @@
             }
 
             attempt.requests.close().forEach(function (item) {
-                item.responder.reject(reason);
+                var err = _error(reason.name, reason.message);
+                err.code = Protocol.Status.UNKNOWN;
+                item.responder.reject(err);
             });
             attempt.reject(reason);
 
-            _this.dispatchEvent(Event.CLOSE, { reason: reason.message });
             _readyState = State.CLOSED;
+            _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
+                code: connected ? Protocol.Event.IM_CONNECT_CLOSED : Protocol.Event.IM_CONNECT_FAILED,
+                data: { reason: reason.message },
+            });
+            _this.dispatchEvent(Event.CLOSE, { reason: reason.message });
 
             if (_destroyed || _manual || _attempt || _retryTimer !== null) {
                 return;
@@ -624,16 +590,11 @@
 
         function _request(attempt, opcode, fields, messaging, validator) {
             if (!attempt || _attempt !== attempt || !attempt.session ||
-                (_readyState !== State.CONNECTING && _readyState !== State.CONNECTED) ||
-                (!attempt.opcodes && opcode !== Protocol.Opcode.CAPS)) {
+                (_readyState !== State.CONNECTING && _readyState !== State.CONNECTED)) {
                 return Promise.reject(_error('InvalidStateError', 'IM session is unavailable.'));
             }
             if (_readyState === State.CONNECTING && _clock() >= attempt.deadlineAt) {
                 return Promise.reject(_error('TimeoutError', 'IM session initialization timed out.'));
-            }
-            if (_integer(opcode, 3, 254) && !(opcode >= 0x80 && opcode <= 0x8F) &&
-                attempt.opcodes && !attempt.opcodes[opcode]) {
-                return Promise.reject(_error('NotSupportedError', 'The server did not advertise this IM operation.'));
             }
             if (_milliseconds(attempt.session.expiresAt) <= Date.now()) {
                 var expired = _error('NotAllowedError', 'IM authentication expired.');
@@ -654,7 +615,7 @@
                         sequenceNumber: 1,
                         fields: fields,
                     };
-                    if (opcode >= Protocol.Opcode.ROOM_MESSAGE && opcode <= Protocol.Opcode.ENDPOINT_MESSAGE) {
+                    if (opcode === Protocol.Opcode.PUBLISH) {
                         Protocol.validateMessageRequest(message);
                     }
                     var packet = Protocol.encode(message),
@@ -684,17 +645,12 @@
                                     reject(_error('AbortError', 'IM session changed while handling the response.'));
                                     return;
                                 }
-                                if (opcode === Protocol.Opcode.CAPS) {
-                                    var opcodes = Object.create(null);
-                                    data.info.opcodes.forEach(function (item) {
-                                        opcodes[item.value] = true;
-                                    });
-                                    attempt.opcodes = opcodes;
-                                    attempt.maxPacketBytes = Math.min(attempt.session.maxPacketBytes,
-                                        data.info.maxPacketBytes, Protocol.MAX_PACKET_SIZE);
-                                    attempt.requests.maxPending = Math.min(64, data.info.maxPending);
-                                }
                                 resolve(data.info || Object.create(null));
+                                var event = opcode === Protocol.Opcode.SUBSCRIBE ? Protocol.Event.IM_SUBSCRIBE_SUCCESS :
+                                    opcode === Protocol.Opcode.PUBLISH ? Protocol.Event.IM_PUBLISH_SUCCESS : 0;
+                                if (event) {
+                                    _this.dispatchEvent(NetStatusEvent.NETSTATUS, { code: event, data: data.info || {} });
+                                }
                             } catch (err) {
                                 reject(err);
                                 _end(attempt, err);
@@ -707,6 +663,11 @@
                             err.retryAfterMs = data.retryAfterMs;
                             err.info = data.info;
                             reject(err);
+                            var event = opcode === Protocol.Opcode.SUBSCRIBE ? Protocol.Event.IM_SUBSCRIBE_FAILED :
+                                opcode === Protocol.Opcode.PUBLISH ? Protocol.Event.IM_PUBLISH_FAILED : 0;
+                            if (event && data.code !== Protocol.Status.UNKNOWN) {
+                                _this.dispatchEvent(NetStatusEvent.NETSTATUS, { code: event, data: data });
+                            }
                         }
                     };
                     if (attempt.requests.size >= attempt.requests.maxRecords || attempt.requests.records[attempt.requests.next]) {
@@ -728,58 +689,185 @@
             });
         }
 
-        function _roomResult(roomId) {
-            return function (info) {
-                Protocol.validateFields(info, [
-                    { key: 'roomId', type: Protocol.Type.STRING },
-                    { key: 'revision', type: Protocol.Type.UINT64 },
-                    { key: 'expiresAt', type: Protocol.Type.UINT64 },
-                ]);
-                if (info[0].value !== roomId) {
-                    throw _error('DataError', 'Room response target mismatch.');
-                }
-            };
+        function _target(target) {
+            if (!target) {
+                throw _error('TypeError', 'An IM target is required.');
+            }
+            var fields = [
+                _field('type', Protocol.Type.STRING, target.type),
+                _field('id', Protocol.Type.STRING, target.id),
+            ];
+            if (target.deviceId !== undefined) {
+                fields.push(_field('deviceId', Protocol.Type.STRING, target.deviceId));
+            }
+            Protocol.validateTarget(fields);
+            return fields;
         }
 
-        _this.join = function (roomId) {
-            if (_readyState !== State.CONNECTED) {
-                return Promise.reject(_error('InvalidStateError', 'IM is not ready.'));
-            }
-            if (Object.keys(_rooms).length >= 128 && !_rooms[roomId]) {
-                return Promise.reject(_error('QuotaExceededError', 'Too many room intentions.'));
-            }
+        function _targetKey(target, messaging) {
+            return JSON.stringify([target.type, target.id, target.deviceId || '', messaging === true]);
+        }
 
-            var intention = {};
-            _rooms[roomId] = intention;
-            return _this.request(Protocol.Opcode.ROOM_JOIN, [_field('roomId', Protocol.Type.STRING, roomId)], false,
-                _roomResult(roomId)).catch(function (err) {
-                    if (_rooms[roomId] === intention) {
-                        delete _rooms[roomId];
+        function _acceptPermission(target, messaging, info, expectedVersion) {
+            var key = _targetKey(target, messaging),
+                latest = _permissionVersions[key],
+                current = _permissions[key];
+            if (_milliseconds(info.expiresAt) <= Date.now() || info.actions.high !== 0 ||
+                (info.actions.low & ~1023) || (info.revision.high === 0 && info.revision.low === 0) ||
+                (info.generation.high === 0 && info.generation.low === 0)) {
+                throw _error('DataError', 'Invalid resource permission.');
+            }
+            if (latest !== expectedVersion || (latest && (Protocol.compare64(info.revision, latest.revision) < 0 ||
+                Protocol.compare64(info.generation, latest.generation) < 0))) {
+                throw _error('NotAllowedError', 'Permission changed while the request was pending.');
+            }
+            if (current && (Protocol.compare64(info.revision, current.revision) < 0 ||
+                Protocol.compare64(info.generation, current.generation) < 0 ||
+                (Protocol.compare64(info.revision, current.revision) === 0 &&
+                    Protocol.compare64(info.actions, current.actions) !== 0))) {
+                throw _error('NotAllowedError', 'A newer permission is already installed.');
+            }
+            _permissions[key] = info;
+        }
+
+        function _subscribe(attempt, key, intention) {
+            var version = _permissionVersions[_targetKey(intention.target, intention.messaging)],
+                fields = [
+                _field('topic', Protocol.Type.STRING, intention.topic),
+                _field('target', Protocol.Type.OBJECT, _target(intention.target)),
+                _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: intention.actions }),
+            ];
+            intention.promise = _request(attempt, Protocol.Opcode.SUBSCRIBE, fields, intention.messaging).then(function (info) {
+                if (_attempt !== attempt) {
+                    throw _error('AbortError', 'IM session changed while subscribing.');
+                }
+                if (_targetKey(info.target, intention.messaging) !== _targetKey(intention.target, intention.messaging)) {
+                    throw _error('DataError', 'Subscription target mismatch.');
+                }
+                intention.id = info.subscriptionId;
+                if (_subscriptions[key] === intention) {
+                    _acceptPermission(intention.target, intention.messaging, info, version);
+                } else if (!_subscriptions[key]) {
+                    return _request(attempt, Protocol.Opcode.UNSUBSCRIBE,
+                        [_field('subscriptionId', Protocol.Type.STRING, intention.id)], intention.messaging).then(function () {
+                            throw _error('AbortError', 'Subscription was cancelled.');
+                        });
+                }
+                return info;
+            }).then(function (info) {
+                intention.promise = null;
+                return info;
+            }, function (err) {
+                intention.promise = null;
+                if (_subscriptions[key] === intention) {
+                    delete _subscriptions[key];
+                }
+                if (_attempt === attempt && intention.id && !_subscriptions[key]) {
+                    return _request(attempt, Protocol.Opcode.UNSUBSCRIBE,
+                        [_field('subscriptionId', Protocol.Type.STRING, intention.id)], intention.messaging).then(function () {
+                            throw err;
+                        }, function (cleanup) {
+                            _end(attempt, cleanup);
+                            throw err;
+                        });
+                }
+                throw err;
+            });
+            return intention.promise;
+        }
+
+        _this.subscribe = function (target, options) {
+            return Promise.resolve().then(function () {
+                if (_readyState !== State.CONNECTED) {
+                    throw _error('InvalidStateError', 'IM is not ready.');
+                }
+                options = options || {};
+                var topic = options.topic || 'messages',
+                    actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE : options.actions;
+                _target(target);
+                if (topic !== 'messages' || !_integer(actions, 1, 1023) ||
+                    !(actions & Protocol.Action.MESSAGE_SUBSCRIBE)) {
+                    throw _error('TypeError', 'Invalid subscription options.');
+                }
+                var key = topic + ':' + _targetKey(target, options.messaging),
+                    existing = _subscriptions[key];
+                if (existing && existing.promise) {
+                    if (existing.actions !== actions) {
+                        throw _error('InvalidStateError', 'Wait for the pending subscription before changing its actions.');
+                    }
+                    return existing.promise;
+                }
+                var intention = {
+                    topic: topic,
+                    target: { type: target.type, id: target.id, deviceId: target.deviceId },
+                    messaging: options.messaging === true,
+                    actions: actions,
+                    id: null,
+                    promise: null,
+                };
+                _subscriptions[key] = intention;
+                return _subscribe(_attempt, key, intention);
+            });
+        };
+
+        _this.unsubscribe = function (target, options) {
+            options = options || {};
+            var key = (options.topic || 'messages') + ':' + _targetKey(target, options.messaging),
+                intention = _subscriptions[key];
+            delete _subscriptions[key];
+            if (!intention || !intention.id) {
+                return Promise.resolve();
+            }
+            return _this.request(Protocol.Opcode.UNSUBSCRIBE,
+                [_field('subscriptionId', Protocol.Type.STRING, intention.id)], intention.messaging);
+        };
+
+        _this.refresh = function (target, actions, messaging) {
+            return Promise.resolve().then(function () {
+                _target(target);
+                if (!_integer(actions, 1, 1023)) {
+                    throw _error('TypeError', 'Invalid requested actions.');
+                }
+                var key = _targetKey(target, messaging),
+                    requestKey = key + ':' + actions,
+                    current = _permissions[key];
+                if (current && _milliseconds(current.expiresAt) > Date.now() &&
+                    current.actions.high === 0 && (current.actions.low & actions) === actions) {
+                    return current;
+                }
+                if (_refreshing[requestKey]) {
+                    return _refreshing[requestKey];
+                }
+                var attempt = _attempt,
+                    version = _permissionVersions[key],
+                    promise = _this.request(Protocol.Opcode.REFRESH, [
+                        _field('target', Protocol.Type.OBJECT, _target(target)),
+                        _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
+                    ], messaging).then(function (info) {
+                        if (_attempt !== attempt) {
+                            throw _error('AbortError', 'IM session changed while refreshing permission.');
+                        }
+                        _acceptPermission(target, messaging, info, version);
+                        return info;
+                    });
+                _refreshing[requestKey] = promise;
+                return promise.then(function (info) {
+                    if (_refreshing[requestKey] === promise) {
+                        delete _refreshing[requestKey];
+                    }
+                    return info;
+                }, function (err) {
+                    if (_refreshing[requestKey] === promise) {
+                        delete _refreshing[requestKey];
                     }
                     throw err;
                 });
-        };
-
-        _this.leave = function (roomId) {
-            delete _rooms[roomId];
-            return _this.request(Protocol.Opcode.ROOM_LEAVE, [_field('roomId', Protocol.Type.STRING, roomId)], false);
-        };
-
-        _this.watch = function (conversationId) {
-            return _this.request(Protocol.Opcode.CONVERSATION_WATCH, [_field('conversationId', Protocol.Type.STRING, conversationId)], true);
-        };
-
-        _this.unwatch = function (conversationId) {
-            return _this.request(Protocol.Opcode.CONVERSATION_UNWATCH, [_field('conversationId', Protocol.Type.STRING, conversationId)], true);
-        };
-
-        _this.capabilities = function () {
-            return _this.request(Protocol.Opcode.CAPS, [], false);
+            });
         };
 
         _this.reauth = function (token) {
             var attempt = _attempt;
-            return _this.request(Protocol.Opcode.REAUTH, [_field('token', Protocol.Type.STRING, token)], false, function (info) {
+            return _this.request(Protocol.Opcode.AUTHENTICATE, [_field('token', Protocol.Type.STRING, token)], false, function (info) {
                 Protocol.validateFields(info, [
                     { key: 'authRevision', type: Protocol.Type.UINT64 },
                     { key: 'expiresAt', type: Protocol.Type.UINT64 },
@@ -796,93 +884,43 @@
             });
         };
 
-        function _target(target, withType) {
-            var kinds = {
-                room: 1,
-                user: 2,
-                group: 3,
-                endpoint: 4,
-            };
-            var keys = {
-                room: 'roomId',
-                user: 'userId',
-                group: 'groupId',
-                endpoint: 'userId',
-            };
-            if (!target || ['room', 'user', 'group', 'endpoint'].indexOf(target.type) < 0) {
-                throw _error('TypeError', 'Invalid IM target.');
-            }
-
-            var fields = withType ? [_field('targetType', Protocol.Type.UINT8, kinds[target.type])] : [];
-            fields.push(_field(keys[target.type], Protocol.Type.STRING, target.id));
-            if (target.type === 'endpoint') {
-                fields.push(_field('endpointId', Protocol.Type.STRING, target.endpointId));
-            }
-            return fields;
-        }
-
         _this.send = function (target, content, options) {
             return Promise.resolve().then(function () {
                 options = options || {};
-                var fields = _target(target, false),
+                var fields = [_field('target', Protocol.Type.OBJECT, _target(target))],
                     body = [],
-                    opcodes = {
-                        room: Protocol.Opcode.ROOM_MESSAGE,
-                        group: Protocol.Opcode.GROUP_MESSAGE,
-                        user: Protocol.Opcode.USER_MESSAGE,
-                        endpoint: Protocol.Opcode.ENDPOINT_MESSAGE,
-                    };
+                    permission = _permissions[_targetKey(target, options.messaging)];
+                if (!permission || _milliseconds(permission.expiresAt) <= Date.now() ||
+                    !(permission.actions.low & Protocol.Action.MESSAGE_PUBLISH)) {
+                    var err = _error('NotAllowedError', 'Establish publish permission before sending.');
+                    err.code = Protocol.Status.NOT_READY;
+                    throw err;
+                }
                 if (options.messaging) {
                     body.push(_field('clientMessageId', Protocol.Type.BYTES, options.clientMessageId));
                 }
+                body.push(_field('type', Protocol.Type.STRING, typeof content === 'string' ? 'text' : 'binary'));
                 body.push(_field('content', typeof content === 'string' ? Protocol.Type.STRING : Protocol.Type.BYTES, content));
                 if (options.ext) {
                     body.push(_field('ext', Protocol.Type.OBJECT, options.ext));
                 }
                 fields.push(_field('body', Protocol.Type.OBJECT, body));
-                return _this.request(opcodes[target.type], fields, options.messaging === undefined ? false : options.messaging);
+                return _this.request(Protocol.Opcode.PUBLISH, fields, options.messaging);
             });
         };
 
-        _this.call = function (opcode, target, body) {
-            return Promise.resolve().then(function () {
-                if (!_integer(opcode, Protocol.Opcode.CALL_INVITE, Protocol.Opcode.CALL_END)) {
-                    throw _error('TypeError', 'Invalid call opcode.');
-                }
-                var fields = _target(target, true);
-                fields.push(_field('body', Protocol.Type.OBJECT, body));
-                return _this.request(opcode, fields, false);
-            });
-        };
-
-        _this.interact = function (opcode, roomId, body) {
-            if ([
-                Protocol.Opcode.LIKE,
-                Protocol.Opcode.REACTION,
-                Protocol.Opcode.ROOM_EFFECT,
-                Protocol.Opcode.GIFT_CONFIRMED,
-                Protocol.Opcode.GIFT_COMBO_UPDATE,
-                Protocol.Opcode.GIFT_COMBO_END,
-            ].indexOf(opcode) < 0) {
-                return Promise.reject(_error('TypeError', 'Invalid interaction opcode.'));
-            }
-            return _this.request(opcode, [
-                _field('roomId', Protocol.Type.STRING, roomId),
+        _this.call = function (action, target, body) {
+            return _this.request(Protocol.Opcode.CALL, [
+                _field('action', Protocol.Type.STRING, action),
+                _field('target', Protocol.Type.OBJECT, _target(target)),
                 _field('body', Protocol.Type.OBJECT, body),
             ], false);
         };
 
-        _this.permissionRefresh = function (target) {
-            return Promise.resolve().then(function () {
-                return _this.request(Protocol.Opcode.PERMISSION_REFRESH, _target(target, true), false);
-            });
-        };
-
-        _this.received = function (conversationId, messageId, sequence) {
-            return _this.request(Protocol.Opcode.RECEIVED, [
-                _field('conversationId', Protocol.Type.STRING, conversationId),
-                _field('messageId', Protocol.Type.BYTES, messageId),
-                _field('messageSequence', Protocol.Type.UINT64, sequence),
+        _this.commit = function (kind, cursor) {
+            return _this.request(Protocol.Opcode.COMMIT, [
+                _field('kind', Protocol.Type.STRING, kind),
+                _field('cursor', Protocol.Type.BYTES, cursor),
             ], true);
         };
 
@@ -894,69 +932,44 @@
             ], true);
         };
 
-        _this.messageGet = function (conversationId, messageId) {
-            return _this.request(Protocol.Opcode.MESSAGE_GET, [
+        _this.fetch = function (conversationId, cursor, limit) {
+            return _this.request(Protocol.Opcode.FETCH, [
                 _field('conversationId', Protocol.Type.STRING, conversationId),
-                _field('messageId', Protocol.Type.BYTES, messageId),
+                _field('cursor', Protocol.Type.BYTES, cursor || new Uint8Array(0)),
+                _field('limit', Protocol.Type.UINT16, limit === undefined ? 50 : limit),
             ], true);
         };
 
-        _this.statusGet = function (conversationId, messageId) {
-            return _this.request(Protocol.Opcode.STATUS_GET, [
+        _this.inspect = function (conversationId, clientMessageId) {
+            return _this.request(Protocol.Opcode.INSPECT, [
                 _field('conversationId', Protocol.Type.STRING, conversationId),
-                _field('messageId', Protocol.Type.BYTES, messageId),
+                _field('clientMessageId', Protocol.Type.BYTES, clientMessageId),
             ], true);
         };
 
-        _this.sync = function (deviceId, cursor, limit) {
+        _this.sync = function (kind, cursor, limit) {
             return _this.request(Protocol.Opcode.SYNC, [
-                _field('deviceId', Protocol.Type.STRING, deviceId),
-                _field('cursor', Protocol.Type.BYTES, cursor),
-                _field('limit', Protocol.Type.UINT16, limit),
+                _field('kind', Protocol.Type.STRING, kind),
+                _field('cursor', Protocol.Type.BYTES, cursor || new Uint8Array(0)),
+                _field('limit', Protocol.Type.UINT16, limit === undefined ? 50 : limit),
             ], true);
         };
 
-        _this.syncCommit = function (deviceId, cursor) {
-            return _this.request(Protocol.Opcode.SYNC_COMMIT, [
-                _field('deviceId', Protocol.Type.STRING, deviceId),
-                _field('cursor', Protocol.Type.BYTES, cursor),
+        _this.resolve = function (target) {
+            return _this.request(Protocol.Opcode.RESOLVE, [
+                _field('target', Protocol.Type.OBJECT, _target(target)),
             ], true);
-        };
-
-        _this.history = function (conversationId, cursor, limit) {
-            return _this.request(Protocol.Opcode.HISTORY, [
-                _field('conversationId', Protocol.Type.STRING, conversationId),
-                _field('cursor', Protocol.Type.BYTES, cursor),
-                _field('limit', Protocol.Type.UINT16, limit),
-            ], true);
-        };
-
-        _this.resolveConversation = function (target) {
-            return Promise.resolve().then(function () {
-                if (!target || (target.type !== 'user' && target.type !== 'group')) {
-                    throw _error('TypeError', 'A persistent conversation must target a user or group.');
-                }
-                return _this.request(Protocol.Opcode.CONVERSATION_RESOLVE, _target(target, true), true);
-            });
         };
 
         _this.conversations = function (cursor, limit) {
-            return _this.request(Protocol.Opcode.CONVERSATION_LIST, [
-                _field('cursor', Protocol.Type.BYTES, cursor),
-                _field('limit', Protocol.Type.UINT16, limit),
+            return _this.request(Protocol.Opcode.LIST, [
+                _field('cursor', Protocol.Type.BYTES, cursor || new Uint8Array(0)),
+                _field('limit', Protocol.Type.UINT16, limit === undefined ? 50 : limit),
             ], true);
         };
 
-        _this.onlineQuery = function (userId) {
-            return _this.request(Protocol.Opcode.ONLINE_QUERY, [_field('userId', Protocol.Type.STRING, userId)], false);
-        };
-
-        _this.onlineWatch = function (userId) {
-            return _this.request(Protocol.Opcode.ONLINE_WATCH, [_field('userId', Protocol.Type.STRING, userId)], false);
-        };
-
-        _this.onlineUnwatch = function (userId) {
-            return _this.request(Protocol.Opcode.ONLINE_UNWATCH, [_field('userId', Protocol.Type.STRING, userId)], false);
+        _this.presence = function (userId) {
+            return _this.request(Protocol.Opcode.PRESENCE, [_field('userId', Protocol.Type.STRING, userId)], false);
         };
 
         _this.close = function () {
@@ -964,7 +977,7 @@
                 case State.CLOSING:
                     if (!_manual) {
                         _manual = true;
-                        _rooms = Object.create(null);
+                        _subscriptions = Object.create(null);
                     }
                     return;
 
@@ -982,7 +995,7 @@
 
                     clearTimeout(_retryTimer);
                     _retryTimer = null;
-                    _rooms = Object.create(null);
+                    _subscriptions = Object.create(null);
 
                     if (_attempt) {
                         _end(_attempt, _error('AbortError', 'IM closed by the application.'));

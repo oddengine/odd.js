@@ -105,187 +105,173 @@
             }
         }
         if (message.opcode === Opcode.NOTIFY) {
-            var first = message.fields[0];
-            if (!first || first.key !== 'event' || first.type !== Type.UINT16 ||
-                !_integer(first.value, 1, 65534) || (first.value & 255) === 0 ||
-                (scope !== 'peer' && first.value >= 0xFF00)) {
-                _fail('DataError', 'Missing or invalid event code.');
+            _validateFields(message.fields, [
+                { key: 'event', type: Type.UINT16 },
+                { key: 'data', type: Type.OBJECT },
+            ]);
+            var event = message.fields[0].value;
+            if (!_integer(event, 1, 65534) || (event & 255) === 0 || (scope !== 'peer' && event >= 0xFF00)) {
+                _fail('DataError', 'Invalid event code.');
             }
         }
     }
 
-    // Four public _text/binary publishing operations. This checks shape and size,
-    // not room membership, online presence or the availability of durable storage.
-    function _validateMessageRequest(message) {
-        _validateEnvelope(message, 'public');
-        // encode/decode enforce structural bounds; this layer checks the schema.
-        var rules, targetCount;
-        switch (message.opcode) {
-            case Opcode.ROOM_MESSAGE: rules = [{ key: 'roomId', type: Type.STRING }]; break;
-            case Opcode.GROUP_MESSAGE: rules = [{ key: 'groupId', type: Type.STRING }]; break;
-            case Opcode.USER_MESSAGE: rules = [{ key: 'userId', type: Type.STRING }]; break;
-            case Opcode.ENDPOINT_MESSAGE:
-                rules = [{ key: 'userId', type: Type.STRING }, { key: 'endpointId', type: Type.STRING }];
-                break;
-            default: _fail('NotSupportedError', 'Expected a _text/binary publishing opcode.');
+    function _validateTarget(fields) {
+        _validateFields(fields, [
+            { key: 'type', type: Type.STRING },
+            { key: 'id', type: Type.STRING },
+            { key: 'deviceId', type: Type.STRING, required: false },
+        ]);
+        var kind = fields[0].value;
+        if (['room', 'group', 'user', 'endpoint', 'conversation', 'stream'].indexOf(kind) < 0 ||
+            (kind === 'endpoint') !== (fields.length === 3)) {
+            _fail('DataError', 'Invalid target type or device.');
         }
-        if (message.messaging && message.opcode !== Opcode.GROUP_MESSAGE && message.opcode !== Opcode.USER_MESSAGE) {
-            _fail('NotSupportedError', 'This target supports only Relay.');
-        }
-        targetCount = rules.length;
-        rules.push({ key: 'body', type: Type.OBJECT });
-        rules.push({ key: 'ext', type: Type.OBJECT, required: false });
-        _validateFields(message.fields, rules);
-        for (var i = 0; i < targetCount; i++) {
-            var length = _text(message.fields[i].value).length;
-            if (!length || length > 128) {
-                _fail('DataError', 'Target ID is outside 1..128 _bytes.');
+        for (var i = 1; i < fields.length; i++) {
+            var value = fields[i].value;
+            if (!value || _text(value).length > 128 || /[\x00-\x1F\x7F]/.test(value)) {
+                _fail('DataError', 'Target identifier is outside its bounds.');
             }
         }
-        var body = message.fields[targetCount].value,
-            contentIndex = message.messaging ? 1 : 0,
+        return kind;
+    }
+
+    function _validateMessageRequest(message) {
+        _validateEnvelope(message, 'public');
+        if (message.opcode !== Opcode.PUBLISH) {
+            _fail('NotSupportedError', 'Expected a publish operation.');
+        }
+        _validateFields(message.fields, [
+            { key: 'target', type: Type.OBJECT },
+            { key: 'body', type: Type.OBJECT },
+            { key: 'ext', type: Type.OBJECT, required: false },
+        ]);
+        var kind = _validateTarget(message.fields[0].value);
+        if (kind === 'stream' || (message.messaging && kind !== 'conversation')) {
+            _fail('NotSupportedError', 'The target does not support this delivery mode.');
+        }
+
+        var body = message.fields[1].value,
+            contentIndex = message.messaging ? 2 : 1,
             content = body[contentIndex],
-            bodyRules = [];
+            rules = [];
         if (!content || (content.type !== Type.STRING && content.type !== Type.BYTES)) {
             _fail('TypeError', 'Message content must be STRING or BYTES.');
         }
-        if (message.messaging) { bodyRules.push({ key: 'clientMessageId', type: Type.BYTES }); }
-        bodyRules.push({ key: 'content', type: content.type });
-        bodyRules.push({ key: 'ext', type: Type.OBJECT, required: false });
-        _validateFields(body, bodyRules);
+        if (message.messaging) {
+            rules.push({ key: 'clientMessageId', type: Type.BYTES });
+        }
+        rules.push({ key: 'type', type: Type.STRING }, { key: 'content', type: content.type });
+        rules.push({ key: 'ext', type: Type.OBJECT, required: false });
+        _validateFields(body, rules);
+        var type = body[message.messaging ? 1 : 0].value;
+        if (['text', 'binary'].indexOf(type) < 0 || (type === 'text') !== (content.type === Type.STRING)) {
+            _fail('NotSupportedError', 'Invalid or unsupported message type.');
+        }
         if (message.messaging && _bytes(body[0].value).length !== 16) {
-            _fail('DataError', 'clientMessageId must be 16 _bytes.');
+            _fail('DataError', 'clientMessageId must contain 16 bytes.');
         }
         if ((content.type === Type.STRING ? _text(content.value) : _bytes(content.value)).length > 16384) {
-            _fail('QuotaExceededError', 'Message content exceeds 16384 _bytes.');
+            _fail('QuotaExceededError', 'Message content exceeds 16384 bytes.');
         }
     }
 
-    // The original opcode remains in the request table; STATUS itself has none.
     function _validateResult(opcode, messaging, fields) {
-        var rules = [], items = null;
-        function _add(key, type) { rules.push({ key: key, type: type }); }
+        var rules = [];
         switch (opcode) {
-            case Opcode.REAUTH:
-                _add('authRevision', Type.UINT64); _add('expiresAt', Type.UINT64); break;
-            case Opcode.CAPS:
-                _add('version', Type.UINT8); _add('opcodes', Type.ARRAY); _add('events', Type.ARRAY);
-                _add('maxPacketBytes', Type.UINT32); _add('maxPending', Type.UINT16); break;
-            case Opcode.PERMISSION_REFRESH:
-                _add('revision', Type.UINT64); _add('expiresAt', Type.UINT64); break;
-            case Opcode.ROOM_JOIN:
-            case Opcode.CONVERSATION_WATCH:
-                _add(opcode === Opcode.ROOM_JOIN ? 'roomId' : 'conversationId', Type.STRING);
-                _add('revision', Type.UINT64); _add('expiresAt', Type.UINT64); break;
-            case Opcode.GROUP_MESSAGE:
-            case Opcode.USER_MESSAGE:
+            case Opcode.AUTHENTICATE:
+                rules = [
+                    { key: 'authRevision', type: Type.UINT64 },
+                    { key: 'expiresAt', type: Type.UINT64 },
+                ];
+                break;
+            case Opcode.SUBSCRIBE:
+                rules = [
+                    { key: 'subscriptionId', type: Type.STRING },
+                    { key: 'target', type: Type.OBJECT },
+                    { key: 'cursor', type: Type.UINT64 },
+                ];
+                // Both resource operations return the same permission fields.
+            case Opcode.REFRESH:
+                rules = rules.concat([
+                    { key: 'authorizationId', type: Type.STRING },
+                    { key: 'revision', type: Type.UINT64 },
+                    { key: 'generation', type: Type.UINT64 },
+                    { key: 'expiresAt', type: Type.UINT64 },
+                    { key: 'actions', type: Type.UINT64 },
+                ]);
+                break;
+            case Opcode.PUBLISH:
                 if (messaging) {
-                    _add('messageId', Type.BYTES); _add('conversationId', Type.STRING); _add('messageSequence', Type.UINT64);
+                    rules = [
+                        { key: 'messageId', type: Type.BYTES },
+                        { key: 'conversationId', type: Type.STRING },
+                        { key: 'messageSequence', type: Type.UINT64 },
+                    ];
                 }
                 break;
-            case Opcode.STATUS_GET:
-                _add('messageId', Type.BYTES); _add('state', Type.UINT8); break;
-            case Opcode.MESSAGE_GET:
-                _add('notification', Type.OBJECT); break;
+            case Opcode.INSPECT:
+                rules = [{ key: 'messageId', type: Type.BYTES }, { key: 'state', type: Type.STRING }];
+                break;
+            case Opcode.FETCH:
             case Opcode.SYNC:
-            case Opcode.HISTORY:
-            case Opcode.CONVERSATION_LIST:
-                _add('items', Type.ARRAY); _add('nextCursor', Type.BYTES); _add('hasMore', Type.BOOL); break;
-            case Opcode.SYNC_COMMIT: _add('cursor', Type.BYTES); break;
-            case Opcode.CONVERSATION_RESOLVE:
-                _add('conversationId', Type.STRING); _add('revision', Type.UINT64); break;
-            case Opcode.ONLINE_QUERY:
-            case Opcode.ONLINE_WATCH:
-                _add('userId', Type.STRING); _add('online', Type.BOOL); _add('revision', Type.UINT64); break;
-            case Opcode.ROOM_LEAVE:
-            case Opcode.CONVERSATION_UNWATCH:
-            case Opcode.ROOM_MESSAGE:
-            case Opcode.ENDPOINT_MESSAGE:
-            case Opcode.RECEIVED:
+            case Opcode.LIST:
+                rules = [
+                    { key: 'items', type: Type.ARRAY },
+                    { key: 'nextCursor', type: Type.BYTES },
+                    { key: 'hasMore', type: Type.BOOL },
+                ];
+                break;
+            case Opcode.RESOLVE:
+                rules = [
+                    { key: 'conversationId', type: Type.STRING },
+                    { key: 'revision', type: Type.UINT64 },
+                ];
+                break;
+            case Opcode.PRESENCE:
+                rules = [
+                    { key: 'userId', type: Type.STRING },
+                    { key: 'online', type: Type.BOOL },
+                    { key: 'revision', type: Type.UINT64 },
+                ];
+                break;
+            case Opcode.UNSUBSCRIBE:
+            case Opcode.COMMIT:
             case Opcode.READ:
-            case Opcode.ONLINE_UNWATCH:
-            case Opcode.CALL_INVITE:
-            case Opcode.CALL_RINGING:
-            case Opcode.CALL_ACCEPT:
-            case Opcode.CALL_REJECT:
-            case Opcode.CALL_SELECT:
-            case Opcode.CALL_CANCEL:
-            case Opcode.CALL_END:
-            case Opcode.LIKE:
-            case Opcode.REACTION:
-            case Opcode.ROOM_EFFECT:
-            case Opcode.GIFT_CONFIRMED:
-            case Opcode.GIFT_COMBO_UPDATE:
-            case Opcode.GIFT_COMBO_END: break;
-            default: return;  // A negotiated extension supplies its own validator.
+            case Opcode.CALL:
+                break;
+            default:
+                return;
         }
         rules.push({ key: 'ext', type: Type.OBJECT, required: false });
         _validateFields(fields, rules);
         for (var i = 0; i < fields.length; i++) {
-            var entry = fields[i];
-            if (entry.key === 'messageId' && entry.value.length !== 16) {
+            var field = fields[i];
+            if (field.key === 'target') {
+                _validateTarget(field.value);
+            }
+            if (field.key === 'messageId' && _bytes(field.value).length !== 16) {
                 _fail('DataError', 'Invalid result messageId.');
             }
-            if (entry.type === Type.STRING && (!entry.value || _text(entry.value).length > 128)) {
+            if (field.type === Type.STRING && (!field.value || _text(field.value).length > 128)) {
                 _fail('DataError', 'Invalid result identifier.');
             }
-            if ((entry.key === 'cursor' || entry.key === 'nextCursor') && entry.value.length > 512) {
+            if (field.key === 'nextCursor' && _bytes(field.value).length > 512) {
                 _fail('DataError', 'Result cursor exceeds its limit.');
             }
-            if (entry.key === 'state' && !_integer(entry.value, 1, 3)) {
-                _fail('DataError', 'Invalid message state.');
+            if (field.key === 'items') {
+                field.value.forEach(function (item) {
+                    if (item.type !== Type.OBJECT) {
+                        _fail('DataError', 'Result page items must be OBJECT.');
+                    }
+                });
             }
-            if (entry.key === 'items') {
-                items = entry.value;
-            }
-        }
-        if (opcode === Opcode.CAPS) {
-            if (fields[0].value !== 2 || !_integer(fields[3].value, HEADER_SIZE, MAX_PACKET_SIZE) ||
-                !_integer(fields[4].value, 1, 65535)) {
-                _fail('DataError', 'Invalid server capabilities.');
-            }
-
-            var opcodes = Object.create(null),
-                events = Object.create(null);
-            fields[1].value.forEach(function (item) {
-                if (item.type !== Type.UINT8 || !_integer(item.value, 1, 254) ||
-                    (item.value >= 0x80 && item.value <= 0x8F) || opcodes[item.value]) {
-                    _fail('DataError', 'Invalid or repeated public capability opcode.');
-                }
-                opcodes[item.value] = true;
-            });
-            fields[2].value.forEach(function (item) {
-                if (item.type !== Type.UINT16 || !_integer(item.value, 1, 0xFEFF) ||
-                    (item.value & 255) === 0 || events[item.value]) {
-                    _fail('DataError', 'Invalid or repeated public capability event.');
-                }
-                events[item.value] = true;
-            });
-            if (!opcodes[Opcode.STATUS] || !opcodes[Opcode.NOTIFY] || !opcodes[Opcode.CAPS] ||
-                !events[EventCode.SESSION_READY]) {
-                _fail('DataError', 'Required session capabilities are missing.');
-            }
-        }
-        if (items) {
-            items.forEach(function (item) {
-                if (item.type !== Type.OBJECT) {
-                    _fail('DataError', 'Result page items must be OBJECT.');
-                }
-                if (opcode === Opcode.CONVERSATION_LIST) {
-                    _validateFields(item.value, [{ key: 'conversationId', type: Type.STRING },
-                        { key: 'revision', type: Type.UINT64 }, { key: 'ext', type: Type.OBJECT, required: false }]);
-                } else {
-                    _validateEnvelope({ opcode: Opcode.NOTIFY, messaging: true, sequenceNumber: 0, fields: item.value });
-                }
-            });
-        }
-        if (opcode === Opcode.MESSAGE_GET) {
-            _validateEnvelope({ opcode: Opcode.NOTIFY, messaging: true, sequenceNumber: 0, fields: fields[0].value });
         }
     }
 
     Protocol.validateFields = _validateFields;
     Protocol.validateEnvelope = _validateEnvelope;
+    Protocol.validateTarget = _validateTarget;
     Protocol.validateMessageRequest = _validateMessageRequest;
     Protocol.validateResult = _validateResult;
 })(odd);

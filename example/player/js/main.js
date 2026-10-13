@@ -15,7 +15,7 @@ im.setup({
     retry: { count: 0 },
     url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/im',
 }).then(() => {
-    im.join('001').catch((err) => {
+    im.subscribe({ type: 'room', id: '001' }).catch((err) => {
         im.logger.error(`Failed to join 001: ${err}`);
     });
 }).catch((err) => {

@@ -110,16 +110,13 @@
             _this.config = _api.config;
             _this.userId = _api.userId;
             _this.connected = _api.connected;
-            _this.join = _api.join;
-            _this.leave = _api.leave;
+            _this.subscribe = _api.subscribe;
+            _this.unsubscribe = _api.unsubscribe;
+            _this.refresh = _api.refresh;
             _this.send = _api.send;
             _this.call = _api.call;
             _this.request = _api.request;
             _this.reauth = _api.reauth;
-            _this.capabilities = _api.capabilities;
-            _this.watch = _api.watch;
-            _this.unwatch = _api.unwatch;
-            _this.interact = _api.interact;
             _this.state = _api.state;
             _this.forward(e);
         }

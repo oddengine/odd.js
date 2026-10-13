@@ -45,7 +45,7 @@ function onLeaveClick(e) {
     _pendingJoin = undefined;
     var room = _requestedRoom || _joinedRoom;
     _requestedRoom = _joinedRoom = undefined;
-    if (_imReady && room) { im.leave(room).catch(_imError); }
+    if (_imReady && room) { im.unsubscribe({ type: 'room', id: room }).catch(_imError); }
 }
 
 var rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
@@ -377,12 +377,14 @@ function _joinRoom(room) {
     var generation = ++_roomGeneration, previous = _requestedRoom || _joinedRoom;
     _requestedRoom = room;
     _joinedRoom = undefined;
-    if (previous && previous !== room) { im.leave(previous).catch(_imError); }
-    im.join(room).then(function () {
+    if (previous && previous !== room) { im.unsubscribe({ type: 'room', id: previous }).catch(_imError); }
+    im.subscribe({ type: 'room', id: room }, {
+        actions: IM.Protocol.Action.MESSAGE_SUBSCRIBE | IM.Protocol.Action.MESSAGE_PUBLISH,
+    }).then(function () {
         if (generation !== _roomGeneration || !_imReady) { return; }
         _joinedRoom = room;
         _setValue('in_nick', im.userId());
-        // Relay JOIN has no member snapshot; do not display a fabricated count.
+        // Broadcast subscription has no member snapshot; do not display a fabricated count.
         _setValue('in_online', '—');
         utils.forEach(rtc.publishing, function (_, ns) {
             _announce(ns.getProperty('@id') || ns.getProperty('stream'));
@@ -412,7 +414,7 @@ function onMessage(e) {
 }
 
 function onNotify(e) {
-    if (e.data.event === IM.Protocol.Event.ROOM_REVOKED && e.data.payload.roomId === _joinedRoom) {
+    if (e.data.event === IM.Protocol.Event.IM_SUBSCRIBE_STOP && e.data.payload.target.id === _joinedRoom) {
         _joinedRoom = undefined;
         _setValue('in_online', '—');
     }
