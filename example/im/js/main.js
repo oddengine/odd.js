@@ -309,8 +309,25 @@
             await client.setup(document.getElementById('im'), {
                 skin: 'classic',
                 url: session.im.url,
-                credentials: async function () {
-                    return request('/session/im-ticket', 'POST', { audience: session.im.audience });
+                credentials: async function (context) {
+                    var intent = {
+                        audience: session.im.audience,
+                        connectionId: context.connectionId,
+                        generation: context.generation,
+                    };
+                    if (selected) {
+                        intent.roomId = selected;
+                    }
+                    try {
+                        return await request('/session/im-ticket', 'POST', intent);
+                    } catch (err) {
+                        if (!intent.roomId || (err.status !== 403 && err.status !== 404)) {
+                            throw err;
+                        }
+                        // A stale placement hint must not prevent user IM access.
+                        delete intent.roomId;
+                        return request('/session/im-ticket', 'POST', intent);
+                    }
                 },
                 retry: { count: 0 },
                 user: session.user,
@@ -339,7 +356,8 @@
                     }
                 } catch (err) {
                     if (err.status !== 403 && err.status !== 404 && err.code !== Protocol.Status.FORBIDDEN &&
-                        err.code !== Protocol.Status.NOT_FOUND) {
+                        err.code !== Protocol.Status.NOT_FOUND && err.code !== Protocol.Status.NOT_READY &&
+                        err.code !== Protocol.Status.EXHAUSTED && err.code !== Protocol.Status.UNAVAILABLE) {
                         throw err;
                     }
                     selected = '';
@@ -370,12 +388,14 @@
         }
         var current = generation,
             client = ui,
-            previous = selected;
+            previous = selected,
+            subscribed = false;
         joining = id;
 
         try {
             var room = await request('/rooms/' + encodeURIComponent(id) + '/members/me', 'PUT', {});
             await client.subscribe({ type: 'room', id: id });
+            subscribed = true;
             if (current !== generation || client !== ui) {
                 return;
             }
@@ -390,8 +410,10 @@
             showRoom(room);
             await members(false);
         } catch (err) {
-            if (current === generation) {
+            if (current === generation && (!client.connected() || subscribed)) {
                 disconnect();
+            } else if (current === generation) {
+                err.message += ' The current connection and other rooms remain available.';
             }
             throw err;
         } finally {

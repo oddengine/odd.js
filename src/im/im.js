@@ -19,6 +19,7 @@
         _instances = Object.create(null),
         _default = {
             url: '',
+            connectionId: '',
             credentials: null,
             socketFactory: null,
             connectTimeout: 10000,
@@ -36,6 +37,18 @@
     function _integer(value, min, max) {
         return typeof value === 'number' && isFinite(value) &&
             Math.floor(value) === value && value >= min && value <= max;
+    }
+
+    function _endpoint(value, secure) {
+        if (typeof value !== 'string' || !/^wss?:\/\//i.test(value) || /[\s\\?#]/.test(value) || /^wss?:\/\/[^/]*@/i.test(value)) {
+            throw _error('TypeError', 'Invalid IM endpoint.');
+        }
+        var url = typeof URL !== 'undefined' ? new URL(value) : new utils.URL(value);
+        if (!url.host || url.username || url.password || url.search || url.hash ||
+            (secure && url.protocol.toLowerCase() !== 'wss:')) {
+            throw _error('NotAllowedError', 'IM endpoints must preserve secure transport and contain no credentials.');
+        }
+        return value;
     }
 
     function _field(key, type, value) {
@@ -70,6 +83,7 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _readyState = State.INITIALIZED,
             _attempt = null,
+            _connectionId = '',
             _subscriptions = Object.create(null),
             _permissions = Object.create(null),
             _refreshing = Object.create(null),
@@ -137,6 +151,39 @@
                 return Promise.reject(_error('NotSupportedError', 'Use handshake credentials; post-upgrade token authentication was removed.'));
             }
 
+            try {
+                _endpoint(_this.config.url, typeof location !== 'undefined' && location.protocol === 'https:');
+                if (_this.config.connectionId !== '') {
+                    if (typeof _this.config.connectionId !== 'string' ||
+                        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_this.config.connectionId) ||
+                        _this.config.connectionId === '00000000-0000-0000-0000-000000000000' ||
+                        (_connectionId && _connectionId !== _this.config.connectionId)) {
+                        throw _error('TypeError', 'connectionId must be a stable lowercase UUID for this IM instance.');
+                    }
+                    _connectionId = _this.config.connectionId;
+                }
+                if (!_connectionId) {
+                    if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+                        throw _error('NotSupportedError', 'Secure randomness or an explicit connectionId is required.');
+                    }
+                    var bytes = new Uint8Array(16);
+                    crypto.getRandomValues(bytes);
+                    bytes[6] = (bytes[6] & 15) | 64;
+                    bytes[8] = (bytes[8] & 63) | 128;
+
+                    var uuid = '';
+                    for (var i = 0; i < bytes.length; i++) {
+                        if (i === 4 || i === 6 || i === 8 || i === 10) {
+                            uuid += '-';
+                        }
+                        uuid += ('0' + bytes[i].toString(16)).slice(-2);
+                    }
+                    _connectionId = uuid;
+                }
+            } catch (err) {
+                return Promise.reject(err);
+            }
+
             _subscriptions = Object.create(null);
             _manual = false;
             _retried = 0;
@@ -157,6 +204,7 @@
 
             var attempt = {
                 generation: ++_generation,
+                url: _this.config.url,
                 socket: null,
                 session: null,
                 notifications: [],
@@ -173,6 +221,11 @@
                 attempt.resolve = resolve;
                 attempt.reject = reject;
             });
+            var context = Object.freeze({
+                connectionId: _connectionId,
+                generation: String(attempt.generation),
+                url: attempt.url,
+            });
             _attempt = attempt;
             _readyState = State.CONNECTING;
             attempt.deadline = setTimeout(function () {
@@ -184,12 +237,23 @@
                 if (_attempt !== attempt) {
                     return null;
                 }
-                return _this.config.credentials ? _this.config.credentials() : {};
+                return _this.config.credentials ? _this.config.credentials(context) : {};
             }).then(function (credentials) {
                 if (_attempt !== attempt) {
                     return;
                 }
                 credentials = credentials || {};
+                if (_clock() >= attempt.deadlineAt) {
+                    throw _error('TimeoutError', 'IM credential acquisition timed out.');
+                }
+                if (credentials.expiresAt !== undefined) {
+                    var expiresAt = Number(credentials.expiresAt);
+                    if (!_integer(expiresAt, 1, 9007199254740991) || expiresAt <= Date.now()) {
+                        throw _error('NotAllowedError', 'IM credentials have expired.');
+                    }
+                }
+                attempt.url = _endpoint(credentials.url === undefined ? context.url : credentials.url,
+                    /^wss:/i.test(context.url) || (typeof location !== 'undefined' && location.protocol === 'https:'));
 
                 var protocols = ['odd.im.v3'];
                 if (credentials.ticket !== undefined) {
@@ -203,8 +267,8 @@
                 if (!factory && typeof WebSocket === 'undefined') {
                     throw _error('NotSupportedError', 'Provide a WebSocket adapter on this platform.');
                 }
-                var socket = factory ? factory(_this.config.url, protocols, credentials) :
-                    new WebSocket(_this.config.url, protocols);
+                var socket = factory ? factory(attempt.url, protocols, credentials) :
+                    new WebSocket(attempt.url, protocols);
                 attempt.socket = socket;
                 if (!socket || typeof socket.send !== 'function' || typeof socket.close !== 'function') {
                     throw _error('TypeError', 'Invalid WebSocket adapter.');
