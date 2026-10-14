@@ -1,0 +1,27 @@
+example/player/index.html
+  s_266cdd10f9b223::t_5bccf52ddd81bf 8,72-73,110-112
+example/player/js/main.js
+  s_266cdd10f9b223::t_e103f628c47d87 8-13,19-21,32-33,35-38,47,49,72-111,113-114,117-131,133-139,141-146,149-173,199
+src/player/module/module.flv.js
+  s_266cdd10f9b223::t_98eff2c0dfc349 42-47,218-219,231,233,281-282,409,436-557,561-562,564-565,571,581,596,598,608-611,627-631
+src/player/module/module.fmp4.js
+  s_266cdd10f9b223::t_4fbb1b68a7d522 33,35-40,203-204,216,218-219,264-265,274,394,421-542,546-547,549-550,556,566,581,583,593-596,601-603,607-611
+src/player/player.js
+  s_266cdd10f9b223::t_a60be1547b70ea 16-17,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "51310d70c4f381ed8d3c8de758277196864f4ca3",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
