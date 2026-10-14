@@ -30,7 +30,14 @@
             _escaped,
             _buffering,
             _ended,
+            _failed = false,
             _loader,
+            _source,
+            _loading = false,
+            _generation = 0,
+            _connectionId,
+            _credentialTimer,
+            _credentialReject,
             _demuxer,
             _ftyp,
             _moov,
@@ -193,7 +200,8 @@
                 return;
             }
 
-            if (program && program.sources[0].url !== _url.href) {
+            if (program && (!_source || program.sources[0].url !== _source.url || program.sources[0].streamId !== _source.streamId)) {
+                _cancelLoad();
                 var file = program.sources[0].url;
                 _logger.log('Loading selected source.');
 
@@ -205,8 +213,10 @@
                     return;
                 }
 
+                _source = utils.extendz({}, program.sources[0]);
                 _ended = false;
-                _initLoader(_this.config.loader || {});
+                _failed = false;
+                _demuxer.reset();
 
                 _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
                 _video.src = URL.createObjectURL(_ms);
@@ -251,9 +261,8 @@
             _sourceTimer.reset();
             _removingTimer.reset();
             _statsTimer.reset();
-            if (_loader) {
-                _loader.abort();
-            }
+            _cancelLoad();
+            _source = undefined;
             if (_writer) {
                 _writer.close();
                 _writer = null;
@@ -262,6 +271,7 @@
             _escaped = false;
             _buffering = false;
             _ended = false;
+            _failed = true;
             _ftyp = null;
             _moov = null;
             _segments = [];
@@ -381,7 +391,7 @@
             _audioPacketsReceivedPerSecond = 0;
             _videoPacketsReceivedPerSecond = 0;
             _statsTimer.start();
-            _loader.load(_url);
+            _load();
         }
 
         function _onSourceEnded(e) {
@@ -408,21 +418,142 @@
             _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
         }
 
-        function _initLoader(option) {
+        async function _load() {
+            if (_destroyed || _loading || _ended || _failed || !_source) {
+                return;
+            }
+            _loading = true;
+            var generation = ++_generation,
+                target = _url,
+                option = utils.extendz({}, _this.config.loader || {});
+
+            try {
+                if (_this.config.credentials !== null && _this.config.credentials !== undefined) {
+                    if (typeof _this.config.credentials !== 'function' || _this.config.mode !== 'live' ||
+                        !Number.isSafeInteger(_this.config.timeout) || _this.config.timeout <= 0) {
+                        throw { name: 'TypeError', message: 'Invalid live credentials or timeout configuration.' };
+                    }
+                    if (typeof _source.streamId !== 'string' ||
+                        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_source.streamId) ||
+                        _source.streamId === '00000000-0000-0000-0000-000000000000') {
+                        throw { name: 'TypeError', message: 'Protected playback requires an explicit streamId.' };
+                    }
+                    if (!IO.Fetch || !window.fetch || !window.ReadableStream || !window.AbortController ||
+                        !window.crypto || !window.crypto.getRandomValues) {
+                        throw { name: 'NotSupportedError', message: 'Protected playback requires streaming Fetch and secure randomness.' };
+                    }
+                    if (!_connectionId) {
+                        var bytes = new Uint8Array(16);
+                        window.crypto.getRandomValues(bytes);
+                        bytes[6] = (bytes[6] & 15) | 64;
+                        bytes[8] = (bytes[8] & 63) | 128;
+                        _connectionId = '';
+                        for (var i = 0; i < bytes.length; i++) {
+                            if (i === 4 || i === 6 || i === 8 || i === 10) {
+                                _connectionId += '-';
+                            }
+                            _connectionId += ('0' + bytes[i].toString(16)).slice(-2);
+                        }
+                    }
+
+                    var deadline = Date.now() + _this.config.timeout,
+                        context = {
+                            protocol: 'HTTP-CMAF',
+                            direction: 'play',
+                            streamId: _source.streamId,
+                            connectionId: _connectionId,
+                            generation: String(generation),
+                            url: _url.href,
+                            module: _this.kind,
+                        };
+                    _credentialTimer = setTimeout(function () {
+                        if (generation === _generation) {
+                            _onLoadError({ data: { name: 'TimeoutError', message: 'Live media admission timed out.' } });
+                        }
+                    }, _this.config.timeout);
+                    var credentials = await new Promise(function (resolve, reject) {
+                        _credentialReject = reject;
+                        Promise.resolve().then(function () {
+                            if (generation !== _generation) {
+                                throw { name: 'AbortError', message: 'Live media admission was cancelled.' };
+                            }
+                            return _this.config.credentials(context);
+                        }).then(resolve, reject);
+                    });
+                    if (_destroyed || generation !== _generation) {
+                        return;
+                    }
+                    _credentialReject = undefined;
+                    if (!credentials || typeof credentials.token !== 'string' || !credentials.token ||
+                        credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
+                        typeof credentials.url !== 'string' || !credentials.url || credentials.streamId !== context.streamId ||
+                        !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000) {
+                        throw { name: 'DataError', message: 'Invalid live media credentials.' };
+                    }
+                    var endpoint = new URL(credentials.url, document.baseURI);
+                    if ((endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') || endpoint.username || endpoint.password ||
+                        endpoint.hash || (endpoint.protocol !== 'https:' && (location.protocol === 'https:' || _url.protocol === 'https:'))) {
+                        throw { name: 'SecurityError', message: 'Invalid live media endpoint.' };
+                    }
+                    if (Date.now() >= deadline) {
+                        throw { name: 'TimeoutError', message: 'Live media admission timed out.' };
+                    }
+                    target = new utils.URL(endpoint.href);
+                    option.name = 'Fetch';
+                    option.method = 'GET';
+                    option.redirect = IO.Redirect.ERROR;
+                    option.cache = 'no-store';
+                    option.headers = utils.extendz({}, option.headers || {});
+                    for (var name in option.headers) {
+                        if (name.toLowerCase() === 'authorization') {
+                            delete option.headers[name];
+                        }
+                    }
+                    option.headers.Authorization = 'Bearer ' + credentials.token;
+                }
+                _initLoader(option, target);
+                _loader.load(target);
+            } catch (err) {
+                if (!_destroyed && generation === _generation) {
+                    _onLoadError({ data: err });
+                }
+            }
+        }
+
+        function _cancelLoad() {
+            _generation++;
+            _loading = false;
+            clearTimeout(_credentialTimer);
+            _credentialTimer = undefined;
+            if (_credentialReject) {
+                var reject = _credentialReject;
+                _credentialReject = undefined;
+                reject({ name: 'AbortError', message: 'Live media admission was cancelled.' });
+            }
+            _cleanupLoader();
+        }
+
+        function _onLoadError(e) {
+            _failed = true;
+            _cancelLoad();
+            _this.dispatchEvent(Event.ERROR, { name: e.data.name, message: e.data.message });
+        }
+
+        function _initLoader(option, url) {
             _cleanupLoader();
 
             var Loader;
-            if (option.loader && option.loader.name !== 'auto') {
-                Loader = IO[option.loader.name];
+            if (option.name && option.name !== 'auto') {
+                Loader = IO[option.name];
             }
-            if (Loader == null || !Loader.prototype.isSupported(_url, _this.config.mode)) {
-                Loader = odd.io(_url, _this.config.mode);
+            if (Loader == null || !Loader.prototype.isSupported(url, _this.config.mode)) {
+                Loader = odd.io(url, _this.config.mode);
             }
             if (Loader == null) {
                 throw { name: 'NotSupportedError', message: 'No supported io found.' };
             }
 
-            _loader = new Loader(option.loader, _logger);
+            _loader = new Loader(option, _logger);
             _loader.addEventListener(IOEvent.LOADSTART, _this.forward);
             _loader.addEventListener(IOEvent.OPEN, _this.forward);
             _loader.addEventListener(IOEvent.STALLED, _this.forward);
@@ -432,7 +563,7 @@
             _loader.addEventListener(IOEvent.SUSPEND, _this.forward);
             _loader.addEventListener(IOEvent.LOAD, _this.forward);
             _loader.addEventListener(IOEvent.LOADEND, _onLoadEnd);
-            _loader.addEventListener(Event.ERROR, _this.forward);
+            _loader.addEventListener(Event.ERROR, _onLoadError);
             _logger.log(_loader.kind + ' loader initialized.');
         }
 
@@ -447,8 +578,9 @@
                 _loader.removeEventListener(IOEvent.SUSPEND, _this.forward);
                 _loader.removeEventListener(IOEvent.LOAD, _this.forward);
                 _loader.removeEventListener(IOEvent.LOADEND, _onLoadEnd);
-                _loader.removeEventListener(Event.ERROR, _this.forward);
+                _loader.removeEventListener(Event.ERROR, _onLoadError);
                 _loader.abort();
+                _loader = undefined;
             }
         }
 
@@ -458,14 +590,25 @@
         }
 
         function _onProgress(e) {
+            if (e.data.loaded > 0) {
+                clearTimeout(_credentialTimer);
+                _credentialTimer = undefined;
+            }
             _logger.debug('progress: ' + e.data.loaded + '/' + e.data.total);
             _bytesReceived += e.data.loaded;
             _bytesReceivedPerSecond += e.data.loaded;
             _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { BytesReceived: _bytesReceived } });
-            _demuxer.append(e.data.buffer);
+            if (!_failed) {
+                _demuxer.append(e.data.buffer);
+            }
         }
 
         function _onLoadEnd(e) {
+            _loading = false;
+            if (_credentialTimer !== undefined) {
+                _onLoadError({ data: { name: 'NetworkError', message: 'Live media ended before the first data.' } });
+                return;
+            }
             _onEndOfStream(e);
             _this.forward(e);
         }

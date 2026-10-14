@@ -13,6 +13,8 @@
             playsinline: true,
             muted: false,
             volume: 0.8,
+            credentials: null,
+            timeout: 5000,             // Credential resolution and first media bytes, ms.
             retry: {
                 delay: 3000,           // ms.
                 count: 0,              // -1: always
@@ -63,6 +65,7 @@
              * @vod: Whether the source is for video on demand (true) or live streaming (false).
              * @sources:
              *   @url: The URL of the media source.
+             *   @streamId: Explicit UUID for protected HTTP live playback.
              *   @label: The label of definition, such as '1080P'.
              */
             playlist: [],

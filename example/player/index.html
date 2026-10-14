@@ -5,6 +5,7 @@
     <title>odd.js - Player Example</title>
 
     <meta charset="utf-8">
+    <meta name="odd-api" content="/api/v1">
     <meta http-equiv="Cache-Control" content="no-cache" />
     <meta name="format-detection" content="telephone=no,email=no" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -68,6 +69,8 @@
     <script type='text/javascript' src='../../src/player/av/av.js'></script>
     <script type='text/javascript' src='../../src/player/av/codec/codec.js'></script>
     <script type='text/javascript' src='../../src/player/av/codec/codec.aac.js'></script>
+    <script type='text/javascript' src='../../src/player/av/codec/codec.hevc.js'></script>
+    <script type='text/javascript' src='../../src/player/av/codec/codec.opus.js'></script>
     <script type='text/javascript' src='../../src/player/av/codec/codec.avc.js'></script>
     <script type='text/javascript' src='../../src/player/av/codec/codec.avc.sps.js'></script>
     <script type='text/javascript' src='../../src/player/av/codec/codec.avc.pps.js'></script>
@@ -104,6 +107,9 @@
 </head>
 
 <body ontouchstart=''>
+    <p>Protected live playback: <a href="../im/">sign in</a>, publish from the <a href="../rtc/">RTC demo</a>, then open this page with
+        <code>?room=ROOM_UUID&amp;stream=STREAM_UUID&amp;format=flv</code> or <code>format=cmaf</code>.
+        The account API and node routes must match the deployment configuration.</p>
     <div id='player' style='margin: 40px auto 0; width: 100%; height: 400px; max-width: 640px; top: 0; left: 0;'>
         <div class='pe-wrapper pe-ui-classic' mode='vod' state='ready' controls='always/motion/never' comments='on' muted='false' theater='false' fullscreen='false'>
             <div class='pe-content'>

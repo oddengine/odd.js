@@ -5,21 +5,20 @@ var utils = odd.utils,
     Event = events.Event,
     IMEvent = events.IMEvent,
 
+    _api = document.querySelector('meta[name="odd-api"]').content.replace(/\/$/, ''),
+    _query = new URLSearchParams(location.search),
+    _stream = _query.get('stream'),
+    _room = _query.get('room'),
+    _session,
+    _renewal,
     index = 0;
 
 var im = odd.im.create();
 im.addEventListener(Event.READY, onReady);
-im.addEventListener(IMEvent.MESSAGE, onMessage);
 im.addEventListener(Event.CLOSE, onClose);
-im.setup({
-    retry: { count: 0 },
-    url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/im',
-}).then(() => {
-    im.subscribe({ type: 'room', id: '001' }).catch((err) => {
-        im.logger.error(`Failed to join 001: ${err}`);
-    });
-}).catch((err) => {
-    im.logger.warn(`IM unavailable: ${err}`);
+im.addEventListener(IMEvent.NOTIFY, function (e) {
+    // Only server notifications describe publication state; chat text cannot change the source.
+    im.logger.log('Room event:', e.data);
 });
 
 var ui = odd.player.ui.create({ mode: 'file' });
@@ -30,57 +29,24 @@ ui.addEventListener('click', onClick);
 ui.addEventListener('screenshot', onScreenshot);
 ui.setup(player, {
     autoplay: false,
-    bufferLength: 0.5,       // sec.
+    credentials: _stream ? _credentials : null,
+    timeout: 5000,
     client: im,
-    // file: 'ws://127.0.0.1/sample.mp4',
-    file: 'http://localhost/live/_definst_/abc.flv',
-    // file: 'ws://192.168.0.117/live/_definst_/abc.flv',
-    // file: 'http://192.168.0.117/live/_definst_/abc/index.m3u8',
-    // file: 'http://stream.xthktech.cn:8081/live/_definst_/abc.flv',
-    // file: 'https://oddengine.com/live/_definst_/abc.flv',
-    lowlatency: false,        // ll-dash, ll-hls, ll-flv/fmp4 (auto reduce latency due to cumulative ack of tcp)
-    maxBufferLength: NaN,    // sec.
-    maxRetries: 0,           // maximum number of retries while some types of error occurs. -1 means always
-    mode: 'live',            // auto, live, vod
-    module: 'FLV',           // SRC, FLV, FMP4, DASH*, HLS*, RTC
-    objectfit: 'contain',    // fill, contain, cover, none, scale-down
-    retrying: 0,             // ms. retrying interval
+    live: {
+        bufferLength: 0.5,
+        maxBufferLength: 3,
+    },
     loader: {
         name: 'auto',
         mode: 'cors',        // cors, no-cors, same-origin
         credentials: 'omit', // omit, include, same-origin
     },
-    rtc: {
-        whip: location.protocol + '//' + location.host + '/whip/live',
-        whep: location.protocol + '//' + location.host + '/whep/live',
-        codecpreferences: [
-            'audio/opus',
-            'video/H264',
-        ],
-    },
     service: {
         script: 'js/sw.js',
         scope: 'js/',
-        enable: true,
+        enable: false,
     },
-    sources: [{
-        file: 'https://oddengine.com/live/_definst_/abc.flv',
-        module: 'FLV',
-        label: 'http-flv',
-        default: true,
-    }, {
-        file: 'wss://oddengine.com/live/_definst_/abc',
-        module: 'FMP4',
-        label: 'ws-fmp4',
-    }, {
-        file: location.protocol + '//' + location.host + '/whep/live/abc',
-        module: 'RTC',
-        label: 'rtc',
-    }, {
-        file: 'https://oddengine.com/live/_definst_/abc/index.m3u8',
-        module: 'SRC',
-        label: 'hls',
-    }],
+    playlist: [_program()],
     plugins: [{
         kind: 'Poster',
         file: 'image/solution-vod-poster.png',
@@ -103,37 +69,108 @@ ui.setup(player, {
     }],
 });
 
-function onReady(e) {
-    im.logger.log('onReady');
-    window.addEventListener('beforeunload', function (e) {
-        ui.stop();
-        im.close();
-    });
-    // ui.record('fragmented.mp4').then((writer) => {
-    //     setTimeout(function () {
-    //         writer.close();
-    //     }, 10000);
-    // });
+function _program(file) {
+    var cmaf = _query.get('format') === 'cmaf';
+    file = file || location.origin + '/live/' + (_stream || '_definst_/abc') + (cmaf ? '.mp4' : '.flv');
+    var endpoint = new URL(file, document.baseURI);
+    return {
+        type: /\.mp4$/.test(endpoint.pathname) ? 'FMP4' : 'FLV',
+        vod: false,
+        sources: [{
+            url: endpoint.href,
+            streamId: _stream || undefined,
+            label: /\.mp4$/.test(endpoint.pathname) ? 'HTTP-CMAF' : 'HTTP-FLV',
+        }],
+    };
 }
 
-function onMessage(e) {
-    var data = e.data;
-    if (data.messaging || data.target.type !== 'room' || data.target.id !== '001' ||
-        !data.ext || data.ext.application !== 'odd.example.rtc.stream.v1' ||
-        typeof data.content !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(data.content)) {
-        return;
-    }
-    for (var i = 0; i < ui.config.sources.length; i++) {
-        var item = ui.config.sources[i];
-        if (item.module === 'RTC') {
-            item.file = item.file.replace(/\/[^\/?#]+([?#].*)?$/, '') + '/' + encodeURIComponent(data.content);
-            break;
-        }
-    }
+url.value = _program().sources[0].url;
+window.addEventListener('beforeunload', function () {
+    clearTimeout(_renewal);
+    ui.stop();
+    im.close();
+});
+
+if (_stream && _room) {
+    (async function () {
+        _session = await _request('/session');
+        await _request('/rooms/' + encodeURIComponent(_room) + '/members/me', 'PUT');
+        await im.setup({
+            url: _session.im.url,
+            credentials: function (context) {
+                return _request('/session/im-ticket', 'POST', {
+                    audience: _session.im.audience,
+                    roomId: _room,
+                    connectionId: context.connectionId,
+                    generation: context.generation,
+                });
+            },
+        });
+    })().catch(function (err) { im.logger.error(err.message); });
+}
+
+function onReady(e) {
+    im.subscribe({ type: 'room', id: _room }).catch(function (err) { im.logger.error(err.message); });
+    _scheduleRenewal();
 }
 
 function onClose(e) {
-    im.logger.log(`onClose: ${e.data.reason}`);
+    clearTimeout(_renewal);
+    im.logger.log('IM closed:', e.data.reason);
+}
+
+function _scheduleRenewal() {
+    clearTimeout(_renewal);
+    _renewal = setTimeout(async function () {
+        try {
+            var result = await _request('/session/reauth-token', 'POST', { audience: _session.im.audience });
+            await im.reauth(result.token);
+            _scheduleRenewal();
+        } catch (err) {
+            im.logger.error(err.message);
+            im.close();
+        }
+    }, Math.max(1000, _session.im.leaseMilliseconds - _session.im.renewBeforeMilliseconds));
+}
+
+async function _credentials(context) {
+    var account = await _request('/session');
+    if (!account.im || !account.im.media) {
+        throw new Error('Sign in to an account with media signing enabled.');
+    }
+    return _request('/streams/' + encodeURIComponent(context.streamId) + '/credentials', 'POST', {
+        protocol: context.protocol,
+        direction: context.direction,
+        connectionId: context.connectionId,
+        generation: context.generation,
+    });
+}
+
+async function _request(path, method, body) {
+    var endpoint = new URL(_api + path, document.baseURI),
+        controller = new AbortController(),
+        timer = setTimeout(function () { controller.abort(); }, 5000);
+    if (endpoint.origin !== location.origin) {
+        clearTimeout(timer);
+        throw new Error('The account API must use the demo origin. Configure odd-api and the deployment route.');
+    }
+    try {
+        var response = await fetch(endpoint.href, {
+            method: method || 'GET',
+            credentials: 'same-origin',
+            redirect: 'error',
+            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: controller.signal,
+        });
+        var result = response.status === 204 ? null : await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || ('Account API returned HTTP ' + response.status));
+        }
+        return result;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 function onClick(e) {
@@ -159,6 +196,6 @@ function onScreenshot(e) {
 }
 
 function onPlayClick() {
-    ui.play(url.value);
+    ui.play(_program(url.value));
 }
 
