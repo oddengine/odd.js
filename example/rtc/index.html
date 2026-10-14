@@ -5,6 +5,7 @@
     <title>odd.js - WebRTC Example</title>
 
     <meta charset="utf-8" />
+    <meta name="odd-api" content="/api/v1" />
     <meta http-equiv="Cache-Control" content="no-cache" />
     <meta name="format-detection" content="telephone=no,email=no" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -60,6 +61,8 @@
 </head>
 
 <body ontouchstart=''>
+    <p>Sign in and create or select a room in the <a href="../im/" target="_blank" rel="noopener">account and room demo</a>,
+        then enter its room UUID below. Media signing and cluster admission must be configured on the servers.</p>
     <div class='wrap'>
         <div class=''>
             <section>
@@ -67,7 +70,7 @@
                     <div class='row'>
                         <span>
                             <label>Room:</label>
-                            <input id='in_room' value='001'>
+                            <input id='in_room' placeholder='Room UUID'>
                         </span>
                         <span>
                             <label>Nick:</label>

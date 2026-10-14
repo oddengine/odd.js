@@ -27,6 +27,7 @@
             whep: `${location.protocol}//${location.host}/whep/live`,
             trickle: false,
             timeout: 5000,
+            credentials: null,
             configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],

@@ -23,6 +23,7 @@
             whep: `${location.protocol}//${location.host}/whep/live`,
             trickle: false,
             timeout: 5000,
+            credentials: null,
             configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],
@@ -60,6 +61,10 @@
             _audiometer,
             _recorder,
             _location,
+            _token,
+            _connectionId,
+            _credentialReject,
+            _generation = 0,
             _etag,
             _requests = [],
             _saver,
@@ -110,6 +115,8 @@
                 case State.CLOSING:
                 case State.CLOSED:
                     return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+                case State.CONNECTING:
+                    return Promise.reject({ name: 'InvalidStateError', message: 'RTC negotiation is already in progress.' });
                 case State.CONNECTED:
                 case State.PUBLISHING:
                 case State.PLAYING:
@@ -459,9 +466,11 @@
         };
 
         _this.publish = async function () {
-            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+            if (_readyState !== State.CONNECTED) {
                 return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
             }
+
+            _readyState = State.CONNECTING;
 
             try {
                 await _setCodecPreferences('sender');
@@ -471,15 +480,16 @@
 
                 await _pc.setLocalDescription(offer);
 
-                var response = await _post(_this.config.whip, offer.sdp);
+                var response = await _post(_this.config.whip, offer.sdp, 'publish');
                 var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
                 await _pc.setRemoteDescription(answer);
             } catch (err) {
+                _this.close(err.message);
                 _logger.error(`Failed to publish: id=${_this.config.id}, stream=${_name}, error=${err}`);
                 return Promise.reject(err);
             }
 
-            if (_readyState !== State.CONNECTED) {
+            if (_readyState !== State.CONNECTING) {
                 return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
             }
             try {
@@ -493,7 +503,7 @@
                 _this.close();
                 return Promise.reject(err);
             }
-            if (_readyState !== State.CONNECTED) {
+            if (_readyState !== State.CONNECTING) {
                 return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
             }
             _readyState = State.PUBLISHING;
@@ -557,7 +567,7 @@
         }
 
         async function _setMaxBitrate() {
-            var senders = _pc.getSenders();
+            var senders = _pc ? _pc.getSenders() : [];
             for (var i = 0; i < senders.length; i++) {
                 var sender = senders[i];
                 if (!sender.track || sender.track.kind !== 'video' ||
@@ -600,24 +610,125 @@
             });
         }
 
-        async function _post(url, sdp) {
-            if (_readyState !== State.CONNECTED) {
-                return Promise.reject({ name: 'AbortError', message: 'RTC negotiation was cancelled.' });
+        async function _post(url, sdp, direction) {
+            if (_readyState !== State.CONNECTING) {
+                throw { name: 'AbortError', message: 'RTC negotiation was cancelled.' };
             }
-            return new Promise(function (resolve, reject) {
-                var token = utils.getCookie('token');
-                if (!token) {
-                    reject({ name: 'NotAllowedError', message: 'The application token cookie is missing.' });
-                    return;
-                }
+            var generation = ++_generation,
+                deadline = Date.now() + _this.config.timeout,
+                endpoint = new URL(url, document.baseURI),
+                credentials;
+            if (!Number.isFinite(_this.config.timeout) || _this.config.timeout <= 0 ||
+                (_this.config.credentials !== null && typeof _this.config.credentials !== 'function')) {
+                throw { name: 'TypeError', message: 'Invalid RTC timeout or credentials configuration.' };
+            }
+            if (endpoint.username || endpoint.password || endpoint.hash ||
+                (endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') ||
+                (location.protocol === 'https:' && endpoint.protocol !== 'https:')) {
+                throw { name: 'SecurityError', message: 'Invalid RTC endpoint.' };
+            }
 
+            if (_this.config.credentials) {
+                if (!_connectionId) {
+                    if (!window.crypto || !window.crypto.getRandomValues) {
+                        throw { name: 'NotSupportedError', message: 'RTC credentials require secure randomness.' };
+                    }
+                    var bytes = new Uint8Array(16);
+                    window.crypto.getRandomValues(bytes);
+                    bytes[6] = (bytes[6] & 15) | 64;
+                    bytes[8] = (bytes[8] & 63) | 128;
+                    _connectionId = '';
+                    for (var i = 0; i < bytes.length; i++) {
+                        if (i === 4 || i === 6 || i === 8 || i === 10) {
+                            _connectionId += '-';
+                        }
+                        _connectionId += ('0' + bytes[i].toString(16)).slice(-2);
+                    }
+                }
+                var context = {
+                    protocol: direction === 'publish' ? 'WHIP' : 'WHEP',
+                    direction: direction,
+                    streamId: direction === 'play' ? _name : _this.getProperty('stream') || '',
+                    connectionId: _connectionId,
+                    generation: String(generation),
+                    audio: direction === 'publish' && _stream.getAudioTracks().length > 0,
+                    video: direction === 'publish' && _stream.getVideoTracks().length > 0,
+                    purpose: _screensharing ? 'screen' : _stream && _stream.getVideoTracks().length ? 'camera' : 'audio',
+                    url: endpoint.href,
+                };
+                credentials = await new Promise(function (resolve, reject) {
+                    var timer = setTimeout(function () {
+                        finish({ name: 'TimeoutError', message: 'RTC credentials timed out.' });
+                    }, Math.max(1, deadline - Date.now()));
+                    function finish(error, value) {
+                        if (_credentialReject !== cancel) {
+                            return;
+                        }
+                        clearTimeout(timer);
+                        _credentialReject = undefined;
+                        if (error) {
+                            reject(error);
+                        } else {
+                            resolve(value);
+                        }
+                    }
+                    function cancel() {
+                        finish({ name: 'AbortError', message: 'RTC credentials were cancelled.' });
+                    }
+                    _credentialReject = cancel;
+                    Promise.resolve().then(function () {
+                        if (_credentialReject !== cancel || _readyState !== State.CONNECTING) {
+                            throw { name: 'AbortError', message: 'RTC credentials were cancelled.' };
+                        }
+                        return _this.config.credentials(context);
+                    }).then(function (value) {
+                        finish(null, value);
+                    }, finish);
+                });
+                if (_readyState !== State.CONNECTING || generation !== _generation) {
+                    throw { name: 'AbortError', message: 'RTC credentials were cancelled.' };
+                }
+                if (!credentials || typeof credentials.token !== 'string' || !credentials.token || credentials.token.length > 8192 ||
+                    /[\s]/.test(credentials.token) || typeof credentials.url !== 'string' || !credentials.url ||
+                    typeof credentials.streamId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(credentials.streamId) ||
+                    credentials.streamId === '00000000-0000-0000-0000-000000000000' ||
+                    !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000 ||
+                    (direction === 'play' && credentials.streamId !== _name)) {
+                    throw { name: 'DataError', message: 'Invalid RTC credentials.' };
+                }
+                var target = new URL(credentials.url, document.baseURI);
+                if (target.username || target.password || target.hash ||
+                    (target.protocol !== 'http:' && target.protocol !== 'https:') ||
+                    ((location.protocol === 'https:' || endpoint.protocol === 'https:') && target.protocol !== 'https:')) {
+                    throw { name: 'SecurityError', message: 'Invalid RTC credential endpoint.' };
+                }
+                endpoint = target;
+                _name = credentials.streamId;
+                _this.setProperty('stream', _name);
+                _token = credentials.token;
+                deadline = Math.min(deadline, credentials.connectBefore * 1000);
+            } else {
+                _token = utils.getCookie('token');
+                if (!_token) {
+                    throw { name: 'NotAllowedError', message: 'The application token cookie is missing.' };
+                }
+            }
+            if (_readyState !== State.CONNECTING || generation !== _generation || Date.now() >= deadline) {
+                throw { name: 'TimeoutError', message: 'RTC negotiation timed out.' };
+            }
+            url = endpoint.href;
+            return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('POST', url, true);
-                xhr.timeout = _this.config.timeout;
+                xhr.timeout = Math.max(1, deadline - Date.now());
                 xhr.setRequestHeader('Content-Type', 'application/sdp');
-                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                xhr.setRequestHeader('Authorization', 'Bearer ' + _token);
                 xhr.onreadystatechange = function () {
                     if (xhr.readyState !== 4 || xhr.status === 0) {
+                        return;
+                    }
+                    if (_readyState !== State.CONNECTING || generation !== _generation) {
+                        reject({ name: 'AbortError', message: 'RTC negotiation was cancelled.' });
                         return;
                     }
                     if (xhr.status < 200 || xhr.status > 299) {
@@ -631,7 +742,12 @@
                         return;
                     }
                     try {
-                        _location = new URL(location, new URL(url, document.baseURI)).href;
+                        var resource = new URL(location, endpoint);
+                        if (resource.origin !== endpoint.origin || resource.username || resource.password || resource.hash ||
+                            (xhr.responseURL && new URL(xhr.responseURL).origin !== endpoint.origin)) {
+                            throw { name: 'SecurityError', message: 'RTC resource changed its origin.' };
+                        }
+                        _location = resource.href;
                     } catch (err) {
                         reject({ name: 'DataError', message: 'The RTC response has an invalid Location.' });
                         return;
@@ -669,7 +785,7 @@
                 xhr.open('PATCH', _location, true);
                 xhr.timeout = _this.config.timeout;
                 xhr.setRequestHeader('Content-Type', 'application/trickle-ice-sdpfrag');
-                xhr.setRequestHeader('Authorization', 'Bearer ' + utils.getCookie('token'));
+                xhr.setRequestHeader('Authorization', 'Bearer ' + _token);
                 if (_etag) {
                     xhr.setRequestHeader('If-Match', _etag);
                 }
@@ -715,7 +831,7 @@
                 var xhr = new XMLHttpRequest();
                 xhr.open('DELETE', location, true);
                 xhr.timeout = _this.config.timeout;
-                xhr.setRequestHeader('Authorization', 'Bearer ' + utils.getCookie('token'));
+                xhr.setRequestHeader('Authorization', 'Bearer ' + _token);
                 if (_etag) {
                     xhr.setRequestHeader('If-Match', _etag);
                 }
@@ -762,9 +878,11 @@
         };
 
         _this.play = async function (name) {
-            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+            if (_readyState !== State.CONNECTED) {
                 return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
             }
+
+            _readyState = State.CONNECTING;
 
             _name = name;
 
@@ -778,15 +896,16 @@
 
                 await _pc.setLocalDescription(offer);
 
-                var response = await _post(`${_this.config.whep}/${_name}`, offer.sdp);
+                var response = await _post(`${_this.config.whep}/${encodeURIComponent(_name)}`, offer.sdp, 'play');
                 var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
                 await _pc.setRemoteDescription(answer);
             } catch (err) {
+                _this.close(err.message);
                 _logger.error(`Failed to play: id=${_this.config.id}, stream=${_name}, error=${err}`);
                 return Promise.reject(err);
             }
 
-            if (_readyState !== State.CONNECTED) {
+            if (_readyState !== State.CONNECTING) {
                 return Promise.reject({ name: 'AbortError', message: 'RTC playback was cancelled.' });
             }
             _setJitterBufferTarget();
@@ -979,10 +1098,15 @@
         _this.close = function (reason) {
             switch (_readyState) {
                 case State.INITIALIZED:
+                case State.CONNECTING:
                 case State.CONNECTED:
                 case State.PUBLISHING:
                 case State.PLAYING:
                     _readyState = State.CLOSING;
+                    _generation++;
+                    if (_credentialReject) {
+                        _credentialReject();
+                    }
 
                     var requests = _requests.slice(0);
                     for (var i = 0; i < requests.length; i++) {
@@ -993,7 +1117,7 @@
                         _logger.warn('Failed to release RTC resource: ' + err.message);
                     });
 
-                    var senders = _pc.getSenders();
+                    var senders = _pc ? _pc.getSenders() : [];
                     senders.forEach(function (sender) {
                         var track = sender.track;
                         if (track) {
@@ -1007,7 +1131,7 @@
                             });
                         }
                     });
-                    var receivers = _pc.getReceivers();
+                    var receivers = _pc ? _pc.getReceivers() : [];
                     receivers.forEach(function (receiver) {
                         var track = receiver.track;
                         if (track) {

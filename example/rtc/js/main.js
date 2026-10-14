@@ -11,6 +11,9 @@ var utils = odd.utils,
     RTC = odd.RTC,
     Constraints = RTC.Constraints,
 
+    _api = document.querySelector('meta[name="odd-api"]').content.replace(/\/$/, ''),
+    _session,
+    _renewal,
     _hasIM = !!(IM && odd.im && IM.Protocol),
     _joinedRoom,
     _requestedRoom,
@@ -25,6 +28,7 @@ var im;
 
 function onReady(e) {
     _imReady = true;
+    _scheduleRenewal();
     im.logger.log(`onReady: user=${im.userId()}`);
     if (_pendingJoin) {
         _joinRoom(_pendingJoin);
@@ -32,10 +36,16 @@ function onReady(e) {
     }
 }
 
-function onJoinClick(e) {
+async function onJoinClick(e) {
     var room = _value('in_room', '');
-    if (_setupIM(room) && _imReady) {
-        _joinRoom(room);
+    try {
+        _session = await _request('/session');
+        await _request('/rooms/' + encodeURIComponent(room) + '/members/me', 'PUT');
+        if (_setupIM(room) && _imReady) {
+            _joinRoom(room);
+        }
+    } catch (err) {
+        _imError(err);
     }
 }
 
@@ -52,6 +62,7 @@ var rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/
 rtc.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
 rtc.addEventListener(Event.CLOSE, onClose);
 rtc.setup({
+    credentials: _credentials,
     profile: sl_profiles.value || '180P_1',
     whip: location.protocol + '//' + location.host + '/whip/live',
     whep: location.protocol + '//' + location.host + '/whep/live',
@@ -93,7 +104,7 @@ rtc.setup({
 })();
 
 function _setupIM(room) {
-    if (_hasIM === false) {
+    if (_hasIM === false || !_session || !_session.im) {
         rtc.logger.warn('IM is not available.');
         return false;
     }
@@ -110,12 +121,20 @@ function _setupIM(room) {
     im.addEventListener(Event.CLOSE, onClose);
     im.setup({
         retry: { count: 0 },
-        url: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/im',
+        url: _session.im.url,
+        credentials: function (context) {
+            return _request('/session/im-ticket', 'POST', {
+                audience: _session.im.audience,
+                connectionId: context.connectionId,
+                generation: context.generation,
+                roomId: _pendingJoin || _requestedRoom || _joinedRoom || room,
+            });
+        },
     }).catch((err) => {
         _imReady = false;
         _pendingJoin = undefined;
         im = undefined;
-        rtc.logger.warn(`Failed to setup IM, fallback to WHIP/WHEP only: error=${err}`);
+        rtc.logger.warn(`Failed to setup IM: error=${err}`);
     });
     return true;
 }
@@ -365,7 +384,6 @@ function onStatus(e) {
 
     if (code === Code.NETSTREAM_PUBLISH_START) {
         _setValue('in_data', info.stream);
-        _announce(info.stream);
     }
 }
 
@@ -386,34 +404,20 @@ function _joinRoom(room) {
         _setValue('in_nick', im.userId());
         // Broadcast subscription has no member snapshot; do not display a fabricated count.
         _setValue('in_online', '—');
-        utils.forEach(rtc.publishing, function (_, ns) {
-            _announce(ns.getProperty('@id') || ns.getProperty('stream'));
-        });
+        _request('/rooms/' + encodeURIComponent(room) + '/streams').then(function (result) {
+            rtc.logger.log('Room media resources (enabled does not mean online):', result.items);
+        }).catch(_imError);
     }).catch(_imError);
 }
 
-function _announce(stream) {
-    if (!_imReady || !_joinedRoom || typeof stream !== 'string' ||
-        !/^[A-Za-z0-9_-]{1,128}$/.test(stream)) {
-        return;
-    }
-    // Example application metadata inside the binary OBJECT extension.
-    im.send({ type: 'room', id: _joinedRoom }, stream, { ext: [
-        { key: 'application', type: IM.Protocol.Type.STRING, value: 'odd.example.rtc.stream.v1' }
-    ] }).catch(_imError);
-}
-
 function onMessage(e) {
-    var data = e.data;
-    if (!_imReady || data.messaging || data.target.type !== 'room' || data.target.id !== _joinedRoom ||
-        data.sender.id === im.userId() || !data.ext || data.ext.application !== 'odd.example.rtc.stream.v1' ||
-        typeof data.content !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(data.content)) {
-        return;
-    }
-    play(data.content);
+    // Chat content is not an authority for media discovery or automatic playback.
 }
 
 function onNotify(e) {
+    if (e.data.event === IM.Protocol.Event.STREAM_PUBLISH_START || e.data.event === IM.Protocol.Event.STREAM_PUBLISH_STOP) {
+        rtc.logger.log('Room media event:', e.data.payload);
+    }
     if (e.data.event === IM.Protocol.Event.IM_SUBSCRIBE_STOP && e.data.payload.target.id === _joinedRoom) {
         _joinedRoom = undefined;
         _setValue('in_online', '—');
@@ -422,6 +426,7 @@ function onNotify(e) {
 
 function onClose(e) {
     if (e.srcElement === im) {
+        clearTimeout(_renewal);
         _roomGeneration++;
         _imReady = false;
         _requestedRoom = _joinedRoom = undefined;
@@ -532,3 +537,87 @@ function _detachVideo(video) {
 //     });
 // }, 1000);
 
+async function _request(path, method, body) {
+    var endpoint = new URL(_api + path, document.baseURI),
+        controller = new AbortController(),
+        timer = setTimeout(function () { controller.abort(); }, rtc.config.timeout);
+    if (endpoint.origin !== location.origin) {
+        clearTimeout(timer);
+        throw new Error('The account API must use the demo origin. Configure odd-api and the deployment route.');
+    }
+    try {
+        var response = await fetch(endpoint.href, {
+            method: method || 'GET',
+            credentials: 'same-origin',
+            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: controller.signal,
+        });
+        var result = response.status === 204 ? null : await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || ('Account API returned HTTP ' + response.status));
+        }
+        return result;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function _credentials(context) {
+    var room = _value('in_room', ''),
+        generation = _roomGeneration;
+    if (!room) {
+        throw new Error('Sign in and select a room before publishing or playing.');
+    }
+    var account = await _request('/session');
+    if (!account.im || !account.im.media) {
+        throw new Error('Media signing is not enabled in the account authority configuration.');
+    }
+    var stream = context.streamId;
+    if (context.direction === 'publish') {
+        var resource = await _request('/rooms/' + encodeURIComponent(room) + '/streams', 'POST', {
+            requestId: context.connectionId,
+            purpose: context.purpose,
+            audio: context.audio,
+            video: context.video,
+        });
+        stream = resource.id;
+    }
+    if (generation !== _roomGeneration || room !== _value('in_room', '')) {
+        throw new DOMException('Room selection changed', 'AbortError');
+    }
+    var result = await _request('/streams/' + encodeURIComponent(stream) + '/credentials', 'POST', {
+        protocol: context.protocol,
+        direction: context.direction,
+        connectionId: context.connectionId,
+        generation: context.generation,
+    });
+    if (generation !== _roomGeneration || room !== _value('in_room', '')) {
+        throw new DOMException('Room selection changed', 'AbortError');
+    }
+    return result;
+}
+
+function _scheduleRenewal() {
+    clearTimeout(_renewal);
+    if (!_imReady || !_session || !_session.im) {
+        return;
+    }
+    var client = im;
+    _renewal = setTimeout(async function () {
+        if (!_imReady || im !== client) {
+            return;
+        }
+        try {
+            var token = await _request('/session/reauth-token', 'POST', { audience: _session.im.audience });
+            if (!_imReady || im !== client) {
+                return;
+            }
+            await client.reauth(token.token);
+            _scheduleRenewal();
+        } catch (err) {
+            _imError(err);
+            client.close();
+        }
+    }, Math.max(1000, _session.im.leaseMilliseconds - _session.im.renewBeforeMilliseconds));
+}
