@@ -1,0 +1,21 @@
+example/im/js/main.js
+  s_266cdd10f9b223::t_18dc5b160f9c32 312-330,359-360,391-392,398,413,415-416
+src/im/im.js
+  s_266cdd10f9b223::t_9a611cdd526905 22,42-53,86,154-186,207,224-228,240,246-256,270-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "049a19ed10c44a4b84c77157f27624bf3e8af1d7",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
