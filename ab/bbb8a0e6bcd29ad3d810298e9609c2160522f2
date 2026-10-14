@@ -1,0 +1,25 @@
+example/rtc/index.html
+  s_266cdd10f9b223::t_d623d088b93a54 8,64-65,73
+example/rtc/js/main.js
+  s_266cdd10f9b223::t_136509fb5c5660 14-16,31,39,41-48,65,107,124-132,137,407-409,414,418-420,429,540-623
+src/rtc/rtc.js
+  s_266cdd10f9b223::t_2dd2378177ebda 30
+src/rtc/rtc.netstream.js
+  s_266cdd10f9b223::t_55629dd23ba4bc 26,64-67,118-119,469,473-474,483,487,492,506,570,613-628,631-720,723,725,730-733,745-750,788,834,881,885-886,899,903,908,1101,1106-1109,1120,1134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "abbbb8a0e6bcd29ad3d810298e9609c2160522f2",
+  "prompts": {},
+  "sessions": {
+    "s_266cdd10f9b223": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07227-745a-78b3-87ab-7e3da32e3867",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
