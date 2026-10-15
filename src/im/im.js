@@ -232,7 +232,7 @@
                 _end(attempt, _error('TimeoutError', 'IM session initialization timed out.'));
             }, _this.config.connectTimeout);
 
-            // Providers obtain a fresh one-use ticket for each connection attempt.
+            // Providers obtain a fresh short-lived admission proof for each attempt.
             Promise.resolve().then(function () {
                 if (_attempt !== attempt) {
                     return null;
@@ -257,8 +257,9 @@
 
                 var protocols = ['odd.im.v3'];
                 if (credentials.ticket !== undefined) {
-                    if (typeof credentials.ticket !== 'string' || !/^[A-Za-z0-9_-]{1,4096}$/.test(credentials.ticket)) {
-                        throw _error('DataError', 'Handshake ticket must be unpadded base64url.');
+                    if (typeof credentials.ticket !== 'string' || credentials.ticket.length > 4096 ||
+                        !/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)?$/.test(credentials.ticket)) {
+                        throw _error('DataError', 'Handshake ticket must be an opaque ticket or a signed admission proof.');
                     }
                     protocols.push('odd.ticket.' + credentials.ticket);
                 }
@@ -425,10 +426,14 @@
                         { key: 'reason', type: Protocol.Type.STRING },
                     ]);
                     Protocol.validateTarget(fields[0].value);
-                    // Admission/refresh is explicit. An unsolicited update can
-                    // invalidate a cached grant but cannot invent a new one.
+                    // A change invalidates the old grant. An active room may
+                    // obtain a fresh ordinary grant after a restriction changes.
                     _permissionVersions[_targetKey(payload.target, message.messaging)] = payload;
                     delete _permissions[_targetKey(payload.target, message.messaging)];
+                    if (payload.target.type === 'room' && !message.messaging &&
+                        /^restriction-(changed|cancelled|expired)$/.test(payload.reason)) {
+                        _refreshChanged(attempt, payload);
+                    }
                     break;
             }
 
@@ -445,6 +450,27 @@
                 return;
             }
             _notify(attempt, notification, data);
+        }
+
+        function _refreshChanged(attempt, change) {
+            var key = _targetKey(change.target, false),
+                intention = _subscriptions['messages:' + key];
+            if (!intention || !intention.id) {
+                return;
+            }
+            var pending = _refreshing[key + ':' + Protocol.Action.MESSAGE_SUBSCRIBE] || Promise.resolve();
+            function refresh() {
+                if (_attempt !== attempt || _readyState !== State.CONNECTED ||
+                    _subscriptions['messages:' + key] !== intention || _permissionVersions[key] !== change) {
+                    return;
+                }
+                return _this.refresh(change.target, Protocol.Action.MESSAGE_SUBSCRIBE, false).catch(function (err) {
+                    if (_attempt === attempt) {
+                        _logger.warn('Failed to refresh changed room permission: ' + err.name + '.');
+                    }
+                });
+            }
+            pending.then(refresh, refresh);
         }
 
         function _parseMessage(message, payload) {

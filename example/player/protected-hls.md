@@ -40,6 +40,14 @@ player.setup(container, {
 });
 ```
 
+With credentials.version=2, the SDK directly loads the manifest with ?access=token.
+It does not create or renew a server playback session. It obtains a new signed
+URL at 75% of the access window; replacing the native media URL may interrupt
+playback continuity. An external DASH client similarly requests DASH credentials
+and loads credentials.url + '?access=' + credentials.token, replacing it before
+playbackUntil. Child URLs carry the proof. No new DASH player is bundled.
+
+The following playback-session instructions apply only to credentials.version=1.
 The callback is used again for renewal with the same connectionId and generation;
 do not create a new logical attempt for each fragment or renewal. Stop/destroy
 ends the permission. Use a new playback attempt after expiry or rejection.

@@ -230,7 +230,9 @@
                     credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
                     credentials.streamId !== stream || typeof credentials.url !== 'string' ||
                     !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000 ||
-                    !Number.isSafeInteger(credentials.playbackUntil) || credentials.playbackUntil <= credentials.connectBefore) {
+                    !Number.isSafeInteger(credentials.playbackUntil) ||
+                    (credentials.version === 2 ? credentials.playbackUntil !== credentials.connectBefore :
+                        credentials.playbackUntil <= credentials.connectBefore)) {
                     throw { name: 'DataError', message: 'Invalid HLS credentials.' };
                 }
                 var endpoint = new URL(credentials.url, document.baseURI);
@@ -244,55 +246,72 @@
                 if (renew && (endpoint.origin !== _lease.origin || endpoint.pathname !== _lease.manifest)) {
                     throw { name: 'SecurityError', message: 'Playback renewal cannot change its node or resource.' };
                 }
-                var response = await fetch(target, {
-                    method: renew ? 'PATCH' : 'POST',
-                    mode: 'cors',
-                    credentials: 'include',
-                    redirect: 'error',
-                    cache: 'no-store',
-                    headers: { Authorization: 'Bearer ' + credentials.token },
-                    signal: controller.signal,
-                });
-                if (!response.ok) {
-                    throw { name: 'NotAllowedError', message: 'Playback authorization was rejected.' };
+                if (renew && _lease.version !== (credentials.version === 2 ? 2 : 1)) {
+                    throw { name: 'DataError', message: 'Playback admission version changed.' };
                 }
-                var length = response.headers.get('Content-Length');
-                if (!length || !/^\d+$/.test(length) || Number(length) > 16384) {
-                    throw { name: 'DataError', message: 'Invalid playback response size.' };
-                }
-                var text = await response.text();
-                if (text.length > 16384) {
-                    throw { name: 'DataError', message: 'Playback response is too large.' };
-                }
-                var result = JSON.parse(text),
-                    media = new URL(result.url, endpoint),
-                    management = new URL(result.sessionUrl, endpoint),
-                    secret = typeof result.credential === 'string' ? result.credential : '',
-                    id = secret.slice(0, 36);
-                if (!uuid.test(id) || secret.length !== 109 || secret[36] !== '.' ||
-                    !uuid.test(secret.slice(37, 73)) || !uuid.test(secret.slice(73)) ||
-                    media.origin !== endpoint.origin || media.pathname !== endpoint.pathname || media.hash || media.username || media.password ||
-                    management.origin !== endpoint.origin || management.pathname !== root + 'sessions' || management.hash || management.username || management.password ||
-                    media.search !== '?playback=' + id || management.search !== media.search ||
-                    !Number.isSafeInteger(result.expiresAt) || result.expiresAt <= Date.now() / 1000 || result.expiresAt > credentials.playbackUntil) {
-                    throw { name: 'DataError', message: 'Invalid playback session response.' };
-                }
-                candidate = {
-                    url: media.href,
-                    sessionUrl: management.href,
-                    credential: secret,
-                    expiresAt: result.expiresAt,
-                    origin: endpoint.origin,
-                    manifest: endpoint.pathname,
-                };
-                if (_destroyed || generation !== _generation || controller.signal.aborted) {
-                    if (!renew) {
-                        _delete(candidate);
+                if (credentials.version === 2) {
+                    if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(credentials.token)) {
+                        throw { name: 'DataError', message: 'Invalid signed playback credential.' };
                     }
-                    return;
-                }
-                if (renew && (candidate.credential !== _lease.credential || candidate.url !== _lease.url)) {
-                    throw { name: 'DataError', message: 'Playback renewal changed its session.' };
+                    candidate = {
+                        version: 2,
+                        url: endpoint.href + '?access=' + credentials.token,
+                        expiresAt: credentials.playbackUntil,
+                        origin: endpoint.origin,
+                        manifest: endpoint.pathname,
+                    };
+                } else {
+                    var response = await fetch(target, {
+                        method: renew ? 'PATCH' : 'POST',
+                        mode: 'cors',
+                        credentials: 'include',
+                        redirect: 'error',
+                        cache: 'no-store',
+                        headers: { Authorization: 'Bearer ' + credentials.token },
+                        signal: controller.signal,
+                    });
+                    if (!response.ok) {
+                        throw { name: 'NotAllowedError', message: 'Playback authorization was rejected.' };
+                    }
+                    var length = response.headers.get('Content-Length');
+                    if (!length || !/^\d+$/.test(length) || Number(length) > 16384) {
+                        throw { name: 'DataError', message: 'Invalid playback response size.' };
+                    }
+                    var text = await response.text();
+                    if (text.length > 16384) {
+                        throw { name: 'DataError', message: 'Playback response is too large.' };
+                    }
+                    var result = JSON.parse(text),
+                        media = new URL(result.url, endpoint),
+                        management = new URL(result.sessionUrl, endpoint),
+                        secret = typeof result.credential === 'string' ? result.credential : '',
+                        id = secret.slice(0, 36);
+                    if (!uuid.test(id) || secret.length !== 109 || secret[36] !== '.' ||
+                        !uuid.test(secret.slice(37, 73)) || !uuid.test(secret.slice(73)) ||
+                        media.origin !== endpoint.origin || media.pathname !== endpoint.pathname || media.hash || media.username || media.password ||
+                        management.origin !== endpoint.origin || management.pathname !== root + 'sessions' || management.hash || management.username || management.password ||
+                        media.search !== '?playback=' + id || management.search !== media.search ||
+                        !Number.isSafeInteger(result.expiresAt) || result.expiresAt <= Date.now() / 1000 || result.expiresAt > credentials.playbackUntil) {
+                        throw { name: 'DataError', message: 'Invalid playback session response.' };
+                    }
+                    candidate = {
+                        url: media.href,
+                        sessionUrl: management.href,
+                        credential: secret,
+                        expiresAt: result.expiresAt,
+                        origin: endpoint.origin,
+                        manifest: endpoint.pathname,
+                    };
+                    if (_destroyed || generation !== _generation || controller.signal.aborted) {
+                        if (!renew) {
+                            _delete(candidate);
+                        }
+                        return;
+                    }
+                    if (renew && (candidate.credential !== _lease.credential || candidate.url !== _lease.url)) {
+                        throw { name: 'DataError', message: 'Playback renewal changed its session.' };
+                    }
+                    candidate.version = 1;
                 }
                 _lease = candidate;
                 clearTimeout(_renewTimer);
@@ -304,9 +323,13 @@
                         _fail({ name: 'TimeoutError', message: 'Playback permission expired.' });
                     }
                 }, remaining);
-                if (!renew) {
+                if (!renew || candidate.version === 2) {
                     _video.crossOrigin = 'use-credentials';
+                    var resume = renew && !_video.paused;
                     _video.src = candidate.url;
+                    if (resume) {
+                        _this.play();
+                    }
                 }
             } catch (err) {
                 if (!_destroyed && generation === _generation) {
@@ -326,6 +349,9 @@
         }
 
         function _delete(lease) {
+            if (lease.version === 2) {
+                return;
+            }
             var controller = new AbortController(),
                 timer = setTimeout(function () { controller.abort(); }, _this.config.timeout);
             fetch(lease.sessionUrl, {

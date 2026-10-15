@@ -16,7 +16,22 @@ odd.js 是面向媒体播放、实时通信、即时消息与云游戏的模块�
 
 BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/NOTICE))
 
-### Protected native HLS
+### Signed admission v2
+
+IM accepts short signed tickets as well as legacy opaque tickets. The IM example
+uses /session im.admissionVersion to avoid periodic v1 room renewal in v2; the
+business session still has an expiry. Live-room creation and explicit timed /
+permanent restrictions replace the old ambiguous banned/muted member writes.
+An active subscription may request a fresh ordinary grant after a low-frequency
+restriction event; closed subscriptions and media publishers are not resurrected.
+
+For credentials.version=2, native HLS loads the signed manifest URL directly and
+refreshes its proof at 75% of playbackUntil, without playback POST/PATCH/DELETE.
+Refreshing replaces the native media URL and can affect continuity; this was not
+exercised in a browser. v1 behavior below remains available. External DASH clients
+can use the same signed GET URL; no native DASH module is included.
+
+### Protected native HLS (v1 compatibility)
 
 SRC supports protected HLS on browsers with native HLS playback. Supply an
 explicit `streamId`, a configured manifest URL, `mode: 'live'`, and an async

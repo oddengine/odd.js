@@ -17,7 +17,9 @@
         challenge = null,
         creation = null,
         roomCursor = '',
-        memberCursor = '';
+        memberCursor = '',
+        restrictionCursor = '',
+        moderation = null;
 
     document.getElementById('login').addEventListener('submit', function (event) {
         event.preventDefault();
@@ -88,13 +90,14 @@
         var form = event.currentTarget;
 
         run(async function () {
-            var fingerprint = form.elements.namedItem('name').value + '\n' + form.elements.namedItem('visibility').value;
+            var fingerprint = form.elements.namedItem('name').value + '\n' + form.elements.namedItem('visibility').value + '\n' + form.elements.namedItem('kind').value;
             if (!creation || creation.fingerprint !== fingerprint) {
                 creation = { fingerprint: fingerprint, id: crypto.randomUUID() };
             }
             var room = await request('/rooms', 'POST', {
                 name: form.elements.namedItem('name').value,
                 visibility: form.elements.namedItem('visibility').value,
+                kind: form.elements.namedItem('kind').value,
                 creationId: creation.id,
             });
             // Keep the key until the form changes: a lost response must not create another room.
@@ -165,11 +168,51 @@
             await request('/rooms/' + encodeURIComponent(selected) + '/members/' + encodeURIComponent(form.elements.namedItem('userId').value), 'PUT', {
                 role: form.elements.namedItem('role').value,
                 state: form.elements.namedItem('state').value,
-                muted: form.elements.namedItem('muted').checked,
+                muted: false,
             });
             await members(false);
         });
     });
+
+    document.getElementById('restriction').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var form = event.currentTarget;
+        run(async function () {
+            if (!selected) {
+                throw new Error('Select a room first.');
+            }
+            var action = form.elements.namedItem('action').value,
+                minutes = Number(form.elements.namedItem('minutes').value),
+                change = {
+                    userId: form.elements.namedItem('userId').value,
+                    mode: form.elements.namedItem('mode').value,
+                    denyEnter: action === 'ban',
+                    denyMask: action === 'mute' ? '4' : '0',
+                    ceilingMask: action === 'viewer' ? '4111' : '32767',
+                    expectedRevision: '0',
+                    reason: form.elements.namedItem('reason').value,
+                },
+                fingerprint = JSON.stringify([selected, change, minutes]);
+            if (!Number.isSafeInteger(minutes) || minutes < 1 || minutes > 43200) {
+                throw new Error('Choose a duration between 1 minute and 30 days.');
+            }
+            if (!moderation || moderation.fingerprint !== fingerprint) {
+                var now = Date.now();
+                change.requestedAt = String(now);
+                if (change.mode === 'temporary') {
+                    change.expiresAt = String(now + minutes * 60000);
+                }
+                moderation = { fingerprint: fingerprint, id: crypto.randomUUID(), change: change };
+            }
+            // Retain the ID and exact deadline after a lost reply. A confirmed
+            // application starts a new operation on the next explicit submit.
+            await request('/rooms/' + encodeURIComponent(selected) + '/restrictions/' + moderation.id, 'PUT', moderation.change);
+            moderation = null;
+            await restrictions(false);
+        });
+    });
+    document.getElementById('refresh-restrictions').addEventListener('click', function () { run(function () { return restrictions(false); }); });
+    document.getElementById('more-restrictions').addEventListener('click', function () { run(function () { return restrictions(true); }); });
 
     document.getElementById('transfer').addEventListener('submit', function (event) {
         event.preventDefault();
@@ -304,7 +347,8 @@
                 status.textContent = 'Room permission expired or was revoked. Enter the room again to refresh it.';
             }
         });
-        expiresAt = Math.min(Number(session.session.expiresAt), Date.now() + session.im.leaseMilliseconds);
+        expiresAt = session.im.admissionVersion === 2 ? Number(session.session.expiresAt) :
+            Math.min(Number(session.session.expiresAt), Date.now() + session.im.leaseMilliseconds);
         try {
             await client.setup(document.getElementById('im'), {
                 skin: 'classic',
@@ -408,7 +452,16 @@
             }
             selected = id;
             showRoom(room);
-            await members(false);
+            if (room.permissions.indexOf('room.members.read') !== -1) {
+                await members(false);
+            } else {
+                memberCursor = '';
+                document.getElementById('members').textContent = '';
+                document.getElementById('more-members').hidden = true;
+            }
+            restrictionCursor = '';
+            document.getElementById('restrictions').textContent = '';
+            document.getElementById('more-restrictions').hidden = true;
         } catch (err) {
             if (current === generation && (!client.connected() || subscribed)) {
                 disconnect();
@@ -448,6 +501,17 @@
     function scheduleRenewal() {
         clearTimeout(renewal);
         if (!ui || !session) {
+            return;
+        }
+        if (session.im.admissionVersion === 2) {
+            renewal = setTimeout(function () {
+                if (Date.now() < expiresAt) {
+                    scheduleRenewal();
+                    return;
+                }
+                disconnect();
+                status.textContent = 'Your account session expired. Sign in again to continue.';
+            }, Math.max(1, Math.min(2147483647, expiresAt - Date.now())));
             return;
         }
         renewal = setTimeout(function () {
@@ -525,6 +589,45 @@
         });
         roomCursor = result.cursor;
         document.getElementById('more-rooms').hidden = !roomCursor;
+    }
+
+    async function restrictions(more) {
+        if (!selected) {
+            return;
+        }
+        if (!more) {
+            restrictionCursor = '';
+            document.getElementById('restrictions').textContent = '';
+        }
+        var id = selected,
+            result = await request('/rooms/' + encodeURIComponent(id) + '/restrictions?limit=50&cursor=' + encodeURIComponent(restrictionCursor));
+        if (id !== selected || !ui) {
+            return;
+        }
+        result.items.forEach(function (restriction) {
+            var item = document.createElement('li');
+            item.textContent = restriction.userId + ' · ' + restriction.state + ' · ' +
+                (restriction.expiresAt ? new Date(Number(restriction.expiresAt)).toLocaleString() : 'Permanent');
+            if (restriction.state === 'active') {
+                var cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.textContent = 'Cancel';
+                cancel.addEventListener('click', function () {
+                    run(async function () {
+                        if (id !== selected) {
+                            return;
+                        }
+                        await request('/rooms/' + encodeURIComponent(id) + '/restrictions/' + encodeURIComponent(restriction.id) +
+                            '?revision=' + encodeURIComponent(restriction.revision), 'DELETE');
+                        await restrictions(false);
+                    });
+                });
+                item.appendChild(cancel);
+            }
+            document.getElementById('restrictions').appendChild(item);
+        });
+        restrictionCursor = result.cursor;
+        document.getElementById('more-restrictions').hidden = !restrictionCursor;
     }
 
     async function members(more) {

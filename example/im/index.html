@@ -93,6 +93,7 @@
             <form id="room-create">
                 <h2>Create a room</h2>
                 <label>Name <input name="name" maxlength="128" required></label>
+                <label>Kind <select name="kind"><option value="group">Fixed group</option><option value="live">Live room</option></select></label>
                 <label>Visibility <select name="visibility"><option value="public">Public</option><option value="private">Private</option></select></label>
                 <button type="submit">Create</button>
             </form>
@@ -111,10 +112,20 @@
                 <form id="member">
                     <label>User ID <input name="userId" required></label>
                     <label>Role <input name="role" value="member" required></label>
-                    <label>State <select name="state"><option value="active">Active / invite</option><option value="left">Remove</option><option value="banned">Ban</option></select></label>
-                    <label><input name="muted" type="checkbox"> Muted</label>
+                    <label>State <select name="state"><option value="active">Active / invite</option><option value="left">Remove</option></select></label>
                     <button type="submit">Save member</button>
                 </form>
+                <form id="restriction">
+                    <label>User ID <input name="userId" required></label>
+                    <label>Restriction <select name="action"><option value="ban">Ban entry</option><option value="mute">Mute</option><option value="viewer">Limit to viewer</option></select></label>
+                    <label>Duration <select name="mode"><option value="temporary">Temporary</option><option value="permanent">Permanent (limited list)</option></select></label>
+                    <label>Minutes <input name="minutes" type="number" min="1" max="43200" value="60" required></label>
+                    <label>Reason <input name="reason" maxlength="256"></label>
+                    <button type="submit">Apply restriction</button>
+                </form>
+                <button id="refresh-restrictions" type="button">Refresh restrictions</button>
+                <ul id="restrictions"></ul>
+                <button id="more-restrictions" type="button" hidden>More restrictions</button>
                 <form id="transfer">
                     <label>New owner ID <input name="userId" required></label>
                     <button type="submit">Transfer ownership</button>
