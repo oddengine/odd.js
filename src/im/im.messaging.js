@@ -37,9 +37,10 @@
 
     // Composes an account/device storage adapter with the existing request
     // table. It owns no socket, timer, credential or independent reconnect loop.
-    function Messaging(identity, storage, request, authorize, parse, deliver, changed) {
+    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled) {
         var _this = this, _closed = false, _pending = 0, _queues = Object.create(null),
-            _resolved = Object.create(null), _positions = Object.create(null), _recovering = null;
+            _resolved = Object.create(null), _positions = Object.create(null), _recovering = null,
+            _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed) : null;
 
         function active() {
             if (_closed) {
@@ -64,6 +65,14 @@
         };
 
         _this.storage = function () { return storage; };
+        _this.events = function () {
+            active();
+            if (!_events) {
+                throw _error('NotSupportedError', 'The server has not enabled reliable room events.');
+            }
+            return _events;
+        };
+        _this.maintain = function () { if (_events) { _events.maintain(); } };
 
         _this.resolve = function (target) {
             active();
@@ -81,15 +90,34 @@
         };
 
         function resolution(target) {
+            if (target.type === 'room') {
+                return _this.events().resolution(target.id);
+            }
             return _resolved[target.id] ? Promise.resolve(_resolved[target.id]) : _this.resolve(target);
         }
 
-        function outcome(id, promise) {
+        function outcome(id, promise, gift) {
             return promise.then(function (info) {
                 active();
+                if (info.state && info.state !== 'accepted') {
+                    var terminal = info.state === 'rejected' || info.state === 'expired';
+                    var error = _error('OperationError', info.reason || 'Gift delivery has not been accepted.');
+                    error.code = info.state === 'expired' ? Protocol.Status.EXPIRED :
+                        terminal ? Protocol.Status.FORBIDDEN : Protocol.Status.UNKNOWN;
+                    error.info = info;
+                    if (terminal) {
+                        return storage.settle(id, info.state).then(function () { throw error; });
+                    }
+                    throw error;
+                }
                 return storage.settle(id, 'accepted', info).then(function () { active(); return info; });
             }, function (error) {
                 active();
+                // A reconnect may lose current room permission after the same
+                // gift was already debited. Only a business result can settle it.
+                if (gift) {
+                    throw error;
+                }
                 var state = error.code === Protocol.Status.EXPIRED ? 'expired' :
                     error.code === Protocol.Status.FORBIDDEN ? 'revoked' :
                     error.code === Protocol.Status.INVALID || error.code === Protocol.Status.CONFLICT ? 'rejected' : '';
@@ -121,7 +149,12 @@
                             }
                             throw _error('InvalidStateError', 'This message has a terminal local outcome; create a new send explicitly.');
                         }
-                        return outcome(id, request(Opcode.PUBLISH, canonical.fields));
+                        return outcome(id, request(Opcode.PUBLISH, canonical.fields).then(function (accepted) {
+                            if ((!accepted.state || accepted.state === 'accepted') && accepted.conversationId !== info.conversationId) {
+                                throw _error('DataError', 'The accepted message belongs to a different stream.');
+                            }
+                            return accepted;
+                        }), target.type === 'room');
                     });
                 });
             });
@@ -310,10 +343,41 @@
                             active();
                             var packet = Protocol.decode(record.packet), target = _object(packet.fields[0].value);
                             Protocol.validateMessageRequest(packet);
-                            return authorize(target, Protocol.Action.MESSAGE_PUBLISH).then(function () {
-                                active();
-                                return _this.publish(packet.fields);
-                            }).catch(function (error) {
+                            var operation;
+                            if (target.type === 'room') {
+                                var id = packet.fields[1].value[0].value;
+                                operation = request(Opcode.INSPECT, [
+                                    _field('target', Type.OBJECT, _target(target)), _field('clientMessageId', Type.BYTES, id),
+                                ]).then(function (info) {
+                                    active();
+                                    if (info.state === 'rejected' || info.state === 'expired') {
+                                        return storage.settle(id, info.state).then(function () {
+                                            active(); changed({ kind: 'gift', id: record.id, outcome: info });
+                                        });
+                                    }
+                                    if (info.state === 'committed') {
+                                        if (info.deliveryState === 'accepted') {
+                                            return storage.settle(id, 'accepted', info).then(function () {
+                                                active(); changed({ kind: 'gift', id: record.id, outcome: info });
+                                            });
+                                        }
+                                        // The business outbox still owns delivery or reconciliation.
+                                        // A new room visit is not a new payment authorization.
+                                        changed({ kind: 'gift', id: record.id, outcome: info });
+                                        return info;
+                                    }
+                                    if (info.state !== 'not_found') {
+                                        throw _error('DataError', 'Unknown gift recovery outcome.');
+                                    }
+                                    return resolution(target).then(function () { active(); return _this.publish(packet.fields); });
+                                });
+                            } else {
+                                operation = authorize(target, Protocol.Action.MESSAGE_PUBLISH).then(function () {
+                                    active();
+                                    return _this.publish(packet.fields);
+                                });
+                            }
+                            return operation.catch(function (error) {
                                 active();
                                 changed({ kind: 'outbox', id: record.id, error: error.name, code: error.code });
                             });
@@ -352,6 +416,9 @@
         _this.close = function () {
             if (!_closed) {
                 _closed = true;
+                if (_events) {
+                    _events.close();
+                }
                 if (storage && typeof storage.close === 'function') {
                     storage.close();
                 }
@@ -361,3 +428,4 @@
 
     IM.Messaging = Messaging;
 })(odd);
+

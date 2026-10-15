@@ -47,11 +47,12 @@ M=0 不需要存储适配器，M=1 必须配置。命名空间来自服务端确
 IndexedDB writes require `durability: 'strict'` and resolve only on transaction
 completion. Unsupported storage, quota exhaustion, blocked upgrades and aborted
 transactions fail explicitly. The adapter admits at most 32 outstanding storage
-operations. Database version 2 adds terminal ranges while preserving version 1
-outbox, messages and positions.
+operations. Database version 3 preserves version 1/2 outbox, messages, positions and terminal
+ranges, and adds room event visits/facts plus a pending-outbox index. See
+[room-events.md](room-events.md) for the distinct room responsibility profile.
 
 IndexedDB 写事务要求 strict 持久性，完成事件才兑现 Promise。存储不足或失败时不会 COMMIT；
-连接关闭会终止未完成事务，迟到回调不能继续确认。v2 在已有库上新增终止范围存储。
+连接关闭会终止未完成事务，迟到回调不能继续确认。v3 保留已有消息及终止范围，新增房间事件／访问证明和待发送索引。
 
 ## Sends, receives and recovery / 收发与恢复
 

@@ -147,7 +147,7 @@
             { key: 'ext', type: Type.OBJECT, required: false },
         ]);
         var kind = _validateTarget(message.fields[0].value);
-        if (kind === 'stream' || (message.messaging && kind !== 'conversation')) {
+        if (kind === 'stream' || (message.messaging && kind !== 'conversation' && kind !== 'room')) {
             _fail('NotSupportedError', 'The target does not support this delivery mode.');
         }
 
@@ -155,7 +155,7 @@
             contentIndex = message.messaging ? 2 : 1,
             content = body[contentIndex],
             rules = [];
-        if (!content || (content.type !== Type.STRING && content.type !== Type.BYTES)) {
+        if (!content || (content.type !== Type.STRING && content.type !== Type.BYTES && content.type !== Type.OBJECT)) {
             _fail('TypeError', 'Message content must be STRING or BYTES.');
         }
         if (message.messaging) {
@@ -165,7 +165,22 @@
         rules.push({ key: 'ext', type: Type.OBJECT, required: false });
         _validateFields(body, rules);
         var type = body[message.messaging ? 1 : 0].value;
-        if (['text', 'binary'].indexOf(type) < 0 || (type === 'text') !== (content.type === Type.STRING)) {
+        var gift = type === 'gift';
+        if (gift) {
+            if (!message.messaging || kind !== 'room' || message.fields.length !== 2 || body.length !== 3 || content.type !== Type.OBJECT) {
+                _fail('NotSupportedError', 'A gift requires the reliable room operation.');
+            }
+            _validateFields(content.value, [
+                { key: 'giftId', type: Type.STRING }, { key: 'count', type: Type.UINT32 },
+                { key: 'receiverId', type: Type.STRING }, { key: 'catalogRevision', type: Type.UINT64 },
+            ]);
+            if (!/^[A-Za-z0-9_.-]{1,128}$/.test(content.value[0].value) || !content.value[1].value ||
+                !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(content.value[2].value) ||
+                (!content.value[3].value.high && !content.value[3].value.low)) {
+                _fail('DataError', 'Invalid gift catalog, count or recipient.');
+            }
+        } else if ((message.messaging && kind === 'room') || ['text', 'binary'].indexOf(type) < 0 ||
+            (type === 'text' ? content.type !== Type.STRING : content.type !== Type.BYTES)) {
             _fail('NotSupportedError', 'Invalid or unsupported message type.');
         }
         if (message.messaging) {
@@ -174,12 +189,18 @@
                 _fail('DataError', 'clientMessageId must be a 16-byte UUIDv7.');
             }
         }
-        if ((content.type === Type.STRING ? _text(content.value) : _bytes(content.value)).length > 16384) {
+        if (!gift && (content.type === Type.STRING ? _text(content.value) : _bytes(content.value)).length > 16384) {
             _fail('QuotaExceededError', 'Message content exceeds 16384 bytes.');
         }
     }
 
-    function _validateResult(opcode, messaging, fields) {
+    function _validateResult(opcode, messaging, fields, request) {
+        if (messaging && request && request.some(function (field) {
+            return ((field.key === 'kind' || field.key === 'topic') && field.value === 'events') ||
+                (field.key === 'target' && field.type === Type.OBJECT && field.value[0].value === 'room');
+        })) {
+            return _validateEventResult(opcode, fields);
+        }
         var rules = [];
         switch (opcode) {
             case Opcode.AUTHENTICATE:
@@ -277,6 +298,84 @@
         }
     }
 
+    function _validateEventResult(opcode, fields) {
+        var rules = [{ key: 'kind', type: Type.STRING }];
+        if (opcode === Opcode.SUBSCRIBE || opcode === Opcode.RESOLVE || opcode === Opcode.REFRESH) {
+            rules = rules.concat([
+                { key: 'conversationId', type: Type.STRING }, { key: 'partition', type: Type.UINT16 },
+                { key: 'partitions', type: Type.UINT16 }, { key: 'epoch', type: Type.UINT64 },
+                { key: 'head', type: Type.UINT64 }, { key: 'floor', type: Type.UINT64 },
+                { key: 'subscriptionId', type: Type.STRING, required: opcode === Opcode.SUBSCRIBE },
+                { key: 'cursor', type: Type.BYTES, required: opcode === Opcode.SUBSCRIBE },
+                { key: 'delivery', type: Type.OBJECT }, { key: 'target', type: Type.OBJECT },
+                { key: 'authorizationId', type: Type.STRING }, { key: 'revision', type: Type.UINT64 },
+                { key: 'generation', type: Type.UINT64 }, { key: 'expiresAt', type: Type.UINT64 },
+                { key: 'actions', type: Type.UINT64 },
+            ]);
+        } else if (opcode === Opcode.COMMIT) {
+            rules = rules.concat([{ key: 'cursor', type: Type.BYTES }, { key: 'through', type: Type.UINT64 }]);
+        } else if (opcode === Opcode.PUBLISH || opcode === Opcode.INSPECT) {
+            if (fields[0] && fields[0].key === 'state') {
+                _validateFields(fields, [{ key: 'state', type: Type.STRING },
+                    { key: 'reason', type: Type.STRING, required: false },
+                    { key: 'deliveryState', type: Type.STRING, required: false },
+                    { key: 'wallet', type: Type.OBJECT, required: false }]);
+                if (['rejected', 'expired', 'not_found', 'committed'].indexOf(fields[0].value) < 0) {
+                    _fail('DataError', 'Unknown gift business outcome.');
+                }
+                return;
+            }
+            rules = rules.concat([
+                { key: 'conversationId', type: Type.STRING }, { key: 'messageId', type: Type.BYTES },
+                { key: 'messageSequence', type: Type.UINT64 }, { key: 'state', type: Type.STRING },
+                { key: 'acceptedAt', type: Type.UINT64 }, { key: 'expiresAt', type: Type.UINT64 },
+                { key: 'wallet', type: Type.OBJECT, required: false },
+            ]);
+        } else if (opcode === Opcode.FETCH) {
+            if (fields.length === 2 && fields[1].key === 'empty') {
+                rules.push({ key: 'empty', type: Type.BOOL });
+            } else {
+                return _validateEventPage(fields);
+            }
+        } else {
+            _fail('NotSupportedError', 'Unsupported reliable room operation.');
+        }
+        _validateFields(fields, rules);
+        if (fields[0].value !== 'events') {
+            _fail('DataError', 'Expected the room event profile.');
+        }
+        if (opcode === Opcode.RESOLVE || opcode === Opcode.SUBSCRIBE || opcode === Opcode.REFRESH) {
+            _validatePartition(fields[2].value, fields[3].value);
+            fields.forEach(function (field) {
+                if (field.key === 'delivery') {
+                    _validateFields(field.value, [
+                        { key: 'expiresAt', type: Type.UINT64 }, { key: 'ackInterval', type: Type.UINT32 },
+                        { key: 'ackTimeout', type: Type.UINT32 }, { key: 'maxBytes', type: Type.UINT32 },
+                        { key: 'maxPages', type: Type.UINT16 },
+                    ]);
+                }
+                if (field.key === 'target') {
+                    _validateTarget(field.value);
+                }
+            });
+        } else if (opcode === Opcode.PUBLISH || opcode === Opcode.INSPECT) {
+            if (_bytes(fields[2].value).length !== 16 || fields[4].value !== 'accepted') {
+                _fail('DataError', 'Invalid durable room event receipt.');
+            }
+        }
+    }
+
+    function _validateEventPage(fields) {
+        _validateFields(fields, [
+            { key: 'kind', type: Type.STRING }, { key: 'conversationId', type: Type.STRING },
+            { key: 'epoch', type: Type.UINT64 }, { key: 'after', type: Type.UINT64 },
+            { key: 'last', type: Type.UINT64 }, { key: 'items', type: Type.ARRAY },
+        ]);
+        if (fields[0].value !== 'events' || fields[5].value.length > 64) {
+            _fail('DataError', 'Invalid reliable room page.');
+        }
+    }
+
     function _validatePartition(partition, partitions) {
         if (!_integer(partitions, 1, 256) || (partitions & (partitions - 1)) !== 0 ||
             !_integer(partition, 0, partitions - 1)) {
@@ -315,6 +414,7 @@
         }
     }
 
+    Protocol.validateEventPage = _validateEventPage;
     Protocol.messageId = _messageId;
     Protocol.validateMessagePartition = _validateMessagePartition;
     Protocol.validateFields = _validateFields;

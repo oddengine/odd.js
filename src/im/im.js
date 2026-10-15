@@ -414,6 +414,9 @@
                             delete _subscriptions[key];
                         }
                     }
+                    if (payload.target.type === 'room' && message.messaging && attempt.messaging) {
+                        attempt.messaging.events().leave(payload.target.id).catch(function (error) { _end(attempt, error); });
+                    }
                     _permissionVersions[_targetKey(payload.target, message.messaging)] = payload;
                     delete _permissions[_targetKey(payload.target, message.messaging)];
                     _this.dispatchEvent(IMEvent.NOTIFY, notification);
@@ -530,6 +533,11 @@
                     _end(attempt, _error('NotSupportedError', 'Reliable delivery requires durable storage.'));
                     return;
                 }
+                if (notification.payload.kind === 'events') {
+                    Protocol.validateEventPage(notification.fields);
+                    attempt.messaging.events().receive(notification.payload).catch(function (error) { _end(attempt, error); });
+                    return;
+                }
                 Protocol.validateFields(notification.fields, [
                     { key: 'kind', type: Protocol.Type.STRING }, { key: 'conversationId', type: Protocol.Type.STRING },
                     { key: 'items', type: Protocol.Type.ARRAY }, { key: 'nextCursor', type: Protocol.Type.BYTES },
@@ -595,7 +603,7 @@
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SYNC_REQUIRED,
                                     messaging: true, payload: change });
                             }
-                        });
+                        }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true);
                     return attempt.messaging.open();
                 });
             });
@@ -675,6 +683,9 @@
             if (_attempt !== attempt) {
                 return;
             }
+            if (attempt.messaging) {
+                attempt.messaging.maintain();
+            }
             attempt.requests.expire(_clock()).forEach(function (item) {
                 var err = _error('TimeoutError', 'IM request timed out; the remote result is unknown.');
                 err.code = Protocol.Status.UNKNOWN;
@@ -752,6 +763,14 @@
                 if (!reliable) {
                     return Promise.reject(_error('NotSupportedError', 'Configure durable storage before using reliable messaging.'));
                 }
+                var eventRequest = fields && fields.some(function (field) {
+                    return ((field.key === 'topic' || field.key === 'kind') && field.value === 'events') ||
+                        (field.key === 'target' && field.type === Protocol.Type.OBJECT && field.value[0].value === 'room');
+                });
+                if (eventRequest && opcode !== Protocol.Opcode.PUBLISH && opcode !== Protocol.Opcode.INSPECT &&
+                    opcode !== Protocol.Opcode.REFRESH) {
+                    return Promise.reject(_error('NotAllowedError', 'Use subscribe(topic: events) and its durable receipt path.'));
+                }
                 // These operations own storage boundaries; generic request()
                 // must not bypass the same guarantees as the convenience API.
                 switch (opcode) {
@@ -821,7 +840,7 @@
                                         info = item.value;
                                     }
                                 });
-                                Protocol.validateResult(opcode, message.messaging, info);
+                                Protocol.validateResult(opcode, message.messaging, info, fields);
                                 if (validator) {
                                     validator(info);
                                 }
@@ -829,9 +848,13 @@
                                     reject(_error('AbortError', 'IM session changed while handling the response.'));
                                     return;
                                 }
+                                if (data.info && data.info.wallet) {
+                                    _wallet(attempt, data.info.wallet);
+                                }
                                 resolve(data.info || Object.create(null));
                                 var event = opcode === Protocol.Opcode.SUBSCRIBE ? Protocol.Event.IM_SUBSCRIBE_SUCCESS :
-                                    opcode === Protocol.Opcode.PUBLISH ? Protocol.Event.IM_PUBLISH_SUCCESS : 0;
+                                    opcode === Protocol.Opcode.PUBLISH && (!data.info || !data.info.state || data.info.state === 'accepted') ?
+                                        Protocol.Event.IM_PUBLISH_SUCCESS : 0;
                                 if (event) {
                                     _this.dispatchEvent(NetStatusEvent.NETSTATUS, { code: event, data: data.info || {} });
                                 }
@@ -924,7 +947,18 @@
                 _field('target', Protocol.Type.OBJECT, _target(intention.target)),
                 _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: intention.actions }),
             ];
-            intention.promise = _request(attempt, Protocol.Opcode.SUBSCRIBE, fields, intention.messaging).then(function (info) {
+            var joining = intention.topic === 'events' ? attempt.messaging.events().join(intention.target.id, intention.resume, function (info) {
+                intention.id = info.subscriptionId;
+                if (_attempt !== attempt || _subscriptions[key] !== intention) {
+                    throw _error('AbortError', 'The room visit was cancelled while joining.');
+                }
+                if (_targetKey(info.target, true) !== _targetKey(intention.target, true)) {
+                    throw _error('DataError', 'Room visit target mismatch.');
+                }
+                intention.id = info.subscriptionId;
+                _acceptPermission(intention.target, true, info, version);
+            }) : _request(attempt, Protocol.Opcode.SUBSCRIBE, fields, intention.messaging);
+            intention.promise = joining.then(function (info) {
                 if (_attempt !== attempt) {
                     throw _error('AbortError', 'IM session changed while subscribing.');
                 }
@@ -943,6 +977,9 @@
                 return info;
             }).then(function (info) {
                 intention.promise = null;
+                if (intention.topic === 'events') {
+                    intention.resume = true;
+                }
                 return info;
             }, function (err) {
                 intention.promise = null;
@@ -973,12 +1010,19 @@
                     actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE |
                         (options.messaging ? Protocol.Action.MESSAGE_COMMIT | Protocol.Action.MESSAGE_READ : 0) : options.actions;
                 _target(target);
-                if (topic !== 'messages' || !_integer(actions, 1, 1023) ||
-                    !(actions & Protocol.Action.MESSAGE_SUBSCRIBE)) {
+                if (topic === 'events') {
+                    actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE : options.actions;
+                }
+                if ((topic !== 'messages' && topic !== 'events') || !_integer(actions, 1, 1023) ||
+                    !(actions & Protocol.Action.MESSAGE_SUBSCRIBE) ||
+                    (topic === 'events' && (!options.messaging || target.type !== 'room' || actions !== Protocol.Action.MESSAGE_SUBSCRIBE))) {
                     throw _error('TypeError', 'Invalid subscription options.');
                 }
                 var key = topic + ':' + _targetKey(target, options.messaging),
                     existing = _subscriptions[key];
+                if (existing && topic === 'events' && existing.id && !existing.promise) {
+                    return _attempt.messaging.events().resolution(target.id);
+                }
                 if (existing && existing.promise) {
                     if (existing.actions !== actions) {
                         throw _error('InvalidStateError', 'Wait for the pending subscription before changing its actions.');
@@ -990,6 +1034,7 @@
                     target: { type: target.type, id: target.id, deviceId: target.deviceId },
                     messaging: options.messaging === true,
                     actions: actions,
+                    resume: options.resume === true,
                     id: null,
                     promise: null,
                 };
@@ -1006,8 +1051,14 @@
             if (!intention || !intention.id) {
                 return Promise.resolve();
             }
+            var attempt = _attempt;
             return _this.request(Protocol.Opcode.UNSUBSCRIBE,
-                [_field('subscriptionId', Protocol.Type.STRING, intention.id)], intention.messaging);
+                [_field('subscriptionId', Protocol.Type.STRING, intention.id)], intention.messaging).then(function (info) {
+                    if (intention.topic === 'events' && _attempt === attempt && attempt.messaging) {
+                        return attempt.messaging.events().leave(target.id).then(function () { return info; });
+                    }
+                    return info;
+                });
         };
 
         _this.refresh = function (target, actions, messaging) {
@@ -1028,10 +1079,16 @@
                 }
                 var attempt = _attempt,
                     version = _permissionVersions[key],
-                    promise = _this.request(Protocol.Opcode.REFRESH, [
+                    eventRoom = messaging && target.type === 'room',
+                    fields = eventRoom ? [_field('topic', Protocol.Type.STRING, 'events'),
+                        _field('target', Protocol.Type.OBJECT, _target(target))] : [
                         _field('target', Protocol.Type.OBJECT, _target(target)),
                         _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
-                    ], messaging).then(function (info) {
+                    ];
+                if (eventRoom && actions !== Protocol.Action.MESSAGE_SUBSCRIBE) {
+                    throw _error('NotAllowedError', 'Gift permission is checked by the business service for each transaction.');
+                }
+                var promise = _this.request(Protocol.Opcode.REFRESH, fields, messaging).then(function (info) {
                         if (_attempt !== attempt) {
                             throw _error('AbortError', 'IM session changed while refreshing permission.');
                         }
@@ -1108,6 +1165,57 @@
                 }
                 return _this.request(Protocol.Opcode.PUBLISH, fields, false);
             });
+        };
+
+        _this.gift = function (room, gift, options) {
+            return Promise.resolve().then(function () {
+                var attempt = _attempt, target = { type: 'room', id: room };
+                options = options || {};
+                if (_readyState !== State.CONNECTED || !attempt || !attempt.messaging) {
+                    throw _error('InvalidStateError', 'Reliable room events are not ready.');
+                }
+                return attempt.messaging.identity(target, options.clientMessageId).then(function (id) {
+                    if (_attempt !== attempt) {
+                        throw _error('AbortError', 'The connection changed before saving the gift.');
+                    }
+                    return _this.request(Protocol.Opcode.PUBLISH, [
+                        _field('target', Protocol.Type.OBJECT, _target(target)),
+                        _field('body', Protocol.Type.OBJECT, [
+                            _field('clientMessageId', Protocol.Type.BYTES, id), _field('type', Protocol.Type.STRING, 'gift'),
+                            _field('content', Protocol.Type.OBJECT, [
+                                _field('giftId', Protocol.Type.STRING, gift.giftId),
+                                _field('count', Protocol.Type.UINT32, gift.count),
+                                _field('receiverId', Protocol.Type.STRING, gift.receiverId),
+                                _field('catalogRevision', Protocol.Type.UINT64, gift.catalogRevision),
+                            ]),
+                        ]),
+                    ], true);
+                });
+            });
+        };
+
+        _this.inspectGift = function (room, clientMessageId) {
+            return _this.request(Protocol.Opcode.INSPECT, [
+                _field('target', Protocol.Type.OBJECT, _target({ type: 'room', id: room })),
+                _field('clientMessageId', Protocol.Type.BYTES, clientMessageId),
+            ], true);
+        };
+
+        function _wallet(attempt, wallet) {
+            if (!wallet || ['active', 'disabled', 'unavailable'].indexOf(wallet.status) < 0 ||
+                typeof wallet.currency !== 'string' || !/^[0-9]+$/.test(wallet.available) ||
+                !/^[0-9]+$/.test(wallet.walletRevision) || typeof wallet.canSend !== 'boolean') {
+                throw _error('DataError', 'Invalid private wallet snapshot.');
+            }
+            var old = attempt.session.ext.wallet, revision = wallet.walletRevision;
+            if (!old || old.currency !== wallet.currency || !old.walletRevision || revision.length > old.walletRevision.length ||
+                (revision.length === old.walletRevision.length && revision >= old.walletRevision)) {
+                attempt.session.ext.wallet = wallet;
+            }
+        }
+
+        _this.wallet = function () {
+            return _attempt && _attempt.session && _attempt.session.ext ? _attempt.session.ext.wallet || null : null;
         };
 
         _this.call = function (action, target, body) {

@@ -188,7 +188,7 @@
                     mode: form.elements.namedItem('mode').value,
                     denyEnter: action === 'ban',
                     denyMask: action === 'mute' ? '4' : '0',
-                    ceilingMask: action === 'viewer' ? '4111' : '32767',
+                    ceilingMask: action === 'viewer' ? '36879' : '65535',
                     expectedRevision: '0',
                     reason: form.elements.namedItem('reason').value,
                 },

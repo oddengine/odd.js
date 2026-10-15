@@ -66,7 +66,15 @@
 
     // One adapter belongs to one authenticated account/device. Only message
     // data and recovery positions belong here; never pass credentials or keys.
-    function IndexedDB(scope, userId, deviceId) {
+    function IndexedDB(scope, userId, deviceId, options) {
+        options = options || {};
+        var eventLimits = {
+            maxRecords: options.maxEventRecords === undefined ? 20000 : options.maxEventRecords,
+            maxBytes: options.maxEventBytes === undefined ? 33554432 : options.maxEventBytes,
+        };
+        if (!_integer(eventLimits.maxRecords, 64, 1000000) || !_integer(eventLimits.maxBytes, 65536, 1073741824)) {
+            throw _error('TypeError', 'Invalid room event storage limits.');
+        }
         var _this = this,
             _name = 'odd.im.v1:' + JSON.stringify([
                 _identifier(scope), _identifier(userId), _identifier(deviceId),
@@ -94,7 +102,7 @@
                     reject(_error('NotSupportedError', 'IndexedDB is unavailable.'));
                     return;
                 }
-                var request = indexedDB.open(_name, 2), failed = false;
+                var request = indexedDB.open(_name, 3), failed = false;
                 request.onupgradeneeded = function () {
                     if (_closed || failed) {
                         request.transaction.abort();
@@ -108,6 +116,16 @@
                         messages.createIndex('sequence', ['conversationId', 'high', 'low'], { unique: true });
                         database.createObjectStore('positions', { keyPath: ['kind', 'id'] });
                         database.createObjectStore('conversations', { keyPath: 'conversationId' });
+                    }
+                    var outgoing = request.transaction.objectStore('outbox');
+                    if (!outgoing.indexNames.contains('pending')) {
+                        outgoing.createIndex('pending', ['state', 'id']);
+                    }
+                    if (!database.objectStoreNames.contains('events')) {
+                        var events = database.createObjectStore('events', { keyPath: ['stream', 'id'] });
+                        events.createIndex('sequence', ['stream', 'epochHigh', 'epochLow', 'high', 'low'], { unique: true });
+                        events.createIndex('expiresAt', 'expiresAt');
+                        database.createObjectStore('visits', { keyPath: 'room' });
                     }
                     if (!database.objectStoreNames.contains('terminal')) {
                         database.createObjectStore('terminal', { keyPath: ['conversationId', 'firstHigh', 'firstLow'] });
@@ -226,7 +244,9 @@
         _this.settle = function (clientMessageId, state, outcome) {
             return Promise.resolve().then(function () {
                 var id = _id(clientMessageId), saved;
-                if (outcome) {
+                if (outcome && outcome.state === 'committed' && outcome.deliveryState === 'accepted') {
+                    saved = { state: 'committed', deliveryState: 'accepted' };
+                } else if (outcome) {
                     var sequence = _sequence(outcome.messageSequence);
                     saved = {
                         messageId: _bytes(outcome.messageId, 16),
@@ -234,6 +254,9 @@
                         messageSequence: { high: sequence[0], low: sequence[1] },
                     };
                     _id(saved.messageId);
+                    if (!sequence[0] && !sequence[1]) {
+                        throw _error('DataError', 'An accepted message needs a positive sequence.');
+                    }
                 }
                 if (['accepted', 'delivered', 'settled', 'expired', 'revoked', 'rejected'].indexOf(state) < 0) {
                     throw _error('DataError', 'Unknown results must retain their pending identity.');
@@ -268,7 +291,8 @@
                 }
                 return _transaction(['outbox'], 'readonly', function (transaction, result) {
                     var records = [], bytes = 0;
-                    var request = transaction.objectStore('outbox').openCursor(after ? IDBKeyRange.lowerBound(after, true) : null);
+                    var range = IDBKeyRange.bound(['pending', after || ''], ['pending', '\uffff'], !!after, false);
+                    var request = transaction.objectStore('outbox').index('pending').openCursor(range);
                     request.onsuccess = function () {
                         var cursor = request.result;
                         if (!cursor || records.length === limit) {
@@ -438,6 +462,186 @@
             });
         };
 
+        // Room visits contain recovery proof, never a central viewer receipt.
+        _this.eventVisit = function (room) {
+            return _transaction(['visits'], 'readonly', function (transaction, result) {
+                var request = transaction.objectStore('visits').get(_identifier(room));
+                request.onsuccess = function () { result(request.result || null); };
+            });
+        };
+
+        _this.beginEvents = function (room, value, previous, owner, resumed) {
+            return Promise.resolve().then(function () {
+                var cursor = _bytes(value.cursor, 256), epoch = _sequence(value.epoch), through = _sequence(value.through);
+                var record = { room: _identifier(room), owner: _identifier(owner), cursor: cursor,
+                    stream: _identifier(value.stream), epoch: { high: epoch[0], low: epoch[1] },
+                    saved: { high: through[0], low: through[1] }, confirmed: { high: through[0], low: through[1] } };
+                if (resumed) {
+                    if (!previous || previous.stream !== record.stream || Protocol.compare64(previous.epoch, record.epoch) !== 0 ||
+                        Protocol.compare64(previous.saved, record.confirmed) < 0) {
+                        throw _error('ConflictError', 'The saved visit does not match the resumed stream.');
+                    }
+                    record.saved = previous.saved;
+                }
+                return _transaction(['visits'], 'readwrite', function (transaction, result, abort) {
+                    var store = transaction.objectStore('visits'), request = store.get(room);
+                    request.onsuccess = function () {
+                        var actual = request.result;
+                        if (!!actual !== !!previous || (actual && (actual.owner !== previous.owner || !_same(actual.cursor, previous.cursor)))) {
+                            abort(_error('ConflictError', 'Another connection changed the saved visit.'));
+                            return;
+                        }
+                        store.put(record);
+                        result(record);
+                    };
+                });
+            });
+        };
+
+        _this.receiveEvents = function (room, owner, page, items) {
+            return Promise.resolve().then(function () {
+                _identifier(room);
+                if (!Array.isArray(items) || !items.length || items.length > 64) {
+                    throw _error('DataError', 'Invalid room event page.');
+                }
+                var total = 0, epoch = _sequence(page.epoch);
+                var records = items.map(function (item) {
+                    var sequence = _sequence(item.messageSequence), expiry = _sequence(item.expiresAt);
+                    var packet = _bytes(item.packet, 16384);
+                    total += packet.length;
+                    return { stream: _identifier(page.conversationId), id: _id(item.messageId),
+                        epochHigh: epoch[0], epochLow: epoch[1], high: sequence[0], low: sequence[1],
+                        expiresAt: expiry[0] * 4294967296 + expiry[1], packet: packet };
+                });
+                if (total > 65536) {
+                    throw _error('QuotaExceededError', 'The room event page exceeds its storage budget.');
+                }
+                return _transaction(['visits', 'events', 'positions'], 'readwrite', function (transaction, result, abort) {
+                    var visits = transaction.objectStore('visits'), events = transaction.objectStore('events'),
+                        positions = transaction.objectStore('positions'), request = visits.get(room), added = [];
+                    request.onsuccess = function () {
+                        var visit = request.result;
+                        if (!visit || visit.owner !== owner || visit.stream !== page.conversationId ||
+                            Protocol.compare64(visit.epoch, page.epoch) !== 0 || Protocol.compare64(visit.saved, page.after) < 0) {
+                            abort(_error('ConflictError', 'The room visit changed or a delivery page is missing.'));
+                            return;
+                        }
+                        var budget = positions.get(['event-budget', '']);
+                        budget.onsuccess = function () {
+                            var usage = budget.result || { kind: 'event-budget', id: '', count: 0, bytes: 0 };
+                            var collect = events.index('expiresAt').openCursor(IDBKeyRange.upperBound(Date.now())), removed = 0;
+                            collect.onsuccess = function () {
+                                var cursor = collect.result;
+                                if (cursor && removed < 128) {
+                                    usage.count--;
+                                    usage.bytes -= cursor.value.packet.length;
+                                    cursor.delete();
+                                    ++removed;
+                                    cursor.continue();
+                                    return;
+                                }
+                                save(0);
+                            };
+                            function save(index) {
+                                if (index === records.length) {
+                                    if (Protocol.compare64(page.last, visit.saved) > 0) {
+                                        visit.saved = page.last;
+                                    }
+                                    visits.put(visit);
+                                    positions.put(usage);
+                                    result(added);
+                                    return;
+                                }
+                                var record = records[index], lookup = events.get([record.stream, record.id]);
+                                lookup.onsuccess = function () {
+                                    var old = lookup.result;
+                                    if (old && (old.epochHigh !== record.epochHigh || old.epochLow !== record.epochLow ||
+                                        old.high !== record.high || old.low !== record.low || !_same(old.packet, record.packet))) {
+                                        abort(_error('ConflictError', 'A saved room event changed its identity or content.'));
+                                        return;
+                                    }
+                                    if (!old) {
+                                        if (usage.count >= eventLimits.maxRecords || record.packet.length > eventLimits.maxBytes - usage.bytes) {
+                                            abort(_error('QuotaExceededError', 'Room event history is full; no receipt was acknowledged.'));
+                                            return;
+                                        }
+                                        events.add(record);
+                                        usage.count++;
+                                        usage.bytes += record.packet.length;
+                                        // A replay already included in saved may have been collected at TTL.
+                                        if (Protocol.compare64(items[index].messageSequence, visit.saved) > 0) {
+                                            added.push(index);
+                                        }
+                                    }
+                                    save(index + 1);
+                                };
+                            }
+                        };
+                    };
+                });
+            });
+        };
+
+        _this.confirmEvents = function (room, owner, previous, cursor, through) {
+            return Promise.resolve().then(function () {
+                var bytes = _bytes(cursor, 256), old = _bytes(previous, 256);
+                _sequence(through);
+                return _transaction(['visits'], 'readwrite', function (transaction, result, abort) {
+                    var store = transaction.objectStore('visits'), request = store.get(room);
+                    request.onsuccess = function () {
+                        var visit = request.result;
+                        if (!visit || visit.owner !== owner || !_same(visit.cursor, old) ||
+                            Protocol.compare64(through, visit.saved) > 0 || Protocol.compare64(through, visit.confirmed) < 0) {
+                            abort(_error('ConflictError', 'Only a saved page from the current visit can be confirmed.'));
+                            return;
+                        }
+                        visit.cursor = bytes;
+                        visit.confirmed = through;
+                        store.put(visit);
+                        result(visit);
+                    };
+                });
+            });
+        };
+
+        _this.endEvents = function (room, owner) {
+            return _transaction(['visits'], 'readwrite', function (transaction, result, abort) {
+                var store = transaction.objectStore('visits'), request = store.get(room);
+                request.onsuccess = function () {
+                    if (request.result && request.result.owner !== owner) {
+                        abort(_error('ConflictError', 'Another connection owns this visit.'));
+                        return;
+                    }
+                    store.delete(room);
+                };
+            });
+        };
+
+        _this.roomEvents = function (stream, epoch, after, limit) {
+            return Promise.resolve().then(function () {
+                _identifier(stream);
+                var version = _sequence(epoch), start = after ? _sequence(after) : [0, 0];
+                if (!_integer(limit, 1, 64)) {
+                    throw _error('QuotaExceededError', 'Event page limit must be between 1 and 64.');
+                }
+                var range = IDBKeyRange.bound([stream, version[0], version[1], start[0], start[1]],
+                    [stream, version[0], version[1], 4294967295, 4294967295], !!after, false);
+                return _transaction(['events'], 'readonly', function (transaction, result) {
+                    var records = [], bytes = 0, request = transaction.objectStore('events').index('sequence').openCursor(range);
+                    request.onsuccess = function () {
+                        var cursor = request.result;
+                        if (!cursor || records.length === limit || cursor.value.packet.length > 65536 - bytes) {
+                            result(records);
+                            return;
+                        }
+                        records.push(cursor.value);
+                        bytes += cursor.value.packet.length;
+                        cursor.continue();
+                    };
+                });
+            });
+        };
+
         _this.identity = function () {
             return { scope: scope, userId: userId, deviceId: deviceId };
         };
@@ -497,3 +701,4 @@
 
     IM.IndexedDB = IndexedDB;
 })(odd);
+
