@@ -65,7 +65,7 @@
              * @vod: Whether the source is for video on demand (true) or live streaming (false).
              * @sources:
              *   @url: The URL of the media source.
-             *   @streamId: Explicit UUID for protected HTTP live playback.
+             *   @streamId: Explicit UUID for protected HTTP live or native HLS playback.
              *   @label: The label of definition, such as '1080P'.
              */
             playlist: [],

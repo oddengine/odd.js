@@ -16,6 +16,15 @@
             _video,
             _ready,
             _file,
+            _source,
+            _connectionId,
+            _lease,
+            _loading = false,
+            _controller,
+            _credentialReject,
+            _credentialTimer,
+            _renewTimer,
+            _expiresTimer,
             _generation = 0,
             _destroyed = false;
 
@@ -46,7 +55,7 @@
             _video.addEventListener('timeupdate', _onTimeUpdate);
             _video.addEventListener('volumechange', _onVolumeChange);
             _video.addEventListener('load', _this.forward);
-            _video.addEventListener('ended', _this.forward);
+            _video.addEventListener('ended', _onEnded);
             _video.addEventListener('error', _onError);
             if (_this.config.airplay) {
                 _video.setAttribute('x-webkit-airplay', 'allow');
@@ -94,10 +103,22 @@
                 var file = program.sources[0].url;
                 if (file !== _file) {
                     _generation++;
+                    _release();
                     _file = file;
+                    _source = program.sources[0];
+                    _video.removeAttribute('src');
+                    _video.load();
                     _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
+                    if (_this.config.credentials !== null && _this.config.credentials !== undefined) {
+                        _authorize(_generation, false);
+                        return;
+                    }
+                    _video.removeAttribute('crossorigin');
                     _video.src = file;
                 }
+            }
+            if (_loading && !_lease) {
+                return;
             }
             if (!_file) {
                 _logger.error('No source loaded for SRC playback.');
@@ -120,12 +141,236 @@
                         _this.play();
                         return;
                     }
+                    if (_lease) {
+                        _fail({ name: err.name, message: 'Native playback could not start.' });
+                        return;
+                    }
                     _logger.error('Failed to start native playback: ' + err.name + '.');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: 'Native playback could not start.' });
                 });
             }
             _video.controls = false;
         };
+
+        function _uuid() {
+            var bytes = new Uint8Array(16),
+                value = '';
+            window.crypto.getRandomValues(bytes);
+            bytes[6] = (bytes[6] & 15) | 64;
+            bytes[8] = (bytes[8] & 63) | 128;
+            for (var i = 0; i < bytes.length; i++) {
+                if (i === 4 || i === 6 || i === 8 || i === 10) {
+                    value += '-';
+                }
+                value += ('0' + bytes[i].toString(16)).slice(-2);
+            }
+            return value;
+        }
+
+        async function _authorize(generation, renew) {
+            if (_destroyed || generation !== _generation || _loading) {
+                return;
+            }
+            _loading = true;
+            var controller,
+                candidate;
+            try {
+                if (typeof _this.config.credentials !== 'function' || _this.config.mode !== 'live' ||
+                    !Number.isSafeInteger(_this.config.timeout) || _this.config.timeout <= 0 ||
+                    !window.fetch || !window.AbortController || !window.crypto || !window.crypto.getRandomValues) {
+                    throw { name: 'NotSupportedError', message: 'Protected HLS requires credentials, Fetch, cancellation and secure randomness.' };
+                }
+                var stream = _source.streamId,
+                    uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+                if (typeof stream !== 'string' || !uuid.test(stream) || stream === '00000000-0000-0000-0000-000000000000') {
+                    throw { name: 'TypeError', message: 'Protected HLS requires an explicit streamId.' };
+                }
+                var original = new URL(_file, document.baseURI),
+                    match = original.pathname.match(/\/([0-9a-f-]{36})\/v([12])\/index\.m3u8$/);
+                if (!match || match[1] !== stream) {
+                    throw { name: 'TypeError', message: 'Protected SRC playback requires an HLS manifest URL.' };
+                }
+                if (!_connectionId) {
+                    _connectionId = _uuid();
+                }
+                controller = new AbortController();
+                _controller = controller;
+                var context = {
+                    protocol: 'HLS',
+                    direction: 'play',
+                    format: match[2] === '1' ? 'mpegts' : 'cmaf',
+                    streamId: stream,
+                    connectionId: _connectionId,
+                    generation: String(generation),
+                    renew: renew,
+                    url: original.href,
+                    module: _this.kind,
+                    signal: controller.signal,
+                };
+                _credentialTimer = setTimeout(function () {
+                    controller.abort();
+                    if (_controller === controller && _credentialReject) {
+                        _credentialReject({ name: 'TimeoutError', message: 'Playback authorization timed out.' });
+                    }
+                }, _this.config.timeout);
+                var credentials = await new Promise(function (resolve, reject) {
+                    _credentialReject = reject;
+                    Promise.resolve().then(function () {
+                        if (controller.signal.aborted) {
+                            throw { name: 'AbortError' };
+                        }
+                        return _this.config.credentials(context);
+                    }).then(resolve, reject);
+                });
+                if (generation !== _generation || controller.signal.aborted || _destroyed) {
+                    return;
+                }
+                _credentialReject = undefined;
+                if (!credentials || typeof credentials.token !== 'string' || !credentials.token ||
+                    credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
+                    credentials.streamId !== stream || typeof credentials.url !== 'string' ||
+                    !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000 ||
+                    !Number.isSafeInteger(credentials.playbackUntil) || credentials.playbackUntil <= credentials.connectBefore) {
+                    throw { name: 'DataError', message: 'Invalid HLS credentials.' };
+                }
+                var endpoint = new URL(credentials.url, document.baseURI);
+                if (!/^https?:$/.test(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash ||
+                    endpoint.pathname.slice(-(stream.length + 14)) !== stream + '/v' + match[2] + '/index.m3u8' ||
+                    (window.location.protocol === 'https:' && endpoint.protocol !== 'https:')) {
+                    throw { name: 'SecurityError', message: 'Invalid HLS credential endpoint.' };
+                }
+                var root = endpoint.pathname.slice(0, -13),
+                    target = renew ? _lease.sessionUrl : endpoint.origin + root + 'sessions';
+                if (renew && (endpoint.origin !== _lease.origin || endpoint.pathname !== _lease.manifest)) {
+                    throw { name: 'SecurityError', message: 'Playback renewal cannot change its node or resource.' };
+                }
+                var response = await fetch(target, {
+                    method: renew ? 'PATCH' : 'POST',
+                    mode: 'cors',
+                    credentials: 'include',
+                    redirect: 'error',
+                    cache: 'no-store',
+                    headers: { Authorization: 'Bearer ' + credentials.token },
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    throw { name: 'NotAllowedError', message: 'Playback authorization was rejected.' };
+                }
+                var length = response.headers.get('Content-Length');
+                if (!length || !/^\d+$/.test(length) || Number(length) > 16384) {
+                    throw { name: 'DataError', message: 'Invalid playback response size.' };
+                }
+                var text = await response.text();
+                if (text.length > 16384) {
+                    throw { name: 'DataError', message: 'Playback response is too large.' };
+                }
+                var result = JSON.parse(text),
+                    media = new URL(result.url, endpoint),
+                    management = new URL(result.sessionUrl, endpoint),
+                    secret = typeof result.credential === 'string' ? result.credential : '',
+                    id = secret.slice(0, 36);
+                if (!uuid.test(id) || secret.length !== 109 || secret[36] !== '.' ||
+                    !uuid.test(secret.slice(37, 73)) || !uuid.test(secret.slice(73)) ||
+                    media.origin !== endpoint.origin || media.pathname !== endpoint.pathname || media.hash || media.username || media.password ||
+                    management.origin !== endpoint.origin || management.pathname !== root + 'sessions' || management.hash || management.username || management.password ||
+                    media.search !== '?playback=' + id || management.search !== media.search ||
+                    !Number.isSafeInteger(result.expiresAt) || result.expiresAt <= Date.now() / 1000 || result.expiresAt > credentials.playbackUntil) {
+                    throw { name: 'DataError', message: 'Invalid playback session response.' };
+                }
+                candidate = {
+                    url: media.href,
+                    sessionUrl: management.href,
+                    credential: secret,
+                    expiresAt: result.expiresAt,
+                    origin: endpoint.origin,
+                    manifest: endpoint.pathname,
+                };
+                if (_destroyed || generation !== _generation || controller.signal.aborted) {
+                    if (!renew) {
+                        _delete(candidate);
+                    }
+                    return;
+                }
+                if (renew && (candidate.credential !== _lease.credential || candidate.url !== _lease.url)) {
+                    throw { name: 'DataError', message: 'Playback renewal changed its session.' };
+                }
+                _lease = candidate;
+                clearTimeout(_renewTimer);
+                clearTimeout(_expiresTimer);
+                var remaining = candidate.expiresAt * 1000 - Date.now();
+                _renewTimer = setTimeout(function () { _authorize(generation, true); }, Math.max(1, Math.floor(remaining * 0.75)));
+                _expiresTimer = setTimeout(function () {
+                    if (generation === _generation) {
+                        _fail({ name: 'TimeoutError', message: 'Playback permission expired.' });
+                    }
+                }, remaining);
+                if (!renew) {
+                    _video.crossOrigin = 'use-credentials';
+                    _video.src = candidate.url;
+                }
+            } catch (err) {
+                if (!_destroyed && generation === _generation) {
+                    _fail({ name: err.name || 'OperationError', message: 'Protected HLS authorization failed.' });
+                }
+            } finally {
+                if (_controller === controller) {
+                    clearTimeout(_credentialTimer);
+                    _controller = undefined;
+                    _credentialReject = undefined;
+                    _loading = false;
+                }
+            }
+            if (!_destroyed && generation === _generation && _lease && !renew) {
+                _this.play();
+            }
+        }
+
+        function _delete(lease) {
+            var controller = new AbortController(),
+                timer = setTimeout(function () { controller.abort(); }, _this.config.timeout);
+            fetch(lease.sessionUrl, {
+                method: 'DELETE', mode: 'cors', credentials: 'include', redirect: 'error', cache: 'no-store',
+                headers: { Authorization: 'Playback ' + lease.credential }, signal: controller.signal,
+            }).catch(function () {
+                // The server's finite lifetime bounds a lost stop request.
+            }).then(function () { clearTimeout(timer); });
+        }
+
+        function _release() {
+            clearTimeout(_credentialTimer);
+            clearTimeout(_renewTimer);
+            clearTimeout(_expiresTimer);
+            if (_controller) {
+                _controller.abort();
+                _controller = undefined;
+            }
+            if (_credentialReject) {
+                _credentialReject({ name: 'AbortError' });
+                _credentialReject = undefined;
+            }
+            _loading = false;
+            if (_lease) {
+                _delete(_lease);
+                _lease = undefined;
+            }
+        }
+
+        function _fail(err) {
+            _generation++;
+            _release();
+            _file = undefined;
+            _video.removeAttribute('src');
+            _video.load();
+            _logger.error('Protected playback failed: ' + err.name + '.');
+            _this.dispatchEvent(Event.ERROR, err);
+        }
+
+        function _onEnded(e) {
+            _generation++;
+            _release();
+            _file = undefined;
+            _this.forward(e);
+        }
 
         _this.pause = function () {
             _video.pause();
@@ -138,6 +383,7 @@
 
         _this.stop = function () {
             _generation++;
+            _release();
             _file = undefined;
             _video.removeAttribute('src');
             _video.load();
@@ -196,7 +442,7 @@
             _video.removeEventListener('timeupdate', _onTimeUpdate);
             _video.removeEventListener('volumechange', _onVolumeChange);
             _video.removeEventListener('load', _this.forward);
-            _video.removeEventListener('ended', _this.forward);
+            _video.removeEventListener('ended', _onEnded);
             _video.removeEventListener('error', _onError);
         };
 
@@ -230,6 +476,10 @@
                 3: { name: 'EncodingError', message: 'The encoding or decoding operation failed.' },
                 4: { name: 'NotSupportedError', message: 'Failed to load because no supported source was found.' },
             }[_video.error.code] || { name: 'OperationError', message: 'Native media playback failed.' };
+            if (_lease || _loading) {
+                _fail(err);
+                return;
+            }
             _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
         }
 

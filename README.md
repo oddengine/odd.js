@@ -15,3 +15,23 @@ odd.js 是面向媒体播放、实时通信、即时消息与云游戏的模块�
 ## License
 
 BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/NOTICE))
+
+### Protected native HLS
+
+SRC supports protected HLS on browsers with native HLS playback. Supply an
+explicit `streamId`, a configured manifest URL, `mode: 'live'`, and an async
+`credentials(context)` callback. The context includes protocol `HLS`, format
+`cmaf` or `mpegts`, connectionId, decimal-string generation, `renew`, and signal.
+Forward only the media API fields; keep connectionId/generation unchanged when
+renew is true. Return the backend credential response including playbackUntil.
+
+SRC opens a bounded playback session, uses per-session HttpOnly cookies and
+`crossOrigin = 'use-credentials'`, renews before expiry, and stops the permission
+on stop, error, ended or destroy. Changing sources cancels pending work. A lost
+DELETE is bounded by the node's playback lifetime. Renewal does not reload the
+video or allocate each fragment. Configure exact media-server CORS and a
+same-site HTTPS deployment; cookie restrictions still apply. No DASH decode
+module or HLS software decoder is added, and no release bundle is rebuilt.
+
+See `example/player/protected-hls.md` for the source-level integration example.
+This delivery was reviewed as source only; no build, test or browser was run.
