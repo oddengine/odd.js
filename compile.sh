@@ -48,6 +48,7 @@ scripts[2]="./src/im/message/message.codec.js"
 scripts[3]="./src/im/message/message.schema.js"
 scripts[4]="./src/im/im.responder.js"
 scripts[5]="./src/im/im.requesttable.js"
+scripts[6]="./src/im/im.indexeddb.js"
 
 :>./release/odd.im.js
 

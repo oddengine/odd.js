@@ -168,8 +168,11 @@
         if (['text', 'binary'].indexOf(type) < 0 || (type === 'text') !== (content.type === Type.STRING)) {
             _fail('NotSupportedError', 'Invalid or unsupported message type.');
         }
-        if (message.messaging && _bytes(body[0].value).length !== 16) {
-            _fail('DataError', 'clientMessageId must contain 16 bytes.');
+        if (message.messaging) {
+            var id = _bytes(body[0].value);
+            if (id.length !== 16 || (id[6] & 0xF0) !== 0x70 || (id[8] & 0xC0) !== 0x80) {
+                _fail('DataError', 'clientMessageId must be a 16-byte UUIDv7.');
+            }
         }
         if ((content.type === Type.STRING ? _text(content.value) : _bytes(content.value)).length > 16384) {
             _fail('QuotaExceededError', 'Message content exceeds 16384 bytes.');

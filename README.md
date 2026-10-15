@@ -50,3 +50,15 @@ module or HLS software decoder is added, and no release bundle is rebuilt.
 
 See `example/player/protected-hls.md` for the source-level integration example.
 This delivery was reviewed as source only; no build, test or browser was run.
+
+### Reliable messaging storage foundation / 可靠消息存储基础
+
+E08a adds an optional strict-durability IndexedDB adapter and UUIDv7 format
+checks. This is an intermediate source component: M=1 is still disabled on the
+server, and automatic send/receive/reconnect wiring is unfinished. See
+[the adapter contract](example/im/storage.md). No release bundle was rebuilt
+and no build, test or browser verification was performed.
+
+E08a 增加可选的 IndexedDB 严格持久化适配器和 UUIDv7 格式检查，当前为中间源码组件；
+服务端 M=1 仍未开放，自动收发／重连接线尚未完成。参见[适配器契约](example/im/storage.md)。
+未重建 release，未编译、测试或运行浏览器。
