@@ -229,6 +229,8 @@
                 rules = [
                     { key: 'conversationId', type: Type.STRING },
                     { key: 'revision', type: Type.UINT64 },
+                    { key: 'partition', type: Type.UINT16 },
+                    { key: 'partitions', type: Type.UINT16 },
                 ];
                 break;
             case Opcode.PRESENCE:
@@ -248,6 +250,9 @@
         }
         rules.push({ key: 'ext', type: Type.OBJECT, required: false });
         _validateFields(fields, rules);
+        if (opcode === Opcode.RESOLVE) {
+            _validatePartition(fields[2].value, fields[3].value);
+        }
         for (var i = 0; i < fields.length; i++) {
             var field = fields[i];
             if (field.key === 'target') {
@@ -272,6 +277,46 @@
         }
     }
 
+    function _validatePartition(partition, partitions) {
+        if (!_integer(partitions, 1, 256) || (partitions & (partitions - 1)) !== 0 ||
+            !_integer(partition, 0, partitions - 1)) {
+            _fail('DataError', 'Invalid reliable message partition identity.');
+        }
+    }
+
+    function _messageId(partition, partitions) {
+        _validatePartition(partition, partitions);
+        var random = typeof crypto === 'undefined' ? null : crypto;
+        if (!random || typeof random.getRandomValues !== 'function') {
+            _fail('NotSupportedError', 'Reliable message IDs require secure random numbers.');
+        }
+        var now = Date.now();
+        if (!_integer(now, 0, 281474976710655)) {
+            _fail('DataError', 'Clock is outside the UUIDv7 timestamp range.');
+        }
+        var id = new Uint8Array(16);
+        random.getRandomValues(id);
+        for (var i = 5; i >= 0; i--) {
+            id[i] = now % 256;
+            now = Math.floor(now / 256);
+        }
+        id[6] = (id[6] & 15) | 0x70;
+        id[7] = (id[7] & ~(partitions - 1)) | partition;
+        id[8] = (id[8] & 63) | 0x80;
+        return id;
+    }
+
+    function _validateMessagePartition(value, partition, partitions) {
+        _validatePartition(partition, partitions);
+        var id = _bytes(value);
+        if (id.length !== 16 || (id[6] & 0xF0) !== 0x70 || (id[8] & 0xC0) !== 0x80 ||
+            (id[7] & (partitions - 1)) !== partition) {
+            _fail('DataError', 'Reliable message ID does not match its conversation partition.');
+        }
+    }
+
+    Protocol.messageId = _messageId;
+    Protocol.validateMessagePartition = _validateMessagePartition;
     Protocol.validateFields = _validateFields;
     Protocol.validateEnvelope = _validateEnvelope;
     Protocol.validateTarget = _validateTarget;

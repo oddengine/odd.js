@@ -22,6 +22,7 @@
             connectionId: '',
             credentials: null,
             socketFactory: null,
+            storageFactory: null,
             connectTimeout: 10000,
             requestTimeout: 15000,
             maxBufferedBytes: 262144,
@@ -144,7 +145,8 @@
                 !_integer(_this.config.maxBufferedBytes, 65536, 16777216) ||
                 !_integer(_this.config.retry.delay, 1, 300000) || !_integer(_this.config.retry.count, -1, 65535) ||
                 (_this.config.credentials !== null && typeof _this.config.credentials !== 'function') ||
-                (_this.config.socketFactory !== null && typeof _this.config.socketFactory !== 'function')) {
+                (_this.config.socketFactory !== null && typeof _this.config.socketFactory !== 'function') ||
+                (_this.config.storageFactory !== null && typeof _this.config.storageFactory !== 'function')) {
                 return Promise.reject(_error('TypeError', 'Invalid IM connection configuration.'));
             }
             if (_this.config.parameters && _this.config.parameters.token) {
@@ -523,6 +525,23 @@
             if (_attempt !== attempt || _readyState !== State.CONNECTED) {
                 return;
             }
+            if (notification.messaging && notification.event === Protocol.Event.IM_SYNC_REQUIRED) {
+                if (!attempt.messaging) {
+                    _end(attempt, _error('NotSupportedError', 'Reliable delivery requires durable storage.'));
+                    return;
+                }
+                Protocol.validateFields(notification.fields, [
+                    { key: 'kind', type: Protocol.Type.STRING }, { key: 'conversationId', type: Protocol.Type.STRING },
+                    { key: 'items', type: Protocol.Type.ARRAY }, { key: 'nextCursor', type: Protocol.Type.BYTES },
+                    { key: 'hasMore', type: Protocol.Type.BOOL },
+                ]);
+                attempt.messaging.receive(notification.payload).catch(function (error) { _end(attempt, error); });
+                return;
+            }
+            if (data && data.messaging) {
+                _end(attempt, _error('DataError', 'Reliable messages must arrive in an acknowledged storage page.'));
+                return;
+            }
             if (data) {
                 // A Relay message can expire while waiting for session readiness.
                 if (!data.messaging && _milliseconds(data.meta.expiresAt) <= Date.now()) {
@@ -539,9 +558,52 @@
             }
         }
 
+        function _openMessaging(attempt) {
+            if (!_this.config.storageFactory) {
+                return Promise.resolve();
+            }
+            return Promise.resolve().then(function () {
+                var session = attempt.session;
+                if (!IM.Messaging || session.principal.kind !== 1 || !session.deviceId ||
+                    !session.ext || !session.ext.scope || session.ext.messaging !== true) {
+                    throw _error('NotSupportedError', 'This session does not support durable messaging.');
+                }
+                var identity = Object.freeze({ scope: session.ext.scope, userId: session.principal.id, deviceId: session.deviceId });
+                return Promise.resolve(_this.config.storageFactory(identity)).then(function (storage) {
+                    if (_attempt !== attempt) {
+                        if (storage && typeof storage.close === 'function') {
+                            storage.close();
+                        }
+                        throw _error('AbortError', 'IM session changed while opening storage.');
+                    }
+                    attempt.messaging = new IM.Messaging(identity, storage,
+                        function (opcode, fields) { return _request(attempt, opcode, fields, true); },
+                        function (target, actions) {
+                            if (_attempt !== attempt) {
+                                return Promise.reject(_error('AbortError', 'IM session changed.'));
+                            }
+                            return _this.refresh(target, actions, true);
+                        },
+                        function (message) { return _parseMessage(message, _object(message.fields[1].value)); },
+                        function (message) {
+                            if (_attempt === attempt) {
+                                _this.dispatchEvent(IMEvent.MESSAGE, message);
+                            }
+                        },
+                        function (change) {
+                            if (_attempt === attempt) {
+                                _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SYNC_REQUIRED,
+                                    messaging: true, payload: change });
+                            }
+                        });
+                    return attempt.messaging.open();
+                });
+            });
+        }
+
         function _restore(attempt) {
             var keys = Object.keys(_subscriptions),
-                chain = Promise.resolve();
+                chain = _openMessaging(attempt);
             keys.forEach(function (key) {
                 chain = chain.then(function () {
                     var intention = _subscriptions[key];
@@ -599,6 +661,13 @@
                 }
                 attempt.notifications = [];
                 attempt.notificationBytes = 0;
+                if (attempt.messaging) {
+                    attempt.messaging.recover().catch(function (error) {
+                        if (_attempt === attempt) {
+                            _this.dispatchEvent(Event.ERROR, { name: error.name, message: error.message });
+                        }
+                    });
+                }
             });
         }
 
@@ -626,6 +695,9 @@
 
             clearTimeout(attempt.deadline);
             clearInterval(attempt.maintenance);
+            if (attempt.messaging) {
+                attempt.messaging.close();
+            }
             _permissions = Object.create(null);
             _refreshing = Object.create(null);
             _permissionVersions = Object.create(null);
@@ -674,6 +746,28 @@
         _this.request = function (opcode, fields, messaging, validator) {
             if (_readyState !== State.CONNECTED) {
                 return Promise.reject(_error('InvalidStateError', 'IM is not ready.'));
+            }
+            if (messaging) {
+                var reliable = _attempt.messaging;
+                if (!reliable) {
+                    return Promise.reject(_error('NotSupportedError', 'Configure durable storage before using reliable messaging.'));
+                }
+                // These operations own storage boundaries; generic request()
+                // must not bypass the same guarantees as the convenience API.
+                switch (opcode) {
+                    case Protocol.Opcode.PUBLISH:
+                        return reliable.publish(fields);
+                    case Protocol.Opcode.RESOLVE:
+                        return reliable.resolve(_object(fields[0].value));
+                    case Protocol.Opcode.FETCH:
+                        return reliable.fetch(fields[0].value, fields[1].value, fields[2].value);
+                    case Protocol.Opcode.COMMIT:
+                        return reliable.commit(fields[0].value, fields[1].value);
+                    case Protocol.Opcode.SYNC:
+                        return reliable.sync(fields[0].value, fields[1].value, fields[2].value);
+                    case Protocol.Opcode.LIST:
+                        return reliable.sync('conversations', fields[0].value, fields[1].value);
+                }
             }
             return _request(_attempt, opcode, fields, messaging, validator);
         };
@@ -821,6 +915,9 @@
         }
 
         function _subscribe(attempt, key, intention) {
+            if (intention.messaging && !attempt.messaging) {
+                return Promise.reject(_error('NotSupportedError', 'Reliable subscriptions require durable storage.'));
+            }
             var version = _permissionVersions[_targetKey(intention.target, intention.messaging)],
                 fields = [
                 _field('topic', Protocol.Type.STRING, intention.topic),
@@ -873,7 +970,8 @@
                 }
                 options = options || {};
                 var topic = options.topic || 'messages',
-                    actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE : options.actions;
+                    actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE |
+                        (options.messaging ? Protocol.Action.MESSAGE_COMMIT | Protocol.Action.MESSAGE_READ : 0) : options.actions;
                 _target(target);
                 if (topic !== 'messages' || !_integer(actions, 1, 1023) ||
                     !(actions & Protocol.Action.MESSAGE_SUBSCRIBE)) {
@@ -995,7 +1093,20 @@
                     body.push(_field('ext', Protocol.Type.OBJECT, options.ext));
                 }
                 fields.push(_field('body', Protocol.Type.OBJECT, body));
-                return _this.request(Protocol.Opcode.PUBLISH, fields, options.messaging);
+                if (options.messaging) {
+                    var attempt = _attempt;
+                    if (!attempt || !attempt.messaging) {
+                        throw _error('NotSupportedError', 'Reliable sends require durable storage.');
+                    }
+                    return attempt.messaging.identity(target, options.clientMessageId).then(function (id) {
+                        if (_attempt !== attempt) {
+                            throw _error('AbortError', 'IM session changed before saving the send.');
+                        }
+                        body[0].value = id;
+                        return _this.request(Protocol.Opcode.PUBLISH, fields, true);
+                    });
+                }
+                return _this.request(Protocol.Opcode.PUBLISH, fields, false);
             });
         };
 
@@ -1060,6 +1171,17 @@
 
         _this.presence = function (userId) {
             return _this.request(Protocol.Opcode.PRESENCE, [_field('userId', Protocol.Type.STRING, userId)], false);
+        };
+
+        _this.storage = function () {
+            return _attempt && _attempt.messaging ? _attempt.messaging.storage() : null;
+        };
+
+        _this.recover = function () {
+            if (!_attempt || !(_attempt.messaging) || _readyState !== State.CONNECTED) {
+                return Promise.reject(_error('InvalidStateError', 'Reliable messaging is not ready.'));
+            }
+            return _attempt.messaging.recover();
         };
 
         _this.close = function () {

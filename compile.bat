@@ -53,7 +53,8 @@ set scripts[3]=".\src\im\message\message.schema.js"
 set scripts[4]=".\src\im\im.responder.js"
 set scripts[5]=".\src\im\im.requesttable.js"
 set scripts[6]=".\src\im\im.indexeddb.js"
-set length=7
+set scripts[7]=".\src\im\im.messaging.js"
+set length=8
 
 cd.>.\release\odd.im.js
 

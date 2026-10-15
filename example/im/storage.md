@@ -1,76 +1,138 @@
-# Reliable messaging storage foundation / 可靠消息本地存储基础
+# Reliable messaging / 可靠消息
 
-This is an intermediate E08a source component. The server still rejects M=1;
-`IM.send`, incoming notifications and reconnect do not call this adapter yet.
-It does not enable reliable chat or provide an automatic COMMIT path. Release
-bundles have not been rebuilt. No build, test or browser verification was run.
+E08a now connects the M=1 server source, durable SDK storage, receive COMMIT and
+reconnection recovery. Release bundles have not been rebuilt. No build, tests,
+browser run or deployment has been performed.
 
-这是 E08a 的中间源码组件。服务端仍拒绝 M=1，IM.send、接收通知及重连尚未接入该适配器；
-不能据此认为可靠聊天已经可用。release 未重建，未编译、测试或运行浏览器。
+E08a 已接通服务端与 SDK 的可靠消息源码。release 未重建；本轮未编译、测试、运行浏览器或部署。
 
-## Identity and lifecycle / 身份与生命周期
+## Enable durable storage / 启用持久存储
 
 ```javascript
-var storage = new odd.IM.IndexedDB(scope, userId, deviceId);
-await storage.open();
-// ... use this adapter only for that authenticated principal/device ...
-storage.close();
+var im = odd.im.create();
+await im.setup({
+    url: 'wss://im.example.com/im',
+    credentials: credentialsProvider, // existing short-lived admission provider
+    storageFactory: function (identity) {
+        return new odd.IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+    },
+    connectTimeout: 120000,
+    requestTimeout: 120000,
+    retry: { delay: 2000, count: -1 },
+});
+
+var resolved = await im.resolve({ type: 'user', id: recipientUserId });
+// A fixed group uses { type: 'group', id: groupId } instead.
+var target = { type: 'conversation', id: resolved.conversationId };
+var actions = odd.IM.Protocol.Action;
+await im.subscribe(target, {
+    messaging: true,
+    actions: actions.MESSAGE_SUBSCRIBE | actions.MESSAGE_COMMIT |
+        actions.MESSAGE_READ | actions.MESSAGE_PUBLISH,
+});
+await im.send(target, 'Hello', { messaging: true });
+// Only when the user actually reads a received message:
+await im.read(target.id, received.meta.messageId, received.meta.messageSequence);
 ```
 
-The database name includes the scope, user and device. Never reuse the adapter
-for another principal. Close aborts pending transactions and closes late open
-results; a closed adapter cannot reopen. Read/write transactions require the
-browser's `durability: 'strict'` support. Unsupported storage, quota failures,
-blocked upgrades and aborted transactions reject their promises. At most 32
-operations may wait for/open a transaction per adapter.
+Storage is optional for M=0 and required for M=1. Its identity comes from the
+server-authenticated principal/device and CONNECT_SUCCESS.ext.scope. The adapter
+must return that same namespace from identity(). Each reconnect creates a fresh
+adapter object. No token, admission proof or secret is persisted.
 
-数据库按 scope、用户和设备隔离，不允许切换身份后复用同一实例。close 终止未完成事务，
-迟到的打开结果也会关闭；关闭后需新建实例。写事务要求浏览器支持 strict 持久性，
-不支持、空间不足、升级被其他页签阻塞或事务中断都明确拒绝 Promise。
-每个适配器最多32个等待打开或执行中的操作。
+M=0 不需要存储适配器，M=1 必须配置。命名空间来自服务端确认的 scope、用户和设备；每次
+重连新建适配器，不能把旧账户的存储用于新身份。不保存 token、准入证明或私钥。较大固定群
+首次恢复可能较慢，示例显式放宽连接／请求期限；服务端仍受其基线期限及授权有效期限制。
 
-## Adapter operations / 适配器方法
+IndexedDB writes require `durability: 'strict'` and resolve only on transaction
+completion. Unsupported storage, quota exhaustion, blocked upgrades and aborted
+transactions fail explicitly. The adapter admits at most 32 outstanding storage
+operations. Database version 2 adds terminal ranges while preserving version 1
+outbox, messages and positions.
 
-| Method | Contract / 契约 |
+IndexedDB 写事务要求 strict 持久性，完成事件才兑现 Promise。存储不足或失败时不会 COMMIT；
+连接关闭会终止未完成事务，迟到回调不能继续确认。v2 在已有库上新增终止范围存储。
+
+## Sends, receives and recovery / 收发与恢复
+
+RESOLVE supplies partition/partitions. `send` generates one secure UUIDv7 with the
+partition profile, saves the canonical PUBLISH with SN=1, and only then sends it.
+An explicit clientMessageId must already match that profile and is never rewritten.
+Use the same ID/content to retry; unknown outcomes remain in the outbox. Expired,
+conflicting or invalid identities are not silently replaced with a new send.
+
+发送先 RESOLVE，使用安全随机数生成与分区绑定的 UUIDv7，保存规范报文后发出；调用者提供的
+ID 只能验证，不能自动改写。网络结果未知时保留原 ID 和正文；过期或冲突需要应用明确处理。
+不要把 UNKNOWN 当失败后重新调用一个没有原 ID 的 send，否则那是一次新的发送意图。
+
+A reliable subscription receives bounded storage pages. The SDK checks packet
+identity, atomically stores bodies/dedup/terminal ranges/cursor, then sends COMMIT
+on the same connection generation. Message events follow this path. A disconnect
+can cause duplicate events; applications identify messages by messageId. Saved
+messages remain available through `im.storage().messages(conversationId, after,
+limit)`, where after is an exact `{high, low}` sequence and limit is 1–64. The
+returned packet is decoded with `odd.IM.Protocol.decode(record.packet)`.
+
+可靠订阅收到分页数据后，SDK 核对消息身份，将正文、去重、终止范围和游标同事务保存，再在
+原连接代际提交 COMMIT。消息事件可能因断线重投而重复，应用以 messageId 去重。落盘后即使
+页面关闭，也可用 messages 方法按序读取正文。READ 只由业务的明确阅读动作触发。
+
+`fetch(conversationId, cursor, limit)` uses the same persistence/COMMIT path.
+`commit('messages', cursor)` only retries a cursor this SDK instance has already
+saved; it cannot acknowledge arbitrary bytes. Serialize explicit FETCH and a live
+subscription to the same conversation: one live page owns its acknowledgement
+window. Prefer the subscription for continuous delivery and FETCH when it is
+not subscribed.
+
+fetch 同样会落盘后确认；commit 只允许重试本实例已经保存的页，不允许制造假确认。一个会话
+使用订阅持续接收，或在未订阅时显式 fetch，避免两个读取者争用同一个设备的连续确认窗口。
+
+Reconnect restores existing subscription intentions, performs a bounded-page
+conversation pass, retries pending outbox entries in order with their original
+IDs, and synchronizes delivery results. `im.recover()` repeats that pass explicitly
+and coalesces concurrent callers. Transient errors are surfaced; they do not
+invent success or a replacement identity. On a new device, use conversations()
+and subscribe to the conversations the application needs; the SDK does not open
+every account conversation automatically.
+
+重连恢复已有订阅意图，并分页同步会话、重发原 ID 的待定发送、同步结果。recover 可显式重试
+恢复，多个调用合并执行。新设备由应用读取 conversations 并选择订阅，不自动打开所有会话。
+新设备只取得用户尚未接收且未过期的正文，不保证恢复已确认回收的历史或发送者其他设备正文。
+
+`conversations` and `sync('conversations'/'results')` are full bounded projection
+passes, not change-log offsets. Continue while hasMore; the final nextCursor is
+empty. Start each new pass empty. Changes to keys already visited appear in the
+next pass. Results include accepted/delivered/settled/expired/revoked; group
+settled means responsibilities completed or released, not that all members read
+or received the body. Results expire with the server retry retention window.
+
+会话／结果同步是有界分页全量投影。hasMore 为真时继续，最后游标为空；新一轮从空游标开始。
+已遍历键的并发更新在下轮可见。固定群 settled 不是所有原成员送达或已读证明；结果有保留窗口。
+
+## Adapter contract / 适配器契约
+
+| Method | Durable contract / 持久契约 |
 |---|---|
-| `enqueue(clientMessageId, packet)` | Save canonical PUBLISH bytes before sending; the same ID with changed bytes conflicts. 发送前保存规范化 PUBLISH，SN 固定为1；同 ID 异内容拒绝 |
-| `pending(limit)` | Read at most 64 pending entries and 256 KiB per page. Unknown results remain pending. 最多64项、256 KiB；未知结果保持原 ID |
-| `settle(clientMessageId, state, outcome)` | Store a known result; does not invent a new retry ID. 保存确定结果，不生成替代消息 ID |
-| `receive(conversationId, items, cursor, previousCursor)` | Atomically save immutable message packets, dedup keys and the page position. 正文、去重和恢复位置同事务保存 |
-| `synchronize(items, cursor, previousCursor)` | Save account conversation revisions/read positions and the synchronization position atomically. 会话版本／共享已读和同步位置同事务保存 |
-| `position(kind, id)` | Read the persisted opaque position; a missing position is an empty Uint8Array. 读取已保存游标，缺失时返回空字节数组 |
-| `close()` | Stop this adapter. It never acknowledges a message by itself. 关闭实例，不自行发送确认 |
+| identity(), open(), close() | Fixed scope/user/device; close aborts pending operations. 固定身份，关闭终止在途事务 |
+| enqueue(id, packet) | Canonical immutable outbox before send; changed bytes conflict. 发送前保存，同 ID 异内容冲突 |
+| pending(limit, after?) | At most 64 records / 256 KiB; after is the previous record's hex id. 有界发送箱分页 |
+| settle(id, state, outcome?) | Known result only; preserves previous outcome if absent. 不将未知结果写成成功 |
+| receive(conversation, items, cursor, previous) | Bodies, terminal ranges, dedup and cursor in one strict transaction. 同事务保存 |
+| position(kind, id) | Persisted opaque cursor or empty bytes. 游标按不透明字节保存 |
+| synchronize(items, cursor, previous) | Conversation revision, READ/head/incoming positions and cursor atomically. 保存共享已读及会话进度 |
+| messages(conversation, after, limit) | Read durable local packets in sequence order. 有界读取本地正文 |
 
-A receive item contains `messageId` (16 bytes), `messageSequence` (exact
-`{high, low}` uint32 words), and `packet` (canonical message notification bytes).
-Pages are bounded to 64 records and 256 KiB. `previousCursor` must match the
-stored position, or `cursor` must already be installed by the same duplicate
-page. A stale concurrent page aborts the whole transaction. COMMIT may follow
-only after receive resolves, and only on the still-current authenticated socket.
-The future SDK wiring is responsible for that socket generation check.
+Normal receive items carry kind=message, messageId, messageSequence, packet;
+terminal items carry kind=expired, first, last. All sequences are exact high/low
+uint32 words. Cursor updates use compare-and-swap against previousCursor to
+reject conflicting tabs/late operations. Use a distinct device identity per
+independent writer; sharing one device between tabs may close a conflicting
+connection rather than skip unsaved data.
 
-receive 项包含16字节 messageId、精确 high/low 双32位 messageSequence，以及规范化消息
-通知 packet。每页最多64条、256 KiB。previousCursor 必须匹配持久位置，或本页 cursor
-已经由重复页保存；迟到的并发页会使整个事务中止。只有 receive Promise 成功后，且原认证
-连接仍有效时，调用者才能 COMMIT；连接代际检查由后续 SDK 接线承担。
+正文项与终止范围项均随游标落盘，64 位序号使用 high/low，不转为有损浮点数。多个独立写入者
+应使用不同设备身份；同设备多页签争用可能拒绝或关闭冲突连接，不能跳过未保存的数据。
 
-A synchronization item contains `conversationId`, `revision`, `readSequence`.
-The two sequences use exact high/low words. A newer revision cannot move READ
-backwards. This saves account metadata only; it cannot acknowledge message bodies.
-For `settle`, known states are accepted/delivered/expired/revoked/rejected;
-optional outcome fields are messageId/conversationId/messageSequence. Unknown or
-pending network results must not be passed to settle. No token/key store exists.
-
-同步项保存 conversationId、revision 和 readSequence，序号同样使用 high/low；新版本不能
-回退已读。保存账户元数据不代表已经保存消息正文。settle 只接受 accepted、delivered、
-expired、revoked、rejected；可选 outcome 只保存 messageId／conversationId／messageSequence。
-未知网络结果继续留在发送箱；不保存令牌、密钥或完整登录响应。
-
-This foundation does not implement local history deletion/retention, automatic
-retry scheduling, wire cursor validation or server authorization. Those remain
-with the application and the unfinished E08a protocol wiring. Client deletion
-must eventually preserve dedup/recovery evidence rather than recreate content
-on an acknowledged-message replay.
-
-本基础组件尚不提供本地历史删除／保留策略、自动重试调度、线协议游标验证或服务端鉴权。
-后续本地删除必须保留去重和恢复依据，避免已删除消息因重投重新出现。
+Local history cleanup is application policy and is not automatic here. Storage
+quota failure stops reliable receiving instead of deleting unacknowledged data.
+Server TTL/physical collection and replication are separate concerns; see the
+odd.d reliable-messaging document for node limits and the single-replica boundary.

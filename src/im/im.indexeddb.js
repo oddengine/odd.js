@@ -94,19 +94,24 @@
                     reject(_error('NotSupportedError', 'IndexedDB is unavailable.'));
                     return;
                 }
-                var request = indexedDB.open(_name, 1), failed = false;
+                var request = indexedDB.open(_name, 2), failed = false;
                 request.onupgradeneeded = function () {
                     if (_closed || failed) {
                         request.transaction.abort();
                         return;
                     }
                     var database = request.result;
-                    var outbox = database.createObjectStore('outbox', { keyPath: 'id' });
-                    outbox.createIndex('state', 'state');
-                    var messages = database.createObjectStore('messages', { keyPath: ['conversationId', 'id'] });
-                    messages.createIndex('sequence', ['conversationId', 'high', 'low'], { unique: true });
-                    database.createObjectStore('positions', { keyPath: ['kind', 'id'] });
-                    database.createObjectStore('conversations', { keyPath: 'conversationId' });
+                    if (!database.objectStoreNames.contains('outbox')) {
+                        var outbox = database.createObjectStore('outbox', { keyPath: 'id' });
+                        outbox.createIndex('state', 'state');
+                        var messages = database.createObjectStore('messages', { keyPath: ['conversationId', 'id'] });
+                        messages.createIndex('sequence', ['conversationId', 'high', 'low'], { unique: true });
+                        database.createObjectStore('positions', { keyPath: ['kind', 'id'] });
+                        database.createObjectStore('conversations', { keyPath: 'conversationId' });
+                    }
+                    if (!database.objectStoreNames.contains('terminal')) {
+                        database.createObjectStore('terminal', { keyPath: ['conversationId', 'firstHigh', 'firstLow'] });
+                    }
                 };
                 request.onerror = function () {
                     _rejectOpen = null;
@@ -230,7 +235,7 @@
                     };
                     _id(saved.messageId);
                 }
-                if (['accepted', 'delivered', 'expired', 'revoked', 'rejected'].indexOf(state) < 0) {
+                if (['accepted', 'delivered', 'settled', 'expired', 'revoked', 'rejected'].indexOf(state) < 0) {
                     throw _error('DataError', 'Unknown results must retain their pending identity.');
                 }
                 return _transaction(['outbox'], 'readwrite', function (transaction, result, abort) {
@@ -246,7 +251,9 @@
                             return;
                         }
                         record.state = state;
-                        record.outcome = saved;
+                        if (saved) {
+                            record.outcome = saved;
+                        }
                         store.put(record);
                         result(record);
                     };
@@ -254,17 +261,25 @@
             });
         };
 
-        _this.pending = function (limit) {
+        _this.pending = function (limit, after) {
             return Promise.resolve().then(function () {
                 if (!_integer(limit, 1, 64)) {
                     throw _error('QuotaExceededError', 'Outbox page limit must be between 1 and 64.');
                 }
                 return _transaction(['outbox'], 'readonly', function (transaction, result) {
                     var records = [], bytes = 0;
-                    var request = transaction.objectStore('outbox').index('state').openCursor('pending');
+                    var request = transaction.objectStore('outbox').openCursor(after ? IDBKeyRange.lowerBound(after, true) : null);
                     request.onsuccess = function () {
                         var cursor = request.result;
-                        if (!cursor || records.length === limit || cursor.value.packet.length > 262144 - bytes) {
+                        if (!cursor || records.length === limit) {
+                            result(records);
+                            return;
+                        }
+                        if (cursor.value.state !== 'pending') {
+                            cursor.continue();
+                            return;
+                        }
+                        if (cursor.value.packet.length > 262144 - bytes) {
                             result(records);
                             return;
                         }
@@ -285,8 +300,17 @@
                     throw _error('QuotaExceededError', 'A message page may contain at most 64 records.');
                 }
                 var position = _bytes(cursor, 512), previous = _bytes(previousCursor, 512), total = 0;
-                var seen = Object.create(null), records = [];
+                var seen = Object.create(null), records = [], terminal = [];
                 items.forEach(function (item) {
+                    if (item.kind === 'expired') {
+                        var first = _sequence(item.first), last = _sequence(item.last);
+                        if (Protocol.compare64(item.first, item.last) > 0) {
+                            throw _error('DataError', 'Invalid terminal message range.');
+                        }
+                        terminal.push({ conversationId: conversationId, firstHigh: first[0], firstLow: first[1],
+                            lastHigh: last[0], lastLow: last[1], kind: 'expired' });
+                        return;
+                    }
                     var sequence = _sequence(item.messageSequence), packet = _bytes(item.packet, 65536);
                     total += packet.length;
                     var record = {
@@ -309,7 +333,7 @@
                 if (total > 262144) {
                     throw _error('QuotaExceededError', 'A message page exceeds its byte budget.');
                 }
-                return _transaction(['messages', 'positions'], 'readwrite', function (transaction, result, abort) {
+                return _transaction(['messages', 'terminal', 'positions'], 'readwrite', function (transaction, result, abort) {
                     var store = transaction.objectStore('messages');
                     records.forEach(function (record) {
                         var request = store.get([conversationId, record.id]);
@@ -324,6 +348,9 @@
                                 store.add(record);
                             }
                         };
+                    });
+                    terminal.forEach(function (record) {
+                        transaction.objectStore('terminal').put(record);
                     });
                     _advance(transaction, 'messages', conversationId, previous, position, abort);
                     result(position);
@@ -363,10 +390,17 @@
                 var selected = Object.create(null);
                 items.forEach(function (item) {
                     var revision = _sequence(item.revision), read = _sequence(item.readSequence);
+                    var head = _sequence(item.headSequence), incoming = _sequence(item.incomingSequence);
+                    if (Protocol.compare64(item.readSequence, item.headSequence) > 0 ||
+                        Protocol.compare64(item.incomingSequence, item.headSequence) > 0) {
+                        throw _error('DataError', 'Conversation positions exceed the durable head.');
+                    }
                     var record = {
                         conversationId: _identifier(item.conversationId),
                         revision: { high: revision[0], low: revision[1] },
                         readSequence: { high: read[0], low: read[1] },
+                        headSequence: { high: head[0], low: head[1] },
+                        incomingSequence: { high: incoming[0], low: incoming[1] },
                     };
                     var previous = selected[record.conversationId];
                     if (!previous || Protocol.compare64(previous.revision, record.revision) < 0) {
@@ -400,6 +434,36 @@
                     });
                     _advance(transaction, 'synchronization', '', previous, position, abort);
                     result(position);
+                });
+            });
+        };
+
+        _this.identity = function () {
+            return { scope: scope, userId: userId, deviceId: deviceId };
+        };
+
+        _this.messages = function (conversationId, after, limit) {
+            return Promise.resolve().then(function () {
+                _identifier(conversationId);
+                if (!_integer(limit, 1, 64)) {
+                    throw _error('QuotaExceededError', 'Message page limit must be between 1 and 64.');
+                }
+                var start = after ? _sequence(after) : [0, 0];
+                var range = IDBKeyRange.bound([conversationId, start[0], start[1]],
+                    [conversationId, 4294967295, 4294967295], !!after, false);
+                return _transaction(['messages'], 'readonly', function (transaction, result) {
+                    var records = [], bytes = 0;
+                    var request = transaction.objectStore('messages').index('sequence').openCursor(range);
+                    request.onsuccess = function () {
+                        var cursor = request.result;
+                        if (!cursor || records.length === limit || cursor.value.packet.length > 262144 - bytes) {
+                            result(records);
+                            return;
+                        }
+                        records.push(cursor.value);
+                        bytes += cursor.value.packet.length;
+                        cursor.continue();
+                    };
                 });
             });
         };
