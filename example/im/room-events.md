@@ -212,3 +212,58 @@ reject with AbortError, which does not mean a server mutation was cancelled.
 
 Only SDK source and this usage document changed; no demo UI, release build,
 browser or runtime test was produced. [中文业务契约](https://github.com/oddengine/odd.x/blob/main/docs/stage.zh-CN.md).
+
+## R-049 private stage applications
+
+The same roomRequest provider now exposes `stageRequests(room, options)`,
+`stageRequest(room, applicationId)`, `decideStage(room, applicationId, decision)`
+and `cancelStage(room, applicationId)`. Options are `{limit: 50, cursor: '',
+all: false}`; `all: true` is the manager's pending queue, otherwise only the
+caller's own applications are listed. Results are `{items, cursor}` with a maximum
+page size of 100. Refresh a new scan for later arrivals. There is no SDK polling
+loop: query active views with bounded pages/backoff, stopping on close or terminal
+result. Public seat updates continue on the reliable stream.
+
+```javascript
+var state = await im.stage(roomId);
+await im.saveStage(roomId, { mode: 'apply', capacity: 9,
+    allowedActions: ['audio', 'video'], expectedRevision: state.policy.revision });
+
+// Applicant: save this intent before POST, then retain the returned application ID.
+var intent = { requestId: crypto.randomUUID(), requestedAt: String(Date.now()),
+    actions: ['audio', 'video'] };
+await saveStageIntent(roomId, intent);
+var application = await im.requestStage(roomId, intent);
+await saveStageApplication(roomId, application);
+
+// Manager, in a separate authenticated session:
+var page = await im.stageRequests(roomId, { all: true });
+var pending = page.items[0]; // UI chooses an existing pending item.
+if (pending) {
+    var decision = { decision: 'approve', expectedRevision: pending.revision,
+        actions: ['audio'] }; // May narrow, never widen the requested permissions.
+    await saveStageDecision(roomId, pending.id, decision);
+    await im.decideStage(roomId, pending.id, decision);
+}
+
+// Applicant: on an uncertain result, query the same ID or repeat the original POST.
+application = await im.stageRequest(roomId, application.id);
+if (application.state === 'approved') {
+    var grant = await im.stageGrant(roomId, application.grantId);
+    // Use grant.actions / startDeadline / expiresAt for resource creation.
+    // application.expiresAt is only the earlier approval deadline.
+} else if (application.state === 'pending') {
+    // Explicit user cancellation only; it cannot undo an already-approved grant.
+    // await im.cancelStage(roomId, application.id);
+}
+```
+
+The POST result remains the original application/grant across room mode changes.
+Never treat HTTP success as approval without inspecting state; expired decisions
+can return `expired`. Reuse the exact saved decision after timeout. A changed
+decision or expectedRevision conflicts; use the detail query to reconcile it.
+Approval can return `room_full` while the application remains pending. Applications
+default to 60 seconds and consume no seats before approval. A pending list may
+briefly contain due items; the server always checks the deadline before approval.
+Private reasons and applicants are not broadcast as room events. No UI or release
+bundle was rebuilt; these are source-level APIs and integration examples.

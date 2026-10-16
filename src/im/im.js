@@ -1245,6 +1245,25 @@
             return _stage(room, 'POST', '/requests', request);
         };
 
+        _this.stageRequests = function (room, options) {
+            options = options || {};
+            var query = '?limit=' + encodeURIComponent(options.limit === undefined ? 50 : options.limit) +
+                '&cursor=' + encodeURIComponent(options.cursor || '') + '&all=' + (options.all === true ? 'true' : 'false');
+            return _stage(room, 'GET', '/requests' + query);
+        };
+
+        _this.stageRequest = function (room, request) {
+            return _stage(room, 'GET', '/requests/' + encodeURIComponent(request));
+        };
+
+        _this.decideStage = function (room, request, decision) {
+            return _stage(room, 'PUT', '/requests/' + encodeURIComponent(request), decision);
+        };
+
+        _this.cancelStage = function (room, request) {
+            return _stage(room, 'DELETE', '/requests/' + encodeURIComponent(request));
+        };
+
         _this.stageGrant = function (room, grant) {
             return _stage(room, 'GET', '/grants/' + encodeURIComponent(grant));
         };
