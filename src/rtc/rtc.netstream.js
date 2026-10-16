@@ -436,6 +436,7 @@
             _screensharing = screensharing;
             _withcamera = withcamera;
             _stream = stream;
+            _audiometer.update(stream);
             return Promise.resolve(stream);
         };
 
