@@ -86,6 +86,7 @@
             IM_CONVERSATION_CHANGE: 0x2801,
             IM_PRESENCE_CHANGE: 0x2901,
             IM_CALL_CHANGE: 0x2A01,
+            IM_SPEAKERS_CHANGE: 0x2B01,
         };
 
     function Protocol(opcode, sequenceNumber, messaging) {

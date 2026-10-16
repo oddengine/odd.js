@@ -314,6 +314,9 @@
                 { key: 'authorizationId', type: Type.STRING }, { key: 'revision', type: Type.UINT64 },
                 { key: 'generation', type: Type.UINT64 }, { key: 'expiresAt', type: Type.UINT64 },
                 { key: 'actions', type: Type.UINT64 },
+                { key: 'speakersVersion', type: Type.UINT16, required: false },
+                { key: 'speakersEpoch', type: Type.STRING, required: false },
+                { key: 'serverTime', type: Type.UINT64, required: false },
             ]);
         } else if (opcode === Opcode.COMMIT) {
             rules = rules.concat([{ key: 'cursor', type: Type.BYTES }, { key: 'through', type: Type.UINT64 }]);

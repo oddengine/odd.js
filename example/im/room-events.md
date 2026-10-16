@@ -267,3 +267,9 @@ default to 60 seconds and consume no seats before approval. A pending list may
 briefly contain due items; the server always checks the deadline before approval.
 Private reasons and applicants are not broadcast as room events. No UI or release
 bundle was rebuilt; these are source-level APIs and integration examples.
+
+The R-051 SDK negotiates stateVersion3 with an upgraded server. Old v2 visits
+require an explicit new visit; their saved cursor is not silently reused. Add
+`speakers:true` to an events subscription only when short-lived speaker ordering
+is wanted. It uses M=0 observations and in-memory `roomSpeakers`, independently
+of reliable saved facts and ACKs. See [RTC speaker integration](../rtc/speakers.md).

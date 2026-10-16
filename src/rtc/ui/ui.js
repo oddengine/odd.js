@@ -60,6 +60,13 @@
             _timer,
             _pendingCall,
             _pendingShare,
+            _meterFrame = 0,
+            _meterAt = 0,
+            _meters = new Map(),
+            _speakerView = null,
+            _speakerBindings = [],
+            _speakerAt = 0,
+            _speakerFresh = null,
             _readyState;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
@@ -110,6 +117,8 @@
                 _buildPlugins();
                 _setupPlugins();
                 _this.resize();
+                document.addEventListener('visibilitychange', _onVisibility);
+                _onVisibility();
             } catch (err) {
                 _this.destroy(err.message);
                 throw err;
@@ -254,6 +263,7 @@
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
                 ns.element().classList.add('pe-rtc-calling');
                 _content.appendChild(ns.element());
+                _attachMeter(ns);
                 _wrapper.setAttribute('calling', 'on');
 
                 var controlbar = _this.plugins['Controlbar'];
@@ -308,6 +318,7 @@
                 _sharing = ns;
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
                 ns.element().classList.add('pe-rtc-sharing');
+                _content.setAttribute('sharing', 'true');
                 _content.appendChild(ns.element());
 
                 var tracks = ns.stream().getVideoTracks();
@@ -405,8 +416,124 @@
             ns.addEventListener(Event.RELEASE, _onStreamRelease);
             ns.element().classList.add('pe-rtc-subscribing');
             _content.appendChild(ns.element());
+            _attachMeter(ns);
             return ns;
         };
+
+        // Bind only streams already owned by this UI. The application maps its
+        // reliable resource identities to the NetStreams returned by call/play.
+        _this.speakers = function (snapshot, bindings) {
+            if (_readyState !== State.CONNECTED) { return; }
+            if (!snapshot || !Array.isArray(snapshot.items) || snapshot.items.length > 11 ||
+                !Array.isArray(bindings) || bindings.length > 16) {
+                throw { name: 'TypeError', message: 'A bounded speaker snapshot and stream bindings are required.' };
+            }
+            _speakerBindings.forEach(function (binding) {
+                var element = binding.netStream.element();
+                element.style.removeProperty('order');
+                element.removeAttribute('speaking');
+                element.removeAttribute('presentation-role');
+                element.classList.remove('pe-rtc-screen');
+            });
+            var owned = [_calling, _sharing].concat(Object.keys(_subscribing).map(function (name) { return _subscribing[name]; }));
+            _speakerBindings = bindings.filter(function (binding) {
+                return binding && typeof binding.publisherGeneration === 'string' &&
+                    /^[1-9][0-9]{0,19}$/.test(binding.publisherGeneration) &&
+                    owned.indexOf(binding.netStream) >= 0 && binding.netStream;
+            }).map(function (binding) {
+                return { resourceId: binding.resourceId, publisherGeneration: String(binding.publisherGeneration), netStream: binding.netStream, screen: binding.netStream === _sharing || binding.purpose === 'screen' };
+            });
+            _speakerView = { known: !!snapshot.known && typeof snapshot.observedAt === 'number', items: snapshot.items.map(function (item) { return Object.assign({}, item); }) };
+            _speakerAt = typeof snapshot.observedAt === 'number' ? snapshot.observedAt : performance.now();
+            _speakerFresh = null;
+            _orderSpeakers(performance.now());
+        };
+
+        function _orderSpeakers(now) {
+            if (!_speakerView) { return; }
+            var elapsed = now - _speakerAt, items = _speakerView.items.slice(),
+                fresh = _speakerView.known && items.every(function (item) { return !item.measured || elapsed < item.validFor; });
+            if (fresh === _speakerFresh) { return; }
+            _speakerFresh = fresh;
+            if (!fresh) {
+                items.sort(function (a, b) {
+                    var roles = ['owner', 'host', 'anchor', 'presenter', ''];
+                    return roles.indexOf(a.presentation) - roles.indexOf(b.presentation) ||
+                        a.slot - b.slot || a.userId.localeCompare(b.userId);
+                });
+            }
+            _speakerBindings.forEach(function (binding) {
+                var element = binding.netStream.element();
+                element.style.removeProperty('order');
+                element.setAttribute('speaking', 'false');
+                element.classList.toggle('pe-rtc-screen', binding.screen);
+                if (binding.screen) { element.style.order = -32; }
+            });
+            _content.setAttribute('sharing', _sharing || _speakerBindings.some(function (binding) { return binding.screen; }) ? 'true' : 'false');
+            items.forEach(function (item, index) {
+                var binding = _speakerBindings.find(function (candidate) {
+                    return !candidate.screen && candidate.resourceId === item.resourceId && candidate.publisherGeneration === item.publisherGeneration;
+                });
+                if (binding) {
+                    var element = binding.netStream.element();
+                    element.style.order = index - 16;
+                    element.setAttribute('speaking', fresh && item.active ? 'true' : 'false');
+                    element.setAttribute('presentation-role', item.presentation);
+                }
+            });
+        }
+
+        function _attachMeter(ns) {
+            var meter = utils.createElement('span', 'pe-rtc-meter');
+            meter.setAttribute('aria-hidden', 'true');
+            meter.setAttribute('audio-state', 'unavailable');
+            _content.appendChild(meter);
+            _meters.set(ns, meter);
+        }
+
+        function _onVisibility() {
+            if (_meterFrame) { cancelAnimationFrame(_meterFrame); _meterFrame = 0; }
+            if (!document.hidden && _readyState === State.CONNECTED) {
+                _meterFrame = requestAnimationFrame(_measure);
+            } else if (_this.plugins.Controlbar) {
+                _this.plugins.Controlbar.measure({ state: 'unavailable', value: null });
+            }
+        }
+
+        function _measure(now) {
+            _meterFrame = 0;
+            if (document.hidden || _readyState !== State.CONNECTED) { return; }
+            if (now - _meterAt >= 40) {
+                _meterAt = now;
+                var visible = _wrapper.getClientRects().length > 0;
+                var controlbar = _this.plugins.Controlbar, local = _preview || _calling,
+                    localMeasurement = visible && local ? local.measureAudio() : { state: 'unavailable', value: null };
+                if (controlbar) {
+                    controlbar.measure(controlbar.element().getClientRects().length ? localMeasurement : { state: 'unavailable', value: null });
+                }
+                if (visible) {
+                    _orderSpeakers(now);
+                    var bounds = _content.getBoundingClientRect();
+                    _meters.forEach(function (meter, ns) {
+                        var element = ns.element(), rect = element.getBoundingClientRect(),
+                            showing = rect.width > 0 && rect.height > 0 && rect.bottom > Math.max(0, bounds.top) &&
+                                rect.top < Math.min(window.innerHeight, bounds.bottom) && rect.right > Math.max(0, bounds.left) &&
+                                rect.left < Math.min(window.innerWidth, bounds.right);
+                        meter.style.display = showing ? '' : 'none';
+                        if (showing) {
+                            var measurement = ns === local ? localMeasurement : ns.measureAudio();
+                            meter.setAttribute('audio-state', measurement.state);
+                            meter.style.setProperty('--pe-audio-level', (measurement.value || 0) + '%');
+                            meter.style.left = (element.offsetLeft + 8) + 'px';
+                            meter.style.top = (element.offsetTop + 8) + 'px';
+                            meter.title = measurement.state === 'unavailable' ? 'Audio unavailable' :
+                                measurement.state === 'muted' ? 'Audio track muted' : 'Audio level';
+                        }
+                    });
+                }
+            }
+            _meterFrame = requestAnimationFrame(_measure);
+        }
 
         _this.stop = function (name) {
             if (name !== undefined) {
@@ -434,6 +561,10 @@
             var ns = e.srcElement,
                 element = ns.element();
             ns.removeEventListener(Event.RELEASE, _onStreamRelease);
+            var meter = _meters.get(ns);
+            if (meter) { meter.remove(); _meters.delete(ns); }
+            _speakerBindings = _speakerBindings.filter(function (binding) { return binding.netStream !== ns; });
+            _speakerFresh = null;
             if (element.parentNode) {
                 element.parentNode.removeChild(element);
             }
@@ -451,6 +582,7 @@
                     tracks[0].removeEventListener('ended', _onSharingEnded);
                 }
                 _sharing = null;
+                _content.setAttribute('sharing', _speakerBindings.some(function (binding) { return binding.screen; }) ? 'true' : 'false');
                 _wrapper.setAttribute('sharing', 'off');
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
@@ -964,6 +1096,12 @@
                 case State.CONNECTING:
                 case State.CONNECTED:
                     _readyState = State.CLOSING;
+                    if (_meterFrame) { cancelAnimationFrame(_meterFrame); _meterFrame = 0; }
+                    document.removeEventListener('visibilitychange', _onVisibility);
+                    _speakerView = null;
+                    _speakerBindings = [];
+                    _meters.forEach(function (meter) { meter.remove(); });
+                    _meters.clear();
 
                     _timer.stop();
                     _timer.removeEventListener(TimerEvent.TIMER, _onTimer);

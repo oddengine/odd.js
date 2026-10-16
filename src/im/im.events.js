@@ -102,6 +102,12 @@
             rules = [{ key: 'userId', type: Type.STRING }, { key: 'slot', type: Type.UINT32 },
                 { key: 'allowedMask', type: Type.UINT64 }, { key: 'state', type: Type.STRING },
                 { key: 'expiresAt', type: Type.UINT64 }];
+            if (payload.presentation !== undefined) {
+                rules.push({ key: 'presentation', type: Type.STRING });
+                if (['', 'host', 'anchor', 'presenter'].indexOf(payload.presentation) < 0) {
+                    throw _error('DataError', 'Invalid stage presentation.');
+                }
+            }
             if (!/^[0-9a-f-]{36}$/.test(payload.userId) || payload.slot < 1 || payload.slot > 16 ||
                 !payload.allowedMask || payload.allowedMask.high || !payload.allowedMask.low || (payload.allowedMask.low & ~112) ||
                 ['reserved', 'in-use', 'ending', 'ended'].indexOf(payload.state) < 0) {
@@ -184,7 +190,7 @@
             }) };
     }
 
-    function Events(storage, request, deliver, failed, stateVersion) {
+    function Events(storage, request, deliver, failed, stateVersion, speakersChanged, refreshSpeakers) {
         var _this = this, _closed = false, _rooms = Object.create(null), _streams = Object.create(null),
             _pending = 0, _bytes = 0, _owner = Array.prototype.map.call(Protocol.messageId(0, 1), function (v) {
                 return ('0' + v.toString(16)).slice(-2);
@@ -209,7 +215,7 @@
             return result;
         }
 
-        _this.join = function (room, resume, accept) {
+        _this.join = function (room, resume, accept, speakers) {
             return Promise.resolve().then(function () {
                 active();
                 ['eventVisit', 'beginEvents', 'receiveEvents', 'confirmEvents', 'endEvents', 'roomState'].forEach(function (method) {
@@ -225,6 +231,15 @@
                 }
                 var state = { room: room, queue: Promise.resolve(), ready: null, nextAckAt: Infinity, pages: 0, bytes: 0 };
                 _rooms[room] = state;
+                if (speakers) {
+                    if (stateVersion !== 3 || !IM.Speakers) {
+                        delete _rooms[room];
+                        throw _error('NotSupportedError', 'Speaker observations require state version 3.');
+                    }
+                    state.speakers = new IM.Speakers(room, function () {
+                        return state.saved ? { info: state.info, projection: state.projection } : null;
+                    }, speakersChanged, function () { return refreshSpeakers(room); });
+                }
                 state.ready = storage.eventVisit(room).then(function (previous) {
                     active(state);
                     if (resume && !previous) {
@@ -239,15 +254,22 @@
                     if (resume) {
                         fields.push(_field('cursor', Type.BYTES, previous.cursor));
                     }
-                    if (stateVersion === 2) {
-                        fields.push(_field('stateVersion', Type.UINT16, 2));
+                    if (stateVersion >= 2) {
+                        fields.push(_field('stateVersion', Type.UINT16, stateVersion));
                     }
+                    if (speakers) {
+                        fields.push(_field('speakersVersion', Type.UINT16, 1));
+                    }
+                    var started = performance.now();
                     return request(Opcode.SUBSCRIBE, fields).then(function (info) {
                         active(state);
                         if ((info.stateVersion || 1) !== stateVersion) {
                             throw _error('NotSupportedError', 'The server did not negotiate this room state version.');
                         }
                         accept(info);
+                        if (state.speakers) {
+                            state.speakers.negotiate(info, started);
+                        }
                         var cursor = _cursor(info.cursor), delivery = info.delivery;
                         if (cursor.stream !== info.conversationId || Protocol.compare64(cursor.epoch, info.epoch) !== 0 ||
                             cursor.partition !== info.partition || cursor.partitions !== info.partitions ||
@@ -305,13 +327,16 @@
                         return storage.beginEvents(room, { stream: cursor.stream, epoch: cursor.epoch,
                             through: cursor.last, cursor: info.cursor, stateVersion: stateVersion, snapshot: snapshot, snapshotHead: info.head, snapshotReady: info.snapshotReady }, previous, _owner, resume).then(function () {
                             active(state);
+                            state.saved = true;
                             deliver({ target: { type: 'room', id: room }, messaging: true, type: 'room.snapshot',
                                 snapshot: true, content: _view(state, true) });
+                            if (state.speakers) { state.speakers.maintain(); }
                             return info;
                         });
                     });
                 }).catch(function (error) {
                     if (_rooms[room] === state) {
+                        if (state.speakers) { state.speakers.close(); }
                         delete _rooms[room];
                         if (state.info) {
                             delete _streams[state.info.conversationId];
@@ -322,6 +347,22 @@
                 state.queue = state.ready.then(function () {}, function () {});
                 return state.ready;
             });
+        };
+
+        _this.negotiate = function (room, info, started) {
+            var state = _rooms[room];
+            if (state && state.speakers) { state.speakers.negotiate(info, started); }
+        };
+
+        _this.observe = function (fields) {
+            var data = _object(fields), state = data.target && _rooms[data.target.id];
+            if (state && state.speakers) { state.speakers.receive(fields); }
+        };
+
+        _this.speakers = function (room) {
+            var state = _rooms[room];
+            return state && state.speakers ? state.speakers.view() :
+                { roomId: room, known: false, complete: false, validUntil: '0', priority: [], items: [] };
         };
 
         _this.resolution = function (room) {
@@ -406,6 +447,7 @@
                     if (Protocol.compare64(page.last, state.info.head) > 0) {
                         state.info.head = page.last;
                     }
+                    if (state.speakers) { state.speakers.maintain(); }
                     if (state.pages >= Math.max(1, Math.floor(state.info.delivery.maxPages / 2)) ||
                         state.bytes >= state.info.delivery.maxBytes / 2) {
                         return acknowledge(state);
@@ -462,6 +504,7 @@
             }
             Object.keys(_rooms).forEach(function (room) {
                 var state = _rooms[room];
+                if (state.speakers) { state.speakers.maintain(); }
                 if (state.info && state.projection) {
                     state.expired = state.expired || Object.create(null);
                     var changed = false;
@@ -490,6 +533,7 @@
             if (!state) {
                 return Promise.resolve();
             }
+            if (state.speakers) { state.speakers.close(); }
             return serialize(state, 0, function () {
                 return storage.endEvents(room, _owner).then(function () {
                     delete _rooms[room];
@@ -500,6 +544,9 @@
 
         _this.close = function () {
             _closed = true;
+            Object.keys(_rooms).forEach(function (room) {
+                if (_rooms[room].speakers) { _rooms[room].speakers.close(); }
+            });
             _rooms = Object.create(null);
             _streams = Object.create(null);
         };

@@ -118,6 +118,17 @@
             return Math.round(n * 100 / 128);
         };
 
+        _this.measure = function () {
+            var value = _this.volume();
+            if (!_track || !_source || !_context || _context.state !== 'running' || _track.readyState !== 'live') {
+                return { state: 'unavailable', value: null };
+            }
+            if (!_track.enabled || _track.muted) {
+                return { state: 'muted', value: 0 };
+            }
+            return { state: 'live', value: value };
+        };
+
         function _disconnect() {
             if (_track) {
                 _track.removeEventListener('ended', _onTrackChange);

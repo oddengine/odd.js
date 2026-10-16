@@ -389,6 +389,13 @@
                 fields: fields,
             };
             switch (event) {
+                case Protocol.Event.IM_SPEAKERS_CHANGE:
+                    if (message.messaging || message.sequenceNumber || size > 4096 || !attempt.messaging) {
+                        throw _error('DataError', 'Invalid speaker observation envelope.');
+                    }
+                    attempt.messaging.events().observe(fields);
+                    return;
+
                 case Protocol.Event.IM_AUTHENTICATE_REVOKED:
                     _schema(fields, [
                         { key: 'revision', type: Protocol.Type.UINT64 },
@@ -587,11 +594,11 @@
                     }
                     attempt.messaging = new IM.Messaging(identity, storage,
                         function (opcode, fields) { return _request(attempt, opcode, fields, true); },
-                        function (target, actions) {
+                        function (target, actions, force) {
                             if (_attempt !== attempt) {
                                 return Promise.reject(_error('AbortError', 'IM session changed.'));
                             }
-                            return _this.refresh(target, actions, true);
+                            return _this.refresh(target, actions, true, force);
                         },
                         function (message) { return _parseMessage(message, _object(message.fields[1].value)); },
                         function (message) {
@@ -604,7 +611,14 @@
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SYNC_REQUIRED,
                                     messaging: true, payload: change });
                             }
-                        }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true, attempt.session.ext.stateVersion === 2 ? 2 : 1);
+                        }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true,
+                        attempt.session.ext.stateVersion >= 2 ? Math.min(attempt.session.ext.stateVersion, 3) : 1,
+                        function (snapshot) {
+                            if (_attempt === attempt) {
+                                _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SPEAKERS_CHANGE,
+                                    messaging: false, payload: snapshot });
+                            }
+                        });
                     return attempt.messaging.open();
                 });
             });
@@ -958,7 +972,7 @@
                 }
                 intention.id = info.subscriptionId;
                 _acceptPermission(intention.target, true, info, version);
-            }) : _request(attempt, Protocol.Opcode.SUBSCRIBE, fields, intention.messaging);
+            }, intention.speakers) : _request(attempt, Protocol.Opcode.SUBSCRIBE, fields, intention.messaging);
             intention.promise = joining.then(function (info) {
                 if (_attempt !== attempt) {
                     throw _error('AbortError', 'IM session changed while subscribing.');
@@ -1019,8 +1033,17 @@
                     (topic === 'events' && (!options.messaging || target.type !== 'room' || actions !== Protocol.Action.MESSAGE_SUBSCRIBE))) {
                     throw _error('TypeError', 'Invalid subscription options.');
                 }
+                if (options.speakers !== undefined && (typeof options.speakers !== 'boolean' || topic !== 'events')) {
+                    throw _error('TypeError', 'Speaker observations require a room event subscription.');
+                }
+                if (options.speakers && (!_attempt.session.ext || _attempt.session.ext.speakersVersion !== 1)) {
+                    throw _error('NotSupportedError', 'The server has not enabled speaker observations.');
+                }
                 var key = topic + ':' + _targetKey(target, options.messaging),
                     existing = _subscriptions[key];
+                if (existing && existing.speakers !== (options.speakers === true)) {
+                    throw _error('InvalidStateError', 'Leave the visit before changing speaker observation options.');
+                }
                 if (existing && topic === 'events' && existing.id && !existing.promise) {
                     return _attempt.messaging.events().resolution(target.id);
                 }
@@ -1036,6 +1059,7 @@
                     messaging: options.messaging === true,
                     actions: actions,
                     resume: options.resume === true,
+                    speakers: options.speakers === true,
                     id: null,
                     promise: null,
                 };
@@ -1062,7 +1086,7 @@
                 });
         };
 
-        _this.refresh = function (target, actions, messaging) {
+        _this.refresh = function (target, actions, messaging, force) {
             return Promise.resolve().then(function () {
                 _target(target);
                 if (!_integer(actions, 1, 1023)) {
@@ -1071,7 +1095,7 @@
                 var key = _targetKey(target, messaging),
                     requestKey = key + ':' + actions,
                     current = _permissions[key];
-                if (current && _milliseconds(current.expiresAt) > Date.now() &&
+                if (!force && current && _milliseconds(current.expiresAt) > Date.now() &&
                     current.actions.high === 0 && (current.actions.low & actions) === actions) {
                     return current;
                 }
@@ -1086,9 +1110,14 @@
                         _field('target', Protocol.Type.OBJECT, _target(target)),
                         _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
                     ];
-                if (eventRoom && attempt.session.ext.stateVersion === 2) {
-                    fields.push(_field('stateVersion', Protocol.Type.UINT16, 2));
+                if (eventRoom && attempt.session.ext.stateVersion >= 2) {
+                    fields.push(_field('stateVersion', Protocol.Type.UINT16, Math.min(attempt.session.ext.stateVersion, 3)));
                 }
+                var intention = eventRoom && _subscriptions['events:' + key];
+                if (intention && intention.speakers) {
+                    fields.push(_field('speakersVersion', Protocol.Type.UINT16, 1));
+                }
+                var started = performance.now();
                 if (eventRoom && actions !== Protocol.Action.MESSAGE_SUBSCRIBE) {
                     throw _error('NotAllowedError', 'Gift permission is checked by the business service for each transaction.');
                 }
@@ -1097,6 +1126,9 @@
                             throw _error('AbortError', 'IM session changed while refreshing permission.');
                         }
                         _acceptPermission(target, messaging, info, version);
+                        if (intention && intention.speakers && _subscriptions['events:' + key] === intention) {
+                            attempt.messaging.events().negotiate(target.id, info, started);
+                        }
                         return info;
                     });
                 _refreshing[requestKey] = promise;
@@ -1208,12 +1240,20 @@
             });
         };
 
+        _this.roomSpeakers = function (room) {
+            if (!_attempt || !_attempt.messaging) {
+                return { roomId: room, known: false, complete: false, validUntil: '0', priority: [], items: [] };
+            }
+            return _attempt.messaging.events().speakers(room);
+        };
+
         // Business authentication and HTTP errors stay with the application's
         // request provider. These operations never create another IM transport.
         function _stage(room, method, suffix, body) {
             return Promise.resolve().then(function () {
                 var attempt = _attempt;
-                if (_readyState !== State.CONNECTED || !attempt || attempt.session.ext.stateVersion !== 2 ||
+                if (_readyState !== State.CONNECTED || !attempt || !attempt.session || !attempt.session.ext ||
+                    [2, 3].indexOf(attempt.session.ext.stateVersion) < 0 ||
                     typeof _this.config.roomRequest !== 'function') {
                     throw _error('NotSupportedError', 'Stage operations require state version 2 and a roomRequest provider.');
                 }
@@ -1270,6 +1310,14 @@
 
         _this.endStage = function (room, grant) {
             return _stage(room, 'DELETE', '/grants/' + encodeURIComponent(grant));
+        };
+
+        _this.setStagePresentation = function (room, grant, change) {
+            var attempt = _attempt;
+            if (!attempt || !attempt.session || !attempt.session.ext || attempt.session.ext.stateVersion !== 3) {
+                return Promise.reject(_error('NotSupportedError', 'Stage presentation requires room state version 3.'));
+            }
+            return _stage(room, 'PUT', '/grants/' + encodeURIComponent(grant) + '/presentation', change);
         };
 
         _this.inspectGift = function (room, clientMessageId) {

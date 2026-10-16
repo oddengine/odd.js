@@ -49,8 +49,9 @@ scripts[3]="./src/im/message/message.schema.js"
 scripts[4]="./src/im/im.responder.js"
 scripts[5]="./src/im/im.requesttable.js"
 scripts[6]="./src/im/im.indexeddb.js"
-scripts[7]="./src/im/im.events.js"
-scripts[8]="./src/im/im.messaging.js"
+scripts[7]="./src/im/im.speakers.js"
+scripts[8]="./src/im/im.events.js"
+scripts[9]="./src/im/im.messaging.js"
 
 :>./release/odd.im.js
 

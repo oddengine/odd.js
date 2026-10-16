@@ -78,6 +78,14 @@
             }
         };
 
+        _this.measure = function (measurement) {
+            var microphone = _this.components.microphone;
+            if (!microphone) { return; }
+            var element = microphone.element();
+            element.setAttribute('audio-state', measurement.state);
+            element.style.setProperty('--pe-audio-level', (measurement.value || 0) + '%');
+        };
+
         _this.element = function () {
             return _container;
         };

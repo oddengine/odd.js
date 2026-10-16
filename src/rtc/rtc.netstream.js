@@ -1052,6 +1052,10 @@
             return _audiometer.volume();
         };
 
+        _this.measureAudio = function () {
+            return _audiometer.measure();
+        };
+
         _this.enabled = function (kind, value) {
             if (_stream) {
                 _stream.getTracks().forEach(function (track) {

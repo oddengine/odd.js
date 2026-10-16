@@ -14,6 +14,7 @@
 }
 
 .pe-ui-classic[kind="rtc"] .pe-content {
+    position: relative;
     width: 100%;
     height: 100%;
     padding: 12px 12px 86px;
@@ -33,11 +34,11 @@
     background: #11151a;
 }
 
-.pe-ui-classic[kind="rtc"][layout="right"] .pe-content:has(video:nth-child(2)) {
+.pe-ui-classic[kind="rtc"][layout="right"] .pe-content:has(video:nth-of-type(2)) {
     grid-template-columns: minmax(0, 1fr) minmax(160px, 24%);
 }
 
-.pe-ui-classic[kind="rtc"][layout="top"] .pe-content:has(video:nth-child(2)) {
+.pe-ui-classic[kind="rtc"][layout="top"] .pe-content:has(video:nth-of-type(2)) {
     grid-template-rows: minmax(120px, 24%) minmax(0, 1fr);
 }
 
@@ -230,4 +231,65 @@
         width: 36px;
         height: 36px;
     }
+}
+
+/* The same microphone silhouette is filled from the bottom; silence and an
+   unavailable analyser remain distinct from an explicitly muted track. */
+.pe-ui-classic[kind="rtc"] .microphone[audio-state="live"][state="on"]::after {
+    content: '';
+    width: 22px;
+    height: 22px;
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    background: var(--pe-icon-microphone-active) center / contain no-repeat;
+    clip-path: inset(calc(100% - var(--pe-audio-level, 0%)) 0 0);
+    pointer-events: none;
+}
+
+.pe-ui-classic[kind="rtc"] .microphone[audio-state="unavailable"] {
+    opacity: .6;
+}
+
+.pe-ui-classic[kind="rtc"] .pe-content video[speaking="true"] {
+    border-color: #00aaee;
+}
+
+.pe-ui-classic[kind="rtc"] .pe-content[sharing="true"] {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-rows: minmax(0, 1fr) minmax(100px, 24%);
+    overflow: auto;
+}
+
+.pe-ui-classic[kind="rtc"] .pe-content .pe-rtc-sharing,
+.pe-ui-classic[kind="rtc"] .pe-content .pe-rtc-screen {
+    grid-column: 1 / -1;
+    order: -32;
+    object-fit: contain;
+}
+
+.pe-ui-classic[kind="rtc"] .pe-rtc-meter {
+    width: 22px;
+    height: 22px;
+    position: absolute;
+    z-index: 1;
+    border-radius: 4px;
+    background: var(--pe-icon-microphone) center / contain no-repeat rgba(7, 9, 12, .65);
+    pointer-events: none;
+}
+
+.pe-ui-classic[kind="rtc"] .pe-rtc-meter[audio-state="live"]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--pe-icon-microphone-active) center / contain no-repeat;
+    clip-path: inset(calc(100% - var(--pe-audio-level, 0%)) 0 0);
+}
+
+.pe-ui-classic[kind="rtc"] .pe-rtc-meter[audio-state="muted"] {
+    background-image: var(--pe-icon-microphone-off);
+}
+
+.pe-ui-classic[kind="rtc"] .pe-rtc-meter[audio-state="unavailable"] {
+    opacity: .5;
 }
