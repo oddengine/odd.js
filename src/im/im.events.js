@@ -91,6 +91,22 @@
                 ['live', 'group'].indexOf(payload.kind) < 0 || ['active', 'closed'].indexOf(payload.state) < 0) {
                 throw _error('DataError', 'Invalid public room state.');
             }
+        } else if (event.kind === 'stage.policy') {
+            rules = [{ key: 'mode', type: Type.STRING }, { key: 'capacity', type: Type.UINT32 },
+                { key: 'allowedMask', type: Type.UINT64 }];
+            if (['closed', 'free', 'apply'].indexOf(payload.mode) < 0 || payload.capacity < 1 || payload.capacity > 16 ||
+                !payload.allowedMask || payload.allowedMask.high || !payload.allowedMask.low || (payload.allowedMask.low & ~112)) {
+                throw _error('DataError', 'Invalid stage policy.');
+            }
+        } else if (event.kind === 'stage.member') {
+            rules = [{ key: 'userId', type: Type.STRING }, { key: 'slot', type: Type.UINT32 },
+                { key: 'allowedMask', type: Type.UINT64 }, { key: 'state', type: Type.STRING },
+                { key: 'expiresAt', type: Type.UINT64 }];
+            if (!/^[0-9a-f-]{36}$/.test(payload.userId) || payload.slot < 1 || payload.slot > 16 ||
+                !payload.allowedMask || payload.allowedMask.high || !payload.allowedMask.low || (payload.allowedMask.low & ~112) ||
+                ['reserved', 'in-use', 'ending', 'ended'].indexOf(payload.state) < 0) {
+                throw _error('DataError', 'Invalid stage member.');
+            }
         } else if (event.kind === 'media.resource') {
             rules = [{ key: 'ownerId', type: Type.STRING }, { key: 'purpose', type: Type.STRING },
                 { key: 'audio', type: Type.BOOL }, { key: 'video', type: Type.BOOL }, { key: 'state', type: Type.STRING },
@@ -140,6 +156,8 @@
         if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
             delete projection[key];
             delete projection['media.publication:' + event.entityId];
+        } else if (event.kind === 'stage.member' && event.payload.state === 'ended') {
+            delete projection[key];
         } else {
             projection[key] = event;
         }
@@ -166,7 +184,7 @@
             }) };
     }
 
-    function Events(storage, request, deliver, failed) {
+    function Events(storage, request, deliver, failed, stateVersion) {
         var _this = this, _closed = false, _rooms = Object.create(null), _streams = Object.create(null),
             _pending = 0, _bytes = 0, _owner = Array.prototype.map.call(Protocol.messageId(0, 1), function (v) {
                 return ('0' + v.toString(16)).slice(-2);
@@ -215,11 +233,20 @@
                         throw error;
                     }
                     var fields = [_field('topic', Type.STRING, 'events'), _field('target', Type.OBJECT, _target(room))];
+                    if (resume && (previous.stateVersion || 1) !== stateVersion) {
+                        throw _error('NotSupportedError', 'The saved visit uses another state version; explicitly join a new visit.');
+                    }
                     if (resume) {
                         fields.push(_field('cursor', Type.BYTES, previous.cursor));
                     }
+                    if (stateVersion === 2) {
+                        fields.push(_field('stateVersion', Type.UINT16, 2));
+                    }
                     return request(Opcode.SUBSCRIBE, fields).then(function (info) {
                         active(state);
+                        if ((info.stateVersion || 1) !== stateVersion) {
+                            throw _error('NotSupportedError', 'The server did not negotiate this room state version.');
+                        }
                         accept(info);
                         var cursor = _cursor(info.cursor), delivery = info.delivery;
                         if (cursor.stream !== info.conversationId || Protocol.compare64(cursor.epoch, info.epoch) !== 0 ||
@@ -253,8 +280,9 @@
                                 { key: 'event', type: Type.OBJECT },
                             ]);
                             var item = _object(fields), event = _event(fields[4].value);
-                            if (event.kind === 'gift.confirmed' || (event.kind === 'room.state' && event.entityId !== room) ||
+                            if (event.kind === 'gift.confirmed' || ((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== room) ||
                                 (event.kind === 'media.resource' && event.payload.state === 'revoked') ||
+                                (event.kind === 'stage.member' && event.payload.state === 'ended') ||
                                 state.projection[event.kind + ':' + event.entityId] ||
                                 Protocol.compare64(event.payload.roomGeneration, info.epoch) !== 0 ||
                                 Protocol.compare64(item.messageSequence, info.head) > 0 || !_apply(state.projection, event)) {
@@ -265,7 +293,7 @@
                         if (info.snapshotReady && !state.projection['room.state:' + room]) {
                             throw _error('DataError', 'A complete baseline must contain its room state.');
                         }
-                        if (snapshotBytes > 32768) {
+                        if (snapshotBytes > 61440) {
                             throw _error('QuotaExceededError', 'Room snapshot exceeds its budget.');
                         }
                         state.info = info;
@@ -275,7 +303,7 @@
                         state.nextAckAt = Math.min(Date.now() + 300000, Date.now() + (cursor.expiresAt - Date.now()) / 3);
                         _streams[info.conversationId] = state;
                         return storage.beginEvents(room, { stream: cursor.stream, epoch: cursor.epoch,
-                            through: cursor.last, cursor: info.cursor, snapshot: snapshot, snapshotHead: info.head, snapshotReady: info.snapshotReady }, previous, _owner, resume).then(function () {
+                            through: cursor.last, cursor: info.cursor, stateVersion: stateVersion, snapshot: snapshot, snapshotHead: info.head, snapshotReady: info.snapshotReady }, previous, _owner, resume).then(function () {
                             active(state);
                             deliver({ target: { type: 'room', id: room }, messaging: true, type: 'room.snapshot',
                                 snapshot: true, content: _view(state, true) });
@@ -336,7 +364,7 @@
                     }
                     previous = item.messageSequence;
                     event = item.event = _event(entry.value[4].value);
-                    if (event.kind !== 'gift.confirmed' && ((event.kind === 'room.state' && event.entityId !== state.room) ||
+                    if (event.kind !== 'gift.confirmed' && (((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
                         Protocol.compare64(event.payload.roomGeneration, page.epoch) !== 0)) {
                         throw _error('DataError', 'State belongs to another room generation.');
                     }

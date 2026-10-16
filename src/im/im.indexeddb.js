@@ -484,13 +484,15 @@
                     if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
                         delete projection[key];
                         delete projection['media.publication:' + event.entityId];
+                    } else if (event.kind === 'stage.member' && event.payload.state === 'ended') {
+                        delete projection[key];
                     } else {
                         projection[key] = event;
                     }
                 }
             });
             visit.states = Object.keys(projection).map(function (key) { return projection[key]; });
-            if (visit.states.length > 128 || Protocol.text(JSON.stringify(visit.states)).length > 49152) {
+            if (visit.states.length > 128 || Protocol.text(JSON.stringify(visit.states)).length > 131072) {
                 throw _error('QuotaExceededError', 'Public room state exceeds its storage budget.');
             }
         }
@@ -505,7 +507,7 @@
         _this.beginEvents = function (room, value, previous, owner, resumed) {
             return Promise.resolve().then(function () {
                 var cursor = _bytes(value.cursor, 256), epoch = _sequence(value.epoch), through = _sequence(value.through);
-                var record = { room: _identifier(room), owner: _identifier(owner), cursor: cursor,
+                var record = { room: _identifier(room), owner: _identifier(owner), cursor: cursor, stateVersion: value.stateVersion || 1,
                     stream: _identifier(value.stream), epoch: { high: epoch[0], low: epoch[1] },
                     saved: { high: through[0], low: through[1] }, confirmed: { high: through[0], low: through[1] },
                     snapshotHead: value.snapshotHead, snapshotReady: value.snapshotReady, states: [] };
@@ -513,7 +515,7 @@
                 if (!Array.isArray(value.snapshot)) { throw _error('DataError', 'A room state baseline is required.'); }
                 project(record, value.snapshot);
                 if (resumed) {
-                    if (!previous || previous.stream !== record.stream || Protocol.compare64(previous.epoch, record.epoch) !== 0 ||
+                    if (!previous || (previous.stateVersion || 1) !== record.stateVersion || previous.stream !== record.stream || Protocol.compare64(previous.epoch, record.epoch) !== 0 ||
                         Protocol.compare64(previous.saved, record.confirmed) < 0) {
                         throw _error('ConflictError', 'The saved visit does not match the resumed stream.');
                     }

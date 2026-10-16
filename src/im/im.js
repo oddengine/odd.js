@@ -23,6 +23,7 @@
             credentials: null,
             socketFactory: null,
             storageFactory: null,
+            roomRequest: null,
             connectTimeout: 10000,
             requestTimeout: 15000,
             maxBufferedBytes: 262144,
@@ -603,7 +604,7 @@
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SYNC_REQUIRED,
                                     messaging: true, payload: change });
                             }
-                        }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true);
+                        }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true, attempt.session.ext.stateVersion === 2 ? 2 : 1);
                     return attempt.messaging.open();
                 });
             });
@@ -1085,6 +1086,9 @@
                         _field('target', Protocol.Type.OBJECT, _target(target)),
                         _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
                     ];
+                if (eventRoom && attempt.session.ext.stateVersion === 2) {
+                    fields.push(_field('stateVersion', Protocol.Type.UINT16, 2));
+                }
                 if (eventRoom && actions !== Protocol.Action.MESSAGE_SUBSCRIBE) {
                     throw _error('NotAllowedError', 'Gift permission is checked by the business service for each transaction.');
                 }
@@ -1202,6 +1206,51 @@
             return Promise.resolve().then(function () {
                 return messaging.events().state(room);
             });
+        };
+
+        // Business authentication and HTTP errors stay with the application's
+        // request provider. These operations never create another IM transport.
+        function _stage(room, method, suffix, body) {
+            return Promise.resolve().then(function () {
+                var attempt = _attempt;
+                if (_readyState !== State.CONNECTED || !attempt || attempt.session.ext.stateVersion !== 2 ||
+                    typeof _this.config.roomRequest !== 'function') {
+                    throw _error('NotSupportedError', 'Stage operations require state version 2 and a roomRequest provider.');
+                }
+                if (typeof room !== 'string' || !/^[0-9a-f-]{36}$/.test(room)) {
+                    throw _error('TypeError', 'A room ID is required.');
+                }
+                return Promise.resolve(_this.config.roomRequest({ method: method,
+                    path: '/rooms/' + encodeURIComponent(room) + '/stage' + suffix,
+                    body: body === undefined ? undefined : JSON.parse(JSON.stringify(body)) })).then(function (result) {
+                    if (_attempt !== attempt) {
+                        throw _error('AbortError', 'The connection changed; recover the original stage request before retrying.');
+                    }
+                    return result;
+                });
+            });
+        }
+
+        _this.stage = function (room) {
+            return _stage(room, 'GET', '');
+        };
+
+        _this.saveStage = function (room, change) {
+            return _stage(room, 'PUT', '', change);
+        };
+
+        _this.requestStage = function (room, request) {
+            // The caller retains requestId/requestedAt before this call. Unknown
+            // outcomes must reuse that intent, never generate a new request ID.
+            return _stage(room, 'POST', '/requests', request);
+        };
+
+        _this.stageGrant = function (room, grant) {
+            return _stage(room, 'GET', '/grants/' + encodeURIComponent(grant));
+        };
+
+        _this.endStage = function (room, grant) {
+            return _stage(room, 'DELETE', '/grants/' + encodeURIComponent(grant));
         };
 
         _this.inspectGift = function (room, clientMessageId) {

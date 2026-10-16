@@ -143,9 +143,72 @@ replayed gifts and facts, but apply state only above snapshotHead; otherwise old
 replays could revive resources omitted from the complete current directory.
 resource revoked removes both resource and publication projection. Never coalesce
 gift facts. Storage failure cannot advance COMMIT. The default adapter limits
-retained visits to 128 and public projection to 128 entries / 48 KiB JSON per visit.
+retained visits to 128 and public projection to 128 entries / 128 KiB JSON per visit.
 
 M=0 room binary is now rejected; plain type=text is the legacy display/danmaku
 path. Do not treat its extensions as authoritative gifts or permissions. The demo
 UI has not been converted into a reliable-state product UI and release bundles
 have not been rebuilt. No browser, runtime or functional testing was performed.
+
+## R-048 room seats and free stage grants
+
+The SDK negotiates stateVersion 2 when advertised by the connection; old servers
+retain version 1 behavior. Custom adapters must save `value.stateVersion` in the
+visit and refuse resume across versions. An old saved visit requires an explicit
+new join after the application reconciles its state. `stage.policy` and
+`stage.member` are saved by the same transaction before ACK; `ended` removes the
+member from current projection. No approval requests or private reasons are in
+these public events. Native encoded snapshots are bounded at 60 KiB; the default
+adapter allows 128 KiB JSON to account for the decoded representation.
+
+Provide `roomRequest({method, path, body})` in setup options. The provider prefixes
+the business API base URL, supplies the existing authenticated session/Origin,
+checks HTTP status and rejects with the original business code/message. It must
+not turn an HTTP failure into a successful result. It owns no additional IM socket.
+The SDK exposes `stage`, `saveStage`, `requestStage`, `stageGrant`, `endStage`;
+all require a connected stateVersion-2 server and the provider.
+
+```javascript
+// Supply this alongside credentials/storageFactory in im.setup(...).
+var roomRequest = function (operation) {
+    return authenticatedBusinessRequest(operation.path, operation.method, operation.body);
+};
+
+var state = await im.stage(roomId); // implicit closed / 9 / revision "1"
+await im.saveStage(roomId, { mode: 'free', capacity: 9,
+    allowedActions: ['audio', 'video'], expectedRevision: state.policy.revision });
+
+// Persist intent before sending. On timeout, resend this exact object.
+var intent = { requestId: crypto.randomUUID(), requestedAt: String(Date.now()),
+    actions: ['audio', 'video'] };
+await saveStageIntent(roomId, intent);
+try {
+    var grant = await im.requestStage(roomId, intent);
+    if (grant.state === 'reserved' || grant.state === 'in-use') {
+        var stream = await authenticatedBusinessRequest('/rooms/' + roomId + '/streams', 'POST', {
+            requestId: savedStreamRequestId, stageGrantId: grant.id,
+            purpose: 'camera', audio: true, video: true,
+        });
+        // Pass this resource to the existing RTC/media credentials provider.
+        // Do not create a publisher until the business grant/resource succeeds.
+    }
+} catch (error) {
+    showStageError(error.code, error.message); // room_full / seats_occupied are explicit hints
+}
+
+var ending = await im.endStage(roomId, savedGrantId);
+// ending is not release proof. Observe M=1 or stageGrant until state=ended.
+// Explicitly end stage before leaving the business room / unsubscribing events.
+```
+
+Nine counts people, including the host: the same person's camera and screen share
+one seat. Direct role publishers still reserve automatically and cannot bypass
+capacity. Lowering the room limit does not evict occupied seats; end those grants
+first. The stage directory is a public observation, not permission to use another
+user's grant. Extra grants default to 30 minutes, with no automatic reconnect or
+renewal. Retain original IDs to recover uncertain outcomes; the SDK does not
+silently start a new attempt. RoomRequest results from an obsolete IM connection
+reject with AbortError, which does not mean a server mutation was cancelled.
+
+Only SDK source and this usage document changed; no demo UI, release build,
+browser or runtime test was produced. [中文业务契约](https://github.com/oddengine/odd.x/blob/main/docs/stage.zh-CN.md).

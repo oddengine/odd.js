@@ -307,6 +307,7 @@
                 { key: 'partitions', type: Type.UINT16 }, { key: 'epoch', type: Type.UINT64 },
                 { key: 'head', type: Type.UINT64 }, { key: 'floor', type: Type.UINT64 },
                 { key: 'snapshot', type: Type.ARRAY }, { key: 'snapshotReady', type: Type.BOOL },
+                { key: 'stateVersion', type: Type.UINT16, required: false },
                 { key: 'subscriptionId', type: Type.STRING, required: opcode === Opcode.SUBSCRIBE },
                 { key: 'cursor', type: Type.BYTES, required: opcode === Opcode.SUBSCRIBE },
                 { key: 'delivery', type: Type.OBJECT }, { key: 'target', type: Type.OBJECT },

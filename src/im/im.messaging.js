@@ -37,10 +37,10 @@
 
     // Composes an account/device storage adapter with the existing request
     // table. It owns no socket, timer, credential or independent reconnect loop.
-    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled) {
+    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled, stateVersion) {
         var _this = this, _closed = false, _pending = 0, _queues = Object.create(null),
             _resolved = Object.create(null), _positions = Object.create(null), _recovering = null,
-            _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed) : null;
+            _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed, stateVersion) : null;
 
         function active() {
             if (_closed) {
