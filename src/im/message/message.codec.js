@@ -408,6 +408,14 @@
     };
     Protocol.encode = _encode;
     Protocol.decode = _decode;
+    Protocol.decodeObject = function (value) {
+        var bytes = _bytes(value);
+        if (bytes.length > 16384) {
+            _fail('QuotaExceededError', 'Encoded state object exceeds its limit.');
+        }
+        return _readEntries(bytes, new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength),
+            0, bytes.length, true, 0, { count: 0 });
+    };
     Protocol.uint = _uint;
     Protocol.readUint = _readUint;
     Protocol.uint64 = _uint64;

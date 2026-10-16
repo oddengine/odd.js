@@ -117,3 +117,35 @@ to invent capacity; a full store stops acknowledgement. Application retention
 and financial archives are separate. Each independent writer should use a
 different authenticated device; concurrent tabs sharing one device can receive
 an explicit storage conflict instead of skipping unsaved facts.
+
+## R-046 public state snapshots
+
+Use the matching odd.d R-046 protocol: events results add snapshot/snapshotReady.
+The current Core API is `await im.roomState(roomId)`, returning
+`{roomId, known, head, states}`. It returns known=false with no active visit;
+an unavailable/closed reliable-events capability rejects. Connect and subscribe
+to the reliable room event stream before reading a current state.
+
+A local `room.snapshot` notification (`snapshot: true`) is emitted only after
+snapshot and visit/cursor persistence. Existing notification delivery also emits
+versioned room.state, media.resource and media.publication deltas. These are
+public observations, never permission grants. View current media through roomState
+or room.snapshot: an active observation becomes unknown after its bounded horizon
+(up to 60 seconds), even if the actual stream is still running. Continuous live
+presence refresh is not implemented. Raw historical active facts remain immutable.
+
+IndexedDB stays version 3 and extends existing visit records with states,
+snapshotHead and snapshotReady. Custom storageFactory adapters must add
+roomState(room), and atomically persist snapshot + H in beginEvents and state
+projection + saved position in receiveEvents. roomState returns
+`{owner, head, ready, states}` for that stored visit. On resume, still save/ACK
+replayed gifts and facts, but apply state only above snapshotHead; otherwise old
+replays could revive resources omitted from the complete current directory.
+resource revoked removes both resource and publication projection. Never coalesce
+gift facts. Storage failure cannot advance COMMIT. The default adapter limits
+retained visits to 128 and public projection to 128 entries / 48 KiB JSON per visit.
+
+M=0 room binary is now rejected; plain type=text is the legacy display/danmaku
+path. Do not treat its extensions as authoritative gifts or permissions. The demo
+UI has not been converted into a reliable-state product UI and release bundles
+have not been rebuilt. No browser, runtime or functional testing was performed.

@@ -470,12 +470,48 @@
             });
         };
 
+        function project(visit, events) {
+            var states = visit.states || [], projection = Object.create(null);
+            states.forEach(function (event) { projection[event.kind + ':' + event.entityId] = event; });
+            events.forEach(function (event) {
+                if (event.kind === 'gift.confirmed') {
+                    return;
+                }
+                var key = event.kind + ':' + _identifier(event.entityId), previous = projection[key];
+                _sequence(event.revision);
+                _sequence(event.payload.roomGeneration);
+                if (!previous || Protocol.compareEventState(event, previous) > 0) {
+                    if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
+                        delete projection[key];
+                        delete projection['media.publication:' + event.entityId];
+                    } else {
+                        projection[key] = event;
+                    }
+                }
+            });
+            visit.states = Object.keys(projection).map(function (key) { return projection[key]; });
+            if (visit.states.length > 128 || Protocol.text(JSON.stringify(visit.states)).length > 49152) {
+                throw _error('QuotaExceededError', 'Public room state exceeds its storage budget.');
+            }
+        }
+
+        _this.roomState = function (room) {
+            return _this.eventVisit(room).then(function (visit) {
+                return visit ? { owner: visit.owner, head: visit.snapshotHead,
+                    ready: visit.snapshotReady, states: visit.states || [] } : null;
+            });
+        };
+
         _this.beginEvents = function (room, value, previous, owner, resumed) {
             return Promise.resolve().then(function () {
                 var cursor = _bytes(value.cursor, 256), epoch = _sequence(value.epoch), through = _sequence(value.through);
                 var record = { room: _identifier(room), owner: _identifier(owner), cursor: cursor,
                     stream: _identifier(value.stream), epoch: { high: epoch[0], low: epoch[1] },
-                    saved: { high: through[0], low: through[1] }, confirmed: { high: through[0], low: through[1] } };
+                    saved: { high: through[0], low: through[1] }, confirmed: { high: through[0], low: through[1] },
+                    snapshotHead: value.snapshotHead, snapshotReady: value.snapshotReady, states: [] };
+                _sequence(value.snapshotHead);
+                if (!Array.isArray(value.snapshot)) { throw _error('DataError', 'A room state baseline is required.'); }
+                project(record, value.snapshot);
                 if (resumed) {
                     if (!previous || previous.stream !== record.stream || Protocol.compare64(previous.epoch, record.epoch) !== 0 ||
                         Protocol.compare64(previous.saved, record.confirmed) < 0) {
@@ -491,8 +527,20 @@
                             abort(_error('ConflictError', 'Another connection changed the saved visit.'));
                             return;
                         }
-                        store.put(record);
-                        result(record);
+                        if (actual) {
+                            store.put(record);
+                            result(record);
+                            return;
+                        }
+                        var count = store.count();
+                        count.onsuccess = function () {
+                            if (count.result >= 128) {
+                                abort(_error('QuotaExceededError', 'Too many retained room visits.'));
+                                return;
+                            }
+                            store.put(record);
+                            result(record);
+                        };
                     };
                 });
             });
@@ -546,6 +594,17 @@
                                 if (index === records.length) {
                                     if (Protocol.compare64(page.last, visit.saved) > 0) {
                                         visit.saved = page.last;
+                                    }
+                                    try {
+                                        project(visit, items.filter(function (item) {
+                                            return Protocol.compare64(item.messageSequence, visit.snapshotHead) > 0;
+                                        }).map(function (item) { return item.event; }));
+                                    } catch (error) {
+                                        abort(error);
+                                        return;
+                                    }
+                                    if (Protocol.compare64(page.last, visit.snapshotHead) > 0) {
+                                        visit.snapshotHead = page.last;
                                     }
                                     visits.put(visit);
                                     positions.put(usage);

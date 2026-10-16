@@ -1194,6 +1194,16 @@
             });
         };
 
+        _this.roomState = function (room) {
+            if (!_attempt || !_attempt.messaging) {
+                return Promise.resolve({ roomId: room, known: false, states: [] });
+            }
+            var messaging = _attempt.messaging;
+            return Promise.resolve().then(function () {
+                return messaging.events().state(room);
+            });
+        };
+
         _this.inspectGift = function (room, clientMessageId) {
             return _this.request(Protocol.Opcode.INSPECT, [
                 _field('target', Protocol.Type.OBJECT, _target({ type: 'room', id: room })),

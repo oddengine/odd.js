@@ -179,7 +179,8 @@
                 (!content.value[3].value.high && !content.value[3].value.low)) {
                 _fail('DataError', 'Invalid gift catalog, count or recipient.');
             }
-        } else if ((message.messaging && kind === 'room') || ['text', 'binary'].indexOf(type) < 0 ||
+        } else if ((message.messaging && kind === 'room') || (!message.messaging && kind === 'room' && type !== 'text') ||
+            ['text', 'binary'].indexOf(type) < 0 ||
             (type === 'text' ? content.type !== Type.STRING : content.type !== Type.BYTES)) {
             _fail('NotSupportedError', 'Invalid or unsupported message type.');
         }
@@ -305,6 +306,7 @@
                 { key: 'conversationId', type: Type.STRING }, { key: 'partition', type: Type.UINT16 },
                 { key: 'partitions', type: Type.UINT16 }, { key: 'epoch', type: Type.UINT64 },
                 { key: 'head', type: Type.UINT64 }, { key: 'floor', type: Type.UINT64 },
+                { key: 'snapshot', type: Type.ARRAY }, { key: 'snapshotReady', type: Type.BOOL },
                 { key: 'subscriptionId', type: Type.STRING, required: opcode === Opcode.SUBSCRIBE },
                 { key: 'cursor', type: Type.BYTES, required: opcode === Opcode.SUBSCRIBE },
                 { key: 'delivery', type: Type.OBJECT }, { key: 'target', type: Type.OBJECT },
@@ -422,5 +424,11 @@
     Protocol.validateTarget = _validateTarget;
     Protocol.validateMessageRequest = _validateMessageRequest;
     Protocol.validateResult = _validateResult;
+    Protocol.compareEventState = function (left, right) {
+        var zero = { high: 0, low: 0 };
+        return Protocol.compare64(left.payload.roomGeneration, right.payload.roomGeneration) ||
+            Protocol.compare64(left.payload.publisherGeneration || zero, right.payload.publisherGeneration || zero) ||
+            Protocol.compare64(left.revision, right.revision);
+    };
 })(odd);
 
