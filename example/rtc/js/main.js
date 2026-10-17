@@ -58,6 +58,12 @@ function onLeaveClick(e) {
     if (_imReady && room) { im.unsubscribe({ type: 'room', id: room }).catch(_imError); }
 }
 
+// Explicit AV1/SVC opt-in; browser support is checked by the SDK.
+var _rtcOptions = new URLSearchParams(location.search);
+var _simulcast = _rtcOptions.get('simulcast') === '1';
+var _svc = _rtcOptions.get('svc') === '1';
+var _av1 = _svc || _rtcOptions.get('av1') === '1';
+
 var rtc = odd.rtc.create({ mode: 'feedback', url: 'https://fc.oddengine.com/rtc/log', interval: 60 });
 rtc.addEventListener(NetStatusEvent.NETSTATUS, onStatus);
 rtc.addEventListener(Event.CLOSE, onClose);
@@ -66,9 +72,11 @@ rtc.setup({
     profile: sl_profiles.value || '180P_1',
     whip: location.protocol + '//' + location.host + '/whip/live',
     whep: location.protocol + '//' + location.host + '/whep/live',
-    // Add ?simulcast=1 to publish three encodings on a capable browser.
+    // Use ?svc=1 for AV1 SVC; combine with &simulcast=1 for independent layered encodings.
     video: {
-        encodings: new URLSearchParams(location.search).get('simulcast') === '1' ? [
+        simulcast: _simulcast,
+        svc: _svc,
+        encodings: (_simulcast ? [
             {
                 rid: 'high',
                 scaleResolutionDownBy: 1,
@@ -87,9 +95,14 @@ rtc.setup({
                 maxBitrate: 150000,
                 maxFramerate: 15,
             },
-        ] : [],
+        ] : _svc ? [{ maxBitrate: 1200000 }] : []).map(function (encoding) {
+            if (_svc) {
+                encoding.scalabilityMode = 'L3T3_KEY';
+            }
+            return encoding;
+        }),
     },
-    codecpreferences: [
+    codecpreferences: _av1 ? ['audio/opus', 'video/AV1'] : [
         'audio/opus',
         'video/H264',
         'video/H265',

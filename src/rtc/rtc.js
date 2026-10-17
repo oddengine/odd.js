@@ -34,6 +34,7 @@
                 }],
             },
             video: {
+                svc: false,
                 encodings: [],
             },
             codecpreferences: [

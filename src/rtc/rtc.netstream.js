@@ -30,6 +30,7 @@
                 }],
             },
             video: {
+                svc: false,
                 encodings: [],
             },
             codecpreferences: [
@@ -281,13 +282,8 @@
 
         _this.addTrack = function (track, stream) {
             var sender;
-            if (track.kind === 'video' && _this.config.video.encodings.length) {
-                var encodings = _this.config.video.encodings.map(function (encoding) {
-                    if (!encoding.rid || !Number.isFinite(encoding.maxBitrate) || encoding.maxBitrate <= 0) {
-                        throw { name: 'TypeError', message: 'Each video encoding requires a RID and a positive bitrate limit.' };
-                    }
-                    return utils.extendz({}, encoding);
-                });
+            var encodings = track.kind === 'video' ? _videoEncodings() : [];
+            if (track.kind === 'video' && encodings.length) {
                 var transceiver = _pc.addTransceiver(track, {
                     direction: 'sendonly',
                     streams: [stream],
@@ -453,9 +449,14 @@
                     return Promise.reject(err);
                 }
             }
-            _stream.getTracks().forEach(function (track) {
-                _this.addTrack(track, _stream);
-            });
+            try {
+                _stream.getTracks().forEach(function (track) {
+                    _this.addTrack(track, _stream);
+                });
+            } catch (err) {
+                _this.close(err.message);
+                return Promise.reject(err);
+            }
             _video.muted = true;
             _video.srcObject = _stream;
             _video.play().catch(function (err) {
@@ -495,11 +496,7 @@
             }
             try {
                 await _setMaxBitrate();
-                _pc.getSenders().forEach(function (sender) {
-                    if (sender.track && sender.track.kind === 'video') {
-                        _logger.log('Video encodings negotiated:', sender.getParameters().encodings);
-                    }
-                });
+                await _checkVideoEncodings();
             } catch (err) {
                 _this.close();
                 return Promise.reject(err);
@@ -521,7 +518,119 @@
             return Promise.resolve();
         };
 
+        function _videoEncodings() {
+            var video = _this.config.video;
+            if (!Array.isArray(video.encodings) ||
+                (video.simulcast !== undefined && typeof video.simulcast !== 'boolean') ||
+                typeof video.svc !== 'boolean') {
+                throw { name: 'TypeError', message: 'Invalid video scalability configuration.' };
+            }
+            var simulcast = video.simulcast === undefined ? video.encodings.length > 1 : video.simulcast;
+            if ((simulcast && (video.encodings.length < 2 || video.encodings.length > 3)) ||
+                (!simulcast && video.encodings.length > 1) ||
+                (video.svc && video.encodings.length === 0)) {
+                throw { name: 'TypeError', message: 'Video encoding count conflicts with simulcast/SVC flags.' };
+            }
+            if (video.svc && !_this.config.codecpreferences.some(function (codec) {
+                return codec.toLowerCase() === 'video/av1';
+            })) {
+                throw { name: 'NotSupportedError', message: 'SVC requires an explicit video/AV1 codec preference.' };
+            }
+            var rids = [];
+            return video.encodings.map(function (value) {
+                var encoding = utils.extendz({}, value);
+                if ((simulcast && (!encoding.rid || !/^[a-zA-Z0-9]{1,16}$/.test(encoding.rid))) ||
+                    (encoding.rid && rids.indexOf(encoding.rid) !== -1) ||
+                    !Number.isFinite(encoding.maxBitrate) || encoding.maxBitrate <= 0) {
+                    throw { name: 'TypeError', message: 'Video encodings require unique RIDs for simulcast and positive bitrate limits.' };
+                }
+                rids.push(encoding.rid);
+                if (video.svc) {
+                    // AV1 full spatial/temporal modes. Independent S modes,
+                    // half-resolution and key-shift variants are not implemented.
+                    if (!/^L(?:1T[1-3]|[23]T[1-3](?:_KEY)?)$/.test(encoding.scalabilityMode || '')) {
+                        throw { name: 'NotSupportedError', message: 'Unsupported AV1 scalabilityMode.' };
+                    }
+                } else {
+                    if (encoding.scalabilityMode && encoding.scalabilityMode !== 'L1T1') {
+                        throw { name: 'TypeError', message: 'A layered scalabilityMode requires video.svc=true.' };
+                    }
+                    delete encoding.scalabilityMode;
+                }
+                return encoding;
+            });
+        }
+
+        function _videoSection(sdp, mid) {
+            var sections = sdp.split(/\r?\nm=/);
+            return sections.find(function (section, index) {
+                return index > 0 && section.indexOf('video ') === 0 &&
+                    section.split(/\r?\n/).indexOf('a=mid:' + mid) !== -1;
+            });
+        }
+
+        async function _checkVideoEncodings() {
+            var expected = _videoEncodings();
+            var transceivers = _pc.getTransceivers();
+            for (var i = 0; i < transceivers.length; i++) {
+                var transceiver = transceivers[i];
+                var sender = transceiver.sender;
+                if (!sender.track || sender.track.kind !== 'video') {
+                    continue;
+                }
+                var section = _videoSection(_pc.remoteDescription.sdp, transceiver.mid);
+                if (!section || (/^video 0(?: |$)/.test(section) &&
+                    !/(?:^|\r?\n)a=bundle-only(?:\r?\n|$)/.test(section)) ||
+                    !/(?:^|\r?\n)a=(?:recvonly|sendrecv)(?:\r?\n|$)/.test(section)) {
+                    throw { name: 'NotSupportedError', message: 'The answer did not accept the video sender.' };
+                }
+                var parameters = sender.getParameters();
+                var encodings = parameters.encodings || [];
+                if (encodings.length !== Math.max(1, expected.length)) {
+                    throw { name: 'NotSupportedError', message: 'The browser changed the requested video encoding count.' };
+                }
+                var av1 = /(?:^|\r?\n)a=rtpmap:\d+ AV1\/90000(?:\r?\n|$)/i.test(section);
+                if (_this.config.video.svc && (!av1 ||
+                    !/(?:^|\r?\n)a=extmap:\d+(?:\/(?:recvonly|sendrecv))? https:\/\/aomediacodec.github.io\/av1-rtp-spec\/#dependency-descriptor-rtp-header-extension(?:[ \t]|\r?\n|$)/.test(section))) {
+                    throw { name: 'NotSupportedError', message: 'AV1 SVC requires AV1 and receiving dependency descriptors in the answer.' };
+                }
+                if (expected.length > 1) {
+                    var accepted = /(?:^|\r?\n)a=simulcast:recv ([^\r\n]+)/.exec(section);
+                    var rids = accepted ? accepted[1].trim().split(';') : [];
+                    if (rids.length !== expected.length || expected.some(function (encoding, index) {
+                        return rids[index] !== encoding.rid;
+                    })) {
+                        throw { name: 'NotSupportedError', message: 'The answer omitted, paused or replaced a simulcast encoding.' };
+                    }
+                }
+                for (var j = 0; j < encodings.length; j++) {
+                    if (expected[j] && expected[j].rid && expected[j].rid !== encodings[j].rid) {
+                        throw { name: 'NotSupportedError', message: 'Negotiated video RID differs from its configuration.' };
+                    }
+                    if (_this.config.video.svc) {
+                        if (encodings[j].scalabilityMode !== expected[j].scalabilityMode) {
+                            throw { name: 'NotSupportedError', message: 'The browser did not retain the requested AV1 scalabilityMode.' };
+                        }
+                    } else if (av1) {
+                        encodings[j].scalabilityMode = 'L1T1';
+                    }
+                }
+                if (av1 && !_this.config.video.svc) {
+                    await sender.setParameters(parameters);
+                    if (sender.getParameters().encodings.some(function (encoding) {
+                        return encoding.scalabilityMode !== 'L1T1';
+                    })) {
+                        throw { name: 'NotSupportedError', message: 'The browser did not retain non-layered AV1 encoding.' };
+                    }
+                }
+                _logger.log('Video encodings negotiated:', sender.getParameters().encodings);
+            }
+        }
+
         async function _setCodecPreferences(type) {
+            if (type === 'sender') {
+                _videoEncodings();
+            }
             var factory = type === 'sender' ? RTCRtpSender : RTCRtpReceiver;
             var preferences = _this.config.codecpreferences.map(function (mimeType) {
                 return mimeType.toLowerCase();
@@ -537,12 +646,19 @@
                 var capabilities = factory.getCapabilities(track.kind);
                 var codecs = [];
                 preferences.forEach(function (mimeType) {
-                    if (mimeType !== 'audio/opus' && mimeType !== 'video/h264' && mimeType !== 'video/h265') {
+                    if (type === 'sender' && track.kind === 'video' && _this.config.video.svc && mimeType !== 'video/av1') {
+                        return;
+                    }
+                    if (mimeType !== 'audio/opus' && mimeType !== 'video/h264' && mimeType !== 'video/h265' && mimeType !== 'video/av1') {
                         return;
                     }
                     if (capabilities && capabilities.codecs) {
                         capabilities.codecs.forEach(function (codec) {
                             if (codec.mimeType.toLowerCase() !== mimeType) {
+                                return;
+                            }
+                            if (mimeType === 'video/av1' &&
+                                /(?:^|;)\s*profile=(?!0(?:;|$))/i.test(codec.sdpFmtpLine || '')) {
                                 return;
                             }
                             if (mimeType === 'video/h264' &&
