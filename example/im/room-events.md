@@ -130,9 +130,8 @@ A local `room.snapshot` notification (`snapshot: true`) is emitted only after
 snapshot and visit/cursor persistence. Existing notification delivery also emits
 versioned room.state, media.resource and media.publication deltas. These are
 public observations, never permission grants. View current media through roomState
-or room.snapshot: an active observation becomes unknown after its bounded horizon
-(up to 60 seconds), even if the actual stream is still running. Continuous live
-presence refresh is not implemented. Raw historical active facts remain immutable.
+or room.snapshot: R-056 uses lifecycle facts plus the current source boot view,
+without a 60-second observation horizon. Raw historical facts remain immutable.
 
 IndexedDB stays version 3 and extends existing visit records with states,
 snapshotHead and snapshotReady. Custom storageFactory adapters must add
@@ -152,8 +151,8 @@ have not been rebuilt. No browser, runtime or functional testing was performed.
 
 ## R-048 room seats and free stage grants
 
-The SDK negotiates stateVersion 2 when advertised by the connection; old servers
-retain version 1 behavior. Custom adapters must save `value.stateVersion` in the
+Stage support starts at stateVersion 2; the SDK negotiates up to version 4 when
+advertised by the connection. Custom adapters must save `value.stateVersion` in the
 visit and refuse resume across versions. An old saved visit requires an explicit
 new join after the application reconciles its state. `stage.policy` and
 `stage.member` are saved by the same transaction before ACK; `ended` removes the
@@ -268,8 +267,38 @@ briefly contain due items; the server always checks the deadline before approval
 Private reasons and applicants are not broadcast as room events. No UI or release
 bundle was rebuilt; these are source-level APIs and integration examples.
 
-The R-051 SDK negotiates stateVersion3 with an upgraded server. Old v2 visits
+R-051 introduced stateVersion3 for presentation roles. Old v2 visits
 require an explicit new visit; their saved cursor is not silently reused. Add
 `speakers:true` to an events subscription only when short-lived speaker ordering
 is wanted. It uses M=0 observations and in-memory `roomSpeakers`, independently
 of reliable saved facts and ACKs. See [RTC speaker integration](../rtc/speakers.md).
+
+## R-056 event-driven media state
+
+Upgrade the server, all reliable routing nodes and SDK together to stateVersion 4.
+Older saved visits require an explicit new join after reconciliation; their saved
+cursors are not silently reused or discarded. IndexedDB remains version 3 and
+the custom adapter interface is unchanged.
+
+`reserved` means the publication's outbox slot is admitted; `starting` means its
+protocol has activated; `active` means the first non-configuration audio or video
+frame arrived. It does not guarantee a decodable video keyframe or all tracks.
+Actual close, failure, grant expiry or protocol timeout produces terminal state.
+Quiet/long-running streams do not expire by observation age. `payload.validUntil`
+is retained on the wire with value zero for new lifecycle facts.
+
+The SDK combines saved facts with source identities from M=1 `event-origins`
+notifications on the same authorized subscription. These carry room epoch, a
+feed-local revision and the current confirmed nodeId/bootId pairs. They stay in
+connection memory and do not advance event COMMIT or create offline history.
+Unavailable/replaced sources show `unknown`; same-boot reconnection can restore
+the view, while a new boot cannot revive old publications. Unknown is not a seat
+release or permission decision. Room/resource generations continue to apply.
+
+`room.snapshot` is emitted after saved lifecycle changes and source identity
+changes. Leaving emits an invalid view; connection CLOSE invalidates the whole
+visit. `roomState` without an active visit returns known=false. A new SDK connected
+to an old server has no source identity evidence and conservatively shows unknown
+nonterminal media views. There is no polling fallback. Gift persistence/ACKs and
+M=0 speaker expiry are unchanged. Only source review was performed; no release
+bundle, build, browser or runtime validation was produced.

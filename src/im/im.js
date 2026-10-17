@@ -541,6 +541,11 @@
                     _end(attempt, _error('NotSupportedError', 'Reliable delivery requires durable storage.'));
                     return;
                 }
+                if (notification.payload.kind === 'event-origins') {
+                    Protocol.validateEventOrigins(notification.fields);
+                    attempt.messaging.events().origins(notification.payload).catch(function (error) { _end(attempt, error); });
+                    return;
+                }
                 if (notification.payload.kind === 'events') {
                     Protocol.validateEventPage(notification.fields);
                     attempt.messaging.events().receive(notification.payload).catch(function (error) { _end(attempt, error); });
@@ -612,7 +617,7 @@
                                     messaging: true, payload: change });
                             }
                         }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true,
-                        attempt.session.ext.stateVersion >= 2 ? Math.min(attempt.session.ext.stateVersion, 3) : 1,
+                        attempt.session.ext.stateVersion >= 2 ? Math.min(attempt.session.ext.stateVersion, 4) : 1,
                         function (snapshot) {
                             if (_attempt === attempt) {
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SPEAKERS_CHANGE,
@@ -1111,7 +1116,7 @@
                         _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
                     ];
                 if (eventRoom && attempt.session.ext.stateVersion >= 2) {
-                    fields.push(_field('stateVersion', Protocol.Type.UINT16, Math.min(attempt.session.ext.stateVersion, 3)));
+                    fields.push(_field('stateVersion', Protocol.Type.UINT16, Math.min(attempt.session.ext.stateVersion, 4)));
                 }
                 var intention = eventRoom && _subscriptions['events:' + key];
                 if (intention && intention.speakers) {
@@ -1253,7 +1258,7 @@
             return Promise.resolve().then(function () {
                 var attempt = _attempt;
                 if (_readyState !== State.CONNECTED || !attempt || !attempt.session || !attempt.session.ext ||
-                    [2, 3].indexOf(attempt.session.ext.stateVersion) < 0 ||
+                    [2, 3, 4].indexOf(attempt.session.ext.stateVersion) < 0 ||
                     typeof _this.config.roomRequest !== 'function') {
                     throw _error('NotSupportedError', 'Stage operations require state version 2 and a roomRequest provider.');
                 }
@@ -1314,7 +1319,7 @@
 
         _this.setStagePresentation = function (room, grant, change) {
             var attempt = _attempt;
-            if (!attempt || !attempt.session || !attempt.session.ext || attempt.session.ext.stateVersion !== 3) {
+            if (!attempt || !attempt.session || !attempt.session.ext || [3, 4].indexOf(attempt.session.ext.stateVersion) < 0) {
                 return Promise.reject(_error('NotSupportedError', 'Stage presentation requires room state version 3.'));
             }
             return _stage(room, 'PUT', '/grants/' + encodeURIComponent(grant) + '/presentation', change);

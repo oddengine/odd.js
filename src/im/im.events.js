@@ -125,7 +125,7 @@
                 { key: 'bootId', type: Type.STRING }, { key: 'sessionId', type: Type.STRING },
                 { key: 'protocol', type: Type.STRING }, { key: 'state', type: Type.STRING },
                 { key: 'validUntil', type: Type.UINT64 }, { key: 'resourceRevision', type: Type.UINT64 }];
-            if (['active', 'stopped', 'failed', 'unknown'].indexOf(payload.state) < 0 ||
+            if (['reserved', 'starting', 'active', 'stopped', 'failed', 'unknown'].indexOf(payload.state) < 0 ||
                 ['WHIP', 'RTMP', 'RTSP'].indexOf(payload.protocol) < 0) {
                 throw _error('DataError', 'Invalid media publication state.');
             }
@@ -176,11 +176,11 @@
         return { roomId: state.room, known: known, head: state.info.head,
             states: Object.keys(state.projection).map(function (key) {
                 var event = state.projection[key], payload = Object.assign({}, event.payload);
-                if (event.kind === 'media.publication' && payload.state === 'active') {
+                if (event.kind === 'media.publication' && ['reserved', 'starting', 'active'].indexOf(payload.state) >= 0) {
                     var resource = state.projection['media.resource:' + event.entityId];
                     if ((room && room.payload.state === 'closed') || (resource && resource.payload.state === 'revoked')) {
                         payload.state = 'stopped';
-                    } else if (!known || !resource || _milliseconds(payload.validUntil) <= Date.now() ||
+                    } else if (!known || !resource || !state.origins || state.origins[payload.nodeId] !== payload.bootId ||
                         Protocol.compare64(payload.publisherGeneration, resource.payload.resourceGeneration) !== 0) {
                         payload.state = 'unknown';
                     }
@@ -229,10 +229,11 @@
                 if (Object.keys(_rooms).length >= 128) {
                     throw _error('QuotaExceededError', 'Too many active room visits.');
                 }
-                var state = { room: room, queue: Promise.resolve(), ready: null, nextAckAt: Infinity, pages: 0, bytes: 0 };
+                var state = { room: room, queue: Promise.resolve(), ready: null, nextAckAt: Infinity, pages: 0, bytes: 0,
+                    origins: Object.create(null), originsRevision: { high: 0, low: 0 } };
                 _rooms[room] = state;
                 if (speakers) {
-                    if (stateVersion !== 3 || !IM.Speakers) {
+                    if (stateVersion < 3 || !IM.Speakers) {
                         delete _rooms[room];
                         throw _error('NotSupportedError', 'Speaker observations require state version 3.');
                     }
@@ -374,6 +375,45 @@
             return state.ready;
         };
 
+        _this.origins = function (data) {
+            active();
+            var state = _streams[data.conversationId];
+            if (!state || stateVersion < 4 || Protocol.compare64(data.epoch, state.info.epoch) !== 0 ||
+                !Array.isArray(data.items) || data.items.length > 128) {
+                return Promise.reject(_error('DataError', 'Invalid room source identity update.'));
+            }
+            var origins = Object.create(null), bytes = 0;
+            try {
+                data.items.forEach(function (entry) {
+                    if (entry.type !== Type.BYTES || !(entry.value instanceof Uint8Array)) {
+                        throw _error('DataError', 'Source identities must be encoded objects.');
+                    }
+                    bytes += entry.value.length;
+                    var fields = Protocol.decodeObject(entry.value);
+                    Protocol.validateFields(fields, [{ key: 'nodeId', type: Type.STRING }, { key: 'bootId', type: Type.STRING }]);
+                    var value = _object(fields);
+                    if (!value.nodeId || value.nodeId.length > 128 || origins[value.nodeId] ||
+                        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value.bootId)) {
+                        throw _error('DataError', 'Invalid or duplicate room source identity.');
+                    }
+                    origins[value.nodeId] = value.bootId;
+                });
+            } catch (error) {
+                return Promise.reject(error);
+            }
+            return serialize(state, bytes, function () {
+                if (Protocol.compare64(data.revision, state.originsRevision) <= 0) {
+                    throw _error('DataError', 'Room source identity revision did not advance.');
+                }
+                state.originsRevision = data.revision;
+                state.origins = origins;
+                // These identities belong to this connection, not the durable
+                // event log. A reconnect starts unknown until its own notice.
+                deliver({ target: { type: 'room', id: state.room }, messaging: true, type: 'room.snapshot',
+                    snapshot: true, content: _view(state, true) });
+            });
+        };
+
         _this.receive = function (page) {
             active();
             var state = _streams[page.conversationId];
@@ -436,16 +476,23 @@
                     state.pages++;
                     state.bytes += bytes;
                     state.nextAckAt = Math.min(state.nextAckAt, Date.now() + state.info.delivery.ackInterval);
+                    var changed = false;
                     added.forEach(function (index) {
                         active(state);
                         if ((records[index].event.kind === 'gift.confirmed' ||
                             Protocol.compare64(records[index].messageSequence, state.info.head) > 0) &&
                             _apply(state.projection, records[index].event)) {
+                            changed = changed || records[index].event.kind !== 'gift.confirmed';
                             deliver(notifications[index]);
                         }
                     });
                     if (Protocol.compare64(page.last, state.info.head) > 0) {
                         state.info.head = page.last;
+                    }
+                    if (changed) {
+                        active(state);
+                        deliver({ target: { type: 'room', id: state.room }, messaging: true, type: 'room.snapshot',
+                            snapshot: true, content: _view(state, true) });
                     }
                     if (state.speakers) { state.speakers.maintain(); }
                     if (state.pages >= Math.max(1, Math.floor(state.info.delivery.maxPages / 2)) ||
@@ -492,7 +539,7 @@
                     throw _error('ConflictError', 'Another connection owns the saved room state.');
                 }
                 var current = { room: room, projection: Object.create(null),
-                    info: { head: stored.head, snapshotReady: stored.ready } };
+                    info: { head: stored.head, snapshotReady: stored.ready }, origins: state.origins };
                 stored.states.forEach(function (event) { _apply(current.projection, event); });
                 return _view(current, true);
             });
@@ -505,22 +552,6 @@
             Object.keys(_rooms).forEach(function (room) {
                 var state = _rooms[room];
                 if (state.speakers) { state.speakers.maintain(); }
-                if (state.info && state.projection) {
-                    state.expired = state.expired || Object.create(null);
-                    var changed = false;
-                    Object.keys(state.projection).forEach(function (key) {
-                        var event = state.projection[key];
-                        if (event.kind === 'media.publication' && event.payload.state === 'active' &&
-                            _milliseconds(event.payload.validUntil) <= Date.now() && state.expired[key] !== event) {
-                            state.expired[key] = event;
-                            changed = true;
-                        }
-                    });
-                    if (changed) {
-                        deliver({ target: { type: 'room', id: room }, messaging: true, type: 'room.snapshot',
-                            snapshot: true, content: _view(state, true) });
-                    }
-                }
                 if (state.info && Date.now() >= state.nextAckAt) {
                     state.nextAckAt = Infinity;
                     serialize(state, 0, function () { return acknowledge(state); }).catch(failed);
@@ -536,6 +567,9 @@
             if (state.speakers) { state.speakers.close(); }
             return serialize(state, 0, function () {
                 return storage.endEvents(room, _owner).then(function () {
+                    active(state);
+                    deliver({ target: { type: 'room', id: room }, messaging: true, type: 'room.snapshot',
+                        snapshot: true, content: _view(state, false) });
                     delete _rooms[room];
                     delete _streams[state.info.conversationId];
                 });

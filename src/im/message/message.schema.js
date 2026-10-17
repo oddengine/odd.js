@@ -338,6 +338,9 @@
                 { key: 'wallet', type: Type.OBJECT, required: false },
             ]);
         } else if (opcode === Opcode.FETCH) {
+            if (fields[0] && fields[0].value === 'event-origins') {
+                return _validateEventOrigins(fields);
+            }
             if (fields.length === 2 && fields[1].key === 'empty') {
                 rules.push({ key: 'empty', type: Type.BOOL });
             } else {
@@ -382,6 +385,17 @@
         }
     }
 
+    function _validateEventOrigins(fields) {
+        _validateFields(fields, [
+            { key: 'kind', type: Type.STRING }, { key: 'conversationId', type: Type.STRING },
+            { key: 'epoch', type: Type.UINT64 }, { key: 'revision', type: Type.UINT64 },
+            { key: 'items', type: Type.ARRAY },
+        ]);
+        if (fields[0].value !== 'event-origins' || fields[4].value.length > 128) {
+            _fail('DataError', 'Invalid room source identity notice.');
+        }
+    }
+
     function _validatePartition(partition, partitions) {
         if (!_integer(partitions, 1, 256) || (partitions & (partitions - 1)) !== 0 ||
             !_integer(partition, 0, partitions - 1)) {
@@ -421,6 +435,7 @@
     }
 
     Protocol.validateEventPage = _validateEventPage;
+    Protocol.validateEventOrigins = _validateEventOrigins;
     Protocol.messageId = _messageId;
     Protocol.validateMessagePartition = _validateMessagePartition;
     Protocol.validateFields = _validateFields;
