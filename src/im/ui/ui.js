@@ -46,6 +46,7 @@
             _tabs,
             _homes,
             _api,
+            _calls,
             _readyState;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent, IMEvent);
@@ -94,6 +95,11 @@
             _api.addEventListener(Event.ERROR, _this.forward);
             _api.addEventListener(Event.CLOSE, _onClose);
 
+            if (_this.config.calls && _this.config.calls.enabled) {
+                if (!UI.CallPanel) { throw new Error('Load the call UI module.'); }
+                _calls = new UI.CallPanel(_api, _this.config.calls);
+                _wrapper.appendChild(_calls.element());
+            }
             _buildPlugins();
             _setupPlugins();
             _readyState = State.CONNECTED;
@@ -115,6 +121,7 @@
             _this.refresh = _api.refresh;
             _this.send = _api.send;
             _this.call = _api.call;
+            _this.calls = _api.calls;
             _this.request = _api.request;
             _this.reauth = _api.reauth;
             _this.state = _api.state;
@@ -222,6 +229,8 @@
 
         function _onClick(e) {
             var h = {
+                'voice-call': function () { _startCall('audio'); },
+                'video-call': function () { _startCall('video'); },
                 'contact': function () { _onConversationClick(e); },
                 'conversation': function () { _onConversationClick(e); },
             }[e.data.name];
@@ -230,6 +239,17 @@
             } else {
                 _this.forward(e);
             }
+        }
+
+        function _startCall(mode) {
+            var conversation = _this.plugins['Conversation'];
+            if (!_calls || !conversation || !conversation.target()) {
+                _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Calls is unavailable for this conversation.' });
+                return;
+            }
+            Promise.resolve().then(function () { return _calls.invite(conversation.target(), mode); }).catch(function (reason) {
+                _this.dispatchEvent(Event.ERROR, { name: reason.name, message: reason.message });
+            });
         }
 
         function _onConversationClick(e) {
@@ -407,6 +427,7 @@
                         plugin.destroy();
                     });
                     _this.plugins = {};
+                    if (_calls) { _calls.destroy(); _calls = null; }
 
                     if (_api) {
                         _api.removeEventListener(Event.BIND, _onBind);

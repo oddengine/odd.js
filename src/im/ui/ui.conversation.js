@@ -260,6 +260,12 @@
             return _this.config.active;
         };
 
+        _this.target = function () {
+            var contact = _findContact(_this.config.active);
+            return _this.config.active ? { type: contact && contact.type === 'group' ? 'group' :
+                contact && contact.type === 'channel' ? 'room' : 'user', id: _this.config.active } : null;
+        };
+
         _this.presentation = function (value) {
             var composer = _this.components['composer'];
             return composer ? composer.presentation(value) : value;

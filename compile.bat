@@ -53,8 +53,13 @@ set scripts[3]=".\src\im\message\message.schema.js"
 set scripts[4]=".\src\im\im.responder.js"
 set scripts[5]=".\src\im\im.requesttable.js"
 set scripts[6]=".\src\im\im.indexeddb.js"
-set scripts[7]=".\src\im\im.messaging.js"
-set length=8
+set scripts[7]=".\src\im\im.speakers.js"
+set scripts[8]=".\src\im\im.events.js"
+set scripts[9]=".\src\im\im.messaging.js"
+set scripts[10]=".\src\im\im.calls.protocol.js"
+set scripts[11]=".\src\im\im.calls.media.js"
+set scripts[12]=".\src\im\im.calls.js"
+set length=13
 
 cd.>.\release\odd.im.js
 
@@ -86,7 +91,8 @@ set scripts[11]=".\src\im\ui\ui.contacts.js"
 set scripts[12]=".\src\im\ui\ui.conversations.js"
 set scripts[13]=".\src\im\ui\ui.conversation.js"
 set scripts[14]=".\src\im\ui\ui.dashboard.js"
-set length=15
+set scripts[15]=".\src\im\ui\ui.calls.js"
+set length=16
 
 cd.>.\release\odd.im.ui.js
 

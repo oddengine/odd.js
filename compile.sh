@@ -52,6 +52,9 @@ scripts[6]="./src/im/im.indexeddb.js"
 scripts[7]="./src/im/im.speakers.js"
 scripts[8]="./src/im/im.events.js"
 scripts[9]="./src/im/im.messaging.js"
+scripts[10]="./src/im/im.calls.protocol.js"
+scripts[11]="./src/im/im.calls.media.js"
+scripts[12]="./src/im/im.calls.js"
 
 :>./release/odd.im.js
 
@@ -77,6 +80,7 @@ scripts[11]="./src/im/ui/ui.contacts.js"
 scripts[12]="./src/im/ui/ui.conversations.js"
 scripts[13]="./src/im/ui/ui.conversation.js"
 scripts[14]="./src/im/ui/ui.dashboard.js"
+scripts[15]="./src/im/ui/ui.calls.js"
 
 :>./release/odd.im.ui.js
 

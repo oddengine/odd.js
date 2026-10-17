@@ -196,6 +196,12 @@
     }
 
     function _validateResult(opcode, messaging, fields, request) {
+        if (messaging && (opcode === Opcode.CALL || (request && request.some(function (field) {
+            return field.key === 'kind' && field.value === 'calls';
+        })))) {
+            if (!odd.IM.CallProtocol) { _fail('NotSupportedError', 'CALL v1 is not loaded.'); }
+            return odd.IM.CallProtocol.result(opcode, fields);
+        }
         if (messaging && request && request.some(function (field) {
             return ((field.key === 'kind' || field.key === 'topic') && field.value === 'events') ||
                 (field.key === 'target' && field.type === Type.OBJECT && field.value[0].value === 'room');

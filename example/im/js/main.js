@@ -373,6 +373,27 @@
                         return request('/session/im-ticket', 'POST', intent);
                     }
                 },
+                storageFactory: function (identity) {
+                    return new odd.IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+                },
+                calls: {
+                    enabled: session.im.calls === true,
+                    members: async function (target) {
+                        var page = await request('/rooms/' + encodeURIComponent(target.id) + '/members?limit=100');
+                        return page.items.filter(function (member) { return member.state === 'active'; }).map(function (member) {
+                            return { id: member.userId, name: member.name || member.userId };
+                        });
+                    },
+                    rtc: {
+                        profile: '360P_2',
+                        credentials: function (context) {
+                            return request('/streams/' + encodeURIComponent(context.streamId) + '/credentials', 'POST', {
+                                protocol: context.protocol, direction: context.direction,
+                                connectionId: context.connectionId, generation: context.generation,
+                            });
+                        },
+                    },
+                },
                 retry: { count: 0 },
                 user: session.user,
                 plugins: [

@@ -102,7 +102,7 @@
                     reject(_error('NotSupportedError', 'IndexedDB is unavailable.'));
                     return;
                 }
-                var request = indexedDB.open(_name, 3), failed = false;
+                var request = indexedDB.open(_name, 4), failed = false;
                 request.onupgradeneeded = function () {
                     if (_closed || failed) {
                         request.transaction.abort();
@@ -126,6 +126,11 @@
                         events.createIndex('sequence', ['stream', 'epochHigh', 'epochLow', 'high', 'low'], { unique: true });
                         events.createIndex('expiresAt', 'expiresAt');
                         database.createObjectStore('visits', { keyPath: 'room' });
+                    }
+                    if (!database.objectStoreNames.contains('calls')) {
+                        var calls = database.createObjectStore('calls', { keyPath: 'callId' });
+                        calls.createIndex('terminal', ['terminal', 'updatedAt']);
+                        database.createObjectStore('callOutbox', { keyPath: 'id' });
                     }
                     if (!database.objectStoreNames.contains('terminal')) {
                         database.createObjectStore('terminal', { keyPath: ['conversationId', 'firstHigh', 'firstLow'] });
@@ -700,6 +705,120 @@
                         cursor.continue();
                     };
                 });
+            });
+        };
+
+        // CALL operations share this account/device database. Their pending
+        // identities and feed cursor are independent of message READ receipts.
+        _this.enqueueCall = function (operationId, packet) {
+            var id = _id(operationId), bytes = _bytes(packet, 8192);
+            return _transaction(['callOutbox'], 'readwrite', function (transaction, result, abort) {
+                var store = transaction.objectStore('callOutbox'), request = store.get(id);
+                request.onsuccess = function () {
+                    if (request.result) {
+                        if (!_same(request.result.packet, bytes)) {
+                            abort(_error('ConflictError', 'The call operation ID belongs to different data.'));
+                        } else {
+                            result(request.result);
+                        }
+                        return;
+                    }
+                    var count = store.count();
+                    count.onsuccess = function () {
+                        if (count.result >= 128) {
+                            abort(_error('QuotaExceededError', 'Too many unresolved call operations.'));
+                            return;
+                        }
+                        var record = { id: id, packet: bytes };
+                        store.add(record);
+                        result(record);
+                    };
+                };
+            });
+        };
+
+        _this.pendingCalls = function () {
+            return _transaction(['callOutbox'], 'readonly', function (transaction, result) {
+                var request = transaction.objectStore('callOutbox').getAll(null, 128);
+                request.onsuccess = function () { result(request.result); };
+            });
+        };
+
+        _this.settleCall = function (operationId) {
+            return _transaction(['callOutbox'], 'readwrite', function (transaction) {
+                transaction.objectStore('callOutbox').delete(_id(operationId));
+            });
+        };
+
+        _this.calls = function () {
+            return _transaction(['calls'], 'readonly', function (transaction, result) {
+                var request = transaction.objectStore('calls').getAll(null, 1024);
+                request.onsuccess = function () { result(request.result.map(function (item) { return item.value; })); };
+            });
+        };
+
+        _this.receiveCalls = function (items, cursor) {
+            if (!Array.isArray(items) || items.length > 8) {
+                return Promise.reject(_error('DataError', 'Invalid call page.'));
+            }
+            var records, total = 0;
+            try {
+                records = items.map(function (value) {
+                    IM.Calls.validate(value);
+                    total += Protocol.text(JSON.stringify(value)).length;
+                    if (total > 32768) {
+                        throw _error('QuotaExceededError', 'Call state exceeds its byte budget.');
+                    }
+                    return { callId: value.callId, revision: value.revision, terminal: value.state === 'ended' ? 1 : 0,
+                        updatedAt: Date.now(), value: value };
+                });
+                cursor = cursor ? _bytes(cursor, 512) : null;
+            } catch (error) {
+                return Promise.reject(error);
+            }
+            return _transaction(['calls', 'positions'], 'readwrite', function (transaction, result, abort) {
+                var store = transaction.objectStore('calls'), count = store.count();
+                count.onsuccess = function () {
+                    var remaining = count.result, applied = [];
+                    function put(index) {
+                        if (index === records.length) {
+                            if (cursor) {
+                                transaction.objectStore('positions').put({ kind: 'calls', id: '', cursor: cursor });
+                            }
+                            result(applied);
+                            return;
+                        }
+                        var record = records[index], previous = store.get(record.callId);
+                        previous.onsuccess = function () {
+                            var before = previous.result;
+                            if (before && (before.revision.length > record.revision.length ||
+                                (before.revision.length === record.revision.length && before.revision >= record.revision))) {
+                                put(index + 1);
+                                return;
+                            }
+                            function save() {
+                                store.put(record);
+                                applied.push(record.value);
+                                put(index + 1);
+                            }
+                            if (!before && remaining >= 1024) {
+                                var oldest = store.index('terminal').openCursor(IDBKeyRange.bound([1, 0], [1, Date.now()]));
+                                oldest.onsuccess = function () {
+                                    if (!oldest.result) {
+                                        abort(_error('QuotaExceededError', 'Call history has no collectible terminal state.'));
+                                        return;
+                                    }
+                                    oldest.result.delete();
+                                    save();
+                                };
+                            } else {
+                                remaining += before ? 0 : 1;
+                                save();
+                            }
+                        };
+                    }
+                    put(0);
+                };
             });
         };
 

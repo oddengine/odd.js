@@ -24,6 +24,7 @@
             socketFactory: null,
             storageFactory: null,
             roomRequest: null,
+            calls: null,
             connectTimeout: 10000,
             requestTimeout: 15000,
             maxBufferedBytes: 262144,
@@ -546,6 +547,15 @@
                     attempt.messaging.events().origins(notification.payload).catch(function (error) { _end(attempt, error); });
                     return;
                 }
+                if (notification.payload.kind === 'calls') {
+                    if (!attempt.calls) {
+                        _end(attempt, _error('NotSupportedError', 'Calls is not enabled for this connection.'));
+                        return;
+                    }
+                    IM.CallProtocol.page(notification.fields);
+                    attempt.calls.receive(notification.payload).catch(function (error) { _end(attempt, error); });
+                    return;
+                }
                 if (notification.payload.kind === 'events') {
                     Protocol.validateEventPage(notification.fields);
                     attempt.messaging.events().receive(notification.payload).catch(function (error) { _end(attempt, error); });
@@ -581,6 +591,9 @@
 
         function _openMessaging(attempt) {
             if (!_this.config.storageFactory) {
+                if (_this.config.calls && _this.config.calls.enabled === true) {
+                    return Promise.reject(_error('NotSupportedError', 'Calls requires persistent account storage.'));
+                }
                 return Promise.resolve();
             }
             return Promise.resolve().then(function () {
@@ -624,7 +637,23 @@
                                     messaging: false, payload: snapshot });
                             }
                         });
-                    return attempt.messaging.open();
+                    return attempt.messaging.open().then(function () {
+                        if (!_this.config.calls || _this.config.calls.enabled !== true) {
+                            return;
+                        }
+                        if (!IM.Calls || !IM.CallMedia || session.ext.callVersion !== 1) {
+                            throw _error('NotSupportedError', 'This session does not support CALL v1.');
+                        }
+                        attempt.calls = new IM.Calls(_this, identity, storage,
+                            function (opcode, fields) { return _request(attempt, opcode, fields, true); },
+                            session, _this.config.calls, function (change) {
+                                if (_attempt === attempt) {
+                                    _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_CALL_CHANGE,
+                                        messaging: true, payload: change });
+                                }
+                            }, function (error) { _end(attempt, error); });
+                        return attempt.calls.open();
+                    });
                 });
             });
         }
@@ -667,6 +696,9 @@
                 attempt.deadline = null;
                 _retried = 0;
                 _readyState = State.CONNECTED;
+                if (attempt.calls) {
+                    attempt.calls.start().catch(function (error) { _end(attempt, error); });
+                }
                 attempt.resolve(_this);
                 _this.dispatchEvent(Event.READY);
                 if (_attempt !== attempt) {
@@ -706,6 +738,9 @@
             if (attempt.messaging) {
                 attempt.messaging.maintain();
             }
+            if (attempt.calls) {
+                attempt.calls.maintain();
+            }
             attempt.requests.expire(_clock()).forEach(function (item) {
                 var err = _error('TimeoutError', 'IM request timed out; the remote result is unknown.');
                 err.code = Protocol.Status.UNKNOWN;
@@ -726,6 +761,9 @@
 
             clearTimeout(attempt.deadline);
             clearInterval(attempt.maintenance);
+            if (attempt.calls) {
+                attempt.calls.close();
+            }
             if (attempt.messaging) {
                 attempt.messaging.close();
             }
@@ -779,6 +817,11 @@
                 return Promise.reject(_error('InvalidStateError', 'IM is not ready.'));
             }
             if (messaging) {
+                if (opcode === Protocol.Opcode.CALL || (fields && fields.some(function (field) {
+                    return field.key === 'kind' && field.value === 'calls';
+                }))) {
+                    return Promise.reject(_error('NotAllowedError', 'Use calls() to preserve call operations and feed receipts.'));
+                }
                 var reliable = _attempt.messaging;
                 if (!reliable) {
                     return Promise.reject(_error('NotSupportedError', 'Configure durable storage before using reliable messaging.'));
@@ -1349,12 +1392,17 @@
             return _attempt && _attempt.session && _attempt.session.ext ? _attempt.session.ext.wallet || null : null;
         };
 
-        _this.call = function (action, target, body) {
-            return _this.request(Protocol.Opcode.CALL, [
-                _field('action', Protocol.Type.STRING, action),
-                _field('target', Protocol.Type.OBJECT, _target(target)),
-                _field('body', Protocol.Type.OBJECT, body),
-            ], false);
+        _this.calls = function () {
+            if (!_attempt || !_attempt.calls || _readyState !== State.CONNECTED) {
+                throw _error('NotSupportedError', 'Enable Calls with durable storage before calling.');
+            }
+            return _attempt.calls;
+        };
+
+        _this.call = function (action, target, options) {
+            return Promise.resolve().then(function () {
+                return action === 'invite' ? _this.calls().invite(target, options) : _this.calls().action(target, action, options);
+            });
         };
 
         _this.commit = function (kind, cursor) {
