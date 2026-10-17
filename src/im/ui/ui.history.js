@@ -1,0 +1,73 @@
+(function (odd) {
+    var UI = odd.IM.UI, Protocol = odd.IM.Protocol, Type = Protocol.Type;
+
+    function object(fields) {
+        var value = Object.create(null);
+        fields.forEach(function (field) { value[field.key] = field.type === Type.OBJECT ? object(field.value) : field.value; });
+        return value;
+    }
+    function hex(bytes) {
+        return Array.prototype.map.call(bytes, function (value) { return ('0' + value.toString(16)).slice(-2); }).join('');
+    }
+    function time(id) {
+        var value = 0;
+        for (var i = 0; id && i < 6; i++) { value = value * 256 + id[i]; }
+        return value;
+    }
+    function received(data, user) {
+        var mine = data.sender && data.sender.id === user, meta = data.meta || {}, id = data.clientMessageId;
+        return { id: mine && id ? hex(id) : meta.messageId ? hex(meta.messageId) : odd.utils.guid(),
+            from: data.sender ? data.sender.id : '', text: typeof data.content === 'string' ? data.content : '[Binary]',
+            align: mine ? 'right' : 'left', state: data.messaging ? 'saved' : 'sent',
+            messageId: meta.messageId, sequence: meta.messageSequence, clientMessageId: id,
+            timestamp: time(id) || Date.now(), time: id ? new Date(time(id)).toLocaleString() : new Date().toLocaleTimeString(),
+            incoming: !mine, reliable: !!data.messaging, ephemeral: !data.messaging };
+    }
+    function message(record, user) {
+        var packet = Protocol.decode(record.packet), data = object(packet.fields[1].value);
+        return received({ sender: data.sender, meta: data.meta, content: data.body.content,
+            clientMessageId: data.body.clientMessageId, messaging: true }, user);
+    }
+    function outgoing(record, user) {
+        var packet = Protocol.decode(record.packet), body = object(packet.fields[1].value), info = record.outcome || {},
+            gift = body.type === 'gift';
+        return { id: record.id, from: user, align: 'right', incoming: false, reliable: true,
+            text: gift ? 'Gift request: ' + body.content.giftId + ' × ' + body.content.count : typeof body.content === 'string' ? body.content : '[Binary]',
+            state: record.state === 'pending' ? 'unknown' : record.state, packet: record.packet, gift: gift,
+            sequence: info.messageSequence, messageId: info.messageId, clientMessageId: body.clientMessageId,
+            timestamp: time(body.clientMessageId), time: new Date(time(body.clientMessageId)).toLocaleString() };
+    }
+    function fact(event, meta) {
+        var payload = event.payload, text;
+        if (event.kind === 'gift.confirmed') {
+            text = 'Gift confirmed: ' + payload.giftId + ' × ' + payload.count;
+        } else if (event.kind === 'stage.policy') {
+            text = 'Stage mode: ' + payload.mode + ' · seats: ' + payload.capacity;
+        } else if (event.kind === 'stage.member') {
+            text = 'Stage participant: ' + event.entityId + ' · ' + payload.state;
+        } else if (event.kind === 'room.state') {
+            text = 'Room: ' + payload.state;
+        } else if (event.kind === 'media.resource') {
+            text = 'Media resource: ' + payload.purpose + ' · ' + payload.state;
+        } else {
+            text = event.kind === 'media.publication' ? 'Media: ' + payload.state : 'Room permissions or media updated';
+        }
+        var timestamp = event.occurredAt.high * 4294967296 + event.occurredAt.low;
+        return { id: hex(meta.messageId), from: event.kind === 'gift.confirmed' ? payload.senderId : 'Room',
+            text: text, state: 'saved', align: 'left', reliable: true, sequence: meta.messageSequence,
+            messageId: meta.messageId, timestamp: timestamp, time: new Date(timestamp).toLocaleString(), incoming: false, roomEvent: true };
+    }
+    function event(record) {
+        var fields = Protocol.decode(record.packet).fields[1].value, meta = object(fields);
+        return fact(object(fields[4].value), meta);
+    }
+    function compare(left, right) {
+        if (left.roomEvent || right.roomEvent || left.ephemeral || right.ephemeral) {
+            return left.timestamp - right.timestamp || left.id.localeCompare(right.id);
+        }
+        if (left.sequence && right.sequence) { return Protocol.compare64(left.sequence, right.sequence); }
+        if (left.sequence || right.sequence) { return left.sequence ? -1 : 1; }
+        return left.timestamp - right.timestamp || left.id.localeCompare(right.id);
+    }
+    UI.History = { object: object, hex: hex, received: received, message: message, outgoing: outgoing, fact: fact, event: event, compare: compare };
+})(odd);

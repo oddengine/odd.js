@@ -77,22 +77,23 @@ goto loop3
 :end3
 
 set scripts[0]=".\src\im\ui\ui.js"
-set scripts[1]=".\src\im\ui\components\components.js"
-set scripts[2]=".\src\im\ui\components\components.button.js"
-set scripts[3]=".\src\im\ui\components\components.label.js"
-set scripts[4]=".\src\im\ui\components\components.avatar.js"
-set scripts[5]=".\src\im\ui\components\components.panel.js"
-set scripts[6]=".\src\im\ui\components\components.message.js"
-set scripts[7]=".\src\im\ui\components\components.messages.js"
-set scripts[8]=".\src\im\ui\components\components.composer.js"
-set scripts[9]=".\src\im\ui\components\components.settings.js"
-set scripts[10]=".\src\im\ui\components\components.tab.js"
-set scripts[11]=".\src\im\ui\ui.contacts.js"
-set scripts[12]=".\src\im\ui\ui.conversations.js"
-set scripts[13]=".\src\im\ui\ui.conversation.js"
-set scripts[14]=".\src\im\ui\ui.dashboard.js"
-set scripts[15]=".\src\im\ui\ui.calls.js"
-set length=16
+set scripts[1]=".\src\im\ui\ui.history.js"
+set scripts[2]=".\src\im\ui\components\components.js"
+set scripts[3]=".\src\im\ui\components\components.button.js"
+set scripts[4]=".\src\im\ui\components\components.label.js"
+set scripts[5]=".\src\im\ui\components\components.avatar.js"
+set scripts[6]=".\src\im\ui\components\components.panel.js"
+set scripts[7]=".\src\im\ui\components\components.message.js"
+set scripts[8]=".\src\im\ui\components\components.messages.js"
+set scripts[9]=".\src\im\ui\components\components.composer.js"
+set scripts[10]=".\src\im\ui\components\components.settings.js"
+set scripts[11]=".\src\im\ui\components\components.tab.js"
+set scripts[12]=".\src\im\ui\ui.contacts.js"
+set scripts[13]=".\src\im\ui\ui.conversations.js"
+set scripts[14]=".\src\im\ui\ui.conversation.js"
+set scripts[15]=".\src\im\ui\ui.dashboard.js"
+set scripts[16]=".\src\im\ui\ui.calls.js"
+set length=17
 
 cd.>.\release\odd.im.ui.js
 

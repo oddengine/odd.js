@@ -8,6 +8,12 @@
             SENDING: 'sending',
             SENT: 'sent',
             FAILED: 'failed',
+            UNKNOWN: 'unknown',
+            ACCEPTED: 'accepted',
+            DELIVERED: 'delivered',
+            SETTLED: 'settled',
+            SAVED: 'saved',
+            READ: 'read',
         },
 
         CLASS_MESSAGE = 'im-message';
@@ -22,7 +28,9 @@
             _indicator,
             _from,
             _time,
-            _body;
+            _body,
+            _status,
+            _retry;
 
         function _init() {
             _container = utils.createElement('article', CLASS_MESSAGE + (name ? ' ' + name : ''));
@@ -35,10 +43,18 @@
             _from = utils.createElement('strong');
             _time = utils.createElement('time');
             _body = utils.createElement('p');
+            _status = utils.createElement('small', 'im-message-status');
+            _status.setAttribute('role', 'status');
+            _retry = utils.createElement('button', 'im-message-retry');
+            _retry.type = 'button';
+            _retry.textContent = 'Retry original operation';
+            _retry.onclick = function () { if (_data.retry) { _data.retry(); } };
             meta.appendChild(_from);
             meta.appendChild(_time);
             bubble.appendChild(meta);
             bubble.appendChild(_body);
+            bubble.appendChild(_status);
+            bubble.appendChild(_retry);
             _container.appendChild(_avatar.element());
             _container.appendChild(_indicator);
             _container.appendChild(bubble);
@@ -58,6 +74,7 @@
             _time.textContent = _data.time || '';
             _body.textContent = _data.text || '';
             _this.state(_data.state || State.SENT);
+            _retry.hidden = !_data.retry || (_data.state !== State.UNKNOWN && _data.state !== 'gift-pending');
             return _data;
         };
 
@@ -74,7 +91,13 @@
                 _container.setAttribute('state', value);
                 _container.setAttribute('aria-busy', value === State.SENDING);
                 _indicator.setAttribute('aria-label', value);
-                _indicator.hidden = value === State.SENT;
+                _indicator.hidden = value !== State.SENDING && value !== State.FAILED;
+                var labels = { sending: 'Sending', sent: '', failed: 'Not sent', unknown: 'Result unknown',
+                    accepted: 'Accepted by server', delivered: 'Delivery complete', settled: 'Delivery responsibility completed',
+                    saved: 'Saved on this device', read: 'Read by this account', expired: 'Expired; prior result may be unavailable',
+                    revoked: 'Permission withdrawn', rejected: 'Rejected', 'gift-pending': 'Gift transaction confirmed; delivery pending' };
+                _status.textContent = _data.reliable ? labels[value] || value : '';
+                _status.hidden = !_status.textContent;
             }
             return _container.getAttribute('state');
         };
@@ -92,6 +115,7 @@
         };
 
         _this.destroy = function () {
+            _retry.onclick = null;
             _avatar.destroy();
             _container.innerHTML = '';
         };

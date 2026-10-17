@@ -410,14 +410,11 @@
                 try {
                     joining = selected;
                     var room = await request('/rooms/' + encodeURIComponent(joining));
+                    if (current !== generation || client !== ui) { return; }
                     if (!room.member || room.member.state !== 'active' || room.state !== 'active') {
                         selected = '';
                     } else {
-                        await client.subscribe({ type: 'room', id: room.id });
-                        if (current !== generation || client !== ui) {
-                            return;
-                        }
-                        showRoom(room);
+                        await showRoom(room);
                     }
                 } catch (err) {
                     if (err.status !== 403 && err.status !== 404 && err.code !== Protocol.Status.FORBIDDEN &&
@@ -459,20 +456,16 @@
 
         try {
             var room = await request('/rooms/' + encodeURIComponent(id) + '/members/me', 'PUT', {});
-            await client.subscribe({ type: 'room', id: id });
-            subscribed = true;
             if (current !== generation || client !== ui) {
                 return;
             }
             if (previous && previous !== id) {
-                await client.unsubscribe({ type: 'room', id: previous });
-                if (current !== generation || client !== ui) {
-                    return;
-                }
                 removeRoom(previous);
             }
             selected = id;
-            showRoom(room);
+            subscribed = true; // The UI now owns the selected subscription attempt.
+            await showRoom(room);
+            if (current !== generation || client !== ui) { return; }
             if (room.permissions.indexOf('room.members.read') !== -1) {
                 await members(false);
             } else {
@@ -506,8 +499,9 @@
         };
         ui.plugins['Contacts'].add(contact.id, contact.type, contact.name);
         ui.plugins['Conversations'].add(contact.id, contact.type, contact.name);
-        ui.plugins['Conversation'].active(contact.id, contact);
+        var opened = ui.plugins['Conversation'].open(contact.id, contact);
         ui.active('messages');
+        return opened;
     }
 
     function removeRoom(id) {
@@ -577,7 +571,8 @@
                     }
                     removeRoom(id);
                 } else {
-                    await client.subscribe({ type: 'room', id: room.id });
+                    await client.refresh({ type: 'room', id: room.id },
+                        Protocol.Action.MESSAGE_SUBSCRIBE | Protocol.Action.MESSAGE_PUBLISH, false, true);
                 }
             }
             if (current !== generation || ui !== client) {

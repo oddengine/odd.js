@@ -102,7 +102,7 @@
                     reject(_error('NotSupportedError', 'IndexedDB is unavailable.'));
                     return;
                 }
-                var request = indexedDB.open(_name, 4), failed = false;
+                var request = indexedDB.open(_name, 5), failed = false;
                 request.onupgradeneeded = function () {
                     if (_closed || failed) {
                         request.transaction.abort();
@@ -120,6 +120,27 @@
                     var outgoing = request.transaction.objectStore('outbox');
                     if (!outgoing.indexNames.contains('pending')) {
                         outgoing.createIndex('pending', ['state', 'id']);
+                    }
+                    if (!outgoing.indexNames.contains('conversation')) {
+                        outgoing.createIndex('conversation', ['conversationId', 'id']);
+                        var upgrade = outgoing.openCursor();
+                        upgrade.onsuccess = function () {
+                            var cursor = upgrade.result;
+                            if (!cursor) { return; }
+                            try {
+                                var record = cursor.value, packet = Protocol.decode(record.packet);
+                                Protocol.validateMessageRequest(packet);
+                                record.conversationId = packet.fields[0].value[1].value;
+                                cursor.update(record);
+                                cursor.continue();
+                            } catch (error) {
+                                request.transaction.abort();
+                                reject(error);
+                            }
+                        };
+                    }
+                    if (!database.objectStoreNames.contains('destinations')) {
+                        database.createObjectStore('destinations', { keyPath: 'conversationId' });
                     }
                     if (!database.objectStoreNames.contains('events')) {
                         var events = database.createObjectStore('events', { keyPath: ['stream', 'id'] });
@@ -226,7 +247,8 @@
         // Store before sending. An unknown network result leaves this row pending.
         _this.enqueue = function (clientMessageId, packet) {
             return Promise.resolve().then(function () {
-                var id = _id(clientMessageId), bytes = _bytes(packet, 65536);
+                var id = _id(clientMessageId), bytes = _bytes(packet, 65536), canonical = Protocol.decode(bytes);
+                Protocol.validateMessageRequest(canonical);
                 return _transaction(['outbox'], 'readwrite', function (transaction, result, abort) {
                     var store = transaction.objectStore('outbox'), request = store.get(id);
                     request.onsuccess = function () {
@@ -238,7 +260,7 @@
                             result(request.result);
                             return;
                         }
-                        var record = { id: id, packet: bytes, state: 'pending' };
+                        var record = { id: id, packet: bytes, state: 'pending', conversationId: canonical.fields[0].value[1].value };
                         store.add(record);
                         result(record);
                     };
@@ -850,6 +872,121 @@
                     };
                 });
             });
+        };
+
+        // UI reads are bounded and do not acknowledge messages or change the
+        // server's responsibility. All sequences retain their exact two words.
+        function history(store, index, range, limit) {
+            if (!_integer(limit, 1, 64)) { return Promise.reject(_error('QuotaExceededError', 'Invalid history page limit.')); }
+            return _transaction([store], 'readonly', function (transaction, result) {
+                var source = transaction.objectStore(store), records = [], size = 0;
+                var request = (index ? source.index(index) : source).openCursor(range, 'prev');
+                request.onsuccess = function () {
+                    var cursor = request.result;
+                    if (!cursor || records.length >= limit || (cursor.value.packet && cursor.value.packet.length > 262144 - size)) {
+                        result(records.reverse());
+                        return;
+                    }
+                    records.push(cursor.value);
+                    size += cursor.value.packet ? cursor.value.packet.length : 0;
+                    cursor.continue();
+                };
+            });
+        }
+
+        _this.history = function (conversation, before, limit) {
+            _identifier(conversation);
+            var end = before ? _sequence(before) : [4294967295, 4294967295];
+            return history('messages', 'sequence', IDBKeyRange.bound([conversation, 0, 0], [conversation, end[0], end[1]], false, !!before), limit);
+        };
+
+        _this.outboxEntry = function (clientMessageId) {
+            var id = _id(clientMessageId);
+            return _transaction(['outbox'], 'readonly', function (transaction, result) {
+                var request = transaction.objectStore('outbox').get(id);
+                request.onsuccess = function () { result(request.result || null); };
+            });
+        };
+
+        _this.outgoing = function (conversation, before, limit) {
+            _identifier(conversation);
+            if (before && !/^[0-9a-f]{32}$/.test(before)) { return Promise.reject(_error('DataError', 'Invalid outbox page position.')); }
+            return history('outbox', 'conversation', IDBKeyRange.bound([conversation, ''], [conversation, before || '\uffff'], false, !!before), limit);
+        };
+
+        _this.eventHistory = function (stream, epoch, before, limit) {
+            _identifier(stream);
+            var generation = _sequence(epoch), end = before ? _sequence(before) : [4294967295, 4294967295];
+            return history('events', 'sequence', IDBKeyRange.bound([stream, generation[0], generation[1], 0, 0],
+                [stream, generation[0], generation[1], end[0], end[1]], false, !!before), limit);
+        };
+
+        _this.destination = function (conversation, value) {
+            _identifier(conversation);
+            if (value) {
+                if (!value.target || ['user', 'group', 'conversation'].indexOf(value.target.type) < 0 ||
+                    typeof value.name !== 'string' || value.name.length > 128 || typeof value.avatar !== 'string' || value.avatar.length > 2048) {
+                    return Promise.reject(_error('DataError', 'Invalid conversation display metadata.'));
+                }
+                _identifier(value.target.id);
+            }
+            return _transaction(['destinations'], value ? 'readwrite' : 'readonly', function (transaction, result) {
+                var store = transaction.objectStore('destinations');
+                if (value) {
+                    store.put({ conversationId: conversation, target: value.target, name: value.name, avatar: value.avatar });
+                    result(value);
+                } else {
+                    var request = store.get(conversation);
+                    request.onsuccess = function () { result(request.result || null); };
+                }
+            });
+        };
+
+        _this.projection = function (conversation) {
+            _identifier(conversation);
+            return _transaction(['conversations', 'positions'], 'readonly', function (transaction, result) {
+                var request = transaction.objectStore('conversations').get(conversation);
+                request.onsuccess = function () {
+                    var value = request.result || { conversationId: conversation, readSequence: { high: 0, low: 0 }, incomingSequence: { high: 0, low: 0 } };
+                    var read = transaction.objectStore('positions').get(['read', conversation]);
+                    read.onsuccess = function () {
+                        if (read.result && Protocol.compare64(read.result.sequence, value.readSequence) > 0) { value.readSequence = read.result.sequence; }
+                        result(value);
+                    };
+                };
+            });
+        };
+
+        _this.saveRead = function (conversation, sequence) {
+            _identifier(conversation);
+            _sequence(sequence);
+            return _transaction(['positions'], 'readwrite', function (transaction) {
+                var store = transaction.objectStore('positions'), request = store.get(['read', conversation]);
+                request.onsuccess = function () {
+                    if (!request.result || Protocol.compare64(sequence, request.result.sequence) > 0) {
+                        store.put({ kind: 'read', id: conversation, sequence: sequence });
+                    }
+                };
+            });
+        };
+
+        _this.directory = function (after, limit) {
+            if (after) { _identifier(after); }
+            if (!_integer(limit, 1, 64)) { return Promise.reject(_error('QuotaExceededError', 'Invalid directory page limit.')); }
+            return _transaction(['conversations'], 'readonly', function (transaction, result) {
+                var records = [], request = transaction.objectStore('conversations').openCursor(after ? IDBKeyRange.lowerBound(after, true) : null);
+                request.onsuccess = function () {
+                    var cursor = request.result;
+                    if (!cursor || records.length === limit) { result(records); return; }
+                    records.push(cursor.value);
+                    cursor.continue();
+                };
+            });
+        };
+
+        _this.gaps = function (conversation) {
+            _identifier(conversation);
+            return history('terminal', null, IDBKeyRange.bound([conversation, 0, 0], [conversation, 4294967295, 4294967295]), 64);
         };
 
         _this.close = function () {

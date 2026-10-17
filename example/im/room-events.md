@@ -302,3 +302,13 @@ to an old server has no source identity evidence and conservatively shows unknow
 nonterminal media views. There is no polling fallback. Gift persistence/ACKs and
 M=0 speaker expiry are unchanged. Only source review was performed; no release
 bundle, build, browser or runtime validation was produced.
+
+## R-058 presentation
+
+The shared IM/App UI now displays reliable gift, room, stage and media facts from
+saved Events records. `room.snapshot` has no sender and updates a separate state
+view. Historical gifts are text records; rendering never replays animation or
+payment. Ordinary room chat remains M=0. Mixed room chat/facts use display time as
+a convenience, without claiming a total reliable order for M=0 traffic. Unknown
+baselines and unavailable reliable subscriptions remain explicit. See
+[reliable-ui.md](reliable-ui.md) for subscription ownership and result recovery.

@@ -249,7 +249,7 @@
 
 .im-ui-classic .im-conversation {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
     background: #0d1117;
 }
 
@@ -265,7 +265,7 @@
 }
 
 .im-ui-classic .im-conversation[data-conversation=""] {
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 
 .im-ui-classic .im-conversation-messages {
@@ -538,3 +538,56 @@
 .im-call-actions button { padding: .5rem .75rem; border: 1px solid #aab4c5; border-radius: .35rem; cursor: pointer; }
 .im-call-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
 .im-call-media video { width: 100%; max-height: 40vh; background: #121a28; }
+
+/* Reliable conversation status and bounded history navigation. */
+.im-ui-classic .im-history-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 14px;
+}
+
+.im-ui-classic .im-history-tools button,
+.im-ui-classic .im-message-retry {
+    padding: 5px 9px;
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 6px;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.im-ui-classic .im-history-tools button:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+.im-ui-classic .im-history-notice,
+.im-ui-classic .im-room-state {
+    margin: 0;
+    padding: 0 14px;
+    color: #9da8b6;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.im-ui-classic .im-room-state {
+    max-height: 100px;
+    overflow: auto;
+}
+
+.im-ui-classic .im-message-status {
+    display: block;
+    margin-top: 6px;
+    color: #aeb9c7;
+}
+
+.im-ui-classic .im-unread {
+    color: #69cfff;
+    font-size: 11px;
+}
+
+.im-ui-classic [hidden] {
+    display: none !important;
+}

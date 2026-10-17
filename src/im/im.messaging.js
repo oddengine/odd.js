@@ -98,6 +98,18 @@
             return _resolved[target.id] ? Promise.resolve(_resolved[target.id]) : _this.resolve(target);
         }
 
+        function _hex(bytes) {
+            return Array.prototype.map.call(bytes, function (value) { return ('0' + value.toString(16)).slice(-2); }).join('');
+        }
+
+        function settle(id, state, info) {
+            return storage.settle(id, state, info).then(function (record) {
+                active();
+                changed({ kind: 'outbox', id: _hex(id), conversationId: record ? record.conversationId : info && info.conversationId, state: record ? record.state : state });
+                return record;
+            });
+        }
+
         function outcome(id, promise, gift) {
             return promise.then(function (info) {
                 active();
@@ -108,11 +120,11 @@
                         terminal ? Protocol.Status.FORBIDDEN : Protocol.Status.UNKNOWN;
                     error.info = info;
                     if (terminal) {
-                        return storage.settle(id, info.state).then(function () { throw error; });
+                        return settle(id, info.state).then(function () { throw error; });
                     }
                     throw error;
                 }
-                return storage.settle(id, 'accepted', info).then(function () { active(); return info; });
+                return settle(id, 'accepted', info).then(function () { active(); return info; });
             }, function (error) {
                 active();
                 // A reconnect may lose current room permission after the same
@@ -126,7 +138,7 @@
                 if (!state) {
                     throw error;
                 }
-                return storage.settle(id, state).then(function () { throw error; });
+                return settle(id, state).then(function () { throw error; });
             });
         }
 
@@ -145,6 +157,7 @@
                     id = canonical.fields[1].value[0].value;
                     return storage.enqueue(id, packet).then(function (record) {
                         active();
+                        changed({ kind: 'outbox', id: record.id, conversationId: target.id, state: record.state });
                         if (record.state !== 'pending') {
                             if (record.outcome) {
                                 return record.outcome;
@@ -309,7 +322,7 @@
                     return storage.position('synchronization', '').then(function (previous) {
                         active();
                         return storage.synchronize(records, page.nextCursor, previous);
-                    }).then(function () { active(); return page; });
+                    }).then(function () { active(); changed({ kind: 'conversations' }); return page; });
                 }
                 if (kind !== 'results') {
                     throw _error('DataError', 'Unknown synchronization kind.');
@@ -318,7 +331,7 @@
                 records.forEach(function (record) {
                     chain = chain.then(function () {
                         active();
-                        return storage.settle(record.clientMessageId, record.state, record).catch(function (error) {
+                        return settle(record.clientMessageId, record.state, record).catch(function (error) {
                             // Another device's outgoing result has no local
                             // body to settle. It still remains visible in page.
                             if (error.name !== 'NotFoundError') {
@@ -327,7 +340,7 @@
                         });
                     });
                 });
-                return chain.then(function () { active(); return page; });
+                return chain.then(function () { active(); changed({ kind: 'results' }); return page; });
             });
         };
 
@@ -353,13 +366,13 @@
                                 ]).then(function (info) {
                                     active();
                                     if (info.state === 'rejected' || info.state === 'expired') {
-                                        return storage.settle(id, info.state).then(function () {
+                                        return settle(id, info.state).then(function () {
                                             active(); changed({ kind: 'gift', id: record.id, outcome: info });
                                         });
                                     }
                                     if (info.state === 'committed') {
                                         if (info.deliveryState === 'accepted') {
-                                            return storage.settle(id, 'accepted', info).then(function () {
+                                            return settle(id, 'accepted', info).then(function () {
                                                 active(); changed({ kind: 'gift', id: record.id, outcome: info });
                                             });
                                         }

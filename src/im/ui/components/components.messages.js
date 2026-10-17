@@ -24,11 +24,19 @@
         }
 
         _this.append = function (value) {
+            if (_items.length >= 200) {
+                var first = _items.shift();
+                first.element().remove();
+                first.destroy();
+                _data.shift();
+            }
             var item = new components.Message(String(_items.length), value, logger);
             _items.push(item);
             _data.push(value);
             _container.appendChild(item.element());
-            _container.scrollTop = _container.scrollHeight;
+            if (_container.scrollHeight - _container.scrollTop - _container.clientHeight < 160) {
+                _container.scrollTop = _container.scrollHeight;
+            }
             return item;
         };
 
@@ -48,7 +56,7 @@
             _items = [];
             _data = [];
             utils.emptyElement(_container);
-            value = value || [];
+            value = (value || []).slice(-200);
             for (var j = 0; j < value.length; j++) {
                 _this.append(value[j]);
             }
@@ -67,6 +75,9 @@
         };
 
         _this.destroy = function () {
+            _items.forEach(function (item) { item.destroy(); });
+            _items = [];
+            _data = [];
             _container.innerHTML = '';
         };
 

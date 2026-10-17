@@ -31,6 +31,9 @@
                 camera: true,
                 microphone: true,
             },
+            storageFactory: function (identity) {
+                return new IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+            },
             plugins: [],
         };
 
@@ -122,6 +125,10 @@
             _this.send = _api.send;
             _this.call = _api.call;
             _this.calls = _api.calls;
+            _this.resolve = _api.resolve;
+            _this.storage = _api.storage;
+            _this.recover = _api.recover;
+            _this.read = _api.read;
             _this.request = _api.request;
             _this.reauth = _api.reauth;
             _this.state = _api.state;
@@ -275,6 +282,10 @@
         }
 
         function _onChange(e) {
+            var directory = _this.plugins['Conversations'];
+            if (directory && (e.data.name === 'messages-read' || e.data.name === 'conversation-resolved')) {
+                directory.refresh(e.data.conversationId);
+            }
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard && e.srcElement === dashboard.components['settings']) {
                 switch (e.data.name) {

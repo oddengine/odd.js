@@ -47,12 +47,15 @@ M=0 不需要存储适配器，M=1 必须配置。命名空间来自服务端确
 IndexedDB writes require `durability: 'strict'` and resolve only on transaction
 completion. Unsupported storage, quota exhaustion, blocked upgrades and aborted
 transactions fail explicitly. The adapter admits at most 32 outstanding storage
-operations. Database version 3 preserves version 1/2 outbox, messages, positions and terminal
-ranges, and adds room event visits/facts plus a pending-outbox index. See
+operations. Database version 5 preserves versions 1–4: outbox, messages, positions, terminal
+ranges, room event visits/facts and CALL snapshots/outbox. It adds a conversation
+index for the message outbox and a local display/destination mapping store. See
 [room-events.md](room-events.md) for the distinct room responsibility profile.
 
 IndexedDB 写事务要求 strict 持久性，完成事件才兑现 Promise。存储不足或失败时不会 COMMIT；
-连接关闭会终止未完成事务，迟到回调不能继续确认。v3 保留已有消息及终止范围，新增房间事件／访问证明和待发送索引。
+连接关闭会终止未完成事务，迟到回调不能继续确认。v5 保留 v1–4 消息、终止范围、房间访问／事实以及 CALL 快照和发送箱，
+新增消息发送箱的会话索引及本地联系人映射。首次升级游标回填旧发送箱索引，其他页签需关闭旧库连接；
+升级失败明确报错，不跳过旧消息或新建一个空库掩盖失败。
 
 ## Sends, receives and recovery / 收发与恢复
 
@@ -137,3 +140,33 @@ Local history cleanup is application policy and is not automatic here. Storage
 quota failure stops reliable receiving instead of deleting unacknowledged data.
 Server TTL/physical collection and replication are separate concerns; see the
 odd.d reliable-messaging document for node limits and the single-replica boundary.
+
+
+## R-058 UI reads / 界面读取
+
+IM.UI defaults to an IndexedDB factory; Core IM still defaults to no storage.
+An explicit `storageFactory: null` opts out of reliable UI conversations. Custom
+adapters can still implement the Core contract alone; the reliable UI additionally
+requires the bounded read methods below. No UI read sends COMMIT or READ.
+
+| Method | Read contract |
+|---|---|
+| history(conversation, before?, limit) | Latest local bodies, exclusive exact sequence cursor, ascending within the page |
+| outgoing(conversationOrRoom, before?, limit) | Outbox by target and original hex client ID; ascending within the page |
+| outboxEntry(clientMessageId) | One exact saved request or null; distinguishes pre-persistence failure from an unknown result |
+| eventHistory(stream, epoch, before?, limit) | Current room visit facts by exact sequence; does not replay a gift animation |
+| destination(conversation, value?) | Read/write local target/name/avatar only; no tokens or permission authority |
+| projection(conversation) | Server account projection combined with this device's confirmed READ lower bound |
+| saveRead(conversation, sequence) | Advance local lower bound only after READ returned OK; does not fabricate server revision |
+| directory(after?, limit) | Local canonical conversation keys, forward paging |
+| gaps(conversation) | Up to 64 retained terminal ranges; informative, never acknowledged by the UI |
+
+History/outbox/event pages are bounded to 64 records and 256 KiB. Directory pages
+are at most 64; the bundled UI uses 32. The UI renders at most 200 messages and
+200 directory entries, with coalesced reads and a bounded directory update queue.
+Older pages replace the display window, not the stored data. This is not an
+unlimited cloud history or a full local retention/cleanup policy.
+
+See [reliable-ui.md](reliable-ui.md) for status meanings, explicit read actions,
+subscription ownership and unknown-result recovery. CALL remains on the same
+account/device database and keeps its independent UI and media ownership.

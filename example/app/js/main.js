@@ -157,7 +157,7 @@
                 im.plugins['Contacts'].add(contact.id, contact.type, contact.name);
                 im.plugins['Conversations'].add(contact.id, contact.type, contact.name);
             });
-            await im.subscribe({ type: 'room', id: session.room.id });
+            await im.plugins['Conversation'].ready();
             if (current !== generation) {
                 return;
             }
