@@ -12,6 +12,7 @@ var utils = odd.utils,
     Constraints = RTC.Constraints,
 
     _api = document.querySelector('meta[name="odd-api"]').content.replace(/\/$/, ''),
+    _account = new AccountClient(_api),
     _session,
     _renewal,
     _hasIM = !!(IM && odd.im && IM.Protocol),
@@ -551,26 +552,10 @@ function _detachVideo(video) {
 // }, 1000);
 
 async function _request(path, method, body) {
-    var endpoint = new URL(_api + path, document.baseURI),
-        controller = new AbortController(),
+    var controller = new AbortController(),
         timer = setTimeout(function () { controller.abort(); }, rtc.config.timeout);
-    if (endpoint.origin !== location.origin) {
-        clearTimeout(timer);
-        throw new Error('The account API must use the demo origin. Configure odd-api and the deployment route.');
-    }
     try {
-        var response = await fetch(endpoint.href, {
-            method: method || 'GET',
-            credentials: 'same-origin',
-            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-            body: body === undefined ? undefined : JSON.stringify(body),
-            signal: controller.signal,
-        });
-        var result = response.status === 204 ? null : await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || ('Account API returned HTTP ' + response.status));
-        }
-        return result;
+        return await _account.request(path, method, body, controller.signal);
     } finally {
         clearTimeout(timer);
     }

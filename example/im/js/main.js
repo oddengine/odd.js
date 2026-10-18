@@ -3,6 +3,7 @@
         IMEvent = odd.events.IMEvent,
         Protocol = odd.IM.Protocol,
         base = document.querySelector('meta[name="odd-api"]').content.replace(/\/$/, ''),
+        account = new AccountClient(base),
         status = document.getElementById('status'),
         ui = null,
         session = null,
@@ -237,21 +238,9 @@
             cancel();
         }
         try {
-            var response = await fetch(base + path, {
-                method: method || 'GET',
-                credentials: 'same-origin',
-                headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-                body: body === undefined ? undefined : JSON.stringify(body),
-                signal: operation.signal,
-            });
-            var result = response.status === 204 ? null : await response.json();
+            var result = await account.request(path, method, body, operation.signal);
             if (current !== generation) {
                 throw new DOMException('Cancelled', 'AbortError');
-            }
-            if (!response.ok) {
-                var error = new Error(result.message || 'HTTP ' + response.status);
-                error.status = response.status;
-                throw error;
             }
             return result;
         } finally {

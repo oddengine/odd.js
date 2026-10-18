@@ -9,6 +9,7 @@ var utils = odd.utils,
     _query = new URLSearchParams(location.search),
     _stream = _query.get('stream'),
     _room = _query.get('room'),
+    _account = new AccountClient(_api),
     _session,
     _renewal,
     index = 0;
@@ -147,27 +148,10 @@ async function _credentials(context) {
 }
 
 async function _request(path, method, body) {
-    var endpoint = new URL(_api + path, document.baseURI),
-        controller = new AbortController(),
+    var controller = new AbortController(),
         timer = setTimeout(function () { controller.abort(); }, 5000);
-    if (endpoint.origin !== location.origin) {
-        clearTimeout(timer);
-        throw new Error('The account API must use the demo origin. Configure odd-api and the deployment route.');
-    }
     try {
-        var response = await fetch(endpoint.href, {
-            method: method || 'GET',
-            credentials: 'same-origin',
-            redirect: 'error',
-            headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-            body: body === undefined ? undefined : JSON.stringify(body),
-            signal: controller.signal,
-        });
-        var result = response.status === 204 ? null : await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || ('Account API returned HTTP ' + response.status));
-        }
-        return result;
+        return await _account.request(path, method, body, controller.signal);
     } finally {
         clearTimeout(timer);
     }
