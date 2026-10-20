@@ -47,7 +47,7 @@
             _status.setAttribute('role', 'status');
             _retry = utils.createElement('button', 'im-message-retry');
             _retry.type = 'button';
-            _retry.textContent = 'Retry original operation';
+            _retry.textContent = '沿原标识重试';
             _retry.onclick = function () { if (_data.retry) { _data.retry(); } };
             meta.appendChild(_from);
             meta.appendChild(_time);
@@ -92,10 +92,10 @@
                 _container.setAttribute('aria-busy', value === State.SENDING);
                 _indicator.setAttribute('aria-label', value);
                 _indicator.hidden = value !== State.SENDING && value !== State.FAILED;
-                var labels = { sending: 'Sending', sent: '', failed: 'Not sent', unknown: 'Result unknown',
-                    accepted: 'Accepted by server', delivered: 'Delivery complete', settled: 'Delivery responsibility completed',
-                    saved: 'Saved on this device', read: 'Read by this account', expired: 'Expired; prior result may be unavailable',
-                    revoked: 'Permission withdrawn', rejected: 'Rejected', 'gift-pending': 'Gift transaction confirmed; delivery pending' };
+                var labels = { sending: '正在发送', sent: '', failed: '未发送', unknown: '结果待确认',
+                    accepted: '服务端已接收', delivered: '投递完成', settled: '投递责任已完成',
+                    saved: '已保存到本机', read: '本账号已读', expired: '已过期，先前结果可能不可用',
+                    revoked: '权限已撤销', rejected: '已拒绝', 'gift-pending': '礼物交易已确认，消息待投递' };
                 _status.textContent = _data.reliable ? labels[value] || value : '';
                 _status.hidden = !_status.textContent;
             }

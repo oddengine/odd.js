@@ -71,6 +71,12 @@
             return constraints;
         }
 
+        _this.configureDefaults = function (config) {
+            _this.config = utils.extendz(_this.config, config || {});
+            _this.constraints = _getConstraints(_this.config);
+            return _this.config;
+        };
+
         _this.configure = async function (config) {
             var publishing = '';
             for (var id in _this.rtc.publishing) {
@@ -80,8 +86,7 @@
             if (publishing) {
                 _this.rtc.stop(publishing);
             }
-            _this.config = utils.extendz(_this.config, config || {});
-            _this.constraints = _getConstraints(_this.config);
+            _this.configureDefaults(config);
             if (publishing) {
                 await _this.publish();
             }

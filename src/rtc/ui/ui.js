@@ -50,6 +50,7 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
+            _settings,
             _content,
             _constraints,
             _api,
@@ -162,10 +163,12 @@
                     cursor: 'always', // always, motion, never
                 },
             });
-            if (_wrapper && _wrapper.getAttribute('microphone') === 'off') {
+            var microphone = _wrapper && _wrapper.getAttribute('microphone');
+            var camera = _wrapper && _wrapper.getAttribute('camera');
+            if (microphone === 'off' || !microphone && config.microphone === false) {
                 constraints.audio = false;
             }
-            if (_wrapper && _wrapper.getAttribute('camera') === 'off') {
+            if (camera === 'off' || !camera && config.camera === false) {
                 constraints.video = false;
             }
             return constraints;
@@ -198,14 +201,17 @@
         function _setupPlugins() {
             _wrapper.setAttribute('presentation', _this.config.presentation);
             _wrapper.setAttribute('state', '');
-            _wrapper.setAttribute('microphone', 'on');
-            _wrapper.setAttribute('camera', 'on');
+            _wrapper.setAttribute('microphone', _this.config.microphone === false ? 'off' : 'on');
+            _wrapper.setAttribute('camera', _this.config.camera === false ? 'off' : 'on');
             _wrapper.setAttribute('sharing', 'off');
             _wrapper.setAttribute('calling', 'off');
-            _wrapper.setAttribute('layout', 'right');
+            _wrapper.setAttribute('layout', _this.config.layout || 'right');
 
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
+                controlbar.state('microphone', _wrapper.getAttribute('microphone'));
+                controlbar.state('camera', _wrapper.getAttribute('camera'));
+                controlbar.state('layout', _wrapper.getAttribute('layout'));
                 _wrapper.setAttribute('controls', controlbar.config.autohide ? 'motion' : 'always');
                 if (controlbar.config.autohide) {
                     _wrapper.addEventListener('mousemove', _onMouseMove);
@@ -983,30 +989,12 @@
         }
 
         async function _saveSettings(settings) {
-            var calling = _wrapper.getAttribute('calling') === 'on',
-                sharing = _wrapper.getAttribute('sharing') === 'on';
-            if (_preview) {
-                _api.stop(_preview.name());
-            }
-            await _this.hangup();
-            await _this.cancel();
-
-            _this.config.profile = settings.profile;
-            _this.config.camera = settings.camera;
-            _this.config.microphone = settings.microphone;
-            _constraints = _getConstraints(_this.config);
-
-            if (calling) {
-                await _this.call();
-            }
-            if (sharing) {
-                await _this.share();
-            }
-
+            if (_preview) { _api.stop(_preview.name()); _preview = null; }
+            var preferences = _this.settings();
+            var result = await preferences.save(settings, { expectedVersion: preferences.read().version, scope: 'next-session' });
             var dashboard = _this.plugins['Dashboard'];
-            if (dashboard) {
-                dashboard.hide('settings');
-            }
+            if (dashboard) { dashboard.hide('settings'); }
+            _this.dispatchEvent(Event.CHANGE, { name: 'settings-saved', value: result });
         }
 
         function _onError(e) {
@@ -1063,10 +1051,22 @@
             return _wrapper.getAttribute('presentation');
         };
 
+        _this.settings = function () {
+            if (!_this.config) { throw { name: 'InvalidStateError', message: '请先初始化模块。' }; }
+            if (!_settings) {
+                _settings = new utils.Settings({ module: 'rtc', defaults: _this.config,
+                    applyDefaults: function (values) { utils.extendz(_this.config, values); _constraints = _getConstraints(_this.config); } });
+            }
+            return _settings;
+        };
+
         _this.skin = function (value) {
+            if (value && typeof value === 'object') { return utils.Skin.apply(_wrapper, value); }
             if (value !== undefined) {
+                if (!/^[a-zA-Z0-9_-]+$/.test(value)) { throw { name: 'DataError', message: '无效皮肤名称。' }; }
+                _wrapper.classList.remove('pe-ui-' + _this.config.skin);
                 _this.config.skin = value;
-                _wrapper.className = CLASS_WRAPPER + ' pe-ui-' + value;
+                _wrapper.classList.add('pe-ui-' + value);
             }
             return _this.config.skin;
         };
@@ -1091,6 +1091,7 @@
         };
 
         _this.destroy = function (reason) {
+            if (_settings) { _settings.destroy(); }
             switch (_readyState) {
                 case State.INITIALIZED:
                 case State.CONNECTING:

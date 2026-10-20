@@ -9,16 +9,16 @@
         _default = {
             conversation: '',
             maxlength: 500,
-            placeholder: 'Send a message...',
+            placeholder: '输入消息…',
             presentation: 'full',
             tools: ['emoji', 'file', 'video-call', 'voice-call'],
             miniTools: ['emoji'],
             labels: {
-                send: 'Send',
-                emoji: 'Emoji',
-                file: 'File',
-                'video-call': 'Video call',
-                'voice-call': 'Voice call',
+                send: '发送',
+                emoji: '表情',
+                file: '文件',
+                'video-call': '视频通话',
+                'voice-call': '语音通话',
             },
             emojis: [
                 '😀', '😁', '😂', '😃', '😄', '😅', '😆', '😇',

@@ -29,7 +29,10 @@ set scripts[25]=".\src\io\io.mozstream.js"
 set scripts[26]=".\src\io\io.msstream.js"
 set scripts[27]=".\src\io\io.websocket.js"
 set scripts[28]=".\src\io\io.xhr.js"
-set length=29
+set scripts[29]=".\src\utils\utils.skin.js"
+set scripts[30]=".\src\utils\utils.settings.js"
+set scripts[31]=".\src\utils\utils.settingspanel.js"
+set length=32
 
 cd.>.\release\odd.common.js
 
@@ -93,7 +96,9 @@ set scripts[13]=".\src\im\ui\ui.conversations.js"
 set scripts[14]=".\src\im\ui\ui.conversation.js"
 set scripts[15]=".\src\im\ui\ui.dashboard.js"
 set scripts[16]=".\src\im\ui\ui.calls.js"
-set length=17
+set scripts[17]=".\src\im\ui\ui.subscriptions.js"
+set scripts[18]=".\src\im\ui\ui.views.js"
+set length=19
 
 cd.>.\release\odd.im.ui.js
 

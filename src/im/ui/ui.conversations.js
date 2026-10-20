@@ -50,7 +50,7 @@
             element.setAttribute('state', config.active === id ? 'on' : 'off');
             element.onclick = onClick;
             title.textContent = name || id;
-            unread.textContent = 'Unread';
+            unread.textContent = '未读';
             unread.hidden = true;
             line.appendChild(title);
             line.appendChild(date);
@@ -111,7 +111,7 @@
                 if (_closed || _generation !== generation) { return; }
                 _cursor = records.length ? records[records.length - 1].conversationId : _cursor;
                 _more.hidden = records.length < 32;
-                _notice.textContent = 'Saved conversations · unread indicates this account has unread incoming messages';
+                _notice.textContent = '已保存的会话 · 未读表示当前账号尚未阅读的消息';
             })();
             try { await _loading; }
             finally {
@@ -174,7 +174,7 @@
             Object.keys(_items).forEach(_this.remove);
             directory(false).catch(failure);
         }
-        function onClose() { ++_generation; _updates = Object.create(null); _notice.textContent = 'Disconnected · saved conversation list'; }
+        function onClose() { ++_generation; _updates = Object.create(null); _notice.textContent = '连接已断开 · 已保存的会话列表'; }
         _this.active = function (id) {
             if (id !== undefined) {
                 config.active = id;

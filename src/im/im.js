@@ -19,6 +19,7 @@
         _instances = Object.create(null),
         _default = {
             url: '',
+            appId: '',
             connectionId: '',
             credentials: null,
             socketFactory: null,
@@ -151,6 +152,9 @@
                 (_this.config.storageFactory !== null && typeof _this.config.storageFactory !== 'function')) {
                 return Promise.reject(_error('TypeError', 'Invalid IM connection configuration.'));
             }
+            if (_this.config.appId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_this.config.appId)) {
+                return Promise.reject(_error('TypeError', 'Invalid product AppID.'));
+            }
             if (_this.config.parameters && _this.config.parameters.token) {
                 return Promise.reject(_error('NotSupportedError', 'Use handshake credentials; post-upgrade token authentication was removed.'));
             }
@@ -209,6 +213,7 @@
             var attempt = {
                 generation: ++_generation,
                 url: _this.config.url,
+                appId: _this.config.appId,
                 socket: null,
                 session: null,
                 notifications: [],
@@ -229,6 +234,7 @@
                 connectionId: _connectionId,
                 generation: String(attempt.generation),
                 url: attempt.url,
+                appId: _this.config.appId,
             });
             _attempt = attempt;
             _readyState = State.CONNECTING;
@@ -361,6 +367,10 @@
                     !_integer(payload.maxPacketBytes, Protocol.HEADER_SIZE, Protocol.MAX_PACKET_SIZE) ||
                     !_integer(payload.maxPending, 1, 65535) || _milliseconds(payload.expiresAt) <= Date.now()) {
                     throw _error('DataError', 'Invalid authenticated session metadata.');
+                }
+                if (_this.config.appId && (!payload.ext || payload.ext.appId !== _this.config.appId ||
+                    payload.ext.scope !== _this.config.appId || payload.ext.product !== 'im')) {
+                    throw _error('SecurityError', 'Authenticated session does not belong to the requested IM App.');
                 }
                 attempt.session = payload;
                 attempt.maxPacketBytes = payload.maxPacketBytes;

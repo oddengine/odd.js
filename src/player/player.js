@@ -41,7 +41,7 @@
                 loop: false,
             },
             rtc: {
-                profile: '360P_2',
+                profile: '180P_1',
                 whip: `${location.protocol}//${location.host}/whip/live`,
                 whep: `${location.protocol}//${location.host}/whep/live`,
                 trickle: false,

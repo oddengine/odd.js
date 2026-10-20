@@ -32,6 +32,9 @@ scripts[25]="./src/io/io.mozstream.js"
 scripts[26]="./src/io/io.msstream.js"
 scripts[27]="./src/io/io.websocket.js"
 scripts[28]="./src/io/io.xhr.js"
+scripts[29]="./src/utils/utils.skin.js"
+scripts[30]="./src/utils/utils.settings.js"
+scripts[31]="./src/utils/utils.settingspanel.js"
 
 :>./release/odd.common.js
 
@@ -82,6 +85,8 @@ scripts[13]="./src/im/ui/ui.conversations.js"
 scripts[14]="./src/im/ui/ui.conversation.js"
 scripts[15]="./src/im/ui/ui.dashboard.js"
 scripts[16]="./src/im/ui/ui.calls.js"
+scripts[17]="./src/im/ui/ui.subscriptions.js"
+scripts[18]="./src/im/ui/ui.views.js"
 
 :>./release/odd.im.ui.js
 

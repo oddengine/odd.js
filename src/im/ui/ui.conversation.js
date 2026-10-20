@@ -5,7 +5,7 @@
         State = { INITIALIZED: 'initialized', READY: 'ready', CLOSING: 'closing', CLOSED: 'closed' },
         _default = { kind: 'Conversation', tab: 'messages', layout: '[Messages:messages=][Composer:composer=]',
             active: '', contacts: [], conversations: {}, manageSubscriptions: true,
-            composer: { maxlength: 500, placeholder: 'Send a message...', tools: ['emoji', 'file', 'video-call', 'voice-call'], miniTools: ['emoji'] },
+            composer: { maxlength: 500, placeholder: '输入消息…', tools: ['emoji', 'file', 'video-call', 'voice-call'], miniTools: ['emoji'] },
             visibility: true };
 
     function Conversation(im, config, logger) {
@@ -35,7 +35,7 @@
         }
         function current(generation) { return _readyState === State.READY && _generation === generation; }
         function failure(reason) {
-            reason = reason || new Error('Operation failed.');
+            reason = reason || new Error('操作未完成。');
             if (_readyState !== State.READY || reason.name === 'AbortError') { return; }
             _notice.textContent = reason.message || String(reason);
             _this.dispatchEvent(Event.ERROR, { name: reason.name || 'OperationError', message: _notice.textContent });
@@ -48,9 +48,9 @@
             return value ? value.name || id : id;
         }
         function release(channel) {
-            if (!channel || config.manageSubscriptions === false || (_channel && _channel.id === channel.id)) { return; }
-            im.unsubscribe(channel.target, channel.room ? {} : { messaging: true }).catch(failure);
-            if (channel.events) { im.unsubscribe(channel.target, { messaging: true, topic: 'events' }).catch(failure); }
+            if (!channel || config.manageSubscriptions === false) { return; }
+            if (channel.subscription) { channel.subscription.release(); }
+            if (channel.eventSubscription) { channel.eventSubscription.release(); }
         }
         function clearRows() {
             _rows = Object.create(null);
@@ -115,8 +115,8 @@
                 values[1].forEach(function (record) { merge(_history.outgoing(record, im.userId())); });
                 if (values[0].length) { _before = { high: values[0][0].high, low: values[0][0].low }; }
                 if (values[1].length) { _outBefore = values[1][0].id; }
-                if (values[3].length) { _notice.textContent = 'Some messages expired or are unavailable. Local saved history is shown.'; }
-                else if (older && !values[0].length && !values[1].length) { _notice.textContent = 'No earlier local history. Server history is limited by retention.'; }
+                if (values[3].length) { _notice.textContent = '部分消息已过期或不可用，当前显示本机已保存的记录。'; }
+                else if (older && !values[0].length && !values[1].length) { _notice.textContent = '没有更早的本机记录，云端历史受保留期限限制。'; }
                 render(older);
             });
             var pending = _loading;
@@ -129,11 +129,11 @@
             return pending;
         }
         async function open(target, generation) {
-            if (!im.connected()) { _notice.textContent = 'Disconnected. Reconnect to restore saved messages.'; return; }
+            if (!im.connected()) { _notice.textContent = '连接已断开，重新连接后恢复已保存消息。'; return; }
             var store = im.storage(), room = target.type === 'room', resolved;
             var reads = ['history', 'outgoing', 'outboxEntry', 'projection', 'gaps', 'destination', 'saveRead', 'eventHistory'];
             if (!room && (!store || reads.some(function (name) { return typeof store[name] !== 'function'; }))) {
-                throw new Error('Reliable conversations require persistent messaging storage with history support.');
+                throw new Error('可靠会话需要支持历史记录的持久消息存储。');
             }
             if (!room) { resolved = await im.resolve(target); }
             if (!current(generation)) { return; }
@@ -146,8 +146,9 @@
             }
             if (!current(generation)) { release(channel); return; }
             if (config.manageSubscriptions !== false) {
-                await im.subscribe(destination, room ? {} : { messaging: true,
+                channel.subscription = UI.Subscriptions.acquire(im, destination, room ? {} : { messaging: true,
                     actions: Action.MESSAGE_SUBSCRIBE | Action.MESSAGE_PUBLISH | Action.MESSAGE_COMMIT | Action.MESSAGE_READ });
+                await channel.subscription.ready;
             } else {
                 await im.refresh(destination, room ? Action.MESSAGE_PUBLISH : Action.MESSAGE_PUBLISH | Action.MESSAGE_READ, !room);
             }
@@ -162,23 +163,24 @@
                 }
                 if (channel.storage && config.manageSubscriptions !== false) {
                     try {
-                        channel.visit = await im.subscribe(destination, { messaging: true, topic: 'events', resume: true });
+                        channel.eventSubscription = UI.Subscriptions.acquire(im, destination, { messaging: true, topic: 'events', resume: true });
+                        channel.visit = await channel.eventSubscription.ready;
                         channel.events = true;
                     } catch (reason) {
-                        if (current(generation)) { _notice.textContent = 'Reliable room state is unavailable: ' + reason.message; }
+                        if (current(generation)) { _notice.textContent = '房间可靠状态暂不可用：' + reason.message; }
                     }
                 }
             }
             if (!current(generation)) { release(channel); return; }
             channel.ready = true;
             if (!room) { _this.dispatchEvent(Event.CHANGE, { name: 'conversation-resolved', conversationId: channel.id }); }
-            if (!room) { _notice.textContent = 'Messages are saved before acknowledgement. Read receipts require your action.'; }
+            if (!room) { _notice.textContent = '消息持久保存后确认收取；已读由你主动标记。'; }
             await load(false);
         }
         async function send(text) {
             var channel = _channel, generation = _generation;
-            if (!channel || !channel.ready || !im.connected()) { failure(new Error('Select a connected conversation before sending.')); return; }
-            if (Object.keys(_sending).length >= 8) { failure(new Error('Wait for the pending sends to finish.')); return; }
+            if (!channel || !channel.ready || !im.connected()) { failure(new Error('请先选择已连接的会话。')); return; }
+            if (Object.keys(_sending).length >= 8) { failure(new Error('请等待正在发送的消息完成。')); return; }
             var id = channel.room ? null : Protocol.messageId(channel.resolution.partition, channel.resolution.partitions), key = id ? _history.hex(id) : utils.guid(),
                 row = { id: key, text: text, from: im.userId(), align: 'right', incoming: false, reliable: !channel.room, ephemeral: channel.room,
                     timestamp: Date.now(), time: new Date().toLocaleTimeString(), state: 'sending', clientMessageId: id };
@@ -188,7 +190,7 @@
             render();
             try {
                 await im.refresh(channel.target, Action.MESSAGE_PUBLISH, !channel.room);
-                if (im.storage() !== channel.session || im.userId() !== channel.user) { throw new Error('Connection changed before saving the send.'); }
+                if (im.storage() !== channel.session || im.userId() !== channel.user) { throw new Error('保存发送前连接已变化。'); }
                 await im.send(channel.target, text, channel.room ? { ext: [{ key: 'clientMessageId', type: Protocol.Type.STRING, value: key }] } :
                     { messaging: true, clientMessageId: id });
                 if (current(generation)) {
@@ -223,7 +225,7 @@
                 else {
                     var packet = Protocol.decode(row.packet), target = _history.object(packet.fields[0].value);
                     await im.refresh(target, Action.MESSAGE_PUBLISH, true);
-                    if (im.storage() !== channel.session || im.userId() !== channel.user) { throw new Error('Connection changed before retrying.'); }
+                    if (im.storage() !== channel.session || im.userId() !== channel.user) { throw new Error('重试前连接已变化。'); }
                     await im.request(Protocol.Opcode.PUBLISH, packet.fields, true);
                 }
             } catch (reason) { if (current(generation)) { failure(reason); } }
@@ -241,7 +243,7 @@
             await channel.storage.saveRead(channel.id, last.sequence);
             if (current(generation)) {
                 _read = last.sequence;
-                _notice.textContent = 'Loaded messages marked read for this account.';
+                _notice.textContent = '已将载入的消息标记为本账号已读。';
                 await load(false);
                 _this.dispatchEvent(Event.CHANGE, { name: 'messages-read', conversationId: channel.id });
             }
@@ -249,14 +251,14 @@
         function roomState(value) {
             _room.textContent = '';
             var status = document.createElement('p');
-            status.textContent = value.known ? 'Room state synchronized' : 'Room state is unknown; waiting for recovery';
+            status.textContent = value.known ? '房间状态已同步' : '房间状态未知，正在等待恢复';
             _room.appendChild(status);
             (value.states || []).slice(0, 64).forEach(function (state) {
                 if (['room.state', 'stage.policy', 'stage.member'].indexOf(state.kind) < 0) { return; }
                 var row = document.createElement('p');
-                row.textContent = state.kind === 'room.state' ? 'Room: ' + state.payload.state : state.kind === 'stage.policy' ?
-                    'Stage mode: ' + state.payload.mode + ' · seats: ' + state.payload.capacity :
-                    'Stage participant: ' + state.entityId + ' · ' + state.payload.state;
+                row.textContent = state.kind === 'room.state' ? '房间：' + state.payload.state : state.kind === 'stage.policy' ?
+                    '发言模式：' + state.payload.mode + ' · 席位：' + state.payload.capacity :
+                    '发言成员：' + state.entityId + ' · ' + state.payload.state;
                 _room.appendChild(row);
             });
         }
@@ -271,7 +273,7 @@
             }
             if (value.messaging) {
                 if (value.meta.conversationId === channel.id) {
-                    if (_older) { _notice.textContent = 'New saved messages are available. Refresh to show the latest.'; }
+                    if (_older) { _notice.textContent = '有新保存的消息，刷新后查看。'; }
                     else { load(false).catch(failure); }
                 }
                 return;
@@ -286,7 +288,7 @@
             if (_readyState !== State.READY || !_channel) { return; }
             var value = event.data.payload || {};
             if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && value.target && value.target.id === _channel.id) {
-                _notice.textContent = 'Subscription stopped: ' + value.reason + '. Select the conversation again to request access.';
+                _notice.textContent = '订阅已停止：' + value.reason + '。请重新选择会话以请求访问。';
                 if (_channel.room && event.data.messaging) {
                     _channel.visit = null;
                     _channel.events = false;
@@ -295,7 +297,7 @@
                 return;
             }
             if (event.data.event !== Protocol.Event.IM_SYNC_REQUIRED) { return; }
-            if (value.kind === 'expired' && value.conversationId === _channel.id) { _notice.textContent = 'Some messages expired before they could be retrieved.'; }
+            if (value.kind === 'expired' && value.conversationId === _channel.id) { _notice.textContent = '部分消息在取回前已过期。'; }
             if (value.kind === 'gift' && value.outcome && value.outcome.state === 'committed' && value.outcome.deliveryState !== 'accepted') {
                 if (Object.keys(_gifts).length < 200) { _gifts[value.id] = true; }
             }
@@ -308,7 +310,7 @@
         function onClose() {
             ++_generation;
             _channel = null;
-            _notice.textContent = 'Disconnected. Saved history remains on this device; pending results are unknown.';
+            _notice.textContent = '连接已断开。已保存的历史仍在本机，未完成操作的结果待确认。';
             Object.keys(_rows).forEach(function (id) { if (_rows[id].state === 'sending') { _rows[id].state = 'unknown'; } });
             render();
         }
@@ -319,6 +321,8 @@
         }
         _this.active = function (id, selected) {
             if (id === undefined || _readyState === State.CLOSED) { return config.active; }
+            if (id === config.active && _channel && _channel.ready &&
+                (!selected || JSON.stringify(selected.target) === JSON.stringify(_this.target()))) { return id; }
             var previous = _channel, previousId = config.active;
             _channel = null;
             config.active = id;
@@ -372,9 +376,9 @@
             _readyState = State.CLOSED;
         };
 
-        _loadButton = button('Earlier local history', function () { return load(true); });
-        button('Refresh saved messages and results', function () { return im.recover().then(function () { return load(false); }); });
-        _readButton = button('Mark loaded messages read', markRead);
+        _loadButton = button('更早的本机历史', function () { return load(true); });
+        button('刷新消息与结果', function () { return im.recover().then(function () { return load(false); }); });
+        _readButton = button('将已显示消息标为已读', markRead);
         var expression = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi, match;
         while ((match = expression.exec(config.layout)) !== null) {
             var component = new UI.components[match[1]](match[2], match[3], logger);

@@ -31,6 +31,7 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
+            _settings,
             _content,
             _api,
             _program,
@@ -487,12 +488,10 @@
         }
 
         function _configureChat(config) {
-            var chat = _this.plugins['Chat'];
-            if (chat) {
-                chat.configure(config).catch(function (err) {
-                    _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                });
-            }
+            var settings = _this.settings();
+            settings.save(config, { expectedVersion: settings.read().version, scope: 'next-session' }).catch(function (err) {
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            });
         }
 
         function _onClick(e) {
@@ -711,12 +710,7 @@
             var dashboard = _this.plugins['Dashboard'];
             if (dashboard) {
                 if (name === 'settings') {
-                    var chat = _this.plugins['Chat'];
-                    dashboard.update('settings', {
-                        profile: chat ? chat.config.profile : '',
-                        camera: chat ? chat.config.camera : false,
-                        microphone: chat ? chat.config.microphone : false,
-                    });
+                    dashboard.update('settings', _this.settings().read().effective);
                 }
                 dashboard.show(name);
             }
@@ -788,10 +782,26 @@
             return _wrapper.getAttribute('presentation');
         };
 
+        _this.settings = function () {
+            if (!_this.config) { throw { name: 'InvalidStateError', message: '请先初始化模块。' }; }
+            if (!_settings) {
+                var chat = _this.plugins['Chat'];
+                _settings = new utils.Settings({ module: 'player', defaults: chat ? chat.config : _this.config.rtc,
+                    applyDefaults: function (values) {
+                        _this.config.rtc = utils.extendz({}, _this.config.rtc || {}, values);
+                        if (chat) { chat.configureDefaults(values); }
+                    } });
+            }
+            return _settings;
+        };
+
         _this.skin = function (value) {
+            if (value && typeof value === 'object') { return utils.Skin.apply(_wrapper, value); }
             if (value !== undefined) {
+                if (!/^[a-zA-Z0-9_-]+$/.test(value)) { throw { name: 'DataError', message: '无效皮肤名称。' }; }
+                _wrapper.classList.remove('pe-ui-' + _this.config.skin);
                 _this.config.skin = value;
-                _wrapper.className = CLASS_WRAPPER + ' pe-ui-' + value;
+                _wrapper.classList.add('pe-ui-' + value);
             }
             return _this.config.skin;
         };
@@ -812,6 +822,7 @@
         };
 
         _this.destroy = function (reason) {
+            if (_settings) { _settings.destroy(); }
             if (_closed) {
                 return;
             }

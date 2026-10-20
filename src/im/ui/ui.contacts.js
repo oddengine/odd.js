@@ -38,11 +38,12 @@
                 name: name,
                 avatar: avatar,
             },
-                element = utils.createElement('div', CLASS_CONTACT),
+                element = utils.createElement('button', CLASS_CONTACT),
                 image = new Avatar('avatar', data, logger),
                 title = utils.createElement('strong');
-            element.setAttribute('id', id);
-            element.setAttribute('type', type);
+            element.type = 'button';
+            element.setAttribute('data-id', id);
+            element.setAttribute('data-type', type);
             element.setAttribute('state', 'off');
             element.addEventListener('click', _onClick);
             title.textContent = name || id;
@@ -77,7 +78,7 @@
         };
 
         function _onClick(e) {
-            var item = _items[e.currentTarget.getAttribute('id')];
+            var item = _items[e.currentTarget.getAttribute('data-id')];
             if (!item) {
                 return;
             }

@@ -43,12 +43,15 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _container,
             _wrapper,
+            _settings,
             _avatar,
             _nav,
             _pages,
             _tabs,
             _homes,
             _api,
+            _ownsInstance = true,
+            _borrowedInstance = false,
             _calls,
             _readyState;
 
@@ -74,6 +77,13 @@
             _readyState = State.CONNECTING;
 
             _container = container;
+            var borrowed = config && config.instance;
+            if (borrowed && (typeof borrowed.connected !== 'function' || !borrowed.connected())) {
+                _readyState = State.INITIALIZED;
+                throw { name: 'InvalidStateError', message: '借用的 IM 实例必须已经连接。' };
+            }
+            _ownsInstance = !borrowed || config.ownsInstance === true;
+            _borrowedInstance = !!borrowed;
             _parseConfig(config);
 
             _nav = new UI.components.Tab('nav', 'Tab', _logger);
@@ -89,7 +99,7 @@
             _wrapper.appendChild(_nav.element());
             _container.appendChild(_wrapper);
 
-            _api = IM.get(_id, _logger);
+            _api = borrowed || IM.get(_id, _logger);
             _api.addEventListener(Event.BIND, _onBind);
             _api.addEventListener(Event.READY, _onReady);
             _api.addEventListener(NetStatusEvent.NETSTATUS, _this.forward);
@@ -112,11 +122,16 @@
             }
 
             window.addEventListener('resize', _this.resize);
+            if (borrowed) {
+                _onBind({ type: Event.BIND, data: {}, srcElement: _api });
+                _onReady({ type: Event.READY, data: {}, srcElement: _api });
+                return;
+            }
             return _api.setup(_this.config);
         };
 
         function _onBind(e) {
-            _this.config = _api.config;
+            if (!_borrowedInstance) { _this.config = _api.config; }
             _this.userId = _api.userId;
             _this.connected = _api.connected;
             _this.subscribe = _api.subscribe;
@@ -140,7 +155,9 @@
         }
 
         function _parseConfig(config) {
-            config = config || {};
+            var source = config || {};
+            config = {};
+            Object.keys(source).forEach(function (key) { if (key !== 'instance') { config[key] = source[key]; } });
             if (utils.typeOf(config.plugins) !== 'array') {
                 config.plugins = [];
             }
@@ -292,7 +309,12 @@
                     case 'profile':
                     case 'camera':
                     case 'microphone':
-                        _this.config.rtc[e.data.name] = e.data.value;
+                        var change = {};
+                        change[e.data.name] = e.data.value;
+                        var settings = _this.settings();
+                        settings.save(change, { expectedVersion: settings.read().version, scope: 'next-session' }).catch(function (reason) {
+                            _this.dispatchEvent(Event.ERROR, { name: reason.name, message: reason.message });
+                        });
                         break;
                 }
             }
@@ -335,10 +357,22 @@
             return value;
         };
 
+        _this.settings = function () {
+            if (!_this.config) { throw { name: 'InvalidStateError', message: '请先初始化模块。' }; }
+            if (!_settings) {
+                _settings = new utils.Settings({ module: 'im', defaults: _this.config.rtc,
+                    applyDefaults: function (values) { _this.config.rtc = utils.extendz({}, _this.config.rtc || {}, values); } });
+            }
+            return _settings;
+        };
+
         _this.skin = function (value) {
+            if (value && typeof value === 'object') { return utils.Skin.apply(_wrapper, value); }
             if (value !== undefined) {
+                if (!/^[a-zA-Z0-9_-]+$/.test(value)) { throw { name: 'DataError', message: '无效皮肤名称。' }; }
+                _wrapper.classList.remove('im-ui-' + _this.config.skin);
                 _this.config.skin = value;
-                _wrapper.className = CLASS_WRAPPER + ' im-ui-' + value;
+                _wrapper.classList.add('im-ui-' + value);
             }
             return _this.config.skin;
         };
@@ -422,6 +456,7 @@
         };
 
         _this.destroy = function (reason) {
+            if (_settings) { _settings.destroy(); }
             switch (_readyState) {
                 case State.INITIALIZED:
                 case State.CONNECTING:
@@ -461,7 +496,7 @@
                     delete _instances[_id];
 
                     if (_api) {
-                        _api.destroy(reason);
+                        if (_ownsInstance) { _api.destroy(reason); }
                         _api.removeEventListener(Event.CLOSE, _onClose);
                         _api = undefined;
                     }

@@ -77,7 +77,8 @@
             0x00, 0x00, 0x00, 0x00, // version(0) + flags
             0x00, 0x00, 0x00, 0x00, // entry_count
         ]),
-        STSC = STCO = STTS,
+        STSC = STTS,
+        STCO = STTS,
         STSZ = new Uint8Array([
             0x00, 0x00, 0x00, 0x00, // version(0) + flags
             0x00, 0x00, 0x00, 0x00, // sample_size

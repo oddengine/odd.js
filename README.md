@@ -1,5 +1,7 @@
 # odd.js
 
+R-070 的独立视图、共享订阅、AppID 握手绑定与模块设置见 [组合接口](doc/ui-composition.md)。本轮在 dev 分支迭代；网站已运行源代码组合构建和设置页浏览器检查，实时服务联调仍未执行。
+
 - [Website](https://oddengine.com)
 
 odd.js is a modular Web SDK family for media playback, real-time communication, instant messaging, and cloud gaming. It provides a shared browser foundation together with Player, RTC, IM, Famicom, and composite App SDKs; keeps protocol and runtime logic separate from optional UI plugins; and supports multiple independently managed instances. The corresponding server-side runtime for communication, signaling, media routing, and cloud gaming is [odd.d](https://github.com/oddengine/odd.d).
