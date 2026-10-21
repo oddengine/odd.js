@@ -15,7 +15,7 @@ await im.setup({
     url: imURL,
     credentials: imCredentials,
     storageFactory: function (identity) {
-        return new odd.IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+        return new odd.IM.IndexedDB(identity.appId, identity.userId, identity.deviceId);
     },
     calls: { enabled: true, rtc: { credentials: mediaCredentials } },
 });

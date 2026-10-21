@@ -363,7 +363,7 @@
                     }
                 },
                 storageFactory: function (identity) {
-                    return new odd.IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+                    return new odd.IM.IndexedDB(identity.appId, identity.userId, identity.deviceId);
                 },
                 calls: {
                     enabled: session.im.calls === true,

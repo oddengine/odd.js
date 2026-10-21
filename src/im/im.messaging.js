@@ -59,7 +59,7 @@
                     }
                 });
                 var actual = storage.identity();
-                if (!actual || actual.scope !== identity.scope || actual.userId !== identity.userId || actual.deviceId !== identity.deviceId) {
+                if (!actual || actual.appId !== identity.appId || actual.userId !== identity.userId || actual.deviceId !== identity.deviceId) {
                     throw _error('NotAllowedError', 'Messaging storage does not belong to this authenticated account/device.');
                 }
                 return storage.open();

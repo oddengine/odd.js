@@ -369,7 +369,7 @@
                     throw _error('DataError', 'Invalid authenticated session metadata.');
                 }
                 if (_this.config.appId && (!payload.ext || payload.ext.appId !== _this.config.appId ||
-                    payload.ext.scope !== _this.config.appId || payload.ext.product !== 'im')) {
+                    payload.ext.product !== 'im')) {
                     throw _error('SecurityError', 'Authenticated session does not belong to the requested IM App.');
                 }
                 attempt.session = payload;
@@ -609,10 +609,10 @@
             return Promise.resolve().then(function () {
                 var session = attempt.session;
                 if (!IM.Messaging || session.principal.kind !== 1 || !session.deviceId ||
-                    !session.ext || !session.ext.scope || session.ext.messaging !== true) {
+                    !session.ext || !session.ext.appId || session.ext.messaging !== true) {
                     throw _error('NotSupportedError', 'This session does not support durable messaging.');
                 }
-                var identity = Object.freeze({ scope: session.ext.scope, userId: session.principal.id, deviceId: session.deviceId });
+                var identity = Object.freeze({ appId: session.ext.appId, userId: session.principal.id, deviceId: session.deviceId });
                 return Promise.resolve(_this.config.storageFactory(identity)).then(function (storage) {
                     if (_attempt !== attempt) {
                         if (storage && typeof storage.close === 'function') {

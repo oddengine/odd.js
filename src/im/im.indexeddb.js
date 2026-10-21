@@ -66,7 +66,7 @@
 
     // One adapter belongs to one authenticated account/device. Only message
     // data and recovery positions belong here; never pass credentials or keys.
-    function IndexedDB(scope, userId, deviceId, options) {
+    function IndexedDB(appId, userId, deviceId, options) {
         options = options || {};
         var eventLimits = {
             maxRecords: options.maxEventRecords === undefined ? 20000 : options.maxEventRecords,
@@ -77,7 +77,7 @@
         }
         var _this = this,
             _name = 'odd.im.v1:' + JSON.stringify([
-                _identifier(scope), _identifier(userId), _identifier(deviceId),
+                _identifier(appId), _identifier(userId), _identifier(deviceId),
             ]),
             _database = null,
             _opening = null,
@@ -845,7 +845,7 @@
         };
 
         _this.identity = function () {
-            return { scope: scope, userId: userId, deviceId: deviceId };
+            return { appId: appId, userId: userId, deviceId: deviceId };
         };
 
         _this.messages = function (conversationId, after, limit) {

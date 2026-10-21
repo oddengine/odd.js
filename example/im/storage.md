@@ -14,7 +14,7 @@ await im.setup({
     url: 'wss://im.example.com/im',
     credentials: credentialsProvider, // existing short-lived admission provider
     storageFactory: function (identity) {
-        return new odd.IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+        return new odd.IM.IndexedDB(identity.appId, identity.userId, identity.deviceId);
     },
     connectTimeout: 120000,
     requestTimeout: 120000,
@@ -36,11 +36,11 @@ await im.read(target.id, received.meta.messageId, received.meta.messageSequence)
 ```
 
 Storage is optional for M=0 and required for M=1. Its identity comes from the
-server-authenticated principal/device and CONNECT_SUCCESS.ext.scope. The adapter
+server-authenticated principal/device and CONNECT_SUCCESS.ext.appId. The adapter
 must return that same namespace from identity(). Each reconnect creates a fresh
 adapter object. No token, admission proof or secret is persisted.
 
-M=0 不需要存储适配器，M=1 必须配置。命名空间来自服务端确认的 scope、用户和设备；每次
+M=0 不需要存储适配器，M=1 必须配置。命名空间来自服务端确认的 AppID、用户和设备；每次
 重连新建适配器，不能把旧账户的存储用于新身份。不保存 token、准入证明或私钥。较大固定群
 首次恢复可能较慢，示例显式放宽连接／请求期限；服务端仍受其基线期限及授权有效期限制。
 
@@ -117,7 +117,7 @@ or received the body. Results expire with the server retry retention window.
 
 | Method | Durable contract / 持久契约 |
 |---|---|
-| identity(), open(), close() | Fixed scope/user/device; close aborts pending operations. 固定身份，关闭终止在途事务 |
+| identity(), open(), close() | Fixed AppID/user/device; close aborts pending operations. 固定身份，关闭终止在途事务 |
 | enqueue(id, packet) | Canonical immutable outbox before send; changed bytes conflict. 发送前保存，同 ID 异内容冲突 |
 | pending(limit, after?) | At most 64 records / 256 KiB; after is the previous record's hex id. 有界发送箱分页 |
 | settle(id, state, outcome?) | Known result only; preserves previous outcome if absent. 不将未知结果写成成功 |

@@ -32,7 +32,7 @@
                 microphone: true,
             },
             storageFactory: function (identity) {
-                return new IM.IndexedDB(identity.scope, identity.userId, identity.deviceId);
+                return new IM.IndexedDB(identity.appId, identity.userId, identity.deviceId);
             },
             plugins: [],
         };
