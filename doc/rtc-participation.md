@@ -1,6 +1,6 @@
 # RTC 产品参与接口
 
-本接口使用频道用户凭据，同一 RTC 实例的发布和订阅共享一次参与。不同 RTC 实例分别计时；同实例多路媒体只计一份参与时长。源码接线不代表产品媒体已经开放，节点参与 HTTP、发布归属及实际激活仍在实现中。
+本接口使用频道用户凭据，同一 RTC 实例的发布和订阅共享一次参与。不同 RTC 实例分别计时；同实例多路媒体只计一份参与时长。源码接线不代表产品媒体已经开放，节点参与 HTTP 已有源码适配，发布归属及实际激活仍在实现中。
 
 ```js
 const rtc = odd.RTC.create();
@@ -33,7 +33,7 @@ rtc.destroy();
 
 参与入口由配置及可信选址给出。POST使用 `Authorization: Bearer <token>` 和 `Odd-RTC-Proof`（客户端256位随机秘密的43字符base64url），正文为 `{requestId}`。刷新复用同 requestId 和证明，并携带 `Odd-RTC-Participant`、`Odd-RTC-Boot`。节点仅保存证明摘要，按原主体检查重复请求；不得因未知参与而在另一节点隐式创建。
 
-JSON响应为 `profile:"odd-rtc-participation.v1"`、非零小写UUID `participantId/nodeId/bootId/appId/channelAppId`、`userId`、`controlUrl/whipUrl/whepUrl` 及 `idleRetentionSeconds:30`。RTC App与频道App不同；`userId`允许空值时仍由频道策略决定。控制URL为入口加 `/participantId`，媒体基路径无尾斜杠，与入口同源。
+JSON响应为 `profile:"odd-rtc-participation.v1"`、非零小写UUID `participantId/bootId/appId/channelAppId`、节点标识 `nodeId`（1—128个A-Z/a-z/0-9/点/下划线/短横线）、`userId`、`controlUrl/whipUrl/whepUrl` 及 `idleRetentionSeconds:30`。RTC App与频道App不同；`userId`允许空值时仍由频道策略决定。控制URL为入口加 `/participantId`，媒体基路径无尾斜杠，与入口同源。
 
 媒体 POST 发送相同参与ID、boot、证明及用户JWT，URL为指定WHIP／WHEP基路径加 `/publicationId`。发布标识是技术请求的UUID，需节点实际登记所有权，不能单凭客户端ID取得归属。回复SDP及同源指定路径内的Location；之后PATCH／DELETE携带参与证明和ETag。DELETE参与控制URL不依赖未过期JWT或余额。证明仅在内存，不进Cookie、URL、持久存储或日志。所有产品请求HTTPS、禁重定向、无Cookie。
 

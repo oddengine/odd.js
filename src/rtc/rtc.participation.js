@@ -303,7 +303,8 @@
                     throw { name: 'DataError', message: 'Invalid RTC participation response type.' };
                 }
                 var value = JSON.parse(result.body);
-                if (value.profile !== 'odd-rtc-participation.v1' || !uuid(value.participantId) || !uuid(value.nodeId) ||
+                if (value.profile !== 'odd-rtc-participation.v1' || !uuid(value.participantId) ||
+                    typeof value.nodeId !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(value.nodeId) ||
                     !uuid(value.bootId) || !uuid(value.appId) || !uuid(value.channelAppId) || value.appId === value.channelAppId ||
                     typeof value.userId !== 'string' || value.userId.length > 128 || /[^A-Za-z0-9_.-]/.test(value.userId) ||
                     value.idleRetentionSeconds !== 30) {
