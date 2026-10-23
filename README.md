@@ -1,5 +1,7 @@
 # odd.js
 
+R-075 新增[RTC 产品参与接口](doc/rtc-participation.md)：同一实例多路发布／订阅共享用户凭据与参与生命周期。当前为源码交付，节点入口及实际媒体激活继续实现，尚未开放产品服务。
+
 R-070 的独立视图、共享订阅、AppID 握手绑定与模块设置见 [组合接口](doc/ui-composition.md)。本轮在 dev 分支迭代；网站已运行源代码组合构建和设置页浏览器检查，实时服务联调仍未执行。
 
 - [Website](https://oddengine.com)

@@ -24,6 +24,7 @@
             trickle: false,
             timeout: 5000,
             credentials: null,
+            participation: null,
             configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],
@@ -45,7 +46,7 @@
             },
         };
 
-    function NetStream(config, logger) {
+    function NetStream(config, logger, participation) {
         EventDispatcher.call(this, 'NetStream', { logger: logger }, [Event.ERROR, Event.RELEASE], NetStatusEvent);
 
         var _this = this,
@@ -63,6 +64,7 @@
             _recorder,
             _location,
             _token,
+            _participant,
             _connectionId,
             _credentialReject,
             _generation = 0,
@@ -428,7 +430,7 @@
                 throw { name: 'AbortError', message: 'RTC capture was cancelled.' };
             }
 
-            _name = stream.id;
+            _name = participation ? _sessionId() : stream.id;
             _screensharing = screensharing;
             _withcamera = withcamera;
             _stream = stream;
@@ -727,18 +729,83 @@
             });
         }
 
+        function _sessionId() {
+            if (!_connectionId) {
+                if (!window.crypto || !window.crypto.getRandomValues) {
+                    throw { name: 'NotSupportedError', message: 'RTC credentials require secure randomness.' };
+                }
+                var bytes = new Uint8Array(16);
+                window.crypto.getRandomValues(bytes);
+                bytes[6] = (bytes[6] & 15) | 64;
+                bytes[8] = (bytes[8] & 63) | 128;
+                _connectionId = '';
+                for (var i = 0; i < bytes.length; i++) {
+                    if (i === 4 || i === 6 || i === 8 || i === 10) {
+                        _connectionId += '-';
+                    }
+                    _connectionId += ('0' + bytes[i].toString(16)).slice(-2);
+                }
+            }
+            return _connectionId;
+        }
+
+        async function _postParticipant(sdp, direction, generation, deadline) {
+            if (!participation || _participant) {
+                throw { name: 'InvalidStateError', message: 'RTC participant must belong to the owning RTC instance.' };
+            }
+            var ticket = participation.acquire(deadline, function (error) { _this.close(error.message); });
+            _credentialReject = ticket.cancel;
+            var participant;
+            try {
+                participant = await ticket.promise;
+            } finally {
+                if (_credentialReject === ticket.cancel) {
+                    _credentialReject = undefined;
+                }
+            }
+            if (_readyState !== State.CONNECTING || generation !== _generation || Date.now() >= deadline) {
+                ticket.cancel();
+                throw { name: 'AbortError', message: 'RTC participation was cancelled.' };
+            }
+            _participant = participant;
+            var url = participant.url(direction, _name);
+            var result = await participant.send('POST', url, sdp, 'application/sdp', '', deadline, 1048576);
+            var location = result.headers.get('Location'), target = new URL(url);
+            if (!location || (result.headers.get('Content-Type') || '').split(';')[0].trim() !== 'application/sdp') {
+                throw { name: 'DataError', message: 'Invalid product RTC negotiation response.' };
+            }
+            var resource = new URL(location, target);
+            var base = target.href.substring(0, target.href.lastIndexOf('/') + 1);
+            if (resource.origin !== target.origin || resource.username || resource.password || resource.search || resource.hash ||
+                resource.href.indexOf(base) !== 0) {
+                throw { name: 'SecurityError', message: 'Product RTC Location left its assigned endpoint.' };
+            }
+            _location = resource.href;
+            _etag = result.headers.get('ETag');
+            if (_readyState !== State.CONNECTING || generation !== _generation) {
+                await _delete();
+                throw { name: 'AbortError', message: 'RTC negotiation was cancelled.' };
+            }
+            _this.setProperty('@id', resource.pathname.split('/').pop());
+            _this.setProperty('stream', _name);
+            return result.body;
+        }
+
         async function _post(url, sdp, direction) {
             if (_readyState !== State.CONNECTING) {
                 throw { name: 'AbortError', message: 'RTC negotiation was cancelled.' };
             }
             var generation = ++_generation,
                 deadline = Date.now() + _this.config.timeout,
-                endpoint = new URL(url, document.baseURI),
                 credentials;
             if (!Number.isFinite(_this.config.timeout) || _this.config.timeout <= 0 ||
                 (_this.config.credentials !== null && typeof _this.config.credentials !== 'function')) {
                 throw { name: 'TypeError', message: 'Invalid RTC timeout or credentials configuration.' };
             }
+            if (_this.config.participation !== null) {
+                return _postParticipant(sdp, direction, generation, deadline);
+            }
+            var endpoint = new URL(url, document.baseURI);
             if (endpoint.username || endpoint.password || endpoint.hash ||
                 (endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') ||
                 (location.protocol === 'https:' && endpoint.protocol !== 'https:')) {
@@ -746,22 +813,7 @@
             }
 
             if (_this.config.credentials) {
-                if (!_connectionId) {
-                    if (!window.crypto || !window.crypto.getRandomValues) {
-                        throw { name: 'NotSupportedError', message: 'RTC credentials require secure randomness.' };
-                    }
-                    var bytes = new Uint8Array(16);
-                    window.crypto.getRandomValues(bytes);
-                    bytes[6] = (bytes[6] & 15) | 64;
-                    bytes[8] = (bytes[8] & 63) | 128;
-                    _connectionId = '';
-                    for (var i = 0; i < bytes.length; i++) {
-                        if (i === 4 || i === 6 || i === 8 || i === 10) {
-                            _connectionId += '-';
-                        }
-                        _connectionId += ('0' + bytes[i].toString(16)).slice(-2);
-                    }
-                }
+                _sessionId();
                 var context = {
                     protocol: direction === 'publish' ? 'WHIP' : 'WHEP',
                     direction: direction,
@@ -897,6 +949,13 @@
             if (_this.config.trickle !== true || !_location) {
                 return;
             }
+            if (_participant) {
+                var result = await _participant.send('PATCH', _location,
+                    candidate.candidate ? 'a=' + candidate.candidate + '\r\n' : 'a=end-of-candidates\r\n',
+                    'application/trickle-ice-sdpfrag', _etag, Date.now() + _this.config.timeout, 4096);
+                _etag = result.headers.get('ETag') || _etag;
+                return;
+            }
             return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
                 xhr.open('PATCH', _location, true);
@@ -943,6 +1002,10 @@
             }
             var location = _location;
             _location = null;
+            if (_participant) {
+                await _participant.send('DELETE', location, undefined, '', _etag, Date.now() + _this.config.timeout, 4096);
+                return;
+            }
 
             return new Promise(function (resolve, reject) {
                 var xhr = new XMLHttpRequest();
@@ -1234,8 +1297,19 @@
                         requests[i].abort();
                     }
                     _requests = [];
+                    var participant = _participant;
+                    if (participant) {
+                        participant.abort();
+                    }
                     _delete().catch(function (err) {
                         _logger.warn('Failed to release RTC resource: ' + err.message);
+                    }).finally(function () {
+                        if (participant) {
+                            participant.release();
+                        }
+                        if (_participant === participant) {
+                            _participant = undefined;
+                        }
                     });
 
                     var senders = _pc ? _pc.getSenders() : [];

@@ -34,6 +34,10 @@
                 visit = null;
             }
             if (!visit) {
+                if (config.participation) {
+                    failed(call.callId, new Error('Product call media requires publication binding support.'));
+                    return;
+                }
                 if (!odd.RTC || typeof config.credentials !== 'function') {
                     failed(call.callId, new Error('Configure RTC media credentials before accepting calls.'));
                     return;

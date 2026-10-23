@@ -106,7 +106,8 @@ scripts[5]="./src/rtc/rtc.beauty.shader.js"
 scripts[6]="./src/rtc/rtc.mixer.js"
 scripts[7]="./src/rtc/rtc.audiomixer.js"
 scripts[8]="./src/rtc/rtc.videomixer.js"
-scripts[9]="./src/rtc/rtc.netstream.js"
+scripts[9]="./src/rtc/rtc.participation.js"
+scripts[10]="./src/rtc/rtc.netstream.js"
 
 :>./release/odd.rtc.js
 

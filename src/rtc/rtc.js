@@ -28,6 +28,7 @@
             trickle: false,
             timeout: 5000,
             credentials: null,
+            participation: null,
             configuration: {
                 iceServers: [{
                     urls: ["stun:stun.l.google.com:19302"],
@@ -54,6 +55,7 @@
             _id = id,
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
             _stats,
+            _participation,
             _pending = [],
             _readyState;
 
@@ -76,6 +78,12 @@
             }
 
             _this.config = utils.extendz({ id: _id }, _default, config);
+            if (_this.config.participation !== null) {
+                if (_this.config.credentials !== null || !RTC.Participation) {
+                    return Promise.reject({ name: 'InvalidStateError', message: 'RTC participation requires its module and a single credential profile.' });
+                }
+                _participation = new RTC.Participation(_this.config.participation, _this.config.timeout, _logger);
+            }
             _readyState = State.CONNECTING;
 
             _stats = new utils.Timer(1000, 0, _logger);
@@ -102,7 +110,7 @@
                 return Promise.reject({ name: 'InvalidStateError', message: 'RTC is not ready: state=' + _readyState + '.' });
             }
 
-            var ns = new RTC.NetStream(_this.config, _logger);
+            var ns = new RTC.NetStream(_this.config, _logger, _participation);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.applyConstraints(constraints);
@@ -133,7 +141,7 @@
                 return Promise.reject({ name: 'InvalidStateError', message: 'RTC is not ready: state=' + _readyState + '.' });
             }
 
-            var ns = new RTC.NetStream(_this.config, _logger);
+            var ns = new RTC.NetStream(_this.config, _logger, _participation);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.applyConstraints(constraints);
@@ -171,7 +179,7 @@
                 return Promise.reject('playing');
             }
 
-            var ns = new RTC.NetStream(_this.config, _logger);
+            var ns = new RTC.NetStream(_this.config, _logger, _participation);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.setProperty('stream', name);
@@ -292,6 +300,10 @@
                         _stats.removeEventListener(TimerEvent.TIMER, _onStats);
                     }
                     _this.stop();
+                    if (_participation) {
+                        _participation.close();
+                        _participation = undefined;
+                    }
                     delete _instances[_id];
 
                     _this.dispatchEvent(Event.CLOSE, { reason: reason });
