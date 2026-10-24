@@ -6,7 +6,9 @@
 
 回调负责从业务后端取得已有频道用户JWT与平台可信调度结果。一个用户JWT可复用多路，SDK不会要求客户逐流重签；平台内部scheduler密钥不进入浏览器。没有产品凭据回调的原协议入口不在本页范围。
 
-context含protocol、direction、streamId、connectionId、instanceId、operationId、createdAt、deadline、signal、generation、url；WHIP另含audio、video、purpose。instanceId等于本次连接的安全随机UUID；generation是SDK取消／异步请求代，不是服务端流代次。发布streamId由平台预占结果决定，订阅必须保持选中的streamId。HTTP播放器的source必须显式提供streamId；`mode`为`live`。
+context含protocol、direction、streamId、connectionId、instanceId、operationId、createdAt、deadline、signal、generation、url；WHIP另含audio、video、purpose。instanceId等于本次连接的安全随机UUID；generation是SDK取消／异步请求代，不是服务端流代次。发布streamId由发布方提供，浏览器SDK未指定时在发布前生成随机UUID；发布和订阅的调度结果都必须回显请求中的streamId，平台不得替换。HTTP播放器的source必须显式提供streamId；`mode`为`live`。
+
+这里的回调是SDK调用接入方提供的JavaScript函数，不是odd.d回调odd.x鉴权。函数可以返回已缓存的用户JWT，并按需要向可信调度获取连接信息；每路调用不等于每路重签用户凭据。streamId只随技术调度传递，不加入客户JWT，签发用户凭据也不依赖生成流ID的接口。
 
 返回对象：
 
@@ -28,7 +30,7 @@ context含protocol、direction、streamId、connectionId、instanceId、operatio
 }
 ```
 
-url是完整媒体URL，末段为`<streamId>`，HTTP-FLV为`<streamId>.flv`，HTTP-CMAF为`<streamId>.mp4`。只接受HTTPS，不带用户名、密码、查询或fragment；App／频道／boot／stream／instance为非零小写UUID，nodeId为1–128个字母、数字、点、下划线或短横线。回调结果不能修改本次instance或订阅流。App与频道ID不能相同。
+url是完整媒体URL，末段为`<streamId>`，HTTP-FLV为`<streamId>.flv`，HTTP-CMAF为`<streamId>.mp4`。只接受HTTPS，不带用户名、密码、查询或fragment；App／频道／boot／stream／instance为非零小写UUID，nodeId为1–128个字母、数字、点、下划线或短横线。回调结果不能修改本次instance或发布／订阅流。App与频道ID不能相同。
 
 同一回调可以封装凭据复用与平台选址，但不能直接暴露内部调度API。发布预占重试使用context给出的固定operationId／createdAt（毫秒时间戳字符串），请求须遵守deadline并传递signal；取消或超时会中止凭据请求，新一次连接使用新instanceId。订阅目录返回的发布者userId／instanceId不可当作订阅者身份。用户JWT、平台调度票据、SDK独立媒体证明分别承担用户准入、发布槽证明和技术实例管理。
 

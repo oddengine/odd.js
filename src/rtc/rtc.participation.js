@@ -221,8 +221,7 @@
                 id: entry.participantId,
                 route: async function (direction, stream, instance, deadline, purpose) {
                     if (member.media || member.routing || !_members.has(member) || _closed || entry.releasing ||
-                        !uuid(instance) || (direction !== 'publish' && direction !== 'play') ||
-                        (direction === 'play' && !uuid(stream)) ||
+                        !uuid(instance) || !uuid(stream) || (direction !== 'publish' && direction !== 'play') ||
                         (direction === 'publish' && ['audio', 'camera', 'screen'].indexOf(purpose) === -1)) {
                         throw { name: 'InvalidStateError', message: 'Invalid RTC media routing operation.' };
                     }
@@ -233,7 +232,7 @@
                         direction: direction, protocol: direction === 'publish' ? 'WHIP' : 'WHEP', product: 'rtc',
                         purpose: direction === 'publish' ? purpose : undefined,
                         operationId: requestId(), instanceId: instance, createdAt: String(Date.now()),
-                        streamId: direction === 'play' ? stream : '', appId: entry.appId,
+                        streamId: stream, appId: entry.appId,
                         channelAppId: entry.channelAppId, userId: entry.userId, participantId: entry.participantId,
                         nodeId: entry.nodeId, bootId: entry.bootId, deadline: until, signal: controller.signal,
                     };
@@ -255,10 +254,10 @@
                         }
                         if (!value || value.nodeId !== entry.nodeId || value.bootId !== entry.bootId ||
                             value.appId !== entry.appId || value.channelAppId !== entry.channelAppId || value.product !== 'rtc' ||
-                            value.userId !== entry.userId || value.instanceId !== instance || !uuid(value.streamId) ||
+                            value.userId !== entry.userId || value.instanceId !== instance || value.streamId !== stream ||
                             typeof value.generation !== 'string' || !Number.isSafeInteger(Number(value.generation)) ||
                             Number(value.generation) < 1 || String(Number(value.generation)) !== value.generation ||
-                            (direction === 'play' && (value.streamId !== stream || value.ticket !== undefined)) ||
+                            (direction === 'play' && value.ticket !== undefined) ||
                             (direction === 'publish' && (typeof value.ticket !== 'string' || !value.ticket ||
                                 value.ticket.length > 16384 || /[^\x21-\x7e]/.test(value.ticket)))) {
                             throw { name: 'DataError', message: 'RTC routing changed the assigned participation or resource.' };

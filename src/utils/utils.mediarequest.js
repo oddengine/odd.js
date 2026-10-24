@@ -2,8 +2,8 @@
     var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
         ZERO = '00000000-0000-0000-0000-000000000000';
 
-    // One product live request. Routing supplies identity, while the browser
-    // owns an independent management proof; neither is a per-stream user JWT.
+    // One product live request. Routing echoes the caller's stream identity;
+    // the browser owns an independent proof, not a per-stream user JWT.
     function MediaRequest(value, context) {
         var _this = this;
 
@@ -14,7 +14,7 @@
             Number(value.generation) < 1 || String(Number(value.generation)) !== value.generation ||
             value.instanceId !== context.instanceId || value.appId === value.channelAppId ||
             typeof value.nodeId !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(value.nodeId) ||
-            (context.direction === 'play' && value.streamId !== context.streamId)) {
+            value.streamId !== context.streamId) {
             throw { name: 'DataError', message: 'Invalid product live media credentials.' };
         }
         ['appId', 'channelAppId', 'bootId', 'streamId', 'instanceId'].forEach(function (key) {

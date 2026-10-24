@@ -482,6 +482,18 @@
             _readyState = State.CONNECTING;
 
             try {
+                var streamId = _this.getProperty('stream');
+                if (streamId === undefined || streamId === '') {
+                    streamId = _uuid();
+                }
+                if (typeof streamId !== 'string' ||
+                    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(streamId) ||
+                    streamId === '00000000-0000-0000-0000-000000000000') {
+                    throw { name: 'DataError', message: 'Invalid publication stream ID.' };
+                }
+                _name = streamId;
+                _this.setProperty('stream', streamId);
+
                 await _setCodecPreferences('sender');
                 var offer = await _pc.createOffer();
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
@@ -739,22 +751,26 @@
             });
         }
 
+        function _uuid() {
+            if (!window.crypto || !window.crypto.getRandomValues) {
+                throw { name: 'NotSupportedError', message: 'RTC identity requires secure randomness.' };
+            }
+            var bytes = new Uint8Array(16), value = '';
+            window.crypto.getRandomValues(bytes);
+            bytes[6] = (bytes[6] & 15) | 64;
+            bytes[8] = (bytes[8] & 63) | 128;
+            for (var i = 0; i < bytes.length; i++) {
+                if (i === 4 || i === 6 || i === 8 || i === 10) {
+                    value += '-';
+                }
+                value += ('0' + bytes[i].toString(16)).slice(-2);
+            }
+            return value;
+        }
+
         function _sessionId() {
             if (!_connectionId) {
-                if (!window.crypto || !window.crypto.getRandomValues) {
-                    throw { name: 'NotSupportedError', message: 'RTC credentials require secure randomness.' };
-                }
-                var bytes = new Uint8Array(16);
-                window.crypto.getRandomValues(bytes);
-                bytes[6] = (bytes[6] & 15) | 64;
-                bytes[8] = (bytes[8] & 63) | 128;
-                _connectionId = '';
-                for (var i = 0; i < bytes.length; i++) {
-                    if (i === 4 || i === 6 || i === 8 || i === 10) {
-                        _connectionId += '-';
-                    }
-                    _connectionId += ('0' + bytes[i].toString(16)).slice(-2);
-                }
+                _connectionId = _uuid();
             }
             return _connectionId;
         }
@@ -837,7 +853,7 @@
                     context = {
                         protocol: direction === 'publish' ? 'WHIP' : 'WHEP',
                         direction: direction,
-                        streamId: direction === 'play' ? _name : _this.getProperty('stream') || '',
+                        streamId: _name,
                         connectionId: _connectionId,
                         instanceId: _connectionId,
                         operationId: _connectionId,
@@ -886,6 +902,9 @@
                     throw { name: 'AbortError', message: 'RTC credentials were cancelled.' };
                 }
                 if (credentials && credentials.product === 'live') {
+                    if (credentials.streamId !== _name) {
+                        throw { name: 'DataError', message: 'Media routing changed the requested stream.' };
+                    }
                     if (!utils.MediaRequest || !window.fetch || !window.AbortController ||
                         !window.ReadableStream || !window.TextDecoder) {
                         throw { name: 'NotSupportedError', message: 'Product live media requires streaming Fetch and cancellation.' };
@@ -918,7 +937,7 @@
                     typeof credentials.streamId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(credentials.streamId) ||
                     credentials.streamId === '00000000-0000-0000-0000-000000000000' ||
                     !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000 ||
-                    (direction === 'play' && credentials.streamId !== _name)) {
+                    credentials.streamId !== _name) {
                     throw { name: 'DataError', message: 'Invalid RTC credentials.' };
                 }
                 var target = new URL(credentials.url, document.baseURI);

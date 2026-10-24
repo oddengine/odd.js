@@ -239,8 +239,8 @@
 
             switch (code) {
                 case Code.NETSTREAM_PUBLISH_START:
-                    // A preview has a temporary name; platform reservation
-                    // assigns the publication UUID during its first publish.
+                    // Publishing replaces a preview's temporary name with
+                    // its caller-owned UUID before requesting a route.
                     var publisher = e.srcElement;
                     Object.keys(_this.publishing).forEach(function (name) {
                         if (_this.publishing[name] === publisher && name !== publisher.name()) {
