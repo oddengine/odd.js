@@ -238,6 +238,20 @@
             _logger[method](`RTC.onStatus: id=${_id}, level=${level}, code=${code}, description=${description}, info=`, info);
 
             switch (code) {
+                case Code.NETSTREAM_PUBLISH_START:
+                    // A preview has a temporary name; platform reservation
+                    // assigns the publication UUID during its first publish.
+                    var publisher = e.srcElement;
+                    Object.keys(_this.publishing).forEach(function (name) {
+                        if (_this.publishing[name] === publisher && name !== publisher.name()) {
+                            delete _this.publishing[name];
+                        }
+                    });
+                    if (_readyState === State.CONNECTED && publisher.state() === State.PUBLISHING) {
+                        _this.publishing[publisher.name()] = publisher;
+                        _stats.start();
+                    }
+                    break;
                 case Code.NETSTREAM_FAILED:
                 case Code.NETSTREAM_PLAY_FAILED:
                 case Code.NETSTREAM_PLAY_RESET:
@@ -255,8 +269,13 @@
             ns.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.removeEventListener(Event.RELEASE, _onRelease);
 
-            delete _this.publishing[ns.name()];
-            delete _this.subscribing[ns.name()];
+            [_this.publishing, _this.subscribing].forEach(function (streams) {
+                Object.keys(streams).forEach(function (name) {
+                    if (streams[name] === ns) {
+                        delete streams[name];
+                    }
+                });
+            });
         }
 
         function _onStats(e) {

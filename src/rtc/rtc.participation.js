@@ -51,7 +51,7 @@
             _closed = false,
             _limit = config && config.maxSessions !== undefined ? config.maxSessions : 128;
 
-        if (!config || typeof config.credentials !== 'function' || !Number.isInteger(_limit) ||
+        if (!config || typeof config.credentials !== 'function' || typeof config.route !== 'function' || !Number.isInteger(_limit) ||
             _limit < 1 || _limit > 1024 || !Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647) {
             throw { name: 'TypeError', message: 'Invalid RTC participation configuration.' };
         }
@@ -60,7 +60,7 @@
             throw { name: 'NotSupportedError', message: 'RTC participation requires secure Fetch and cancellation.' };
         }
 
-        async function _request(entry, method, url, body, type, etag, deadline, requests, limit) {
+        async function _request(entry, method, url, body, type, etag, deadline, requests, limit, media) {
             url = endpoint(url, new URL(entry.url).origin);
             if (requests.size >= (method === 'DELETE' ? 33 : 32) ||
                 (body !== undefined && (typeof body !== 'string' || body.length > 1048576))) {
@@ -87,6 +87,16 @@
             }
             if (method === 'POST') {
                 headers.Authorization = 'Bearer ' + entry.credentials.token;
+            }
+            if (media) {
+                headers['Odd-Media-Proof'] = media.proof;
+                if (method === 'POST') {
+                    headers['Odd-Media-Instance'] = media.instanceId;
+                    headers['Odd-Media-Generation'] = String(media.generation);
+                    if (media.ticket) {
+                        headers['Odd-Media-Placement'] = media.ticket;
+                    }
+                }
             }
             if (type) {
                 headers['Content-Type'] = type;
@@ -206,21 +216,73 @@
             member.entry = entry;
             member.resolve({
                 id: entry.participantId,
-                url: function (direction, stream) {
-                    if (!uuid(stream)) {
-                        throw { name: 'DataError', message: 'RTC media requires a publication UUID.' };
+                route: async function (direction, stream, instance, deadline) {
+                    if (member.media || member.routing || !_members.has(member) || _closed || entry.releasing ||
+                        !uuid(instance) || (direction !== 'publish' && direction !== 'play') ||
+                        (direction === 'play' && !uuid(stream))) {
+                        throw { name: 'InvalidStateError', message: 'Invalid RTC media routing operation.' };
                     }
-                    return (direction === 'publish' ? entry.whipUrl : entry.whepUrl) + '/' + stream;
+                    member.routing = true;
+                    var controller = new AbortController(), timer;
+                    var until = Math.min(deadline, Date.now() + timeout, entry.credentials.connectBefore * 1000);
+                    var request = {
+                        direction: direction, protocol: direction === 'publish' ? 'WHIP' : 'WHEP', product: 'rtc',
+                        operationId: requestId(), instanceId: instance, createdAt: String(Date.now()),
+                        streamId: direction === 'play' ? stream : '', appId: entry.appId,
+                        channelAppId: entry.channelAppId, userId: entry.userId, participantId: entry.participantId,
+                        nodeId: entry.nodeId, bootId: entry.bootId, deadline: until, signal: controller.signal,
+                    };
+                    member.requests.set(controller, 'ROUTE');
+                    try {
+                        // Routing is separate from credentials: only the trusted platform
+                        // scheduler reserves capacity. The browser never receives its secret.
+                        var cancelled = new Promise(function (_, reject) {
+                            controller.signal.addEventListener('abort', function () {
+                                reject({ name: 'AbortError', message: 'RTC media routing was cancelled.' });
+                            }, { once: true });
+                            timer = setTimeout(function () { controller.abort(); }, Math.max(1, until - Date.now()));
+                        });
+                        var value = await Promise.race([Promise.resolve().then(function () {
+                            return config.route(request);
+                        }), cancelled]);
+                        if (!_members.has(member) || _closed || entry.releasing || controller.signal.aborted || Date.now() >= until) {
+                            throw { name: 'AbortError', message: 'RTC media routing completed too late.' };
+                        }
+                        if (!value || value.nodeId !== entry.nodeId || value.bootId !== entry.bootId ||
+                            value.appId !== entry.appId || value.channelAppId !== entry.channelAppId || value.product !== 'rtc' ||
+                            value.userId !== entry.userId || value.instanceId !== instance || !uuid(value.streamId) ||
+                            typeof value.generation !== 'string' || !Number.isSafeInteger(Number(value.generation)) ||
+                            Number(value.generation) < 1 || String(Number(value.generation)) !== value.generation ||
+                            (direction === 'play' && (value.streamId !== stream || value.ticket !== undefined)) ||
+                            (direction === 'publish' && (typeof value.ticket !== 'string' || !value.ticket ||
+                                value.ticket.length > 16384 || /[^\x21-\x7e]/.test(value.ticket)))) {
+                            throw { name: 'DataError', message: 'RTC routing changed the assigned participation or resource.' };
+                        }
+                        var media = {
+                            instanceId: instance, generation: value.generation, ticket: value.ticket,
+                            proof: btoa(String.fromCharCode.apply(null, random(32)))
+                                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+                            url: (direction === 'publish' ? entry.whipUrl : entry.whepUrl) + '/' + value.streamId,
+                        };
+                        member.media = media;
+                        return { url: media.url, streamId: value.streamId, instanceId: instance, generation: media.generation };
+                    } finally {
+                        clearTimeout(timer);
+                        member.requests.delete(controller);
+                        member.routing = false;
+                    }
                 },
                 send: async function (method, url, body, type, etag, deadline, limit) {
                     if (!_members.has(member) || (method !== 'DELETE' && (_closed || entry.releasing))) {
                         return Promise.reject({ name: 'AbortError', message: 'RTC participation is closing.' });
                     }
                     var target = endpoint(url, new URL(entry.url).origin);
-                    if (target.href.indexOf(entry.whipUrl + '/') !== 0 && target.href.indexOf(entry.whepUrl + '/') !== 0) {
-                        return Promise.reject({ name: 'SecurityError', message: 'RTC media left its assigned endpoint.' });
+                    var media = member.media;
+                    if (!media || (method !== 'POST' && method !== 'PATCH' && method !== 'DELETE') ||
+                        target.href !== media.url + (method === 'POST' ? '' : '/' + media.instanceId)) {
+                        return Promise.reject({ name: 'SecurityError', message: 'RTC media left its owned resource.' });
                     }
-                    return _request(entry, method, target.href, body, type, etag, deadline, member.requests, limit)
+                    return _request(entry, method, target.href, body, type, etag, deadline, member.requests, limit, media)
                         .catch(function (error) {
                             if (error.status === 410) {
                                 _invalidate(entry, error);

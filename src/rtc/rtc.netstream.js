@@ -768,16 +768,24 @@
                 throw { name: 'AbortError', message: 'RTC participation was cancelled.' };
             }
             _participant = participant;
-            var url = participant.url(direction, _name);
+            var media = await participant.route(direction, _name, _sessionId(), deadline);
+            if (_readyState !== State.CONNECTING || generation !== _generation || Date.now() >= deadline) {
+                throw { name: 'AbortError', message: 'RTC media routing was cancelled.' };
+            }
+            _name = media.streamId;
+            var url = media.url;
+            // The independent proof already owns this exact technical ID. A
+            // lost POST response can still trigger a bounded best-effort DELETE.
+            _location = url + '/' + media.instanceId;
+            _etag = '*';
             var result = await participant.send('POST', url, sdp, 'application/sdp', '', deadline, 1048576);
             var location = result.headers.get('Location'), target = new URL(url);
             if (!location || (result.headers.get('Content-Type') || '').split(';')[0].trim() !== 'application/sdp') {
                 throw { name: 'DataError', message: 'Invalid product RTC negotiation response.' };
             }
             var resource = new URL(location, target);
-            var base = target.href.substring(0, target.href.lastIndexOf('/') + 1);
             if (resource.origin !== target.origin || resource.username || resource.password || resource.search || resource.hash ||
-                resource.href.indexOf(base) !== 0) {
+                resource.href !== target.href + '/' + media.instanceId) {
                 throw { name: 'SecurityError', message: 'Product RTC Location left its assigned endpoint.' };
             }
             _location = resource.href;
