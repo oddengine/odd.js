@@ -285,10 +285,14 @@
         };
 
         _this.fetch = function (conversation, cursor, limit) {
+            limit = limit === undefined ? 50 : limit;
+            if (!Number.isInteger(limit) || limit < 1 || limit > 64) {
+                return Promise.reject(_error('RangeError', 'A message page must request 1 to 64 records.'));
+            }
             return serialize(conversation, function () {
                 return request(Opcode.FETCH, [
                     _field('conversationId', Type.STRING, conversation), _field('cursor', Type.BYTES, cursor || new Uint8Array(0)),
-                    _field('limit', Type.UINT16, limit === undefined ? 50 : limit),
+                    _field('limit', Type.UINT16, limit),
                 ]).then(function (page) { active(); return save(conversation, page); });
             });
         };
