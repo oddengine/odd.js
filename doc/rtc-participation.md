@@ -63,3 +63,5 @@ RTC参与固定在原node／boot；当前实际媒体路径消费该节点的本
 直接使用 `RTC.NetStream` 不能自己建立共享参与，必须由RTC实例持有控制器。原逐流路径保持独立。CallMedia原通话的 `resourceId/roomId` 尚未接产品发布归属，显式拒绝配置产品参与，不能把旧ID当作频道或发布所有权；后续接通真实绑定再开放。源代码引用须按顺序加载 `rtc.js`、`rtc.participation.js`、`rtc.netstream.js`。
 
 本次仅源码与差异审阅，未编译、测试、运行浏览器或重建发布产物。
+
+发布可用Odd-Media-Purpose声明audio／camera／screen；SDK沿现有采集purpose自动设置，节点仍从实际SDP提取音频／视频需求，screen将视频动作映射为已定义的发布屏幕权限，音轨仍要求发布音频权限。audio不得夹带视频，screen必须含视频；未声明沿摄像头视频权限。此声明表达操作用途，不证明编码图像一定来自某种物理设备。

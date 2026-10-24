@@ -93,6 +93,9 @@
                 if (method === 'POST') {
                     headers['Odd-Media-Instance'] = media.instanceId;
                     headers['Odd-Media-Generation'] = String(media.generation);
+                    if (media.purpose) {
+                        headers['Odd-Media-Purpose'] = media.purpose;
+                    }
                     if (media.ticket) {
                         headers['Odd-Media-Placement'] = media.ticket;
                     }
@@ -216,10 +219,11 @@
             member.entry = entry;
             member.resolve({
                 id: entry.participantId,
-                route: async function (direction, stream, instance, deadline) {
+                route: async function (direction, stream, instance, deadline, purpose) {
                     if (member.media || member.routing || !_members.has(member) || _closed || entry.releasing ||
                         !uuid(instance) || (direction !== 'publish' && direction !== 'play') ||
-                        (direction === 'play' && !uuid(stream))) {
+                        (direction === 'play' && !uuid(stream)) ||
+                        (direction === 'publish' && ['audio', 'camera', 'screen'].indexOf(purpose) === -1)) {
                         throw { name: 'InvalidStateError', message: 'Invalid RTC media routing operation.' };
                     }
                     member.routing = true;
@@ -227,6 +231,7 @@
                     var until = Math.min(deadline, Date.now() + timeout, entry.credentials.connectBefore * 1000);
                     var request = {
                         direction: direction, protocol: direction === 'publish' ? 'WHIP' : 'WHEP', product: 'rtc',
+                        purpose: direction === 'publish' ? purpose : undefined,
                         operationId: requestId(), instanceId: instance, createdAt: String(Date.now()),
                         streamId: direction === 'play' ? stream : '', appId: entry.appId,
                         channelAppId: entry.channelAppId, userId: entry.userId, participantId: entry.participantId,
@@ -260,6 +265,7 @@
                         }
                         var media = {
                             instanceId: instance, generation: value.generation, ticket: value.ticket,
+                            purpose: direction === 'publish' ? purpose : undefined,
                             proof: btoa(String.fromCharCode.apply(null, random(32)))
                                 .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
                             url: (direction === 'publish' ? entry.whipUrl : entry.whepUrl) + '/' + value.streamId,

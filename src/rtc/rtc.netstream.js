@@ -768,7 +768,8 @@
                 throw { name: 'AbortError', message: 'RTC participation was cancelled.' };
             }
             _participant = participant;
-            var media = await participant.route(direction, _name, _sessionId(), deadline);
+            var purpose = _screensharing ? 'screen' : _stream && _stream.getVideoTracks().length ? 'camera' : 'audio';
+            var media = await participant.route(direction, _name, _sessionId(), deadline, purpose);
             if (_readyState !== State.CONNECTING || generation !== _generation || Date.now() >= deadline) {
                 throw { name: 'AbortError', message: 'RTC media routing was cancelled.' };
             }
