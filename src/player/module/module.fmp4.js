@@ -430,7 +430,7 @@
             try {
                 if (_this.config.credentials !== null && _this.config.credentials !== undefined) {
                     if (typeof _this.config.credentials !== 'function' || _this.config.mode !== 'live' ||
-                        !Number.isSafeInteger(_this.config.timeout) || _this.config.timeout <= 0) {
+                        !Number.isSafeInteger(_this.config.timeout) || _this.config.timeout <= 0 || _this.config.timeout > 2147483647) {
                         throw { name: 'TypeError', message: 'Invalid live credentials or timeout configuration.' };
                     }
                     if (typeof _source.streamId !== 'string' ||
@@ -439,7 +439,7 @@
                         throw { name: 'TypeError', message: 'Protected playback requires an explicit streamId.' };
                     }
                     if (!IO.Fetch || !window.fetch || !window.ReadableStream || !window.AbortController ||
-                        !window.crypto || !window.crypto.getRandomValues) {
+                        !window.crypto || !window.crypto.getRandomValues || !utils.MediaRequest) {
                         throw { name: 'NotSupportedError', message: 'Protected playback requires streaming Fetch and secure randomness.' };
                     }
                     if (!_connectionId) {
@@ -462,6 +462,8 @@
                             direction: 'play',
                             streamId: _source.streamId,
                             connectionId: _connectionId,
+                            instanceId: _connectionId,
+                            product: 'live',
                             generation: String(generation),
                             url: _url.href,
                             module: _this.kind,
@@ -484,32 +486,31 @@
                         return;
                     }
                     _credentialReject = undefined;
-                    if (!credentials || typeof credentials.token !== 'string' || !credentials.token ||
-                        credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
-                        typeof credentials.url !== 'string' || !credentials.url || credentials.streamId !== context.streamId ||
-                        !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000) {
-                        throw { name: 'DataError', message: 'Invalid live media credentials.' };
-                    }
-                    var endpoint = new URL(credentials.url, document.baseURI);
-                    if ((endpoint.protocol !== 'http:' && endpoint.protocol !== 'https:') || endpoint.username || endpoint.password ||
-                        endpoint.hash || (endpoint.protocol !== 'https:' && (location.protocol === 'https:' || _url.protocol === 'https:'))) {
-                        throw { name: 'SecurityError', message: 'Invalid live media endpoint.' };
-                    }
+                    var media = new utils.MediaRequest(credentials, context);
+                    deadline = Math.min(deadline, media.connectBefore * 1000);
                     if (Date.now() >= deadline) {
                         throw { name: 'TimeoutError', message: 'Live media admission timed out.' };
                     }
-                    target = new utils.URL(endpoint.href);
+                    clearTimeout(_credentialTimer);
+                    _credentialTimer = setTimeout(function () {
+                        if (generation === _generation) {
+                            _onLoadError({ data: { name: 'TimeoutError', message: 'Live media admission timed out.' } });
+                        }
+                    }, Math.max(1, deadline - Date.now()));
+                    target = new utils.URL(media.url);
                     option.name = 'Fetch';
                     option.method = 'GET';
+                    option.mode = IO.Mode.CORS;
+                    option.credentials = IO.Credentials.OMIT;
                     option.redirect = IO.Redirect.ERROR;
                     option.cache = 'no-store';
                     option.headers = utils.extendz({}, option.headers || {});
                     for (var name in option.headers) {
-                        if (name.toLowerCase() === 'authorization') {
+                        if (/^(authorization|odd-media-.*|odd-rtc-.*)$/i.test(name)) {
                             delete option.headers[name];
                         }
                     }
-                    option.headers.Authorization = 'Bearer ' + credentials.token;
+                    utils.extendz(option.headers, media.headers('GET'));
                 }
                 _initLoader(option, target);
                 _loader.load(target);
@@ -522,6 +523,7 @@
 
         function _cancelLoad() {
             _generation++;
+            _connectionId = undefined;
             _loading = false;
             clearTimeout(_credentialTimer);
             _credentialTimer = undefined;

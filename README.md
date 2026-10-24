@@ -4,6 +4,8 @@ IM `fetch(conversationId, cursor, limit)`一次获取一页，默认50、可请�
 
 R-075 新增[RTC 产品参与接口](doc/rtc-participation.md)：同一实例多路发布／订阅共享用户凭据与参与生命周期。节点WHIP／WHEP、独立资源管理证明和平台调度回调已有源码接线；可信调度部署、跨节点分发及运行验收仍待完成。
 
+产品直播的WHIP／WHEP、HTTP-FLV／CMAF已接[新版App凭据与独立媒体证明](doc/live-media.md)，复用既有credentials回调；直播不注册RTC参与，按所属live产品计字节。本次仅源码接线，release未重建。
+
 R-070 的独立视图、共享订阅、AppID 握手绑定与模块设置见 [组合接口](doc/ui-composition.md)。本轮在 dev 分支迭代；网站已运行源代码组合构建和设置页浏览器检查，实时服务联调仍未执行。
 
 - [Website](https://oddengine.com)

@@ -65,6 +65,7 @@
             _location,
             _token,
             _participant,
+            _media,
             _connectionId,
             _credentialReject,
             _generation = 0,
@@ -807,7 +808,7 @@
             var generation = ++_generation,
                 deadline = Date.now() + _this.config.timeout,
                 credentials;
-            if (!Number.isFinite(_this.config.timeout) || _this.config.timeout <= 0 ||
+            if (!Number.isSafeInteger(_this.config.timeout) || _this.config.timeout <= 0 || _this.config.timeout > 2147483647 ||
                 (_this.config.credentials !== null && typeof _this.config.credentials !== 'function')) {
                 throw { name: 'TypeError', message: 'Invalid RTC timeout or credentials configuration.' };
             }
@@ -828,6 +829,7 @@
                     direction: direction,
                     streamId: direction === 'play' ? _name : _this.getProperty('stream') || '',
                     connectionId: _connectionId,
+                    instanceId: _connectionId,
                     generation: String(generation),
                     audio: direction === 'publish' && _stream.getAudioTracks().length > 0,
                     video: direction === 'publish' && _stream.getVideoTracks().length > 0,
@@ -865,6 +867,34 @@
                 });
                 if (_readyState !== State.CONNECTING || generation !== _generation) {
                     throw { name: 'AbortError', message: 'RTC credentials were cancelled.' };
+                }
+                if (credentials && credentials.product === 'live') {
+                    if (!utils.MediaRequest || !window.fetch || !window.AbortController ||
+                        !window.ReadableStream || !window.TextDecoder) {
+                        throw { name: 'NotSupportedError', message: 'Product live media requires streaming Fetch and cancellation.' };
+                    }
+                    _media = new utils.MediaRequest(credentials, context);
+                    _name = _media.streamId;
+                    _this.setProperty('stream', _name);
+                    // Pre-bind the exact resource before POST. A lost response
+                    // still leaves a bounded cleanup using only its own proof.
+                    _location = _media.resource;
+                    _etag = '*';
+                    var live = await _requestLive('POST', _media.url, sdp, 'application/sdp', '', deadline, 1048576);
+                    if (_readyState !== State.CONNECTING || generation !== _generation) {
+                        throw { name: 'AbortError', message: 'Live media negotiation was cancelled.' };
+                    }
+                    var assigned = live.headers.get('Location');
+                    if (!assigned || new URL(assigned, _media.url).href !== _media.resource ||
+                        (live.headers.get('Content-Type') || '').split(';')[0].trim() !== 'application/sdp') {
+                        throw { name: 'SecurityError', message: 'Live media response changed its assigned resource.' };
+                    }
+                    _etag = live.headers.get('ETag');
+                    _this.setProperty('@id', _media.instanceId);
+                    return live.body;
+                }
+                if (credentials && credentials.product !== undefined) {
+                    throw { name: 'NotSupportedError', message: 'RTC product media requires the participation profile.' };
                 }
                 if (!credentials || typeof credentials.token !== 'string' || !credentials.token || credentials.token.length > 8192 ||
                     /[\s]/.test(credentials.token) || typeof credentials.url !== 'string' || !credentials.url ||
@@ -954,6 +984,69 @@
             });
         }
 
+        async function _requestLive(method, url, body, type, etag, deadline, limit) {
+            var media = _media;
+            if (!media || url !== (method === 'POST' ? media.url : media.resource) ||
+                _requests.length >= (method === 'DELETE' ? 33 : 32) ||
+                (body !== undefined && (typeof body !== 'string' || body.length > 1048576))) {
+                throw { name: 'InvalidAccessError', message: 'Invalid live media request.' };
+            }
+            deadline = Math.min(deadline, Date.now() + _this.config.timeout);
+            if (method === 'POST') {
+                deadline = Math.min(deadline, media.connectBefore * 1000);
+            }
+            if (deadline <= Date.now()) {
+                throw { name: 'TimeoutError', message: 'Live media request timed out.' };
+            }
+            var controller = new AbortController(), headers = media.headers(method), reader,
+                timer = setTimeout(function () { controller.abort(); }, Math.max(1, deadline - Date.now()));
+            if (type) {
+                headers['Content-Type'] = type;
+            }
+            if (etag) {
+                headers['If-Match'] = etag;
+            }
+            _requests.push(controller);
+            try {
+                var response = await fetch(url, {
+                    method: method, headers: headers, body: body, signal: controller.signal,
+                    credentials: 'omit', cache: 'no-store', redirect: 'error', mode: 'cors',
+                });
+                if (!response.ok || response.url !== url || response.redirected) {
+                    throw { name: 'NetworkError', message: 'Live media request failed: status=' + response.status + '.' };
+                }
+                var decoder = new TextDecoder('utf-8', { fatal: true }), text = '', size = 0;
+                if (response.body) {
+                    reader = response.body.getReader();
+                    while (true) {
+                        var part = await reader.read();
+                        if (part.done) {
+                            break;
+                        }
+                        size += part.value.byteLength;
+                        if (size > limit) {
+                            throw { name: 'QuotaExceededError', message: 'Live media response exceeds its byte limit.' };
+                        }
+                        text += decoder.decode(part.value, { stream: true });
+                    }
+                }
+                if (controller.signal.aborted || Date.now() >= deadline) {
+                    throw { name: 'TimeoutError', message: 'Live media request did not finish before its deadline.' };
+                }
+                return { headers: response.headers, body: text + decoder.decode() };
+            } finally {
+                clearTimeout(timer);
+                controller.abort();
+                if (reader) {
+                    reader.releaseLock();
+                }
+                var index = utils.indexOf(_requests, controller);
+                if (index !== -1) {
+                    _requests.splice(index, 1);
+                }
+            }
+        }
+
         async function _patch(candidate) {
             if (_this.config.trickle !== true || !_location) {
                 return;
@@ -963,6 +1056,13 @@
                     candidate.candidate ? 'a=' + candidate.candidate + '\r\n' : 'a=end-of-candidates\r\n',
                     'application/trickle-ice-sdpfrag', _etag, Date.now() + _this.config.timeout, 4096);
                 _etag = result.headers.get('ETag') || _etag;
+                return;
+            }
+            if (_media) {
+                var live = await _requestLive('PATCH', _location,
+                    candidate.candidate ? 'a=' + candidate.candidate + '\r\n' : 'a=end-of-candidates\r\n',
+                    'application/trickle-ice-sdpfrag', _etag, Date.now() + _this.config.timeout, 4096);
+                _etag = live.headers.get('ETag') || _etag;
                 return;
             }
             return new Promise(function (resolve, reject) {
@@ -1013,6 +1113,10 @@
             _location = null;
             if (_participant) {
                 await _participant.send('DELETE', location, undefined, '', _etag, Date.now() + _this.config.timeout, 4096);
+                return;
+            }
+            if (_media) {
+                await _requestLive('DELETE', location, undefined, '', _etag, Date.now() + _this.config.timeout, 4096);
                 return;
             }
 
@@ -1319,6 +1423,7 @@
                         if (_participant === participant) {
                             _participant = undefined;
                         }
+                        _media = undefined;
                     });
 
                     var senders = _pc ? _pc.getSenders() : [];
