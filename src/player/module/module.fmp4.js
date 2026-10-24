@@ -38,6 +38,7 @@
             _connectionId,
             _credentialTimer,
             _credentialReject,
+            _credentialController,
             _demuxer,
             _ftyp,
             _moov,
@@ -456,6 +457,7 @@
                         }
                     }
 
+                    _credentialController = new AbortController();
                     var deadline = Date.now() + _this.config.timeout,
                         context = {
                             protocol: 'HTTP-CMAF',
@@ -463,6 +465,10 @@
                             streamId: _source.streamId,
                             connectionId: _connectionId,
                             instanceId: _connectionId,
+                            operationId: _connectionId,
+                            createdAt: String(Date.now()),
+                            deadline: deadline,
+                            signal: _credentialController.signal,
                             product: 'live',
                             generation: String(generation),
                             url: _url.href,
@@ -486,6 +492,7 @@
                         return;
                     }
                     _credentialReject = undefined;
+                    _credentialController = undefined;
                     var media = new utils.MediaRequest(credentials, context);
                     deadline = Math.min(deadline, media.connectBefore * 1000);
                     if (Date.now() >= deadline) {
@@ -527,6 +534,10 @@
             _loading = false;
             clearTimeout(_credentialTimer);
             _credentialTimer = undefined;
+            if (_credentialController) {
+                _credentialController.abort();
+                _credentialController = undefined;
+            }
             if (_credentialReject) {
                 var reject = _credentialReject;
                 _credentialReject = undefined;

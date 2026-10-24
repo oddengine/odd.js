@@ -71,6 +71,10 @@
             _generation = 0,
             _etag,
             _requests = [],
+            _candidates = [],
+            _candidateBytes = 0,
+            _candidatePending = false,
+            _negotiated = false,
             _saver,
             _writer,
             _stats,
@@ -488,6 +492,11 @@
                 var response = await _post(_this.config.whip, offer.sdp, 'publish');
                 var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
                 await _pc.setRemoteDescription(answer);
+                if (_readyState !== State.CONNECTING) {
+                    throw { name: 'AbortError', message: 'RTC negotiation was cancelled.' };
+                }
+                _negotiated = true;
+                _flushCandidates();
             } catch (err) {
                 _this.close(err.message);
                 _logger.error(`Failed to publish: id=${_this.config.id}, stream=${_name}, error=${err}`);
@@ -824,18 +833,23 @@
 
             if (_this.config.credentials) {
                 _sessionId();
-                var context = {
-                    protocol: direction === 'publish' ? 'WHIP' : 'WHEP',
-                    direction: direction,
-                    streamId: direction === 'play' ? _name : _this.getProperty('stream') || '',
-                    connectionId: _connectionId,
-                    instanceId: _connectionId,
-                    generation: String(generation),
-                    audio: direction === 'publish' && _stream.getAudioTracks().length > 0,
-                    video: direction === 'publish' && _stream.getVideoTracks().length > 0,
-                    purpose: _screensharing ? 'screen' : _stream && _stream.getVideoTracks().length ? 'camera' : 'audio',
-                    url: endpoint.href,
-                };
+                var controller = window.AbortController ? new AbortController() : null,
+                    context = {
+                        protocol: direction === 'publish' ? 'WHIP' : 'WHEP',
+                        direction: direction,
+                        streamId: direction === 'play' ? _name : _this.getProperty('stream') || '',
+                        connectionId: _connectionId,
+                        instanceId: _connectionId,
+                        operationId: _connectionId,
+                        createdAt: String(Date.now()),
+                        deadline: deadline,
+                        signal: controller ? controller.signal : undefined,
+                        generation: String(generation),
+                        audio: direction === 'publish' && _stream.getAudioTracks().length > 0,
+                        video: direction === 'publish' && _stream.getVideoTracks().length > 0,
+                        purpose: _screensharing ? 'screen' : _stream && _stream.getVideoTracks().length ? 'camera' : 'audio',
+                        url: endpoint.href,
+                    };
                 credentials = await new Promise(function (resolve, reject) {
                     var timer = setTimeout(function () {
                         finish({ name: 'TimeoutError', message: 'RTC credentials timed out.' });
@@ -847,6 +861,9 @@
                         clearTimeout(timer);
                         _credentialReject = undefined;
                         if (error) {
+                            if (controller) {
+                                controller.abort();
+                            }
                             reject(error);
                         } else {
                             resolve(value);
@@ -1192,6 +1209,11 @@
                 var response = await _post(`${_this.config.whep}/${encodeURIComponent(_name)}`, offer.sdp, 'play');
                 var answer = new RTCSessionDescription({ type: 'answer', sdp: response });
                 await _pc.setRemoteDescription(answer);
+                if (_readyState !== State.CONNECTING) {
+                    throw { name: 'AbortError', message: 'RTC negotiation was cancelled.' };
+                }
+                _negotiated = true;
+                _flushCandidates();
             } catch (err) {
                 _this.close(err.message);
                 _logger.error(`Failed to play: id=${_this.config.id}, stream=${_name}, error=${err}`);
@@ -1255,6 +1277,9 @@
         }
 
         function _onIceCandidate(e) {
+            if (_this.config.trickle !== true || _readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return;
+            }
             var candidate = e.candidate;
             if (candidate == null) {
                 candidate = {
@@ -1265,9 +1290,38 @@
             }
             _logger.log(`onIceCandidate: id=${_this.config.id}, stream=${_name}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
 
-            _patch(candidate).catch((err) => {
-                _logger.error(`Failed to send candidate: id=${_this.config.id}, stream=${_name}, error=${err}`);
-            });
+            // ICE can arrive while credentials or POST are still pending.
+            // Preserve it until the resource exists, with bounded memory.
+            if (_candidates.length >= 64 || candidate.candidate.length > 4096 ||
+                _candidateBytes + candidate.candidate.length > 65536) {
+                _this.close('ICE candidate queue exceeded its limit.');
+                return;
+            }
+            _candidates.push(candidate);
+            _candidateBytes += candidate.candidate.length;
+            _flushCandidates();
+        }
+
+        async function _flushCandidates() {
+            if (!_negotiated || !_location || _candidatePending) {
+                return;
+            }
+            _candidatePending = true;
+            try {
+                // Serialize PATCH so each request consumes the latest ETag.
+                while (_negotiated && _location && _candidates.length) {
+                    var candidate = _candidates.shift();
+                    _candidateBytes -= candidate.candidate.length;
+                    await _patch(candidate);
+                }
+            } catch (err) {
+                if (_readyState !== State.CLOSING && _readyState !== State.CLOSED) {
+                    _logger.error('Failed to send ICE candidate: ' + err.name + '.');
+                    _this.close('ICE candidate update failed.');
+                }
+            } finally {
+                _candidatePending = false;
+            }
         }
 
         _this.record = function (filename, ondata) {
@@ -1401,6 +1455,9 @@
                 case State.PLAYING:
                     _readyState = State.CLOSING;
                     _generation++;
+                    _negotiated = false;
+                    _candidates = [];
+                    _candidateBytes = 0;
                     if (_credentialReject) {
                         _credentialReject();
                     }
