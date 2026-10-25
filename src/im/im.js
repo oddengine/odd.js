@@ -677,7 +677,7 @@
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SPEAKERS_CHANGE,
                                     messaging: false, payload: snapshot });
                             }
-                        });
+                        }, channel && !attempt.ephemeral && attempt.session.ext.messagesVersion === 1);
                     return attempt.messaging.open().then(function () {
                         if (!_this.config.calls || _this.config.calls.enabled !== true) {
                             return;
@@ -1035,7 +1035,7 @@
             }
             if (current && (Protocol.compare64(info.revision, current.revision) < 0 ||
                 Protocol.compare64(info.generation, current.generation) < 0 ||
-                (Protocol.compare64(info.revision, current.revision) === 0 &&
+                (_this.config.profile !== 'channel' && Protocol.compare64(info.revision, current.revision) === 0 &&
                     Protocol.compare64(info.actions, current.actions) !== 0))) {
                 throw _error('NotAllowedError', 'A newer permission is already installed.');
             }
@@ -1113,7 +1113,7 @@
                 options = options || {};
                 var topic = options.topic || 'messages',
                     actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE |
-                        (options.messaging ? Protocol.Action.MESSAGE_COMMIT | Protocol.Action.MESSAGE_READ : 0) : options.actions;
+                        (options.messaging ? Protocol.Action.MESSAGE_COMMIT | (_this.config.profile === 'channel' ? 0 : Protocol.Action.MESSAGE_READ) : 0) : options.actions;
                 _target(target);
                 if (topic === 'events') {
                     actions = options.actions === undefined ? Protocol.Action.MESSAGE_SUBSCRIBE : options.actions;
@@ -1129,8 +1129,17 @@
                 if (options.speakers && (!_attempt.session.ext || _attempt.session.ext.speakersVersion !== 1)) {
                     throw _error('NotSupportedError', 'The server has not enabled speaker observations.');
                 }
-                if (_this.config.profile === 'channel' && (target.type !== 'channel' || target.id !== _this.config.appId || topic !== 'events')) {
-                    throw _error('NotAllowedError', 'Channel discovery must target the authenticated channel.');
+                if (_this.config.profile === 'channel') {
+                    var channelTarget = target.type === 'channel' && target.id === _this.config.appId;
+                    if (topic === 'events' ? !channelTarget : options.messaging ? target.type !== 'conversation' : !channelTarget) {
+                        throw _error('NotAllowedError', 'Use this channel or its resolved message conversation.');
+                    }
+                    if (topic === 'messages' && options.messaging && (_attempt.ephemeral || _attempt.session.ext.messagesVersion !== 1)) {
+                        throw _error('NotSupportedError', 'Channel messages require a named user, durable storage and messagesVersion 1.');
+                    }
+                    if (topic === 'messages' && !options.messaging && _attempt.session.ext.onlineMessages !== true) {
+                        throw _error('NotSupportedError', 'The server has not enabled online channel messages.');
+                    }
                 }
                 var key = topic + ':' + _targetKey(target, options.messaging),
                     existing = _subscriptions[key];

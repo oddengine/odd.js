@@ -37,12 +37,19 @@
 
     // Composes an account/device storage adapter with the existing request
     // table. It owns no socket, timer, credential or independent reconnect loop.
-    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled, stateVersion, speakersChanged) {
+    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled, stateVersion, speakersChanged, messagesEnabled) {
         var _this = this, _closed = false, _pending = 0, _queues = Object.create(null),
             _resolved = Object.create(null), _positions = Object.create(null), _recovering = null,
             _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed, stateVersion, speakersChanged, function (room) {
                 return authorize({ type: 'room', id: room }, Protocol.Action.MESSAGE_SUBSCRIBE, true);
             }) : null;
+
+        var _messages = stateVersion !== 5 || messagesEnabled === true;
+
+        function ordinary() {
+            active();
+            if (!_messages) { throw _error('NotSupportedError', 'Channel messages require a named user and durable storage.'); }
+        }
 
         function active() {
             if (_closed) {
@@ -53,8 +60,10 @@
         _this.open = function () {
             return Promise.resolve().then(function () {
                 active();
-                (stateVersion === 5 ? ['identity', 'open', 'close', 'eventVisit', 'beginEventSnapshot', 'saveEventSnapshot', 'finishEventSnapshot', 'receiveEvents', 'confirmEvents', 'roomState', 'endEvents'] :
-                    ['identity', 'open', 'enqueue', 'pending', 'settle', 'receive', 'position', 'synchronize', 'close']).forEach(function (method) {
+                var methods = ['identity', 'open', 'close'];
+                if (stateVersion === 5) { methods = methods.concat(['eventVisit', 'beginEventSnapshot', 'saveEventSnapshot', 'finishEventSnapshot', 'receiveEvents', 'confirmEvents', 'roomState', 'endEvents']); }
+                if (_messages) { methods = methods.concat(['enqueue', 'pending', 'settle', 'receive', 'position', 'synchronize']); }
+                methods.forEach(function (method) {
                     if (!storage || typeof storage[method] !== 'function') {
                         throw _error('NotSupportedError', 'A durable messaging storage adapter is required.');
                     }
@@ -78,7 +87,10 @@
         _this.maintain = function () { if (_events) { _events.maintain(); } };
 
         _this.resolve = function (target) {
-            active();
+            ordinary();
+            if (stateVersion === 5 && target.type !== 'conversation' && (target.type !== 'channel' || target.id !== identity.appId)) {
+                return Promise.reject(_error('NotAllowedError', 'Resolve the authenticated channel.'));
+            }
             return request(Opcode.RESOLVE, [_field('target', Type.OBJECT, _target(target))]).then(function (info) {
                 active();
                 if (target.type === 'conversation' && target.id !== info.conversationId) {
@@ -144,6 +156,7 @@
         }
 
         _this.publish = function (fields) {
+            ordinary();
             return Promise.resolve().then(function () {
                 active();
                 var target = _object(fields[0].value), body = fields[1].value;
@@ -177,6 +190,7 @@
         };
 
         _this.identity = function (target, supplied) {
+            ordinary();
             return resolution(target).then(function (info) {
                 active();
                 var id = supplied === undefined ? Protocol.messageId(info.partition, info.partitions) : supplied;
@@ -277,6 +291,7 @@
         }
 
         _this.receive = function (page) {
+            ordinary();
             return serialize(page.conversationId, function () {
                 if (page.kind !== 'messages' || !page.conversationId) {
                     throw _error('DataError', 'Unknown reliable delivery page.');
@@ -286,6 +301,7 @@
         };
 
         _this.fetch = function (conversation, cursor, limit) {
+            ordinary();
             limit = limit === undefined ? 50 : limit;
             if (!Number.isInteger(limit) || limit < 1 || limit > 64) {
                 return Promise.reject(_error('RangeError', 'A message page must request 1 to 64 records.'));
@@ -299,6 +315,7 @@
         };
 
         _this.commit = function (kind, cursor) {
+            ordinary();
             return Promise.resolve().then(function () {
                 active();
                 var conversation = Object.keys(_positions).filter(function (id) { return _same(_positions[id], cursor); })[0];
@@ -316,6 +333,7 @@
         };
 
         _this.sync = function (kind, cursor, limit) {
+            ordinary();
             active();
             return request(Opcode.SYNC, [
                 _field('kind', Type.STRING, kind), _field('cursor', Type.BYTES, cursor || new Uint8Array(0)),
@@ -350,7 +368,7 @@
         };
 
         _this.recover = function () {
-            if (stateVersion === 5) { return Promise.resolve(); }
+            if (!_messages) { return Promise.resolve(); }
             if (_recovering) {
                 return _recovering;
             }
@@ -422,11 +440,11 @@
                 });
             }
             _recovering = Promise.resolve().then(function () {
-                return synchronize('conversations', new Uint8Array(0));
+                return stateVersion === 5 ? undefined : synchronize('conversations', new Uint8Array(0));
             }).then(function () {
                 return page('');
             }).then(function () {
-                return synchronize('results', new Uint8Array(0));
+                return stateVersion === 5 ? undefined : synchronize('results', new Uint8Array(0));
             }).then(function () { return { complete: true }; });
             return _recovering.then(function (result) { _recovering = null; return result; }, function (error) {
                 _recovering = null;

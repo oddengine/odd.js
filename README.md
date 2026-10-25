@@ -1,5 +1,7 @@
 # odd.js
 
+[频道普通消息](doc/channel-messages.md)：具名用户使用稳定设备与持久存储；在线广播和可靠消息沿原消息接口，媒体发现仍使用 events。
+
 Shared regional discovery / 共享地域入口：[中文](doc/routing.md) · [English](doc/routing.en.md)。IM、RTC、Player复用公开地域提示；媒体目标、凭据和原子分配保持各自职责。
 
 [正常密钥轮转](doc/key-rotation.md)已接入按需重取：HTTP 明确凭据失效最多重试一次；频道 IM 新连接主动取新票据。已建立的连接不因普通换钥断开。
