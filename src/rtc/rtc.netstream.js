@@ -916,7 +916,22 @@
                     // still leaves a bounded cleanup using only its own proof.
                     _location = _media.resource;
                     _etag = '*';
-                    var live = await _requestLive('POST', _media.url, sdp, 'application/sdp', '', deadline, 1048576);
+                    var currentMedia = _media, live;
+                    _credentialReject = function () { if (controller) { controller.abort(); } };
+                    try {
+                        try {
+                            live = await _requestLive('POST', currentMedia.url, sdp, 'application/sdp', '', deadline, 1048576);
+                        } catch (error) {
+                            if (!error.credentialExpired || _readyState !== State.CONNECTING || generation !== _generation) { throw error; }
+                            await currentMedia.renew(_this.config.credentials);
+                            if (_readyState !== State.CONNECTING || generation !== _generation) {
+                                throw { name: 'AbortError', message: 'Live media renewal was cancelled.' };
+                            }
+                            live = await _requestLive('POST', currentMedia.url, sdp, 'application/sdp', '', deadline, 1048576);
+                        }
+                    } finally {
+                        _credentialReject = undefined;
+                    }
                     if (_readyState !== State.CONNECTING || generation !== _generation) {
                         throw { name: 'AbortError', message: 'Live media negotiation was cancelled.' };
                     }
@@ -1049,7 +1064,8 @@
                     credentials: 'omit', cache: 'no-store', redirect: 'error', mode: 'cors',
                 });
                 if (!response.ok || response.url !== url || response.redirected) {
-                    throw { name: 'NetworkError', message: 'Live media request failed: status=' + response.status + '.' };
+                    throw { name: 'NetworkError', message: 'Live media request failed: status=' + response.status + '.',
+                        credentialExpired: method === 'POST' && response.url === url && !response.redirected && utils.MediaRequest.expired(response) };
                 }
                 var decoder = new TextDecoder('utf-8', { fatal: true }), text = '', size = 0;
                 if (response.body) {

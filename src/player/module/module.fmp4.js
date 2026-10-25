@@ -492,7 +492,6 @@
                         return;
                     }
                     _credentialReject = undefined;
-                    _credentialController = undefined;
                     var media = new utils.MediaRequest(credentials, context);
                     deadline = Math.min(deadline, media.connectBefore * 1000);
                     if (Date.now() >= deadline) {
@@ -518,6 +517,13 @@
                         }
                     }
                     utils.extendz(option.headers, media.headers('GET'));
+                    option.renew = async function () {
+                        await media.renew(_this.config.credentials);
+                        if (_destroyed || generation !== _generation) {
+                            throw { name: 'AbortError', message: 'Live media renewal was cancelled.' };
+                        }
+                        return media.headers('GET');
+                    };
                 }
                 _initLoader(option, target);
                 _loader.load(target);

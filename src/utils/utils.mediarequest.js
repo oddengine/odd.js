@@ -52,13 +52,34 @@
             instance = value.instanceId,
             generation = value.generation,
             ticket = value.ticket,
-            purpose = context.purpose;
+            purpose = context.purpose,
+            binding = Object.assign({}, value),
+            renewed = false;
 
         _this.url = endpoint.href;
         _this.resource = suffix ? '' : endpoint.href + '/' + instance;
         _this.streamId = value.streamId;
         _this.instanceId = instance;
         _this.connectBefore = value.connectBefore;
+
+        _this.renew = async function (provider) {
+            if (renewed) {
+                throw { name: 'NotAllowedError', message: 'Credential renewal has already been attempted.' };
+            }
+            renewed = true;
+            var fresh = await MediaRequest.credentials(provider, Object.assign({}, context, {
+                reason: 'credential_expired', forceRefresh: true,
+            }));
+            if (!fresh || typeof fresh.token !== 'string' || !fresh.token || fresh.token.length > 8192 ||
+                /[^\x21-\x7e]/.test(fresh.token) || !Number.isSafeInteger(fresh.connectBefore) ||
+                fresh.connectBefore <= Date.now() / 1000 ||
+                ['product', 'appId', 'channelAppId', 'userId', 'nodeId', 'bootId', 'streamId', 'instanceId', 'generation', 'url', 'ticket']
+                    .some(function (key) { return fresh[key] !== binding[key]; })) {
+                throw { name: 'InvalidModificationError', message: 'Credential renewal changed the assigned media resource.' };
+            }
+            token = fresh.token;
+            _this.connectBefore = fresh.connectBefore;
+        };
 
         _this.headers = function (method) {
             var headers = { 'Odd-Media-Boot': boot, 'Odd-Media-Proof': proof };
@@ -74,6 +95,45 @@
             return headers;
         };
     }
+
+    // A bounded provider call. Provider cancellation and the original operation
+    // deadline remain effective even when the customer's Promise ignores abort.
+    MediaRequest.credentials = function (provider, context) {
+        return new Promise(function (resolve, reject) {
+            var controller = new AbortController(), done = false,
+                signal = context.signal,
+                remaining = context.deadline - Date.now(),
+                timer;
+            function finish(error, value) {
+                if (done) { return; }
+                done = true;
+                clearTimeout(timer);
+                if (signal) { signal.removeEventListener('abort', cancel); }
+                if (error) { controller.abort(); reject(error); } else { resolve(value); }
+            }
+            function cancel() { finish({ name: 'AbortError', message: 'Credential acquisition was cancelled.' }); }
+            if (!Number.isFinite(remaining) || remaining <= 0) {
+                finish({ name: 'TimeoutError', message: 'Credential acquisition timed out.' });
+                return;
+            }
+            if (signal) {
+                signal.addEventListener('abort', cancel, { once: true });
+                if (signal.aborted) { cancel(); return; }
+            }
+            timer = setTimeout(function () {
+                finish({ name: 'TimeoutError', message: 'Credential acquisition timed out.' });
+            }, Math.min(remaining, 2147483647));
+            Promise.resolve().then(function () {
+                if (done) { return; }
+                return provider(Object.assign({}, context, { signal: controller.signal }));
+            }).then(function (value) { finish(null, value); }, finish);
+        });
+    };
+
+    MediaRequest.expired = function (response) {
+        return response.status === 401 &&
+            response.headers.get('WWW-Authenticate') === 'Bearer error="invalid_token"';
+    };
 
     odd.utils.MediaRequest = MediaRequest;
 })(odd);

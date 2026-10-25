@@ -49,3 +49,5 @@ ICE候选先进入有界队列，POST及远端SDP成功后才串行PATCH，并�
 `utils.MediaRequest`复用同一身份／请求头校验；`RTC.NetStream`继续原采集、PeerConnection和媒体生命周期；FLV／FMP4模块继续原解复用器和IO.Fetch。源码加载须在这些模块前包含`utils.mediarequest.js`，已加入common构建清单。
 
 本次只做源码及diff审阅，未构建、运行浏览器或重建release产物；部署端须配置对应CORS请求头并暴露Location／ETag。自动顺序换资源包、RTMP／RTSP产品凭据入口及跨节点媒体中继仍由服务端后续工作闭合，不以SDK接线宣称全部上线。
+
+正常轮转的失效恢复、forceRefresh 回调及取消边界见[凭据重取](key-rotation.md)。

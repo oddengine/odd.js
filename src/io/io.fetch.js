@@ -62,7 +62,23 @@
                 signal: _controller.signal,
             });
 
-            fetch(url.href, options).then(function (res) {
+            fetch(url.href, options).then(async function (res) {
+                if (typeof _this.config.renew === 'function' && utils.MediaRequest &&
+                    res.url === url.href && !res.redirected && utils.MediaRequest.expired(res)) {
+                    if (res.body) { await res.body.cancel(); }
+                    var headers = await _this.config.renew();
+                    if (_controller.signal.aborted) {
+                        throw { name: 'AbortError', message: 'Loader renewal was cancelled.' };
+                    }
+                    Object.keys(headers).forEach(function (name) { options.headers.set(name, headers[name]); });
+                    res = await fetch(url.href, options);
+                }
+                if (_controller.signal.aborted) {
+                    if (res.body) { await res.body.cancel(); }
+                    throw { name: 'AbortError', message: 'Loader was cancelled.' };
+                }
+                return res;
+            }).then(function (res) {
                 switch (_readyState) {
                     case ReadyState.OPEN:
                         _readyState = ReadyState.SENT;

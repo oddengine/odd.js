@@ -242,6 +242,11 @@
             });
             var context = Object.freeze({
                 connectionId: _connectionId,
+                reason: _retried ? 'reconnect' : 'connect',
+                // Browsers conceal failed WebSocket handshake HTTP responses.
+                // Request a fresh channel ticket before each connection instead
+                // of treating every network failure as an authentication error.
+                forceRefresh: _this.config.profile === 'channel',
                 generation: String(attempt.generation),
                 url: attempt.url,
                 appId: _this.config.appId,

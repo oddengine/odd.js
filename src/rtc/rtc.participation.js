@@ -56,7 +56,7 @@
             throw { name: 'TypeError', message: 'Invalid RTC participation configuration.' };
         }
         if (!window.crypto || !window.crypto.getRandomValues || !window.fetch || !window.AbortController ||
-            !window.ReadableStream || !window.TextDecoder) {
+            !window.ReadableStream || !window.TextDecoder || !odd.utils.MediaRequest) {
             throw { name: 'NotSupportedError', message: 'RTC participation requires secure Fetch and cancellation.' };
         }
 
@@ -66,13 +66,15 @@
                 (body !== undefined && (typeof body !== 'string' || body.length > 1048576))) {
                 throw { name: 'QuotaExceededError', message: 'RTC request exceeds its limit.' };
             }
+            var originalDeadline = deadline;
             deadline = Math.min(deadline, Date.now() + timeout);
             if (method === 'POST') {
                 deadline = Math.min(deadline, entry.credentials.connectBefore * 1000);
             }
             var remaining = deadline - Date.now();
             if (remaining <= 0) {
-                throw { name: 'TimeoutError', message: 'RTC participation request timed out.' };
+                throw { name: 'TimeoutError', message: 'RTC participation request timed out.',
+                    credentialExpired: method === 'POST' && Date.now() < originalDeadline && Date.now() >= entry.credentials.connectBefore * 1000 };
             }
             var controller = new AbortController(), expired = false;
             var timer = setTimeout(function () {
@@ -118,7 +120,8 @@
                 }
                 if ((response.status < 200 || response.status > 299) &&
                     !(method === 'DELETE' && (response.status === 404 || response.status === 410))) {
-                    throw { name: 'NetworkError', message: 'RTC request failed: status=' + response.status + '.', status: response.status };
+                    throw { name: 'NetworkError', message: 'RTC request failed: status=' + response.status + '.', status: response.status,
+                        credentialExpired: method === 'POST' && odd.utils.MediaRequest.expired(response) };
                 }
                 var length = response.headers.get('Content-Length');
                 if (length !== null && (!/^\d+$/.test(length) || Number(length) > limit)) {
@@ -174,6 +177,7 @@
             var job = _pending;
             _pending = undefined;
             job.cancelled = true;
+            job.reject({ name: 'AbortError', message: 'RTC preparation was cancelled.' });
             clearTimeout(job.timer);
             job.requests.forEach(function (_, controller) { controller.abort(); });
         }
@@ -187,7 +191,7 @@
             if (member.waiting) {
                 member.reject({ name: 'AbortError', message: 'RTC participation wait was cancelled.' });
             }
-            if (!Array.from(_members).some(function (item) { return item.waiting; })) {
+            if (!Array.from(_members).some(function (item) { return item.waiting || item.renewing; })) {
                 _cancelPending();
             }
             if (!_members.size && _current && !_closed) {
@@ -287,13 +291,38 @@
                         target.href !== media.url + (method === 'POST' ? '' : '/' + media.instanceId)) {
                         return Promise.reject({ name: 'SecurityError', message: 'RTC media left its owned resource.' });
                     }
-                    return _request(entry, method, target.href, body, type, etag, deadline, member.requests, limit, media)
-                        .catch(function (error) {
-                            if (error.status === 410) {
-                                _invalidate(entry, error);
-                            }
+                    var credentials = entry.credentials;
+                    try {
+                        return await _request(entry, method, target.href, body, type, etag, deadline, member.requests, limit, media);
+                    } catch (error) {
+                        if (error.status === 410) { _invalidate(entry, error); }
+                        if (!error.credentialExpired || method !== 'POST' || !_members.has(member) || _closed || _current !== entry) {
                             throw error;
-                        });
+                        }
+                    }
+                    // Another stream may already have replaced this same JWT.
+                    // All new-admission failures otherwise share one preparation.
+                    if (entry.credentials === credentials) {
+                        member.renewing = (member.renewing || 0) + 1;
+                        var controller = new AbortController();
+                        member.requests.set(controller, 'RENEW');
+                        try {
+                            await odd.utils.MediaRequest.credentials(function () { return _prepare(deadline, true); }, {
+                                deadline: deadline, signal: controller.signal,
+                            });
+                        } finally {
+                            member.requests.delete(controller);
+                            member.renewing--;
+                            if (!Array.from(_members).some(function (item) { return item.waiting || item.renewing; })) {
+                                _cancelPending();
+                            }
+                        }
+                    }
+                    if (!_members.has(member) || _closed || _current !== entry || entry.releasing) {
+                        throw { name: 'AbortError', message: 'RTC renewal was cancelled.' };
+                    }
+                    return _request(entry, method, target.href, body, type, etag, deadline, member.requests, limit, media);
+
                 },
                 abort: function () {
                     member.requests.forEach(function (method, controller) {
@@ -330,6 +359,7 @@
             _pending = undefined;
             clearTimeout(job.timer);
             job.cancelled = true;
+            job.reject(error);
             job.requests.forEach(function (_, controller) { controller.abort(); });
             Array.from(_members).forEach(function (member) {
                 if (member.waiting) {
@@ -345,27 +375,46 @@
                 var previous = job.previous;
                 var entry = previous || { requestId: requestId(), proof: btoa(String.fromCharCode.apply(null, random(32)))
                     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
-                var credentials = await config.credentials({
-                    reason: previous ? 'refresh' : 'join', connectionId: entry.requestId, generation: String(++_generation),
-                });
-                if (job.cancelled || _closed || _pending !== job) {
-                    return;
+                var credentials, target, candidate, result, generation = String(++_generation);
+                for (var attempt = 0; attempt < (job.forceRefresh ? 1 : 2); attempt++) {
+                    var controller = new AbortController();
+                    job.requests.set(controller, 'CREDENTIALS');
+                    try {
+                        credentials = await odd.utils.MediaRequest.credentials(config.credentials, {
+                            reason: attempt || job.forceRefresh ? 'credential_expired' : previous ? 'refresh' : 'join',
+                            forceRefresh: attempt > 0 || job.forceRefresh, connectionId: entry.requestId, generation: generation,
+                            deadline: job.deadline, signal: controller.signal,
+                        });
+                    } finally {
+                        job.requests.delete(controller);
+                    }
+                    if (job.cancelled || _closed || _pending !== job) { return; }
+                    if (!credentials || typeof credentials.token !== 'string' || !credentials.token ||
+                        credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
+                        !Number.isSafeInteger(credentials.connectBefore)) {
+                        throw { name: 'DataError', message: 'Invalid RTC participant credentials.' };
+                    }
+                    var next = endpoint(credentials.url);
+                    if ((previous && next.href !== previous.url) || (target && next.href !== target.href)) {
+                        throw { name: 'InvalidModificationError', message: 'RTC renewal cannot move its participant.' };
+                    }
+                    target = next;
+                    if (credentials.connectBefore <= Date.now() / 1000) {
+                        if (attempt === 0 && !job.forceRefresh) { continue; }
+                        throw { name: 'NotAllowedError', message: 'RTC participant credentials have expired.' };
+                    }
+                    // Replace shared credentials only after admission succeeds.
+                    candidate = Object.assign({}, entry, { url: target.href, credentials: {
+                        token: credentials.token, connectBefore: credentials.connectBefore,
+                    } });
+                    try {
+                        result = await _request(candidate, 'POST', candidate.url, JSON.stringify({ requestId: entry.requestId }),
+                            'application/json', '', job.deadline, job.requests, 16384);
+                        break;
+                    } catch (error) {
+                        if (!error.credentialExpired || attempt || job.forceRefresh || job.cancelled || _pending !== job) { throw error; }
+                    }
                 }
-                if (!credentials || typeof credentials.token !== 'string' || !credentials.token ||
-                    credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
-                    !Number.isSafeInteger(credentials.connectBefore) || credentials.connectBefore <= Date.now() / 1000) {
-                    throw { name: 'DataError', message: 'Invalid RTC participant credentials.' };
-                }
-                var target = endpoint(credentials.url);
-                if (previous && target.href !== previous.url) {
-                    throw { name: 'InvalidModificationError', message: 'RTC refresh cannot move its participant.' };
-                }
-                // A rejected refresh must not replace credentials on established media.
-                var candidate = Object.assign({}, entry, { url: target.href, credentials: {
-                    token: credentials.token, connectBefore: credentials.connectBefore,
-                } });
-                var result = await _request(candidate, 'POST', candidate.url, JSON.stringify({ requestId: entry.requestId }),
-                    'application/json', '', Math.min(job.deadline, credentials.connectBefore * 1000), job.requests, 16384);
                 if ((result.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase() !== 'application/json') {
                     throw { name: 'DataError', message: 'Invalid RTC participation response type.' };
                 }
@@ -400,6 +449,7 @@
                 _current = previous ? Object.assign(previous, candidate) : candidate;
                 _pending = undefined;
                 clearTimeout(job.timer);
+                job.resolve(_current);
                 _members.forEach(_deliver);
             } catch (error) {
                 if (error.status === 410 && previous) {
@@ -407,6 +457,21 @@
                 }
                 _failed(job, error);
             }
+        }
+
+        function _prepare(deadline, forceRefresh) {
+            if (_pending) { return _pending.promise; }
+            var job = { deadline: deadline, previous: _current, requests: new Map(), cancelled: false, forceRefresh: forceRefresh };
+            job.promise = new Promise(function (resolve, reject) { job.resolve = resolve; job.reject = reject; });
+            // acquire delivers through its individual waiters; media renewal
+            // awaits the same Promise. Both paths handle failure explicitly.
+            job.promise.catch(function () {});
+            _pending = job;
+            job.timer = setTimeout(function () {
+                _failed(job, { name: 'TimeoutError', message: 'RTC participation preparation timed out.' });
+            }, Math.max(1, deadline - Date.now()));
+            _start(job);
+            return job.promise;
         }
 
         _this.acquire = function (deadline, stop) {
@@ -437,13 +502,8 @@
             }, Math.max(1, deadline - Date.now()));
             if (_current && _current.credentials.connectBefore > Date.now() / 1000) {
                 _deliver(member);
-            } else if (!_pending) {
-                var job = { deadline: deadline, previous: _current, requests: new Map(), cancelled: false };
-                _pending = job;
-                job.timer = setTimeout(function () {
-                    _failed(job, { name: 'TimeoutError', message: 'RTC participation preparation timed out.' });
-                }, Math.max(1, deadline - Date.now()));
-                _start(job);
+            } else {
+                _prepare(deadline, false);
             }
             return ticket;
         };
