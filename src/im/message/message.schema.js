@@ -123,7 +123,7 @@
             { key: 'deviceId', type: Type.STRING, required: false },
         ]);
         var kind = fields[0].value;
-        if (['room', 'group', 'user', 'endpoint', 'conversation', 'stream'].indexOf(kind) < 0 ||
+        if (['room', 'group', 'user', 'endpoint', 'conversation', 'stream', 'channel'].indexOf(kind) < 0 ||
             (kind === 'endpoint') !== (fields.length === 3)) {
             _fail('DataError', 'Invalid target type or device.');
         }
@@ -314,6 +314,7 @@
                 { key: 'head', type: Type.UINT64 }, { key: 'floor', type: Type.UINT64 },
                 { key: 'snapshot', type: Type.ARRAY }, { key: 'snapshotReady', type: Type.BOOL },
                 { key: 'stateVersion', type: Type.UINT16, required: false },
+                { key: 'snapshotPage', type: Type.OBJECT, required: false },
                 { key: 'subscriptionId', type: Type.STRING, required: opcode === Opcode.SUBSCRIBE },
                 { key: 'cursor', type: Type.BYTES, required: opcode === Opcode.SUBSCRIBE },
                 { key: 'delivery', type: Type.OBJECT }, { key: 'target', type: Type.OBJECT },
@@ -344,6 +345,13 @@
                 { key: 'wallet', type: Type.OBJECT, required: false },
             ]);
         } else if (opcode === Opcode.FETCH) {
+            if (fields[0] && fields[0].value === 'event-snapshot') {
+                _validateFields(fields, [{ key: 'kind', type: Type.STRING }, { key: 'epoch', type: Type.UINT64 },
+                    { key: 'head', type: Type.UINT64 }, { key: 'snapshot', type: Type.ARRAY },
+                    { key: 'snapshotPage', type: Type.OBJECT }]);
+                _validateSnapshotPage(fields[4].value);
+                return;
+            }
             if (fields[0] && fields[0].value === 'event-origins') {
                 return _validateEventOrigins(fields);
             }
@@ -362,6 +370,7 @@
         if (opcode === Opcode.RESOLVE || opcode === Opcode.SUBSCRIBE || opcode === Opcode.REFRESH) {
             _validatePartition(fields[2].value, fields[3].value);
             fields.forEach(function (field) {
+                if (field.key === 'snapshotPage') { _validateSnapshotPage(field.value); }
                 if (field.key === 'delivery') {
                     _validateFields(field.value, [
                         { key: 'expiresAt', type: Type.UINT64 }, { key: 'ackInterval', type: Type.UINT32 },
@@ -380,6 +389,12 @@
         }
     }
 
+    function _validateSnapshotPage(fields) {
+        _validateFields(fields, [{ key: 'cursor', type: Type.BYTES }, { key: 'done', type: Type.BOOL },
+            { key: 'expiresAt', type: Type.UINT64 }]);
+        if (_bytes(fields[0].value).length !== 16) { _fail('DataError', 'Invalid snapshot page cursor.'); }
+    }
+
     function _validateEventPage(fields) {
         _validateFields(fields, [
             { key: 'kind', type: Type.STRING }, { key: 'conversationId', type: Type.STRING },
@@ -395,10 +410,14 @@
         _validateFields(fields, [
             { key: 'kind', type: Type.STRING }, { key: 'conversationId', type: Type.STRING },
             { key: 'epoch', type: Type.UINT64 }, { key: 'revision', type: Type.UINT64 },
-            { key: 'items', type: Type.ARRAY },
+            { key: 'items', type: Type.ARRAY }, { key: 'page', type: Type.OBJECT, required: false },
         ]);
-        if (fields[0].value !== 'event-origins' || fields[4].value.length > 128) {
+        if (fields[0].value !== 'event-origins' || fields[4].value.length > (fields[5] ? 32 : 128)) {
             _fail('DataError', 'Invalid room source identity notice.');
+        }
+        if (fields[5]) {
+            _validateFields(fields[5].value, [{ key: 'after', type: Type.STRING }, { key: 'done', type: Type.BOOL }]);
+            if (fields[5].value[0].value.length > 128) { _fail('DataError', 'Invalid source identity page cursor.'); }
         }
     }
 
@@ -451,6 +470,14 @@
     Protocol.validateResult = _validateResult;
     Protocol.compareEventState = function (left, right) {
         var zero = { high: 0, low: 0 };
+        if (left.kind === 'channel.publication' || right.kind === 'channel.publication') {
+            if (left.kind !== right.kind || left.payload.appId !== right.payload.appId ||
+                left.payload.streamId !== right.payload.streamId || left.payload.instanceId !== right.payload.instanceId) {
+                _fail('DataError', 'Channel publication identity changed.');
+            }
+            return Protocol.compare64(left.payload.channelGeneration, right.payload.channelGeneration) ||
+                Protocol.compare64(left.payload.generation, right.payload.generation) || Protocol.compare64(left.revision, right.revision);
+        }
         return Protocol.compare64(left.payload.roomGeneration, right.payload.roomGeneration) ||
             Protocol.compare64(left.payload.publisherGeneration || zero, right.payload.publisherGeneration || zero) ||
             Protocol.compare64(left.revision, right.revision);

@@ -22,8 +22,11 @@
             appId: '',
             connectionId: '',
             credentials: null,
+            profile: '',
+            deviceId: '',
             socketFactory: null,
             storageFactory: null,
+            channelStateBytes: 8388608,
             roomRequest: null,
             calls: null,
             connectTimeout: 10000,
@@ -152,6 +155,13 @@
                 (_this.config.storageFactory !== null && typeof _this.config.storageFactory !== 'function')) {
                 return Promise.reject(_error('TypeError', 'Invalid IM connection configuration.'));
             }
+            if (['', 'channel'].indexOf(_this.config.profile) < 0 ||
+                (_this.config.profile === 'channel' && (!_this.config.appId || !_this.config.credentials)) ||
+                (_this.config.deviceId && (_this.config.profile !== 'channel' ||
+                !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_this.config.deviceId) ||
+                _this.config.deviceId === '00000000-0000-0000-0000-000000000000'))) {
+                return Promise.reject(_error('TypeError', 'Invalid channel profile or device identity.'));
+            }
             if (_this.config.appId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_this.config.appId)) {
                 return Promise.reject(_error('TypeError', 'Invalid product AppID.'));
             }
@@ -267,13 +277,17 @@
 
                 var protocols = ['odd.im.v3'];
                 if (credentials.ticket !== undefined) {
-                    if (typeof credentials.ticket !== 'string' || credentials.ticket.length > 4096 ||
+                    if (typeof credentials.ticket !== 'string' || credentials.ticket.length > (_this.config.profile === 'channel' ? 8192 : 4096) ||
                         !/^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)?$/.test(credentials.ticket)) {
                         throw _error('DataError', 'Handshake ticket must be an opaque ticket or a signed admission proof.');
                     }
                     protocols.push('odd.ticket.' + credentials.ticket);
                 }
 
+                if (_this.config.profile === 'channel') {
+                    if (!credentials.ticket) { throw _error('NotAllowedError', 'A channel admission ticket is required.'); }
+                    if (_this.config.deviceId) { protocols.push('odd.device.' + _this.config.deviceId); }
+                }
                 var factory = _this.config.socketFactory;
                 if (!factory && typeof WebSocket === 'undefined') {
                     throw _error('NotSupportedError', 'Provide a WebSocket adapter on this platform.');
@@ -362,7 +376,7 @@
                     { key: 'id', type: Protocol.Type.STRING },
                 ]);
                 if (payload.sessionId.length !== 16 || !_integer(payload.principal.kind, 1, 3) ||
-                    !payload.principal.id || Protocol.text(payload.principal.id).length > 128 ||
+                    (!payload.principal.id && !(_this.config.profile === 'channel' && payload.principal.kind === 3)) || Protocol.text(payload.principal.id).length > 128 ||
                     payload.protocolVersion !== Protocol.VERSION || !payload.serverVersion ||
                     !_integer(payload.maxPacketBytes, Protocol.HEADER_SIZE, Protocol.MAX_PACKET_SIZE) ||
                     !_integer(payload.maxPending, 1, 65535) || _milliseconds(payload.expiresAt) <= Date.now()) {
@@ -371,6 +385,10 @@
                 if (_this.config.appId && (!payload.ext || payload.ext.appId !== _this.config.appId ||
                     payload.ext.product !== 'im')) {
                     throw _error('SecurityError', 'Authenticated session does not belong to the requested IM App.');
+                }
+                if (_this.config.profile === 'channel' && (!payload.ext || payload.ext.profile !== 'channel' ||
+                    payload.ext.stateVersion !== 5 || (payload.principal.id && _this.config.deviceId && payload.deviceId !== _this.config.deviceId))) {
+                    throw _error('SecurityError', 'Channel profile or device identity changed.');
                 }
                 attempt.session = payload;
                 attempt.maxPacketBytes = payload.maxPacketBytes;
@@ -600,7 +618,7 @@
         }
 
         function _openMessaging(attempt) {
-            if (!_this.config.storageFactory) {
+            if (!_this.config.storageFactory && _this.config.profile !== 'channel') {
                 if (_this.config.calls && _this.config.calls.enabled === true) {
                     return Promise.reject(_error('NotSupportedError', 'Calls requires persistent account storage.'));
                 }
@@ -608,12 +626,17 @@
             }
             return Promise.resolve().then(function () {
                 var session = attempt.session;
-                if (!IM.Messaging || session.principal.kind !== 1 || !session.deviceId ||
+                var channel = _this.config.profile === 'channel';
+                if (!IM.Messaging || (session.principal.kind !== 1 && !(channel && session.principal.kind === 3)) || !session.deviceId ||
                     !session.ext || !session.ext.appId || session.ext.messaging !== true) {
                     throw _error('NotSupportedError', 'This session does not support durable messaging.');
                 }
                 var identity = Object.freeze({ appId: session.ext.appId, userId: session.principal.id, deviceId: session.deviceId });
-                return Promise.resolve(_this.config.storageFactory(identity)).then(function (storage) {
+                attempt.ephemeral = channel && (!session.principal.id || !_this.config.storageFactory);
+                if (channel && !attempt.ephemeral && !_this.config.deviceId) {
+                    throw _error('NotAllowedError', 'Persistent channel storage requires a stable client deviceId.');
+                }
+                return Promise.resolve(attempt.ephemeral ? new IM.Events.Memory(identity, { maxStateBytes: _this.config.channelStateBytes }) : _this.config.storageFactory(identity)).then(function (storage) {
                     if (_attempt !== attempt) {
                         if (storage && typeof storage.close === 'function') {
                             storage.close();
@@ -640,7 +663,7 @@
                                     messaging: true, payload: change });
                             }
                         }, function (error) { _end(attempt, error); }, attempt.session.ext.events === true,
-                        attempt.session.ext.stateVersion >= 2 ? Math.min(attempt.session.ext.stateVersion, 4) : 1,
+                        channel ? 5 : attempt.session.ext.stateVersion >= 2 ? Math.min(attempt.session.ext.stateVersion, 4) : 1,
                         function (snapshot) {
                             if (_attempt === attempt) {
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SPEAKERS_CHANGE,
@@ -1020,7 +1043,7 @@
                 _field('target', Protocol.Type.OBJECT, _target(intention.target)),
                 _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: intention.actions }),
             ];
-            var joining = intention.topic === 'events' ? attempt.messaging.events().join(intention.target.id, intention.resume, function (info) {
+            var joining = intention.topic === 'events' ? attempt.messaging.events().join(intention.target.id, intention.resume && !attempt.ephemeral, function (info) {
                 intention.id = info.subscriptionId;
                 if (_attempt !== attempt || _subscriptions[key] !== intention) {
                     throw _error('AbortError', 'The room visit was cancelled while joining.');
@@ -1088,7 +1111,7 @@
                 }
                 if ((topic !== 'messages' && topic !== 'events') || !_integer(actions, 1, 1023) ||
                     !(actions & Protocol.Action.MESSAGE_SUBSCRIBE) ||
-                    (topic === 'events' && (!options.messaging || target.type !== 'room' || actions !== Protocol.Action.MESSAGE_SUBSCRIBE))) {
+                    (topic === 'events' && (!options.messaging || (target.type !== 'room' && target.type !== 'channel') || actions !== Protocol.Action.MESSAGE_SUBSCRIBE))) {
                     throw _error('TypeError', 'Invalid subscription options.');
                 }
                 if (options.speakers !== undefined && (typeof options.speakers !== 'boolean' || topic !== 'events')) {
@@ -1096,6 +1119,9 @@
                 }
                 if (options.speakers && (!_attempt.session.ext || _attempt.session.ext.speakersVersion !== 1)) {
                     throw _error('NotSupportedError', 'The server has not enabled speaker observations.');
+                }
+                if (_this.config.profile === 'channel' && (target.type !== 'channel' || target.id !== _this.config.appId || topic !== 'events')) {
+                    throw _error('NotAllowedError', 'Channel discovery must target the authenticated channel.');
                 }
                 var key = topic + ':' + _targetKey(target, options.messaging),
                     existing = _subscriptions[key];
@@ -1162,14 +1188,14 @@
                 }
                 var attempt = _attempt,
                     version = _permissionVersions[key],
-                    eventRoom = messaging && target.type === 'room',
+                    eventRoom = messaging && (target.type === 'room' || target.type === 'channel'),
                     fields = eventRoom ? [_field('topic', Protocol.Type.STRING, 'events'),
                         _field('target', Protocol.Type.OBJECT, _target(target))] : [
                         _field('target', Protocol.Type.OBJECT, _target(target)),
                         _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
                     ];
                 if (eventRoom && attempt.session.ext.stateVersion >= 2) {
-                    fields.push(_field('stateVersion', Protocol.Type.UINT16, Math.min(attempt.session.ext.stateVersion, 4)));
+                    fields.push(_field('stateVersion', Protocol.Type.UINT16, target.type === 'channel' ? 5 : Math.min(attempt.session.ext.stateVersion, 4)));
                 }
                 var intention = eventRoom && _subscriptions['events:' + key];
                 if (intention && intention.speakers) {
@@ -1286,6 +1312,19 @@
                     ], true);
                 });
             });
+        };
+
+        _this.subscribeChannel = function (options) {
+            if (_this.config.profile !== 'channel') { return Promise.reject(_error('NotSupportedError', 'A channel session is required.')); }
+            return _this.subscribe({ type: 'channel', id: _this.config.appId },
+                Object.assign({}, options, { topic: 'events', messaging: true, speakers: false }));
+        };
+
+        _this.channelState = function () {
+            if (_this.config.profile !== 'channel' || !_attempt || !_attempt.messaging) {
+                return Promise.reject(_error('InvalidStateError', 'Channel discovery is not connected.'));
+            }
+            return _attempt.messaging.events().state(_this.config.appId);
         };
 
         _this.roomState = function (room) {

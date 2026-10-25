@@ -102,7 +102,7 @@
                     reject(_error('NotSupportedError', 'IndexedDB is unavailable.'));
                     return;
                 }
-                var request = indexedDB.open(_name, 5), failed = false;
+                var request = indexedDB.open(_name, 6), failed = false;
                 request.onupgradeneeded = function () {
                     if (_closed || failed) {
                         request.transaction.abort();
@@ -147,6 +147,10 @@
                         events.createIndex('sequence', ['stream', 'epochHigh', 'epochLow', 'high', 'low'], { unique: true });
                         events.createIndex('expiresAt', 'expiresAt');
                         database.createObjectStore('visits', { keyPath: 'room' });
+                    }
+                    if (!database.objectStoreNames.contains('eventSnapshots')) {
+                        database.createObjectStore('eventSnapshots', { keyPath: ['room', 'owner', 'page'] });
+                        database.createObjectStore('eventSnapshotVisits', { keyPath: 'room' });
                     }
                     if (!database.objectStoreNames.contains('calls')) {
                         var calls = database.createObjectStore('calls', { keyPath: 'callId' });
@@ -506,12 +510,13 @@
                 }
                 var key = event.kind + ':' + _identifier(event.entityId), previous = projection[key];
                 _sequence(event.revision);
-                _sequence(event.payload.roomGeneration);
+                _sequence(event.kind === 'channel.publication' ? event.payload.channelGeneration : event.payload.roomGeneration);
                 if (!previous || Protocol.compareEventState(event, previous) > 0) {
                     if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
                         delete projection[key];
                         delete projection['media.publication:' + event.entityId];
-                    } else if (event.kind === 'stage.member' && event.payload.state === 'ended') {
+                    } else if ((event.kind === 'stage.member' && event.payload.state === 'ended') ||
+                        (event.kind === 'channel.publication' && event.payload.state !== 'active')) {
                         delete projection[key];
                     } else {
                         projection[key] = event;
@@ -519,7 +524,8 @@
                 }
             });
             visit.states = Object.keys(projection).map(function (key) { return projection[key]; });
-            if (visit.states.length > 128 || Protocol.text(JSON.stringify(visit.states)).length > 131072) {
+            if ((visit.stateVersion !== 5 && visit.states.length > 128) ||
+                Protocol.text(JSON.stringify(visit.states)).length > (visit.stateVersion === 5 ? eventLimits.maxBytes : 131072)) {
                 throw _error('QuotaExceededError', 'Public room state exceeds its storage budget.');
             }
         }
@@ -572,6 +578,102 @@
                         };
                     };
                 });
+            });
+        };
+
+        function snapshotRange(room, owner) {
+            return owner ? IDBKeyRange.bound([room, owner, 0], [room, owner, Number.MAX_SAFE_INTEGER]) :
+                IDBKeyRange.bound([room], [room, []]);
+        }
+
+        // Pages are written separately. The visible visit changes only in the
+        // final transaction; interrupted staging is replaced on the next join.
+        _this.beginEventSnapshot = function (room, value, previous, owner, resumed) {
+            return Promise.resolve().then(function () {
+                _identifier(room); _identifier(owner); _sequence(value.snapshotHead); _sequence(value.epoch);
+                _sequence(value.through);
+                if (value.stateVersion !== 5 || !value.snapshotReady ||
+                    Protocol.compare64(value.through, value.snapshotHead) > 0 ||
+                    (resumed && (!previous || previous.stateVersion !== 5 || previous.stream !== value.stream ||
+                        Protocol.compare64(previous.epoch, value.epoch) !== 0 ||
+                        Protocol.compare64(previous.saved, value.snapshotHead) > 0))) {
+                    throw _error('ConflictError', 'Invalid channel snapshot boundary.');
+                }
+                var record = { room: room, owner: owner, cursor: _bytes(value.cursor, 256), stateVersion: 5,
+                    stream: _identifier(value.stream), epoch: value.epoch, saved: value.snapshotHead,
+                    confirmed: value.through, snapshotHead: value.snapshotHead, snapshotReady: true, states: [],
+                    page: 0, bytes: 0, count: 0, previous: previous ? { owner: previous.owner, cursor: previous.cursor } : null };
+                return _transaction(['visits', 'eventSnapshots', 'eventSnapshotVisits'], 'readwrite', function (transaction, result, abort) {
+                    var lookup = transaction.objectStore('visits').get(room);
+                    lookup.onsuccess = function () {
+                        var actual = lookup.result;
+                        if (!!actual !== !!previous || (actual && (actual.owner !== previous.owner || !_same(actual.cursor, previous.cursor)))) {
+                            abort(_error('ConflictError', 'Another connection changed the channel visit.')); return;
+                        }
+                        transaction.objectStore('eventSnapshots').delete(snapshotRange(room));
+                        transaction.objectStore('eventSnapshotVisits').put(record);
+                    };
+                });
+            });
+        };
+
+        _this.saveEventSnapshot = function (room, owner, page, events) {
+            return Promise.resolve().then(function () {
+                if (!_integer(page, 0, Number.MAX_SAFE_INTEGER) || !Array.isArray(events) || events.length > 32) {
+                    throw _error('DataError', 'Invalid channel snapshot page.');
+                }
+                var bytes = Protocol.text(JSON.stringify(events)).length;
+                return _transaction(['eventSnapshots', 'eventSnapshotVisits'], 'readwrite', function (transaction, result, abort) {
+                    var visits = transaction.objectStore('eventSnapshotVisits'), lookup = visits.get(room);
+                    lookup.onsuccess = function () {
+                        var visit = lookup.result;
+                        if (!visit || visit.owner !== owner || visit.page !== page) {
+                            abort(_error('ConflictError', 'Snapshot staging belongs to another connection or page.')); return;
+                        }
+                        if (bytes > eventLimits.maxBytes - visit.bytes || events.length > eventLimits.maxRecords - visit.count) {
+                            abort(_error('QuotaExceededError', 'Channel snapshot storage is full.')); return;
+                        }
+                        visit.page++; visit.bytes += bytes; visit.count += events.length;
+                        transaction.objectStore('eventSnapshots').add({ room: room, owner: owner, page: page, events: events });
+                        visits.put(visit);
+                    };
+                });
+            });
+        };
+
+        _this.finishEventSnapshot = function (room, owner) {
+            return _transaction(['visits', 'eventSnapshots', 'eventSnapshotVisits'], 'readwrite', function (transaction, result, abort) {
+                var staging = transaction.objectStore('eventSnapshotVisits'), lookup = staging.get(room);
+                lookup.onsuccess = function () {
+                    var record = lookup.result;
+                    if (!record || record.owner !== owner || !record.page) {
+                        abort(_error('ConflictError', 'The complete channel snapshot is unavailable.')); return;
+                    }
+                    var visits = transaction.objectStore('visits'), actual = visits.get(room);
+                    actual.onsuccess = function () {
+                        var previous = record.previous;
+                        if (!!actual.result !== !!previous || (actual.result && (actual.result.owner !== previous.owner ||
+                            !_same(actual.result.cursor, previous.cursor)))) {
+                            abort(_error('ConflictError', 'Another connection changed the visible channel.')); return;
+                        }
+                        var pages = transaction.objectStore('eventSnapshots'), all = pages.getAll(snapshotRange(room, owner));
+                        all.onsuccess = function () {
+                            try {
+                                if (all.result.length !== record.page) { throw _error('DataError', 'Snapshot pages are incomplete.'); }
+                                var events = [];
+                                all.result.forEach(function (page, index) {
+                                    if (page.page !== index) { throw _error('DataError', 'Snapshot pages are not contiguous.'); }
+                                    Array.prototype.push.apply(events, page.events);
+                                });
+                                project(record, events);
+                                delete record.previous; delete record.page; delete record.bytes; delete record.count;
+                                visits.put(record);
+                                staging.delete(room);
+                                pages.delete(snapshotRange(room, owner));
+                            } catch (error) { abort(error); }
+                        };
+                    };
+                };
             });
         };
 

@@ -22,8 +22,8 @@
         return value;
     }
 
-    function _target(room) {
-        return [_field('type', Type.STRING, 'room'), _field('id', Type.STRING, room)];
+    function _target(room, channel) {
+        return [_field('type', Type.STRING, channel ? 'channel' : 'room'), _field('id', Type.STRING, room)];
     }
 
     function _same(left, right) {
@@ -120,6 +120,20 @@
             if (['camera', 'screen', 'audio'].indexOf(payload.purpose) < 0 || ['enabled', 'revoked'].indexOf(payload.state) < 0) {
                 throw _error('DataError', 'Invalid media resource state.');
             }
+        } else if (event.kind === 'channel.publication') {
+            rules = ['appId', 'channelAppId', 'streamId', 'instanceId', 'userId', 'product', 'protocol', 'state', 'nodeId', 'bootId'].map(function (key) {
+                return { key: key, type: Type.STRING };
+            }).concat(['generation', 'channelGeneration', 'channelRevision', 'serviceGeneration'].map(function (key) {
+                return { key: key, type: Type.UINT64 };
+            }));
+            var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+            if (['appId', 'channelAppId', 'streamId', 'instanceId', 'bootId'].some(function (key) {
+                return !uuid.test(payload[key]) || payload[key] === '00000000-0000-0000-0000-000000000000';
+            }) || payload.appId === payload.channelAppId || !/^[A-Za-z0-9_.-]{1,128}$/.test(payload.userId) || !payload.nodeId ||
+                ['live', 'rtc'].indexOf(payload.product) < 0 || ['WHIP', 'RTMP', 'RTSP'].indexOf(payload.protocol) < 0 ||
+                ['active', 'stopped', 'unknown'].indexOf(payload.state) < 0 || !/^p-[0-9a-f]{64}$/.test(event.entityId)) {
+                throw _error('DataError', 'Invalid channel publication.');
+            }
         } else if (event.kind === 'media.publication') {
             rules = [{ key: 'publisherGeneration', type: Type.UINT64 }, { key: 'nodeId', type: Type.STRING },
                 { key: 'bootId', type: Type.STRING }, { key: 'sessionId', type: Type.STRING },
@@ -132,7 +146,7 @@
         } else {
             throw _error('NotSupportedError', 'Unknown room event cannot be acknowledged.');
         }
-        if (event.kind !== 'gift.confirmed') {
+        if (event.kind !== 'gift.confirmed' && event.kind !== 'channel.publication') {
             rules = rules.concat([{ key: 'roomGeneration', type: Type.UINT64 }, { key: 'controlRevision', type: Type.UINT64 }]);
         }
         Protocol.validateFields(fields[4].value, rules);
@@ -144,6 +158,10 @@
                 _milliseconds(payload.displayUntil) - _milliseconds(event.occurredAt) > 3600000) {
                 throw _error('DataError', 'Invalid confirmed gift fact.');
             }
+        } else if (event.kind === 'channel.publication') {
+            ['generation', 'channelGeneration', 'channelRevision', 'serviceGeneration'].forEach(function (key) {
+                if (!payload[key].high && !payload[key].low) { throw _error('DataError', 'Empty channel boundary.'); }
+            });
         } else if (!/^[0-9a-f-]{36}$/.test(event.entityId) ||
             (!payload.roomGeneration.high && !payload.roomGeneration.low) || (!payload.controlRevision.high && !payload.controlRevision.low)) {
             throw _error('DataError', 'Invalid state identity or control boundary.');
@@ -162,7 +180,8 @@
         if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
             delete projection[key];
             delete projection['media.publication:' + event.entityId];
-        } else if (event.kind === 'stage.member' && event.payload.state === 'ended') {
+        } else if ((event.kind === 'stage.member' && event.payload.state === 'ended') ||
+            (event.kind === 'channel.publication' && event.payload.state !== 'active')) {
             delete projection[key];
         } else {
             projection[key] = event;
@@ -173,9 +192,13 @@
     function _view(state, known) {
         known = !!known && state.info.snapshotReady;
         var room = state.projection['room.state:' + state.room];
-        return { roomId: state.room, known: known, head: state.info.head,
+        var view = { known: known, head: state.info.head,
             states: Object.keys(state.projection).map(function (key) {
                 var event = state.projection[key], payload = Object.assign({}, event.payload);
+                if (event.kind === 'channel.publication' && payload.state === 'active' &&
+                    (!known || !state.origins || state.origins[payload.nodeId] !== payload.bootId)) {
+                    payload.state = 'unknown';
+                }
                 if (event.kind === 'media.publication' && ['reserved', 'starting', 'active'].indexOf(payload.state) >= 0) {
                     var resource = state.projection['media.resource:' + event.entityId];
                     if ((room && room.payload.state === 'closed') || (resource && resource.payload.state === 'revoked')) {
@@ -188,10 +211,12 @@
                 return { kind: event.kind, entityId: event.entityId, revision: event.revision,
                     occurredAt: event.occurredAt, payload: payload };
             }) };
+        view[state.channel ? 'appId' : 'roomId'] = state.room;
+        return view;
     }
 
     function Events(storage, request, deliver, failed, stateVersion, speakersChanged, refreshSpeakers) {
-        var _this = this, _closed = false, _rooms = Object.create(null), _streams = Object.create(null),
+        var channel = stateVersion === 5, _this = this, _closed = false, _rooms = Object.create(null), _streams = Object.create(null),
             _pending = 0, _bytes = 0, _owner = Array.prototype.map.call(Protocol.messageId(0, 1), function (v) {
                 return ('0' + v.toString(16)).slice(-2);
             }).join('');
@@ -215,10 +240,51 @@
             return result;
         }
 
+        function snapshotPage(state, info) {
+            if (!Array.isArray(info.snapshot) || info.snapshot.length > (channel ? 32 : 128)) {
+                throw _error('DataError', 'Invalid public room snapshot.');
+            }
+            var snapshot = [], snapshotBytes = 0;
+            info.snapshot.forEach(function (entry) {
+                if (entry.type !== Type.BYTES || !(entry.value instanceof Uint8Array)) {
+                    throw _error('DataError', 'Snapshot entries must contain encoded state objects.');
+                }
+                snapshotBytes += entry.value.length;
+                var fields = Protocol.decodeObject(entry.value);
+                Protocol.validateFields(fields, [
+                    { key: 'messageId', type: Type.BYTES }, { key: 'messageSequence', type: Type.UINT64 },
+                    { key: 'acceptedAt', type: Type.UINT64 }, { key: 'expiresAt', type: Type.UINT64 },
+                    { key: 'event', type: Type.OBJECT },
+                ]);
+                var item = _object(fields), event = _event(fields[4].value);
+                if (channel !== (event.kind === 'channel.publication') ||
+                    (channel && (event.payload.channelAppId !== state.room || event.payload.state !== 'active'))) {
+                    throw _error('DataError', 'Snapshot profile mismatch.');
+                }
+                if (event.kind === 'gift.confirmed' || ((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
+                    (event.kind === 'media.resource' && event.payload.state === 'revoked') ||
+                    (event.kind === 'stage.member' && event.payload.state === 'ended') ||
+                    state.projection[event.kind + ':' + event.entityId] ||
+                    Protocol.compare64((channel ? event.payload.channelGeneration : event.payload.roomGeneration), info.epoch) !== 0 ||
+                    Protocol.compare64(item.messageSequence, info.head) > 0 || !_apply(state.projection, event)) {
+                    throw _error('DataError', 'Snapshot is not a unique projection at its head.');
+                }
+                snapshot.push(event);
+            });
+            if (!channel && info.snapshotReady && !state.projection['room.state:' + state.room]) {
+                throw _error('DataError', 'A complete baseline must contain its room state.');
+            }
+            if (snapshotBytes > 61440) {
+                throw _error('QuotaExceededError', 'Room snapshot exceeds its budget.');
+            }
+            return snapshot;
+        }
+
         _this.join = function (room, resume, accept, speakers) {
             return Promise.resolve().then(function () {
                 active();
-                ['eventVisit', 'beginEvents', 'receiveEvents', 'confirmEvents', 'endEvents', 'roomState'].forEach(function (method) {
+                (channel ? ['eventVisit', 'beginEventSnapshot', 'saveEventSnapshot', 'finishEventSnapshot', 'receiveEvents', 'confirmEvents', 'endEvents', 'roomState'] :
+                    ['eventVisit', 'beginEvents', 'receiveEvents', 'confirmEvents', 'endEvents', 'roomState']).forEach(function (method) {
                     if (typeof storage[method] !== 'function') {
                         throw _error('NotSupportedError', 'The storage adapter does not support durable room events.');
                     }
@@ -229,7 +295,7 @@
                 if (Object.keys(_rooms).length >= 128) {
                     throw _error('QuotaExceededError', 'Too many active room visits.');
                 }
-                var state = { room: room, queue: Promise.resolve(), ready: null, nextAckAt: Infinity, pages: 0, bytes: 0,
+                var state = { channel: channel, room: room, queue: Promise.resolve(), ready: null, nextAckAt: Infinity, pages: 0, bytes: 0,
                     origins: Object.create(null), originsRevision: { high: 0, low: 0 } };
                 _rooms[room] = state;
                 if (speakers) {
@@ -248,7 +314,7 @@
                         error.code = Protocol.Status.GONE;
                         throw error;
                     }
-                    var fields = [_field('topic', Type.STRING, 'events'), _field('target', Type.OBJECT, _target(room))];
+                    var fields = [_field('topic', Type.STRING, 'events'), _field('target', Type.OBJECT, _target(room, channel))];
                     if (resume && (previous.stateVersion || 1) !== stateVersion) {
                         throw _error('NotSupportedError', 'The saved visit uses another state version; explicitly join a new visit.');
                     }
@@ -286,50 +352,54 @@
                                 throw _error('ConflictError', 'The server did not resume the saved visit.');
                             }
                         }
-                        if (!Array.isArray(info.snapshot) || info.snapshot.length > 128) {
-                            throw _error('DataError', 'Invalid public room snapshot.');
-                        }
-                        var snapshot = [], snapshotBytes = 0;
                         state.projection = Object.create(null);
-                        info.snapshot.forEach(function (entry) {
-                            if (entry.type !== Type.BYTES || !(entry.value instanceof Uint8Array)) {
-                                throw _error('DataError', 'Snapshot entries must contain encoded state objects.');
-                            }
-                            snapshotBytes += entry.value.length;
-                            var fields = Protocol.decodeObject(entry.value);
-                            Protocol.validateFields(fields, [
-                                { key: 'messageId', type: Type.BYTES }, { key: 'messageSequence', type: Type.UINT64 },
-                                { key: 'acceptedAt', type: Type.UINT64 }, { key: 'expiresAt', type: Type.UINT64 },
-                                { key: 'event', type: Type.OBJECT },
-                            ]);
-                            var item = _object(fields), event = _event(fields[4].value);
-                            if (event.kind === 'gift.confirmed' || ((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== room) ||
-                                (event.kind === 'media.resource' && event.payload.state === 'revoked') ||
-                                (event.kind === 'stage.member' && event.payload.state === 'ended') ||
-                                state.projection[event.kind + ':' + event.entityId] ||
-                                Protocol.compare64(event.payload.roomGeneration, info.epoch) !== 0 ||
-                                Protocol.compare64(item.messageSequence, info.head) > 0 || !_apply(state.projection, event)) {
-                                throw _error('DataError', 'Snapshot is not a unique projection at its head.');
-                            }
-                            snapshot.push(event);
-                        });
-                        if (info.snapshotReady && !state.projection['room.state:' + room]) {
-                            throw _error('DataError', 'A complete baseline must contain its room state.');
-                        }
-                        if (snapshotBytes > 61440) {
-                            throw _error('QuotaExceededError', 'Room snapshot exceeds its budget.');
-                        }
+                        var snapshot = snapshotPage(state, info);
                         state.info = info;
                         state.cursor = new Uint8Array(info.cursor);
                         state.through = cursor.last;
                         state.identity = cursor;
                         state.nextAckAt = Math.min(Date.now() + 300000, Date.now() + (cursor.expiresAt - Date.now()) / 3);
                         _streams[info.conversationId] = state;
-                        return storage.beginEvents(room, { stream: cursor.stream, epoch: cursor.epoch,
-                            through: cursor.last, cursor: info.cursor, stateVersion: stateVersion, snapshot: snapshot, snapshotHead: info.head, snapshotReady: info.snapshotReady }, previous, _owner, resume).then(function () {
+                        var baseline = { stream: cursor.stream, epoch: cursor.epoch,
+                            through: cursor.last, cursor: info.cursor, stateVersion: stateVersion, snapshot: snapshot,
+                            snapshotHead: info.head, snapshotReady: info.snapshotReady };
+                        var saved;
+                        if (channel) {
+                            var deadline = info.snapshotPage && _milliseconds(info.snapshotPage.expiresAt), index = 0;
+                            function savePage(page, events) {
+                                active(state);
+                                if (!page.snapshotPage || !deadline || Date.now() >= deadline ||
+                                    _milliseconds(page.snapshotPage.expiresAt) !== deadline ||
+                                    Protocol.compare64(page.epoch, info.epoch) !== 0 || Protocol.compare64(page.head, info.head) !== 0) {
+                                    throw _error('DataError', 'The snapshot expired or changed its boundary.');
+                                }
+                                return storage.saveEventSnapshot(room, _owner, index++, events).then(function () {
+                                    active(state);
+                                    if (page.snapshotPage.done) {
+                                        return storage.finishEventSnapshot(room, _owner).then(function () {
+                                            active(state);
+                                            state.through = info.head;
+                                            return acknowledge(state);
+                                        });
+                                    }
+                                    return request(Opcode.FETCH, [_field('kind', Type.STRING, 'events'),
+                                        _field('target', Type.OBJECT, _target(room, true)),
+                                        _field('snapshotCursor', Type.BYTES, page.snapshotPage.cursor)]).then(function (next) {
+                                        active(state);
+                                        return savePage(next, snapshotPage(state, next));
+                                    });
+                                });
+                            }
+                            saved = storage.beginEventSnapshot(room, baseline, previous, _owner, resume).then(function () {
+                                return savePage(info, snapshot);
+                            });
+                        } else {
+                            saved = storage.beginEvents(room, baseline, previous, _owner, resume);
+                        }
+                        return saved.then(function () {
                             active(state);
                             state.saved = true;
-                            deliver({ target: { type: 'room', id: room }, messaging: true, type: 'room.snapshot',
+                            deliver({ target: { type: channel ? 'channel' : 'room', id: room }, messaging: true, type: channel ? 'channel.snapshot' : 'room.snapshot',
                                 snapshot: true, content: _view(state, true) });
                             if (state.speakers) { state.speakers.maintain(); }
                             return info;
@@ -379,7 +449,7 @@
             active();
             var state = _streams[data.conversationId];
             if (!state || stateVersion < 4 || Protocol.compare64(data.epoch, state.info.epoch) !== 0 ||
-                !Array.isArray(data.items) || data.items.length > 128) {
+                !Array.isArray(data.items) || data.items.length > (channel ? 32 : 128)) {
                 return Promise.reject(_error('DataError', 'Invalid room source identity update.'));
             }
             var origins = Object.create(null), bytes = 0;
@@ -405,11 +475,39 @@
                 if (Protocol.compare64(data.revision, state.originsRevision) <= 0) {
                     throw _error('DataError', 'Room source identity revision did not advance.');
                 }
-                state.originsRevision = data.revision;
-                state.origins = origins;
+                if (channel) {
+                    var page = data.page, pending = state.originsPending;
+                    if (!page || typeof page.after !== 'string' || page.after.length > 128 || typeof page.done !== 'boolean') {
+                        throw _error('DataError', 'Invalid paged channel source identities.');
+                    }
+                    if (!pending || Protocol.compare64(data.revision, pending.revision) > 0) {
+                        pending = state.originsPending = { revision: data.revision, after: '', bytes: 0, values: Object.create(null) };
+                        state.origins = Object.create(null);
+                    } else if (Protocol.compare64(data.revision, pending.revision) < 0) {
+                        throw _error('DataError', 'Channel source identity revision went backwards.');
+                    }
+                    if ((pending.after && page.after <= pending.after) || (!page.done && !page.after)) {
+                        throw _error('DataError', 'Channel source identity page did not advance.');
+                    }
+                    Object.keys(origins).forEach(function (node) {
+                        if (pending.values[node]) { throw _error('DataError', 'Repeated source identity in paged baseline.'); }
+                        pending.bytes += node.length + origins[node].length + 512;
+                        if (pending.bytes > 8388608) { throw _error('QuotaExceededError', 'Channel source identity memory budget exceeded.'); }
+                        pending.values[node] = origins[node];
+                    });
+                    pending.after = page.after;
+                    if (page.done) {
+                        state.origins = pending.values;
+                        state.originsRevision = data.revision;
+                        state.originsPending = null;
+                    }
+                } else {
+                    state.originsRevision = data.revision;
+                    state.origins = origins;
+                }
                 // These identities belong to this connection, not the durable
                 // event log. A reconnect starts unknown until its own notice.
-                deliver({ target: { type: 'room', id: state.room }, messaging: true, type: 'room.snapshot',
+                deliver({ target: { type: channel ? 'channel' : 'room', id: state.room }, messaging: true, type: channel ? 'channel.snapshot' : 'room.snapshot',
                     snapshot: true, content: _view(state, true) });
             });
         };
@@ -445,8 +543,11 @@
                     }
                     previous = item.messageSequence;
                     event = item.event = _event(entry.value[4].value);
+                    if (channel !== (event.kind === 'channel.publication') || (channel && event.payload.channelAppId !== state.room)) {
+                        throw _error('DataError', 'Event profile mismatch.');
+                    }
                     if (event.kind !== 'gift.confirmed' && (((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
-                        Protocol.compare64(event.payload.roomGeneration, page.epoch) !== 0)) {
+                        Protocol.compare64((channel ? event.payload.channelGeneration : event.payload.roomGeneration), page.epoch) !== 0)) {
                         throw _error('DataError', 'State belongs to another room generation.');
                     }
                     item.packet = Protocol.encode({ opcode: Opcode.NOTIFY, messaging: true, sequenceNumber: 0, fields: [
@@ -454,7 +555,7 @@
                     ] });
                     bytes += item.packet.length;
                     records.push(item);
-                    notifications.push({ target: { type: 'room', id: state.room }, messaging: true,
+                    notifications.push({ target: { type: channel ? 'channel' : 'room', id: state.room }, messaging: true,
                         meta: { messageId: item.messageId, conversationId: page.conversationId, epoch: page.epoch,
                             messageSequence: item.messageSequence, acceptedAt: item.acceptedAt, expiresAt: item.expiresAt },
                         type: event.kind, content: event.payload, event: event,
@@ -491,7 +592,7 @@
                     }
                     if (changed) {
                         active(state);
-                        deliver({ target: { type: 'room', id: state.room }, messaging: true, type: 'room.snapshot',
+                        deliver({ target: { type: channel ? 'channel' : 'room', id: state.room }, messaging: true, type: channel ? 'channel.snapshot' : 'room.snapshot',
                             snapshot: true, content: _view(state, true) });
                     }
                     if (state.speakers) { state.speakers.maintain(); }
@@ -505,7 +606,7 @@
 
         function acknowledge(state) {
             var before = state.cursor, through = state.through;
-            return request(Opcode.COMMIT, [_field('kind', Type.STRING, 'events'), _field('target', Type.OBJECT, _target(state.room)),
+            return request(Opcode.COMMIT, [_field('kind', Type.STRING, 'events'), _field('target', Type.OBJECT, _target(state.room, channel)),
                 _field('cursor', Type.BYTES, before), _field('through', Type.UINT64, through)]).then(function (info) {
                 active(state);
                 var cursor = _cursor(info.cursor);
@@ -529,7 +630,9 @@
             active();
             var state = _rooms[room];
             if (!state) {
-                return Promise.resolve({ roomId: room, known: false, states: [] });
+                var empty = { known: false, states: [] };
+                empty[channel ? 'appId' : 'roomId'] = room;
+                return Promise.resolve(empty);
             }
             return state.ready.then(function () {
                 return serialize(state, 0, function () { return storage.roomState(room); });
@@ -538,7 +641,7 @@
                 if (!stored || stored.owner !== _owner) {
                     throw _error('ConflictError', 'Another connection owns the saved room state.');
                 }
-                var current = { room: room, projection: Object.create(null),
+                var current = { channel: channel, room: room, projection: Object.create(null),
                     info: { head: stored.head, snapshotReady: stored.ready }, origins: state.origins };
                 stored.states.forEach(function (event) { _apply(current.projection, event); });
                 return _view(current, true);
@@ -568,7 +671,7 @@
             return serialize(state, 0, function () {
                 return storage.endEvents(room, _owner).then(function () {
                     active(state);
-                    deliver({ target: { type: 'room', id: room }, messaging: true, type: 'room.snapshot',
+                    deliver({ target: { type: channel ? 'channel' : 'room', id: room }, messaging: true, type: channel ? 'channel.snapshot' : 'room.snapshot',
                         snapshot: true, content: _view(state, false) });
                     delete _rooms[room];
                     delete _streams[state.info.conversationId];
@@ -587,5 +690,92 @@
     }
 
     IM.Events = Events;
+    IM.Events.Memory = function (identity, options) {
+        options = options || {};
+        var maxBytes = options.maxStateBytes === undefined ? 8388608 : options.maxStateBytes;
+        if (typeof maxBytes !== 'number' || !isFinite(maxBytes) || Math.floor(maxBytes) !== maxBytes ||
+            maxBytes < 65536 || maxBytes > 1073741824) {
+            throw _error('TypeError', 'Invalid channel memory budget.');
+        }
+        var visits = Object.create(null), staging = null, closed = false;
+        function visit(room, owner) {
+            var value = visits[room];
+            if (closed || !value || value.owner !== owner) { throw _error('InvalidStateError', 'Channel visit is closed.'); }
+            return value;
+        }
+        function project(previous, events) {
+            var next = Object.assign(Object.create(null), previous);
+            events.forEach(function (event) { _apply(next, event); });
+            if (Protocol.text(JSON.stringify(next)).length > maxBytes) {
+                throw _error('QuotaExceededError', 'Channel projection exceeds its memory budget.');
+            }
+            return next;
+        }
+        this.identity = function () { return identity; };
+        this.open = function () { return Promise.resolve(); };
+        this.close = function () { closed = true; visits = Object.create(null); staging = null; return Promise.resolve(); };
+        this.eventVisit = function (room) { return Promise.resolve(visits[room] || null); };
+        this.beginEvents = function (room, value, previous, owner, resumed) {
+            return Promise.resolve().then(function () {
+                if (closed || resumed || (visits[room] && visits[room] !== previous) || Object.keys(visits).length >= 1) {
+                    throw _error('InvalidStateError', 'An ephemeral channel requires a fresh visit.');
+                }
+                visits[room] = { owner: owner, cursor: new Uint8Array(value.cursor), saved: value.through,
+                    confirmed: value.through, head: value.snapshotHead, ready: value.snapshotReady,
+                    projection: project(Object.create(null), value.snapshot) };
+            });
+        };
+        this.beginEventSnapshot = function (room, value, previous, owner, resumed) {
+            return Promise.resolve().then(function () {
+                if (closed || resumed || previous || Object.keys(visits).length || value.stateVersion !== 5) {
+                    throw _error('InvalidStateError', 'An ephemeral channel requires a fresh visit.');
+                }
+                staging = { room: room, owner: owner, page: 0, cursor: new Uint8Array(value.cursor), saved: value.snapshotHead,
+                    confirmed: value.through, head: value.snapshotHead, ready: value.snapshotReady,
+                    projection: Object.create(null) };
+            });
+        };
+        this.saveEventSnapshot = function (room, owner, page, events) {
+            return Promise.resolve().then(function () {
+                if (closed || !staging || staging.room !== room || staging.owner !== owner || staging.page !== page) {
+                    throw _error('ConflictError', 'The ephemeral snapshot page changed.');
+                }
+                staging.projection = project(staging.projection, events); staging.page++;
+            });
+        };
+        this.finishEventSnapshot = function (room, owner) {
+            return Promise.resolve().then(function () {
+                if (closed || !staging || staging.room !== room || staging.owner !== owner || !staging.page) {
+                    throw _error('ConflictError', 'The ephemeral snapshot is incomplete.');
+                }
+                visits[room] = staging; staging = null;
+            });
+        };
+        this.receiveEvents = function (room, owner, page, items) {
+            return Promise.resolve().then(function () {
+                var value = visit(room, owner);
+                if (Protocol.compare64(page.after, value.saved) !== 0) { throw _error('ConflictError', 'Channel page is not contiguous.'); }
+                var next = project(value.projection, items.map(function (item) { return item.event; }));
+                value.projection = next; value.saved = page.last; value.head = page.last;
+                return items.map(function (_, index) { return index; });
+            });
+        };
+        this.confirmEvents = function (room, owner, previous, cursor, through) {
+            return Promise.resolve().then(function () {
+                var value = visit(room, owner);
+                if (!_same(previous, value.cursor) || Protocol.compare64(through, value.saved) > 0 ||
+                    Protocol.compare64(through, value.confirmed) < 0) { throw _error('ConflictError', 'Channel page is not saved.'); }
+                value.cursor = new Uint8Array(cursor); value.confirmed = through;
+            });
+        };
+        this.roomState = function (room) {
+            var value = visits[room];
+            return Promise.resolve(value ? { owner: value.owner, head: value.head, ready: value.ready,
+                states: Object.keys(value.projection).map(function (key) { return value.projection[key]; }) } : null);
+        };
+        this.endEvents = function (room, owner) {
+            return Promise.resolve().then(function () { visit(room, owner); delete visits[room]; });
+        };
+    };
 })(odd);
 

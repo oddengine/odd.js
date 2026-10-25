@@ -53,7 +53,8 @@
         _this.open = function () {
             return Promise.resolve().then(function () {
                 active();
-                ['identity', 'open', 'enqueue', 'pending', 'settle', 'receive', 'position', 'synchronize', 'close'].forEach(function (method) {
+                (stateVersion === 5 ? ['identity', 'open', 'close', 'eventVisit', 'beginEventSnapshot', 'saveEventSnapshot', 'finishEventSnapshot', 'receiveEvents', 'confirmEvents', 'roomState', 'endEvents'] :
+                    ['identity', 'open', 'enqueue', 'pending', 'settle', 'receive', 'position', 'synchronize', 'close']).forEach(function (method) {
                     if (!storage || typeof storage[method] !== 'function') {
                         throw _error('NotSupportedError', 'A durable messaging storage adapter is required.');
                     }
@@ -349,6 +350,7 @@
         };
 
         _this.recover = function () {
+            if (stateVersion === 5) { return Promise.resolve(); }
             if (_recovering) {
                 return _recovering;
             }
