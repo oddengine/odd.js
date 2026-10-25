@@ -1,6 +1,8 @@
 (function (odd) {
     var utils = odd.utils,
         ID = /^[A-Za-z0-9_.-]{1,128}$/,
+        UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        ZERO = '00000000-0000-0000-0000-000000000000',
         MAX_TTL = 3600000,
         MAX_BYTES = 8192;
 
@@ -12,6 +14,7 @@
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger('Routing', logger),
             _entry = null,
             _pending = null,
+            _allocations = new Set(),
             _generation = 0,
             _closed = false,
             _storage = null,
@@ -106,6 +109,31 @@
             }
         }
 
+        async function _readJSON(response, maximum) {
+            if (!response.body || !response.body.getReader ||
+                (response.headers.get('Content-Type') || '').split(';')[0].trim() !== 'application/json') {
+                throw { name: 'DataError', message: 'Invalid regional discovery response.' };
+            }
+            var reader = response.body.getReader(), decoder = new TextDecoder('utf-8', { fatal: true }),
+                bytes = 0, text = '';
+            try {
+                while (true) {
+                    var chunk = await reader.read();
+                    if (chunk.done) { break; }
+                    bytes += chunk.value.byteLength;
+                    if (bytes > maximum) {
+                        throw { name: 'QuotaExceededError', message: 'Regional discovery response exceeds its budget.' };
+                    }
+                    text += decoder.decode(chunk.value, { stream: true });
+                }
+                text += decoder.decode();
+            } finally {
+                await reader.cancel().catch(function () {});
+                reader.releaseLock();
+            }
+            return JSON.parse(text);
+        }
+
         async function _discover(operation) {
             var timer = setTimeout(function () { operation.controller.abort(); }, timeout);
             try {
@@ -114,28 +142,7 @@
                 if (!response.ok || response.redirected || response.url !== discovery) {
                     throw { name: 'NetworkError', message: 'Regional discovery is unavailable.', status: response.status };
                 }
-                if (!response.body || !response.body.getReader ||
-                    (response.headers.get('Content-Type') || '').split(';')[0].trim() !== 'application/json') {
-                    throw { name: 'DataError', message: 'Invalid regional discovery response.' };
-                }
-                var reader = response.body.getReader(), decoder = new TextDecoder('utf-8', { fatal: true }),
-                    bytes = 0, text = '';
-                try {
-                    while (true) {
-                        var chunk = await reader.read();
-                        if (chunk.done) { break; }
-                        bytes += chunk.value.byteLength;
-                        if (bytes > MAX_BYTES) {
-                            throw { name: 'QuotaExceededError', message: 'Regional discovery response exceeds its budget.' };
-                        }
-                        text += decoder.decode(chunk.value, { stream: true });
-                    }
-                    text += decoder.decode();
-                } finally {
-                    await reader.cancel().catch(function () {});
-                    reader.releaseLock();
-                }
-                var value = _valid(JSON.parse(text), Date.now());
+                var value = _valid(await _readJSON(response, MAX_BYTES), Date.now());
                 if (_closed || operation.generation !== _generation || operation.controller.signal.aborted) {
                     throw { name: 'AbortError', message: 'Regional discovery was superseded.' };
                 }
@@ -181,6 +188,102 @@
             });
         };
 
+        _this.media = async function (context, credentials) {
+            context = context || {};
+            credentials = credentials || context;
+            if (_closed || _allocations.size >= 4096 || !credentials ||
+                typeof credentials.token !== 'string' || !credentials.token || credentials.token.length > 8192 ||
+                /[^\x21-\x7e]/.test(credentials.token) || !Number.isSafeInteger(credentials.connectBefore) ||
+                credentials.connectBefore * 1000 <= Date.now()) {
+                throw { name: 'InvalidStateError', message: 'Media allocation requires a current customer credential.' };
+            }
+            [context.operationId, context.instanceId, context.streamId, credentials.appId, credentials.channelAppId]
+                .forEach(function (id) {
+                    if (typeof id !== 'string' || !UUID.test(id) || id === ZERO) {
+                        throw { name: 'TypeError', message: 'Media allocation requires explicit operation and App identities.' };
+                    }
+                });
+            var publishing = context.direction === 'publish';
+            if (credentials.appId === credentials.channelAppId ||
+                typeof credentials.userId !== 'string' || credentials.userId !== '' && !ID.test(credentials.userId) ||
+                typeof context.createdAt !== 'string' || !Number.isSafeInteger(Number(context.createdAt)) ||
+                Number(context.createdAt) < 1000 || String(Number(context.createdAt)) !== context.createdAt ||
+                (credentials.product !== 'live' && credentials.product !== 'rtc') ||
+                (context.direction !== 'publish' && context.direction !== 'play') ||
+                (publishing ? ['WHIP', 'RTMP', 'RTSP'] : ['WHEP', 'HTTP-FLV', 'HTTP-CMAF', 'RTMP', 'RTSP']).indexOf(context.protocol) === -1 ||
+                publishing && ['audio', 'camera', 'screen'].indexOf(context.purpose) === -1 ||
+                credentials.product === 'rtc' && (typeof context.nodeId !== 'string' || !ID.test(context.nodeId) ||
+                    typeof context.bootId !== 'string' || !UUID.test(context.bootId) || context.bootId === ZERO ||
+                    context.protocol !== (publishing ? 'WHIP' : 'WHEP'))) {
+                throw { name: 'TypeError', message: 'Invalid media allocation request.' };
+            }
+            var deadline = context.deadline === undefined ? Date.now() + timeout : context.deadline;
+            var entry = await _this.resolve({ deadline: deadline, signal: context.signal });
+            if (_closed || _allocations.size >= 4096 || context.signal && context.signal.aborted || Date.now() >= deadline) {
+                throw { name: 'AbortError', message: 'Media allocation was cancelled.' };
+            }
+            var endpoint = new URL('media', entry.endpoint).href,
+                controller = new AbortController(),
+                cancel = function () { controller.abort(); },
+                timer = setTimeout(cancel, Math.max(1, Math.min(timeout, deadline - Date.now())));
+            _allocations.add(controller);
+            if (context.signal) { context.signal.addEventListener('abort', cancel, { once: true }); }
+            try {
+                var input = {
+                    operationId: context.operationId, createdAt: context.createdAt, instanceId: context.instanceId,
+                    streamId: context.streamId, direction: context.direction, protocol: context.protocol,
+                    appId: credentials.appId, channelAppId: credentials.channelAppId,
+                    product: credentials.product, userId: credentials.userId,
+                    purpose: context.direction === 'publish' ? context.purpose : undefined,
+                    nodeId: credentials.product === 'rtc' ? context.nodeId : undefined,
+                    bootId: credentials.product === 'rtc' ? context.bootId : undefined,
+                };
+                var response = await fetch(endpoint, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store',
+                    redirect: 'error', signal: controller.signal,
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + credentials.token },
+                    body: JSON.stringify(input) });
+                if (response.redirected || response.url !== endpoint) {
+                    throw { name: 'SecurityError', message: 'Media allocation changed its regional endpoint.' };
+                }
+                if (!response.ok) {
+                    throw { name: response.status === 404 ? 'NotFoundError' : 'OperationError',
+                        message: 'Media allocation was rejected.', status: response.status,
+                        credentialExpired: utils.MediaRequest.expired(response) };
+                }
+                var value = await _readJSON(response, 16384);
+                if (_closed || controller.signal.aborted || Date.now() >= deadline) {
+                    throw { name: 'AbortError', message: 'Media allocation completed too late.' };
+                }
+                ['appId', 'channelAppId', 'product', 'userId', 'streamId', 'instanceId'].forEach(function (key) {
+                    if (value[key] !== input[key]) {
+                        throw { name: 'DataError', message: 'Media allocation changed the requested identity.' };
+                    }
+                });
+                // Only returned to this operation. No token or ticket enters
+                // localStorage, the public entry cache, or a shared cookie.
+                return Object.assign({}, value, { token: credentials.token, connectBefore: credentials.connectBefore });
+            } finally {
+                clearTimeout(timer);
+                if (context.signal) { context.signal.removeEventListener('abort', cancel); }
+                controller.abort();
+                _allocations.delete(controller);
+            }
+        };
+
+        // Product live adapters can use this directly as their credentials
+        // provider. The customer's backend returns a user JWT; this SDK owns
+        // the separate platform allocation. Renewals keep the assigned route.
+        _this.credentials = function (provider) {
+            if (typeof provider !== 'function') {
+                throw { name: 'TypeError', message: 'Customer credentials require a provider callback.' };
+            }
+            return async function (context) {
+                var credentials = await provider(context);
+                if (context.forceRefresh && context.reason === 'credential_expired') { return credentials; }
+                return _this.media(context, credentials);
+            };
+        };
+
         _this.bind = function (provider) {
             if (typeof provider !== 'function') {
                 throw { name: 'TypeError', message: 'Routing requires a provider callback.' };
@@ -219,6 +322,8 @@
             if (_closed) { return; }
             _this.invalidate();
             _closed = true;
+            _allocations.forEach(function (controller) { controller.abort(); });
+            _allocations.clear();
             if (connection && connection.removeEventListener) { connection.removeEventListener('change', _networkChanged); }
         };
     }

@@ -29,7 +29,11 @@
             context.direction !== (publishing ? 'publish' : 'play') ||
             (publishing && (typeof value.ticket !== 'string' || !value.ticket || value.ticket.length > 16384 ||
                 /[^\x21-\x7e]/.test(value.ticket) || ['audio', 'camera', 'screen'].indexOf(context.purpose) === -1)) ||
-            (!publishing && value.ticket !== undefined)) {
+            (publishing && (value.subscriptionTicket !== undefined || value.relayInstanceId !== undefined)) ||
+            (!publishing && (value.ticket !== undefined || typeof value.subscriptionTicket !== 'string' ||
+                !value.subscriptionTicket || value.subscriptionTicket.length > 8192 || /[^\x21-\x7e]/.test(value.subscriptionTicket) ||
+                typeof value.relayInstanceId !== 'string' || (value.relayInstanceId !== '' &&
+                    (!UUID.test(value.relayInstanceId) || value.relayInstanceId === ZERO))))) {
             throw { name: 'DataError', message: 'Live media routing does not match the requested operation.' };
         }
         if (typeof value.url !== 'string' || !value.url || value.url.length > 2048) {
@@ -52,6 +56,7 @@
             instance = value.instanceId,
             generation = value.generation,
             ticket = value.ticket,
+            subscriptionTicket = value.subscriptionTicket,
             purpose = context.purpose,
             binding = Object.assign({}, value),
             renewed = false;
@@ -70,10 +75,16 @@
             var fresh = await MediaRequest.credentials(provider, Object.assign({}, context, {
                 reason: 'credential_expired', forceRefresh: true,
             }));
+            // A refresh may return only the customer's new credential. The
+            // original allocation is still owned by this request; do not ask
+            // the scheduler to consume capacity again during key rotation.
+            if (fresh && typeof fresh === 'object' && !Array.isArray(fresh)) {
+                fresh = Object.assign({}, binding, fresh);
+            }
             if (!fresh || typeof fresh.token !== 'string' || !fresh.token || fresh.token.length > 8192 ||
                 /[^\x21-\x7e]/.test(fresh.token) || !Number.isSafeInteger(fresh.connectBefore) ||
                 fresh.connectBefore <= Date.now() / 1000 ||
-                ['product', 'appId', 'channelAppId', 'userId', 'nodeId', 'bootId', 'streamId', 'instanceId', 'generation', 'url', 'ticket']
+                ['product', 'appId', 'channelAppId', 'userId', 'nodeId', 'bootId', 'streamId', 'instanceId', 'generation', 'url', 'ticket', 'subscriptionTicket', 'relayInstanceId']
                     .some(function (key) { return fresh[key] !== binding[key]; })) {
                 throw { name: 'InvalidModificationError', message: 'Credential renewal changed the assigned media resource.' };
             }
@@ -90,6 +101,8 @@
                 if (publishing) {
                     headers['Odd-Media-Placement'] = ticket;
                     headers['Odd-Media-Purpose'] = purpose;
+                } else {
+                    headers['Odd-Media-Subscription'] = subscriptionTicket;
                 }
             }
             return headers;

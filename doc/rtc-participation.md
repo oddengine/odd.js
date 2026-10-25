@@ -42,7 +42,7 @@ rtc.destroy();
 
 JSON响应为 `profile:"odd-rtc-participation.v1"`、非零小写UUID `participantId/bootId/appId/channelAppId`、节点标识 `nodeId`（1—128个A-Z/a-z/0-9/点/下划线/短横线）、`userId`、`controlUrl/whipUrl/whepUrl` 及 `idleRetentionSeconds:30`。RTC App与频道App不同；`userId`允许空值时仍由频道策略决定。控制URL为入口加 `/participantId`，媒体基路径无尾斜杠，与入口同源。
 
-媒体 POST 发送相同参与ID、boot、参与证明及用户JWT，另带独立的 `Odd-Media-Proof`、`Odd-Media-Instance`、`Odd-Media-Generation`；发布还带 `Odd-Media-Placement`。URL为指定WHIP／WHEP基路径加 `/publicationId`。发布标识由客户端／SDK预先生成；Redis原子预占接受该标识并核验真实发布归属，标识本身不授予权限。回复SDP的Location必须精确等于POST URL加 `/instanceId`；之后PATCH／DELETE使用该媒体独立证明、boot和ETag，不依赖原用户JWT未过期。DELETE参与控制URL不依赖未过期JWT或余额。证明仅在内存，不进Cookie、URL、持久存储或日志。所有产品请求HTTPS、禁重定向、无Cookie。
+媒体 POST 发送相同参与ID、boot、参与证明及用户JWT，另带独立的 `Odd-Media-Proof`、`Odd-Media-Instance`、`Odd-Media-Generation`；发布还带 `Odd-Media-Placement`，播放还带 `Odd-Media-Subscription`。URL为指定WHIP／WHEP基路径加 `/publicationId`。发布标识由客户端／SDK预先生成；Redis原子预占接受该标识并核验真实发布归属，标识本身不授予权限。回复SDP的Location必须精确等于POST URL加 `/instanceId`；之后PATCH／DELETE使用该媒体独立证明、boot和ETag，不依赖原用户JWT未过期。DELETE参与控制URL不依赖未过期JWT或余额。证明仅在内存，不进Cookie、URL、持久存储或日志。所有产品请求HTTPS、禁重定向、无Cookie。
 
 部署需允许POST／PATCH／DELETE及上述请求头，并暴露Location／ETag；SDK不自动扩大CORS。取消已发出的创建不能证明服务器未受理，未知创建结果由节点无媒体30秒期限回收，实际媒体仍须真实协议终态释放。
 
@@ -50,13 +50,13 @@ JSON响应为 `profile:"odd-rtc-participation.v1"`、非零小写UUID `participa
 
 回调指SDK调用接入方提供的JavaScript函数，不是odd.d向odd.x进行远程鉴权。`participation.credentials`为同一RTC实例获取／刷新可复用的用户凭据；`participation.route`为该实例中的每路媒体取得技术调度结果，不重新签发客户JWT。不同实例的身份不合并；同一实例内摄像头、屏幕及多路订阅各有独立技术实例。odd.d仍本地验签，客户签发JWT不需要streamId。
 
-`participation.route` 必填，独立于用户凭据回调。每路媒体协商只调用一次，不自动重试，不逐流重新签发客户JWT。传入：`direction`、`protocol`、`product:"rtc"`、`operationId`、`instanceId`、毫秒字符串`createdAt`、`appId/channelAppId/userId`、`participantId/nodeId/bootId`、原截止毫秒`deadline`和`AbortSignal signal`；发布和订阅都传入`streamId`；发布未指定时由SDK在请求调度前生成随机UUID。
+`participation.route` 必填，独立于用户凭据回调。每路媒体协商只调用一次，不自动重试，不逐流重新签发客户JWT。传入：`direction`、`protocol`、`product:"rtc"`、`operationId`、`instanceId`、毫秒字符串`createdAt`、`appId/channelAppId/userId`、`participantId/nodeId/bootId`、原截止毫秒`deadline`和`AbortSignal signal`，另带当前参与用户凭据`token/connectBefore`；发布和订阅都传入`streamId`；发布未指定时由SDK在请求调度前生成随机UUID。
 
-返回字段：`appId/channelAppId/product/userId/nodeId/bootId/instanceId/streamId`和规范十进制字符串`generation`（1至2^53−1）。发布还返回平台签名`ticket`，订阅不得返回ticket。App、用户、节点启动和技术实例必须与请求一致；发布和订阅streamId均须与请求相同，平台不能另换流ID。SDK不接受回调修改媒体端点，始终使用已确认参与的WHIP／WHEP同源路径。
+返回字段：`appId/channelAppId/product/userId/nodeId/bootId/instanceId/streamId`和规范十进制字符串`generation`（1至2^53−1）。发布还返回平台签名`ticket`；订阅返回独立`subscriptionTicket`和`relayInstanceId`（本地原始源为空字符串），不得返回发布ticket。App、用户、节点启动和技术实例必须与请求一致；发布和订阅streamId均须与请求相同，平台不能另换流ID。SDK不接受回调修改媒体端点，始终使用已确认参与的WHIP／WHEP同源路径。
 
-平台接入层负责限制App、调用频率及可信选址，不把全局scheduler服务密钥交给浏览器或客户。odd.x现有内部 `POST /publications` 接收operationId、createdAt、streamId、instanceId、App／频道／用户、cell、WHIP及参与固定的nodeId／bootId；返回的placement字段加ticket可直接映射回调结果。订阅通过内部流目录取得generation；回调中的userId和instanceId仍属于订阅者，不复制发布者的身份或实例。客户端字段不能替代接入层的租户授权。当前仓库不提供匿名调用内部调度的公共转发接口。
+可配置 `route: request => routing.media(request)`，见[公共分配](routing.md)。SDK用当前参与的用户JWT请求公开地域媒体接口，不暴露内部scheduler机器秘密。平台核对App／频道配置与用户签名，节点仍执行最终本地撤权和准入；订阅者身份不能复制发布者。此接口不代办首次RTC参与选址，`participation.credentials`仍需返回可信的初始参与入口。
 
-RTC参与固定在原node／boot；当前实际媒体路径消费该节点的本地源。路由不能把既有参与悄悄移动到另一个节点；跨节点媒体分发尚待接通，不能伪报本地可播放。发布预占允许先被订阅发现，节点按共同等流机制等待发布，超时404。
+RTC参与固定在原node／boot，公共分配为该目标准备本地原始源或共享中继。路由不能把既有参与悄悄移动到另一个节点；平台播放证明绑定精确原始源代次，节点按需启动共享回源。发布预占允许先被订阅发现，节点按共同等流机制等待发布，超时404。
 
 路由、参与准备、等流及SDP共用这一路原始截止。取消会中止路由信号；忽略signal的外部回调即使迟到也不能发起媒体POST。取消预占后未建立媒体的输入由原确认窗口回收，不创建额外补偿鉴权。已知道instance的POST即使丢失响应，也尝试对精确管理URL发起有界DELETE；这不能替代节点超时及真实关闭。
 

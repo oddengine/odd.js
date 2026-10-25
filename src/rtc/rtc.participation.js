@@ -100,6 +100,8 @@
                     }
                     if (media.ticket) {
                         headers['Odd-Media-Placement'] = media.ticket;
+                    } else if (media.subscriptionTicket) {
+                        headers['Odd-Media-Subscription'] = media.subscriptionTicket;
                     }
                 }
             }
@@ -239,6 +241,7 @@
                         streamId: stream, appId: entry.appId,
                         channelAppId: entry.channelAppId, userId: entry.userId, participantId: entry.participantId,
                         nodeId: entry.nodeId, bootId: entry.bootId, deadline: until, signal: controller.signal,
+                        token: entry.credentials.token, connectBefore: entry.credentials.connectBefore,
                     };
                     member.requests.set(controller, 'ROUTE');
                     try {
@@ -261,13 +264,17 @@
                             value.userId !== entry.userId || value.instanceId !== instance || value.streamId !== stream ||
                             typeof value.generation !== 'string' || !Number.isSafeInteger(Number(value.generation)) ||
                             Number(value.generation) < 1 || String(Number(value.generation)) !== value.generation ||
-                            (direction === 'play' && value.ticket !== undefined) ||
+                            (direction === 'play' && (value.ticket !== undefined || typeof value.subscriptionTicket !== 'string' ||
+                                !value.subscriptionTicket || value.subscriptionTicket.length > 8192 || /[^\x21-\x7e]/.test(value.subscriptionTicket) ||
+                                typeof value.relayInstanceId !== 'string' || (value.relayInstanceId !== '' && !uuid(value.relayInstanceId)))) ||
+                            (direction === 'publish' && (value.subscriptionTicket !== undefined || value.relayInstanceId !== undefined)) ||
                             (direction === 'publish' && (typeof value.ticket !== 'string' || !value.ticket ||
                                 value.ticket.length > 16384 || /[^\x21-\x7e]/.test(value.ticket)))) {
                             throw { name: 'DataError', message: 'RTC routing changed the assigned participation or resource.' };
                         }
                         var media = {
                             instanceId: instance, generation: value.generation, ticket: value.ticket,
+                            subscriptionTicket: value.subscriptionTicket, relayInstanceId: value.relayInstanceId,
                             purpose: direction === 'publish' ? purpose : undefined,
                             proof: btoa(String.fromCharCode.apply(null, random(32)))
                                 .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),

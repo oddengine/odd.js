@@ -26,7 +26,9 @@ context含protocol、direction、streamId、connectionId、instanceId、operatio
     instanceId: context.instanceId,
     generation: placementGeneration, // 规范十进制字符串，1至2^53−1
     url: assignedHttpsUrl,
-    // ticket: publicationTicket,    // 仅WHIP发布必填，订阅不返回
+    // ticket: publicationTicket,    // 仅WHIP发布必填
+    // subscriptionTicket: playTicket, // 仅播放必填
+    // relayInstanceId: relayId,        // 仅播放必填，本地原始源为 ""
 }
 ```
 
@@ -36,7 +38,7 @@ url是完整媒体URL，末段为`<streamId>`，HTTP-FLV为`<streamId>.flv`，HT
 
 ## 请求与关闭
 
-SDK生成256位随机媒体证明，内存保留；POST／GET发送Bearer用户JWT及Odd-Media-Boot、Instance、Generation、Proof，WHIP另带Placement、Purpose。HTTP-FLV／CMAF使用原流式Fetch，清除loader里残留的授权及RTC／媒体身份头，强制无Cookie、禁止重定向、no-store。第一段数据前沿原准备截止取消请求；HTTP连接关闭即结束播放。
+SDK生成256位随机媒体证明，内存保留；POST／GET发送Bearer用户JWT及Odd-Media-Boot、Instance、Generation、Proof，WHIP另带Placement、Purpose，播放另带Odd-Media-Subscription。HTTP-FLV／CMAF使用原流式Fetch，清除loader里残留的授权及RTC／媒体身份头，强制无Cookie、禁止重定向、no-store。第一段数据前沿原准备截止取消请求；HTTP连接关闭即结束播放。
 
 WHIP／WHEP使用有取消、字节上限的Fetch：SDP响应最多1MiB，PATCH／DELETE回复最多4KiB，最多32个普通请求并为DELETE保留一个槽。Location必须精确等于POST URL加`/instanceId`。管理请求只发送独立媒体Proof＋Boot及If-Match，不继续发送共享用户JWT。
 
@@ -48,6 +50,6 @@ ICE候选先进入有界队列，POST及远端SDP成功后才串行PATCH，并�
 
 `utils.MediaRequest`复用同一身份／请求头校验；`RTC.NetStream`继续原采集、PeerConnection和媒体生命周期；FLV／FMP4模块继续原解复用器和IO.Fetch。源码加载须在这些模块前包含`utils.mediarequest.js`，已加入common构建清单。
 
-本次只做源码及diff审阅，未构建、运行浏览器或重建release产物；部署端须配置对应CORS请求头并暴露Location／ETag。自动顺序换资源包、RTMP／RTSP产品凭据入口及跨节点媒体中继仍由服务端后续工作闭合，不以SDK接线宣称全部上线。
+本次只做源码及diff审阅，未构建、运行浏览器或重建release产物；部署端须配置对应CORS请求头并暴露Location／ETag。服务端原生产品入口、公共分配与共享中继有独立源码实现；实际部署、首次参与分配和SaaS业务接线仍须核对，不以SDK接线宣称全部上线。
 
 正常轮转的失效恢复、forceRefresh 回调及取消边界见[凭据重取](key-rotation.md)。
