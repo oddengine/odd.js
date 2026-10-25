@@ -1,5 +1,7 @@
 # odd.js
 
+Shared regional discovery / 共享地域入口：[中文](doc/routing.md) · [English](doc/routing.en.md)。IM、RTC、Player复用公开地域提示；媒体目标、凭据和原子分配保持各自职责。
+
 [正常密钥轮转](doc/key-rotation.md)已接入按需重取：HTTP 明确凭据失效最多重试一次；频道 IM 新连接主动取新票据。已建立的连接不因普通换钥断开。
 
 IM `fetch(conversationId, cursor, limit)`一次获取一页，默认50、可请求1–64条；不加查询速度／次数限制。页保存后的自动COMMIT同样免于查询限速，连接背压及原存储预算保留。实际页可因编码预算少于请求条数，继续使用nextCursor翻页。

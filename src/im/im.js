@@ -228,6 +228,7 @@
                 session: null,
                 notifications: [],
                 notificationBytes: 0,
+                controller: typeof AbortController !== 'undefined' ? new AbortController() : null,
                 requests: new IM.RequestTable(_generation),
                 maxPacketBytes: Protocol.MAX_PACKET_SIZE,
                 deadline: null,
@@ -250,6 +251,8 @@
                 generation: String(attempt.generation),
                 url: attempt.url,
                 appId: _this.config.appId,
+                deadline: Date.now() + _this.config.connectTimeout,
+                signal: attempt.controller ? attempt.controller.signal : undefined,
             });
             _attempt = attempt;
             _readyState = State.CONNECTING;
@@ -797,6 +800,7 @@
             _readyState = State.CLOSING;
             _attempt = null;
 
+            if (attempt.controller) { attempt.controller.abort(); }
             clearTimeout(attempt.deadline);
             clearInterval(attempt.maintenance);
             if (attempt.calls) {
