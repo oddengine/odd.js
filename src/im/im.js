@@ -243,6 +243,7 @@
             });
             var context = Object.freeze({
                 connectionId: _connectionId,
+                operationId: _connectionId, createdAt: String(Date.now()),
                 reason: _retried ? 'reconnect' : 'connect',
                 // Browsers conceal failed WebSocket handshake HTTP responses.
                 // Request a fresh channel ticket before each connection instead

@@ -32,3 +32,5 @@ await im.send(channel, '在线通知', { messaging: false });
 在线广播要求服务宣告 `onlineMessages=true`，离线不补发、不增加客户端 ACK；每个实际接收连接的完整输出各计一次。内部转发和媒体发现不计普通消息用量。频道能力依赖当前连接和本地目录，不强制周期性向客户后台重签。
 
 本次只做源码/diff审阅，未构建发布包或运行互通；使用当前 dev 源码集成。
+
+首次频道连接可用 [Routing.im](connection-routing.md)获得 WSS 接入节点；仍使用同一用户级频道 JWT、本地准入及可靠消息保存流程，不逐消息访问路由服务。

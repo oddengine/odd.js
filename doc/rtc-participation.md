@@ -69,3 +69,5 @@ RTC参与固定在原node／boot，公共分配为该目标准备本地原始源
 发布可用Odd-Media-Purpose声明audio／camera／screen；SDK沿现有采集purpose自动设置，节点仍从实际SDP提取音频／视频需求，screen将视频动作映射为已定义的发布屏幕权限，音轨仍要求发布音频权限。audio不得夹带视频，screen必须含视频；未声明沿摄像头视频权限。此声明表达操作用途，不证明编码图像一定来自某种物理设备。
 
 正常轮转的失效恢复、forceRefresh 回调及取消边界见[凭据重取](key-rotation.md)。
+
+首次参与 URL 可由 [Routing.participation](connection-routing.md)获得，逐路媒体继续用 Routing.media；换钥刷新沿原固定 URL，不再选址。参与创建和后续媒体是独立步骤，不为父参与重复占媒体容量。

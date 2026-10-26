@@ -380,7 +380,7 @@
         async function _start(job) {
             try {
                 var previous = job.previous;
-                var entry = previous || { requestId: requestId(), proof: btoa(String.fromCharCode.apply(null, random(32)))
+                var entry = previous || { requestId: requestId(), createdAt: String(Date.now()), proof: btoa(String.fromCharCode.apply(null, random(32)))
                     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
                 var credentials, target, candidate, result, generation = String(++_generation);
                 for (var attempt = 0; attempt < (job.forceRefresh ? 1 : 2); attempt++) {
@@ -390,6 +390,8 @@
                         credentials = await odd.utils.MediaRequest.credentials(config.credentials, {
                             reason: attempt || job.forceRefresh ? 'credential_expired' : previous ? 'refresh' : 'join',
                             forceRefresh: attempt > 0 || job.forceRefresh, connectionId: entry.requestId, generation: generation,
+                            operationId: entry.requestId, createdAt: entry.createdAt,
+                            url: previous ? previous.url : target ? target.href : undefined,
                             deadline: job.deadline, signal: controller.signal,
                         });
                     } finally {
@@ -400,6 +402,10 @@
                         credentials.token.length > 8192 || /[^\x21-\x7e]/.test(credentials.token) ||
                         !Number.isSafeInteger(credentials.connectBefore)) {
                         throw { name: 'DataError', message: 'Invalid RTC participant credentials.' };
+                    }
+                    if (credentials.routeExpiresAt !== undefined && (!Number.isSafeInteger(credentials.routeExpiresAt) ||
+                        credentials.routeExpiresAt <= Date.now())) {
+                        throw { name: 'TimeoutError', message: 'RTC initial route has expired.' };
                     }
                     var next = endpoint(credentials.url);
                     if ((previous && next.href !== previous.url) || (target && next.href !== target.href)) {
@@ -416,7 +422,8 @@
                     } });
                     try {
                         result = await _request(candidate, 'POST', candidate.url, JSON.stringify({ requestId: entry.requestId }),
-                            'application/json', '', job.deadline, job.requests, 16384);
+                            'application/json', '', Math.min(job.deadline, credentials.routeExpiresAt === undefined ? job.deadline : credentials.routeExpiresAt),
+                            job.requests, 16384);
                         break;
                     } catch (error) {
                         if (!error.credentialExpired || attempt || job.forceRefresh || job.cancelled || _pending !== job) { throw error; }
@@ -433,6 +440,11 @@
                     value.idleRetentionSeconds !== 30) {
                     throw { name: 'DataError', message: 'Invalid RTC participation response.' };
                 }
+                ['appId', 'channelAppId', 'userId'].forEach(function (key) {
+                    if (credentials[key] !== undefined && credentials[key] !== value[key]) {
+                        throw { name: 'InvalidModificationError', message: 'RTC participation changed its credential identity.' };
+                    }
+                });
                 var control = endpoint(value.controlUrl, target.origin), whip = endpoint(value.whipUrl, target.origin),
                     whep = endpoint(value.whepUrl, target.origin);
                 if (control.href !== target.href.replace(/\/$/, '') + '/' + value.participantId ||
@@ -536,3 +548,4 @@
 
     RTC.Participation = Participation;
 })(odd);
+

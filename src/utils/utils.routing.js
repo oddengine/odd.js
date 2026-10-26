@@ -284,6 +284,129 @@
             };
         };
 
+        // Initial ingress is a hint, not a media reservation. The existing IM
+        // or Participation owner creates the connection after this returns.
+        _this.connection = async function (context, credentials) {
+            context = context || {};
+            credentials = credentials || {};
+            var im = context.kind === 'im', token = im ? credentials.ticket : credentials.token,
+                expires = im ? Number(credentials.expiresAt) : credentials.connectBefore * 1000;
+            if (_closed || _allocations.size >= 4096 || ['im', 'rtc'].indexOf(context.kind) === -1 ||
+                typeof token !== 'string' || !token || token.length > 8192 || /[^\x21-\x7e]/.test(token) ||
+                !Number.isSafeInteger(expires) || expires <= Date.now() ||
+                !im && credentials.product !== 'rtc') {
+                throw { name: 'InvalidStateError', message: 'Initial routing requires a current channel credential.' };
+            }
+            var channel = im ? credentials.appId : credentials.channelAppId;
+            [context.operationId, credentials.appId, channel].forEach(function (id) {
+                if (typeof id !== 'string' || !UUID.test(id) || id === ZERO) {
+                    throw { name: 'TypeError', message: 'Connection routing requires explicit operation and App identities.' };
+                }
+            });
+            if (typeof credentials.userId !== 'string' || credentials.userId !== '' && !ID.test(credentials.userId) ||
+                !im && credentials.appId === channel || im && context.appId && context.appId !== credentials.appId ||
+                typeof context.createdAt !== 'string' || !Number.isSafeInteger(Number(context.createdAt)) ||
+                String(Number(context.createdAt)) !== context.createdAt || Number(context.createdAt) < 1000 ||
+                Number(context.createdAt) > Date.now() + 1000 || Date.now() - Number(context.createdAt) > 60000) {
+                throw { name: 'TypeError', message: 'Invalid initial connection identity.' };
+            }
+            var deadline = Math.min(context.deadline === undefined ? Date.now() + timeout : context.deadline, expires),
+                entry = await _this.resolve({ deadline: deadline, signal: context.signal });
+            if (_closed || entry !== _entry || _allocations.size >= 4096 ||
+                context.signal && context.signal.aborted || Date.now() >= deadline) {
+                throw { name: 'AbortError', message: 'Initial connection routing was cancelled.' };
+            }
+            var endpoint = new URL('connections', entry.endpoint).href,
+                controller = new AbortController(), generation = _generation,
+                cancel = function () { controller.abort(); },
+                timer = setTimeout(cancel, Math.max(1, Math.min(timeout, deadline - Date.now())));
+            _allocations.add(controller);
+            if (context.signal) { context.signal.addEventListener('abort', cancel, { once: true }); }
+            try {
+                var input = { kind: context.kind, operationId: context.operationId, createdAt: context.createdAt,
+                    appId: credentials.appId, channelAppId: channel, userId: credentials.userId };
+                var response = await fetch(endpoint, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store',
+                    redirect: 'error', signal: controller.signal,
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                    body: JSON.stringify(input) });
+                if (response.redirected || response.url !== endpoint) {
+                    throw { name: 'SecurityError', message: 'Connection routing changed its regional endpoint.' };
+                }
+                if (!response.ok) {
+                    throw { name: 'OperationError', message: 'Connection routing was rejected.', status: response.status,
+                        credentialExpired: utils.MediaRequest.expired(response) };
+                }
+                var value = await _readJSON(response, 8192);
+                if (_closed || generation !== _generation || controller.signal.aborted || Date.now() >= deadline) {
+                    throw { name: 'AbortError', message: 'Initial connection routing completed too late.' };
+                }
+                ['kind', 'operationId', 'appId', 'channelAppId', 'userId'].forEach(function (key) {
+                    if (value[key] !== input[key]) { throw { name: 'DataError', message: 'Connection routing changed its identity.' }; }
+                });
+                var until = Number(value.expiresAt);
+                if (value.region !== entry.region || typeof value.cell !== 'string' || !ID.test(value.cell) ||
+                    typeof value.nodeId !== 'string' || !ID.test(value.nodeId) || typeof value.bootId !== 'string' ||
+                    !UUID.test(value.bootId) || value.bootId === ZERO || typeof value.expiresAt !== 'string' ||
+                    !Number.isSafeInteger(until) || String(until) !== value.expiresAt || until <= Date.now() ||
+                    until > expires || until > Number(input.createdAt) + 60000 ||
+                    typeof value.url !== 'string' || !value.url || value.url.length > 2048) {
+                    throw { name: 'DataError', message: 'Invalid initial connection route.' };
+                }
+                var target = new URL(value.url);
+                if (target.protocol !== (im ? 'wss:' : 'https:') || target.username || target.password || target.search ||
+                    target.hash || target.pathname.indexOf('%') !== -1 || target.href !== value.url) {
+                    throw { name: 'SecurityError', message: 'Initial connection requires a canonical secure endpoint.' };
+                }
+                // JWT validity remains independent from the short ingress hint.
+                var result = Object.assign({}, credentials, { url: target.href, routeExpiresAt: until });
+                if (im) { result.expiresAt = Math.min(expires, until); }
+                return result;
+            } catch (error) {
+                if (error && error.routingUnavailable === true) { _this.invalidate(entry); }
+                throw error;
+            } finally {
+                clearTimeout(timer);
+                if (context.signal) { context.signal.removeEventListener('abort', cancel); }
+                _allocations.delete(controller);
+            }
+        };
+
+        function _connectionProvider(provider, kind) {
+            if (typeof provider !== 'function') {
+                throw { name: 'TypeError', message: 'Connection routing requires a credential provider.' };
+            }
+            return async function (context) {
+                context = Object.assign({ deadline: Date.now() + timeout, createdAt: String(Date.now()) }, context || {});
+                if (_closed) { throw { name: 'InvalidStateError', message: 'Routing has been destroyed.' }; }
+                for (var attempt = 0; attempt < 2; attempt++) {
+                    var credentials = await utils.MediaRequest.credentials(provider, context);
+                    if (_closed || context.signal && context.signal.aborted || context.deadline <= Date.now()) {
+                        throw { name: 'AbortError', message: 'Initial credentials completed too late.' };
+                    }
+                    // The participation supplies its pinned URL on refresh and
+                    // on a credential retry. This adapter owns no participant state.
+                    if (kind === 'rtc' && context.url) {
+                        if (!credentials || credentials.url !== undefined && credentials.url !== context.url) {
+                            throw { name: 'InvalidModificationError', message: 'RTC renewal cannot move its participant.' };
+                        }
+                        return Object.assign({}, credentials, { url: context.url });
+                    }
+                    try {
+                        return await _this.connection(Object.assign({}, context, { kind: kind,
+                            operationId: context.operationId || context.connectionId }), credentials);
+                    } catch (error) {
+                        // Only the explicit expired-credential response permits
+                        // one re-sign. Selection has created no remote resources.
+                        if (!error.credentialExpired || attempt || context.reason === 'credential_expired') { throw error; }
+                        context = Object.assign({}, context, { forceRefresh: true, reason: 'credential_expired' });
+                    }
+                }
+            };
+        }
+
+        _this.im = function (provider) { return _connectionProvider(provider, 'im'); };
+        _this.participation = function (provider) { return _connectionProvider(provider, 'rtc'); };
+
         _this.bind = function (provider) {
             if (typeof provider !== 'function') {
                 throw { name: 'TypeError', message: 'Routing requires a provider callback.' };
