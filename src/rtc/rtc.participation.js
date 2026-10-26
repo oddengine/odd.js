@@ -89,6 +89,7 @@
             }
             if (method === 'POST') {
                 headers.Authorization = 'Bearer ' + entry.credentials.token;
+                if (!media && entry.callBinding) { headers['Odd-Call-Binding'] = entry.callBinding; }
             }
             if (media) {
                 headers['Odd-Media-Proof'] = media.proof;
@@ -241,7 +242,7 @@
                         streamId: stream, appId: entry.appId,
                         channelAppId: entry.channelAppId, userId: entry.userId, participantId: entry.participantId,
                         nodeId: entry.nodeId, bootId: entry.bootId, deadline: until, signal: controller.signal,
-                        token: entry.credentials.token, connectBefore: entry.credentials.connectBefore,
+                        token: entry.credentials.token, connectBefore: entry.credentials.connectBefore, callBinding: entry.callBinding,
                     };
                     member.requests.set(controller, 'ROUTE');
                     try {
@@ -403,6 +404,11 @@
                         !Number.isSafeInteger(credentials.connectBefore)) {
                         throw { name: 'DataError', message: 'Invalid RTC participant credentials.' };
                     }
+                    if (credentials.callBinding !== undefined && (typeof credentials.callBinding !== 'string' || !credentials.callBinding ||
+                        credentials.callBinding.length > 8192 || /[^\x21-\x7e]/.test(credentials.callBinding)) ||
+                        previous && previous.callBinding !== credentials.callBinding) {
+                        throw { name: 'InvalidModificationError', message: 'RTC renewal changed its CALL binding.' };
+                    }
                     if (credentials.routeExpiresAt !== undefined && (!Number.isSafeInteger(credentials.routeExpiresAt) ||
                         credentials.routeExpiresAt <= Date.now())) {
                         throw { name: 'TimeoutError', message: 'RTC initial route has expired.' };
@@ -417,7 +423,7 @@
                         throw { name: 'NotAllowedError', message: 'RTC participant credentials have expired.' };
                     }
                     // Replace shared credentials only after admission succeeds.
-                    candidate = Object.assign({}, entry, { url: target.href, credentials: {
+                    candidate = Object.assign({}, entry, { url: target.href, callBinding: credentials.callBinding, credentials: {
                         token: credentials.token, connectBefore: credentials.connectBefore,
                     } });
                     try {

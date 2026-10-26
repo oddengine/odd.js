@@ -3,7 +3,7 @@
 
     // Each selected call owns its RTC instance. No operation can close an
     // application's existing live, conference or game RTC instance.
-    function CallMedia(config, logger, changed, failed) {
+    function CallMedia(config, logger, binding, changed, failed) {
         var _this = this, _visits = Object.create(null), _closed = false;
 
         function stop(id) {
@@ -16,6 +16,39 @@
             }
         }
 
+        function productSettings(call, member, visit) {
+            var options = config.participation, routing = options.routing, pinned, selection, bound, operation;
+            if (typeof routing.resolve !== 'function' || typeof routing.connection !== 'function' || typeof routing.media !== 'function') {
+                throw new TypeError('Private CALL media requires the shared regional Routing instance.');
+            }
+            return odd.utils.extendz({}, config, { credentials: null, participation: Object.assign({}, options, {
+                credentials: async function (context) {
+                    if (visit.closed || operation && operation !== context.operationId) { throw new Error('CALL participation attempt changed.'); }
+                    operation = context.operationId;
+                    if (!pinned) { pinned = await routing.resolve(context); }
+                    if (!selection) { selection = await binding(call.callId, member.generation, context, pinned.region); }
+                    var credentials = await options.credentials(Object.assign({}, context, {
+                        callId: call.callId, memberGeneration: member.generation, appId: call.rtcAppId,
+                    }));
+                    if (visit.closed || !credentials || credentials.appId !== call.rtcAppId || credentials.userId !== member.userId ||
+                        credentials.product !== 'rtc') { throw new Error('CALL media credentials changed their identity.'); }
+                    if (bound) {
+                        if (context.url && context.url !== bound.url) { throw new Error('CALL renewal moved its participant.'); }
+                        return Object.assign({}, credentials, { url: bound.url, callBinding: bound.callBinding });
+                    }
+                    var selected = Object.assign({}, context, { kind: 'rtc', routing: pinned,
+                        callSelection: selection.selection, deadline: Math.min(context.deadline, selection.connectBefore) });
+                    bound = await routing.connection(selected, credentials);
+                    if (visit.closed) { throw new Error('CALL routing completed after closure.'); }
+                    return bound;
+                },
+                route: function (context) {
+                    if (visit.closed || !bound) { return Promise.reject(new Error('CALL participation is unavailable.')); }
+                    return routing.media(Object.assign({}, context, { routing: pinned, callBinding: bound.callBinding }), context);
+                },
+            }) });
+        }
+
         _this.update = function (call, member) {
             if (_closed) {
                 return;
@@ -25,7 +58,8 @@
                 stop(call.callId);
                 return;
             }
-            if (!member.resourceId || !call.roomId) {
+            var product = call.version === 2;
+            if (product ? !member.prepared || !call.rtcAppId : !member.resourceId || !call.roomId) {
                 return;
             }
             var visit = _visits[call.callId];
@@ -34,11 +68,8 @@
                 visit = null;
             }
             if (!visit) {
-                if (config.participation) {
-                    failed(call.callId, new Error('Product call media requires publication binding support.'));
-                    return;
-                }
-                if (!odd.RTC || typeof config.credentials !== 'function') {
+                if (!odd.RTC || (product ? !config.participation || typeof config.participation.credentials !== 'function' ||
+                    !config.participation.routing : typeof config.credentials !== 'function' || config.participation)) {
                     failed(call.callId, new Error('Configure RTC media credentials before accepting calls.'));
                     return;
                 }
@@ -54,6 +85,15 @@
                     });
                     return config.credentials(request);
                 } });
+                if (product) {
+                    try {
+                        settings = productSettings(call, member, visit);
+                    } catch (error) {
+                        stop(call.callId);
+                        failed(call.callId, error);
+                        return;
+                    }
+                }
                 visit.rtc.addEventListener(Event.ERROR, function (event) {
                     if (!visit.closed) {
                         failed(call.callId, event.data);
@@ -91,22 +131,25 @@
             }
             var wanted = Object.create(null);
             call.participants.forEach(function (remote) {
-                if (remote.userId === member.userId || remote.state !== 'connected' || !remote.resourceId) {
-                    return;
-                }
-                wanted[remote.resourceId] = true;
-                if (visit.playing[remote.resourceId]) {
-                    return;
-                }
-                visit.playing[remote.resourceId] = true;
-                visit.rtc.play(remote.resourceId).then(function (stream) {
-                    if (!visit.closed && visit.playing[remote.resourceId]) {
-                        changed({ kind: 'calls-media', callId: call.callId, userId: remote.userId, local: false, element: stream.element() });
+                if (remote.userId === member.userId || remote.state !== 'connected') { return; }
+                var sources = product ? (remote.publications || []).filter(function (source) { return source.state === 'active'; }) :
+                    remote.resourceId ? [{ streamId: remote.resourceId }] : [];
+                sources.forEach(function (source) {
+                    var streamId = source.streamId;
+                    wanted[streamId] = true;
+                    if (visit.playing[streamId]) {
+                        return;
                     }
-                }).catch(function (error) {
-                    if (!visit.closed) {
-                        failed(call.callId, error);
-                    }
+                    visit.playing[streamId] = true;
+                    visit.rtc.play(streamId).then(function (stream) {
+                        if (!visit.closed && visit.playing[streamId]) {
+                            changed({ kind: 'calls-media', callId: call.callId, userId: remote.userId, local: false, element: stream.element() });
+                        }
+                    }).catch(function (error) {
+                        if (!visit.closed) {
+                            failed(call.callId, error);
+                        }
+                    });
                 });
             });
             Object.keys(visit.playing).forEach(function (resource) {
@@ -126,3 +169,4 @@
 
     IM.CallMedia = CallMedia;
 })(odd);
+

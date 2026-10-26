@@ -17,7 +17,7 @@
     }
 
     function validate(value) {
-        if (!value || !/^[0-9a-f]{12}7[0-9a-f]{3}[89ab][0-9a-f]{15}$/.test(value.callId) ||
+        if (!value || (value.version !== undefined && value.version !== 1 && value.version !== 2) || !/^[0-9a-f]{12}7[0-9a-f]{3}[89ab][0-9a-f]{15}$/.test(value.callId) ||
             !/^c-[0-9a-f]{64}$/.test(value.conversationId) || !integer(value.revision) || value.revision === '0' ||
             ['inviting', 'connecting', 'active', 'ending', 'ended'].indexOf(value.state) < 0 ||
             ['audio', 'video'].indexOf(value.mode) < 0 || ['user', 'group'].indexOf(value.targetType) < 0 ||
@@ -32,8 +32,23 @@
                 !integer(member.generation) || member.generation === '0' ||
                 ['invited', 'ringing', 'accepted', 'preparing', 'connecting', 'connected', 'recovering', 'ending', 'ended'].indexOf(member.state) < 0 ||
                 (member.expiresAt !== undefined && !integer(member.expiresAt)) ||
+                (member.deadline !== undefined && !integer(member.deadline)) ||
                 (member.candidates !== undefined && (!Array.isArray(member.candidates) || member.candidates.length > 8))) {
                 fail('Invalid call participant state.');
+            }
+            if (member.publications !== undefined) {
+                if (value.version !== 2 || !Array.isArray(member.publications) || member.publications.length > 16) {
+                    fail('Invalid private publication inventory.');
+                }
+                var instances = Object.create(null), uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+                member.publications.forEach(function (source) {
+                    if (!source || !uuid.test(source.streamId) || !uuid.test(source.instanceId) || instances[source.instanceId] ||
+                        !integer(source.generation) || source.generation === '0' || !integer(source.revision) || source.revision === '0' ||
+                        ['active', 'stopped', 'unknown'].indexOf(source.state) < 0 || !identifier(source.nodeId) || !uuid.test(source.bootId)) {
+                        fail('Invalid private publication fact.');
+                    }
+                    instances[source.instanceId] = true;
+                });
             }
             users[member.userId] = true;
             (member.candidates || []).forEach(function (candidate) {
@@ -49,7 +64,13 @@
         return value;
     }
 
-    function result(opcode, fields) {
+    function result(opcode, fields, request) {
+        if (opcode === Opcode.CALL && request && request.some(function (field) { return field.key === 'action' && field.value === 'binding'; })) {
+            Protocol.validateFields(fields, [{ key: 'kind', type: Type.STRING }, { key: 'selection', type: Type.STRING },
+                { key: 'appId', type: Type.STRING }, { key: 'region', type: Type.STRING }, { key: 'connectBefore', type: Type.UINT64 }]);
+            if (fields[0].value !== 'calls-binding') { fail('Invalid private CALL binding response.'); }
+            return;
+        }
         var rules = [];
         if (opcode === Opcode.CALL) {
             rules = [{ key: 'kind', type: Type.STRING }, { key: 'call', type: Type.BYTES }];
@@ -90,3 +111,4 @@
 
     IM.CallProtocol = { validate: validate, result: result, page: page };
 })(odd);
+

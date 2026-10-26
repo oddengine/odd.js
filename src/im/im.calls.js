@@ -44,7 +44,7 @@
     // storage and RTC. Only pending operations and real deadlines are retried.
     function Calls(im, identity, storage, request, session, config, changed, failed) {
         var _this = this, _closed = false, _started = false, _states = Object.create(null),
-            _resolved = Object.create(null), _pending = Object.create(null), _automatic = Object.create(null),
+            _resolved = Object.create(null), _pending = Object.create(null), _automatic = Object.create(null), _stopping = Object.create(null),
             _current = '', _inviting = false, _retryOffset = 0, _receiving = Promise.resolve(), _receives = 0, _negotiated = null,
             _session = base64(session.sessionId), _media;
 
@@ -87,6 +87,7 @@
                 var evict = Object.keys(_states).filter(function (id) { return _states[id].state === 'ended'; })[0];
                 if (!evict) { throw error('QuotaExceededError', 'Call history is full.'); }
                 delete _states[evict];
+                delete _stopping[evict];
             }
             _states[call.callId] = call;
             if (!_started) { return; }
@@ -94,11 +95,16 @@
             var own = member(call);
             if (!own) { throw error('NotAllowedError', 'The call does not include this account.'); }
             if (terminal(call) || terminal(own)) {
+                delete _stopping[call.callId];
                 _media.stop(call.callId);
                 if (_current === call.callId) { _current = ''; }
                 Object.keys(_automatic).forEach(function (key) { if (key.indexOf(call.callId + ':') === 0) { delete _automatic[key]; } });
                 return;
             }
+            // A locally accepted hangup must not be undone by an older feed
+            // while its reliable operation or DELETE is still in flight.
+            if (_stopping[call.callId] === own.generation) { return; }
+            delete _stopping[call.callId];
             if (own.deviceId === identity.deviceId) {
                 _current = call.callId;
                 if (own.sessionId !== _session || own.state === 'recovering') {
@@ -177,7 +183,7 @@
             active();
             var operation = action === 'invite' ? id : Protocol.messageId(resolution.partition, resolution.partitions), created = 0;
             for (var i = 0; i < 6; i++) { created = created * 256 + operation[i]; }
-            var body = [field('version', Type.UINT16, 1), field('callId', Type.BYTES, id),
+            var body = [field('version', Type.UINT16, _negotiated.callVersion), field('callId', Type.BYTES, id),
                 field('operationId', Type.BYTES, operation), field('createdAt', Type.UINT64, words(created)),
                 field('expiresAt', Type.UINT64, words(created + 600000)), field('expectedRevision', Type.UINT64, words(revision)),
                 field('data', Type.OBJECT, data)];
@@ -190,7 +196,55 @@
             });
         }
 
-        _media = new IM.CallMedia(config.rtc || {}, im.logger, notify, function (id, reason) {
+        async function binding(id, generation, context, region) {
+            active();
+            var current = _states[id], own = current && member(current);
+            function selected() {
+                var latest = _states[id], actor = latest && member(latest);
+                return !_closed && latest && !terminal(latest) && actor && !terminal(actor) && actor.prepared === true &&
+                    _stopping[id] !== generation &&
+                    actor.generation === generation && actor.deviceId === identity.deviceId && actor.sessionId === _session;
+            }
+            if (!_negotiated || _negotiated.callVersion !== 2 || !selected() || !context.operationId) {
+                throw error('NotAllowedError', 'Private CALL binding requires the selected IM session.');
+            }
+            var fields = [field('action', Type.STRING, 'binding'), field('target', Type.OBJECT, target(destination(current))),
+                field('body', Type.OBJECT, [field('version', Type.UINT16, 2), field('callId', Type.BYTES, bytes(id)),
+                    field('memberGeneration', Type.UINT64, words(generation)), field('requestId', Type.STRING, context.operationId),
+                    field('region', Type.STRING, region)])];
+            var value;
+            for (var attempt = 0; attempt < 3; attempt++) {
+                if (!selected() || context.signal && context.signal.aborted ||
+                    Date.now() >= Math.min(context.deadline, Number(own.deadline))) {
+                    throw error('AbortError', 'Private CALL binding was cancelled.');
+                }
+                try {
+                    value = await request(Opcode.CALL, fields);
+                    break;
+                } catch (reason) {
+                    var transient = reason.name === 'TimeoutError' || [Protocol.Status.NOT_READY,
+                        Protocol.Status.UNAVAILABLE, Protocol.Status.TIMEOUT, Protocol.Status.UNKNOWN].indexOf(reason.code) >= 0;
+                    if (!transient || attempt === 2) { throw reason; }
+                    // Reuse the exact private request, never enqueue a durable
+                    // operation or extend the original participation deadline.
+                    await new Promise(function (resolve) { setTimeout(resolve, 250 * (attempt + 1)); });
+                }
+            }
+            var until = Number(value.connectBefore);
+            if (!selected() || context.signal && context.signal.aborted || Date.now() >= context.deadline) {
+                throw error('AbortError', 'Private CALL binding completed too late.');
+            }
+            if (value.kind !== 'calls-binding' || value.region !== region || value.appId !== current.rtcAppId ||
+                typeof value.selection !== 'string' || !value.selection || value.selection.length > 8192 ||
+                /[^\x21-\x7e]/.test(value.selection) || !Number.isSafeInteger(until) || until <= Date.now() || until > Number(own.deadline)) {
+                throw error('DataError', 'Invalid private CALL selection.');
+            }
+            // This response deliberately bypasses remember(), pending operations,
+            // notifications and storage adapters. Only this RTC attempt owns it.
+            return { selection: value.selection, appId: value.appId, connectBefore: until };
+        }
+
+        _media = new IM.CallMedia(config.rtc || {}, im.logger, binding, notify, function (id, reason) {
             var call = _states[id], own = call && member(call);
             if (call && own && !terminal(call) && !terminal(own)) {
                 _media.stop(id);
@@ -200,11 +254,11 @@
         });
         _this.open = function () {
             ['enqueueCall', 'pendingCalls', 'settleCall', 'receiveCalls', 'calls', 'position'].forEach(function (name) {
-                if (typeof storage[name] !== 'function') { throw error('NotSupportedError', 'The storage adapter needs CALL v1 support: ' + name); }
+                if (typeof storage[name] !== 'function') { throw error('NotSupportedError', 'The storage adapter needs CALL support: ' + name); }
             });
             return request(Opcode.SUBSCRIBE, [field('kind', Type.STRING, 'calls')]).then(function (info) {
                 active();
-                if (info.callVersion !== 1 || info.participants < 2 || info.participants > 16) { throw error('NotSupportedError', 'Unsupported call capability.'); }
+                if ([1, 2].indexOf(info.callVersion) < 0 || info.participants < 2 || info.participants > 16) { throw error('NotSupportedError', 'Unsupported call capability.'); }
                 _negotiated = info;
                 return storage.calls();
             }).then(function (states) {
@@ -268,7 +322,10 @@
                 }
                 var recipient = destination(call), data = [];
                 if (action === 'reject') { data.push(field('allDevices', Type.BOOL, !!(options && options.allDevices))); }
-                if (['cancel', 'leave', 'end', 'media-failed'].indexOf(action) >= 0) { _media.stop(id); }
+                if (['cancel', 'leave', 'end', 'media-failed'].indexOf(action) >= 0) {
+                    _stopping[id] = member(call).generation;
+                    _media.stop(id);
+                }
                 return resolve(recipient).then(function (resolution) { return submit(action, recipient, bytes(id), call.revision, data, resolution); });
             });
         };
@@ -281,7 +338,7 @@
             var call = _states[id];
             if (!call) { return Promise.reject(error('NotFoundError', 'Unknown call.')); }
             return request(Opcode.CALL, [field('action', Type.STRING, 'inspect'), field('target', Type.OBJECT, target(destination(call))),
-                field('body', Type.OBJECT, [field('version', Type.UINT16, 1), field('callId', Type.BYTES, bytes(id))])]).then(function (info) {
+                field('body', Type.OBJECT, [field('version', Type.UINT16, _negotiated.callVersion), field('callId', Type.BYTES, bytes(id))])]).then(function (info) {
                 return remember(parse(info.call));
             });
         };
@@ -332,3 +389,4 @@
     Calls.validate = function (value) { return IM.CallProtocol.validate(value); };
     IM.Calls = Calls;
 })(odd);
+

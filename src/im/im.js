@@ -683,9 +683,10 @@
                         if (!_this.config.calls || _this.config.calls.enabled !== true) {
                             return;
                         }
-                        if (!IM.Calls || !IM.CallMedia || session.ext.callVersion !== 1) {
-                            throw _error('NotSupportedError', 'This session does not support CALL v1.');
+                        if (!IM.Calls || !IM.CallMedia || [1, 2].indexOf(session.ext.callVersion) < 0) {
+                            throw _error('NotSupportedError', 'This session does not support negotiated CALL.');
                         }
+                        if (attempt.ephemeral) { throw _error('NotSupportedError', 'Calls requires persistent named-user storage.'); }
                         attempt.calls = new IM.Calls(_this, identity, storage,
                             function (opcode, fields) { return _request(attempt, opcode, fields, true); },
                             session, _this.config.calls, function (change) {

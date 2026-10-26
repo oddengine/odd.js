@@ -191,6 +191,11 @@
         _this.media = async function (context, credentials) {
             context = context || {};
             credentials = credentials || context;
+            if (context.callBinding !== undefined && (credentials.product !== 'rtc' ||
+                typeof context.callBinding !== 'string' || !context.callBinding || context.callBinding.length > 8192 ||
+                /[^\x21-\x7e]/.test(context.callBinding))) {
+                throw { name: 'TypeError', message: 'Invalid private CALL binding.' };
+            }
             if (_closed || _allocations.size >= 4096 || !credentials ||
                 typeof credentials.token !== 'string' || !credentials.token || credentials.token.length > 8192 ||
                 /[^\x21-\x7e]/.test(credentials.token) || !Number.isSafeInteger(credentials.connectBefore) ||
@@ -218,7 +223,7 @@
                 throw { name: 'TypeError', message: 'Invalid media allocation request.' };
             }
             var deadline = context.deadline === undefined ? Date.now() + timeout : context.deadline;
-            var entry = await _this.resolve({ deadline: deadline, signal: context.signal });
+            var entry = context.routing ? _valid(context.routing, Date.now(), false) : await _this.resolve({ deadline: deadline, signal: context.signal });
             if (_closed || _allocations.size >= 4096 || context.signal && context.signal.aborted || Date.now() >= deadline) {
                 throw { name: 'AbortError', message: 'Media allocation was cancelled.' };
             }
@@ -237,6 +242,7 @@
                     purpose: context.direction === 'publish' ? context.purpose : undefined,
                     nodeId: credentials.product === 'rtc' ? context.nodeId : undefined,
                     bootId: credentials.product === 'rtc' ? context.bootId : undefined,
+                    callBinding: context.callBinding,
                 };
                 var response = await fetch(endpoint, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store',
                     redirect: 'error', signal: controller.signal,
@@ -289,6 +295,11 @@
         _this.connection = async function (context, credentials) {
             context = context || {};
             credentials = credentials || {};
+            if (context.callSelection !== undefined && (context.kind !== 'rtc' ||
+                typeof context.callSelection !== 'string' || !context.callSelection || context.callSelection.length > 8192 ||
+                /[^\x21-\x7e]/.test(context.callSelection))) {
+                throw { name: 'TypeError', message: 'Invalid private CALL selection.' };
+            }
             var im = context.kind === 'im', token = im ? credentials.ticket : credentials.token,
                 expires = im ? Number(credentials.expiresAt) : credentials.connectBefore * 1000;
             if (_closed || _allocations.size >= 4096 || ['im', 'rtc'].indexOf(context.kind) === -1 ||
@@ -311,8 +322,8 @@
                 throw { name: 'TypeError', message: 'Invalid initial connection identity.' };
             }
             var deadline = Math.min(context.deadline === undefined ? Date.now() + timeout : context.deadline, expires),
-                entry = await _this.resolve({ deadline: deadline, signal: context.signal });
-            if (_closed || entry !== _entry || _allocations.size >= 4096 ||
+                entry = context.routing ? _valid(context.routing, Date.now(), false) : await _this.resolve({ deadline: deadline, signal: context.signal });
+            if (_closed || !context.routing && entry !== _entry || _allocations.size >= 4096 ||
                 context.signal && context.signal.aborted || Date.now() >= deadline) {
                 throw { name: 'AbortError', message: 'Initial connection routing was cancelled.' };
             }
@@ -324,7 +335,7 @@
             if (context.signal) { context.signal.addEventListener('abort', cancel, { once: true }); }
             try {
                 var input = { kind: context.kind, operationId: context.operationId, createdAt: context.createdAt,
-                    appId: credentials.appId, channelAppId: channel, userId: credentials.userId };
+                    appId: credentials.appId, channelAppId: channel, userId: credentials.userId, callSelection: context.callSelection };
                 var response = await fetch(endpoint, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store',
                     redirect: 'error', signal: controller.signal,
                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
@@ -336,7 +347,7 @@
                     throw { name: 'OperationError', message: 'Connection routing was rejected.', status: response.status,
                         credentialExpired: utils.MediaRequest.expired(response) };
                 }
-                var value = await _readJSON(response, 8192);
+                var value = await _readJSON(response, 16384);
                 if (_closed || generation !== _generation || controller.signal.aborted || Date.now() >= deadline) {
                     throw { name: 'AbortError', message: 'Initial connection routing completed too late.' };
                 }
@@ -358,7 +369,11 @@
                     throw { name: 'SecurityError', message: 'Initial connection requires a canonical secure endpoint.' };
                 }
                 // JWT validity remains independent from the short ingress hint.
-                var result = Object.assign({}, credentials, { url: target.href, routeExpiresAt: until });
+                if (context.callSelection && (typeof value.callBinding !== 'string' || !value.callBinding || value.callBinding.length > 8192 ||
+                    /[^\x21-\x7e]/.test(value.callBinding)) || !context.callSelection && value.callBinding !== undefined) {
+                    throw { name: 'DataError', message: 'Connection routing changed its CALL restriction.' };
+                }
+                var result = Object.assign({}, credentials, { url: target.href, routeExpiresAt: until, callBinding: value.callBinding });
                 if (im) { result.expiresAt = Math.min(expires, until); }
                 return result;
             } catch (error) {

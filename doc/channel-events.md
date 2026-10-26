@@ -8,7 +8,7 @@
 
 默认使用有界内存保存本连接的事件投影。匿名每次连接都取新快照，不跨连接复用游标；具名用户若配置持久 storageFactory，还必须给出稳定的非零 UUID deviceId。原 IndexedDB 按页保存后确认、断线失败与取消语义继续适用。
 
-频道 profile 的 events 用于可靠流发现，[普通消息](channel-messages.md)使用独立 messages 能力；联系人或 CALL 未开放。消息权限位的定义与功能实际接线分别判断。服务回显 profile、appId、product、stateVersion 或具名 deviceId 不匹配时拒绝继续。
+频道 profile 的 events 用于可靠流发现，[普通消息](channel-messages.md)使用独立 messages 能力；联系人目录另有边界；[产品CALL v2](product-calls.md)需具名用户CALL权限和持久存储，不由频道流目录隐式启用。消息权限位的定义与功能实际接线分别判断。服务回显 profile、appId、product、stateVersion 或具名 deviceId 不匹配时拒绝继续。
 
 频道 v5 使用同一 H 水位的分页快照，每页最多 32 个实体并限制字节。自定义存储须实现 `beginEventSnapshot`、`saveEventSnapshot`、`finishEventSnapshot`；内置 Memory 和 IndexedDB 已实现。下一页请求表示上一页已存储，最后一页保存后原子切换，再沿原 COMMIT 确认 H；随后接 H 之后增量。中断／过期不会展示半份清单，重连重新建立基线。
 
