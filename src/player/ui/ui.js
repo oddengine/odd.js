@@ -227,6 +227,11 @@
                 _updateDefinition();
             };
             _this.pause = _api.pause;
+            _this.select = function (program) {
+                _program = program;
+                _api.select(program);
+                _updateDefinition();
+            };
             _this.reload = _api.reload;
             _this.seek = _api.seek;
             _this.stop = _api.stop;

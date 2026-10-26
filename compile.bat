@@ -231,7 +231,8 @@ set scripts[14]=".\src\player\player.js"
 set scripts[15]=".\src\player\player.model.js"
 set scripts[16]=".\src\player\player.view.js"
 set scripts[17]=".\src\player\player.controller.js"
-set length=18
+set scripts[18]=".\src\player\player.program.js"
+set length=19
 
 cd.>.\release\odd.player.js
 

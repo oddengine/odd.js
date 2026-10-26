@@ -39,8 +39,10 @@
     }
     function fact(event, meta) {
         var payload = event.payload, text;
-        if (event.kind === 'gift.confirmed') {
-            text = 'Gift confirmed: ' + payload.giftId + ' × ' + payload.count;
+        if (Protocol.giftEvent(event.kind)) {
+            text = (event.kind === 'channel.gift' ? '已确认礼物：' : 'Gift confirmed: ') + payload.giftId + ' × ' + payload.count;
+        } else if (event.kind === 'channel.program') {
+            text = payload.mode === 'pk' ? '已切换为 PK 画面' : '直播 PK 状态已更新';
         } else if (event.kind === 'stage.policy') {
             text = 'Stage mode: ' + payload.mode + ' · seats: ' + payload.capacity;
         } else if (event.kind === 'stage.member') {
@@ -53,7 +55,7 @@
             text = event.kind === 'media.publication' ? 'Media: ' + payload.state : 'Room permissions or media updated';
         }
         var timestamp = event.occurredAt.high * 4294967296 + event.occurredAt.low;
-        return { id: hex(meta.messageId), from: event.kind === 'gift.confirmed' ? payload.senderId : 'Room',
+        return { id: hex(meta.messageId), from: Protocol.giftEvent(event.kind) ? payload.senderId : 'Room',
             text: text, state: 'saved', align: 'left', reliable: true, sequence: meta.messageSequence,
             messageId: meta.messageId, timestamp: timestamp, time: new Date(timestamp).toLocaleString(), incoming: false, roomEvent: true };
     }

@@ -416,7 +416,9 @@
 
         function _onSourceError(e) {
             _logger.log('MediaSource.onsourceerror');
-            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            if (!_destroyed) {
+                _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'MediaSource failed to process the selected stream.' });
+            }
         }
 
         async function _load() {

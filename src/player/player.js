@@ -109,7 +109,8 @@
 
         function _bind() {
             _this.play = _controller.play;
-            _this.pause = _view.pause;
+            _this.select = _controller.select;
+            _this.pause = _controller.pause;
             _this.reload = _controller.reload;
             _this.seek = _view.seek;
             _this.stop = _controller.stop;

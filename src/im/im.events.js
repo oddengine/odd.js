@@ -80,10 +80,17 @@
         if (!event.revision.high && !event.revision.low) {
             throw _error('DataError', 'Event revision is empty.');
         }
-        if (event.kind === 'gift.confirmed') {
+        if (Protocol.giftEvent(event.kind)) {
             rules = [{ key: 'giftId', type: Type.STRING }, { key: 'count', type: Type.UINT32 },
                 { key: 'receiverId', type: Type.STRING }, { key: 'senderId', type: Type.STRING },
                 { key: 'displayUntil', type: Type.UINT64 }];
+            if (event.kind === 'channel.gift') {
+                rules = rules.concat([{ key: 'channelAppId', type: Type.STRING }, { key: 'businessId', type: Type.STRING },
+                    { key: 'channelGeneration', type: Type.UINT64 }, { key: 'channelRevision', type: Type.UINT64 }]);
+                if (!/^[0-9a-f-]{36}$/.test(payload.channelAppId || '') || !/^[0-9a-f-]{36}$/.test(payload.businessId || '')) {
+                    throw _error('DataError', 'Invalid channel gift identity.');
+                }
+            }
         } else if (event.kind === 'room.state') {
             rules = [{ key: 'name', type: Type.STRING }, { key: 'visibility', type: Type.STRING },
                 { key: 'kind', type: Type.STRING }, { key: 'state', type: Type.STRING }, { key: 'ownerId', type: Type.STRING }];
@@ -120,6 +127,20 @@
             if (['camera', 'screen', 'audio'].indexOf(payload.purpose) < 0 || ['enabled', 'revoked'].indexOf(payload.state) < 0) {
                 throw _error('DataError', 'Invalid media resource state.');
             }
+        } else if (event.kind === 'channel.program') {
+            rules = ['appId', 'channelAppId', 'businessId', 'pkId', 'state', 'mode', 'streamId', 'originalStreamId', 'userId', 'protocol', 'details'].map(function (key) {
+                return { key: key, type: Type.STRING };
+            }).concat(['channelGeneration', 'channelRevision', 'endsAt'].map(function (key) { return { key: key, type: Type.UINT64 }; }));
+            var identifier = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+            if (['appId', 'channelAppId', 'businessId'].some(function (key) { return !identifier.test(payload[key]); }) ||
+                ['pkId', 'streamId', 'originalStreamId'].some(function (key) { return payload[key] && !identifier.test(payload[key]); }) ||
+                event.entityId !== 'program-' + payload.channelAppId || payload.appId === payload.channelAppId ||
+                ['invited', 'preparing', 'active', 'ended', 'failed', 'cancelled'].indexOf(payload.state) < 0 ||
+                ['original', 'pk'].indexOf(payload.mode) < 0 || payload.protocol !== 'HTTP-FLV' || typeof payload.details !== 'string' || payload.details.length > 8192 ||
+                !/^[A-Za-z0-9_.-]{1,128}$/.test(payload.userId) ||
+                (payload.mode === 'pk' && (payload.state !== 'active' || !payload.pkId || !payload.streamId || payload.streamId === payload.originalStreamId))) {
+                throw _error('DataError', 'Invalid channel program.');
+            }
         } else if (event.kind === 'channel.publication') {
             rules = ['appId', 'channelAppId', 'streamId', 'instanceId', 'userId', 'product', 'protocol', 'state', 'nodeId', 'bootId'].map(function (key) {
                 return { key: key, type: Type.STRING };
@@ -146,11 +167,11 @@
         } else {
             throw _error('NotSupportedError', 'Unknown room event cannot be acknowledged.');
         }
-        if (event.kind !== 'gift.confirmed' && event.kind !== 'channel.publication') {
+        if (!Protocol.giftEvent(event.kind) && !Protocol.channelEvent(event.kind)) {
             rules = rules.concat([{ key: 'roomGeneration', type: Type.UINT64 }, { key: 'controlRevision', type: Type.UINT64 }]);
         }
         Protocol.validateFields(fields[4].value, rules);
-        if (event.kind === 'gift.confirmed') {
+        if (Protocol.giftEvent(event.kind)) {
             if (event.revision.high || event.revision.low !== 1 || !/^[0-9a-f]{32}$/.test(event.entityId) ||
                 !/^[A-Za-z0-9_.-]{1,128}$/.test(payload.giftId) || !payload.count ||
                 !/^[0-9a-f-]{36}$/.test(payload.senderId) || !/^[0-9a-f-]{36}$/.test(payload.receiverId) ||
@@ -158,8 +179,11 @@
                 _milliseconds(payload.displayUntil) - _milliseconds(event.occurredAt) > 3600000) {
                 throw _error('DataError', 'Invalid confirmed gift fact.');
             }
-        } else if (event.kind === 'channel.publication') {
-            ['generation', 'channelGeneration', 'channelRevision', 'serviceGeneration'].forEach(function (key) {
+            if (event.kind === 'channel.gift' && ((!payload.channelGeneration.high && !payload.channelGeneration.low) ||
+                (!payload.channelRevision.high && !payload.channelRevision.low))) { throw _error('DataError', 'Empty channel gift boundary.'); }
+        } else if (Protocol.channelEvent(event.kind)) {
+            (event.kind === 'channel.publication' ? ['generation', 'channelGeneration', 'channelRevision', 'serviceGeneration'] :
+                ['channelGeneration', 'channelRevision']).forEach(function (key) {
                 if (!payload[key].high && !payload[key].low) { throw _error('DataError', 'Empty channel boundary.'); }
             });
         } else if (!/^[0-9a-f-]{36}$/.test(event.entityId) ||
@@ -170,7 +194,7 @@
     }
 
     function _apply(projection, event) {
-        if (event.kind === 'gift.confirmed') {
+        if (Protocol.giftEvent(event.kind)) {
             return true;
         }
         var key = event.kind + ':' + event.entityId, previous = projection[key];
@@ -257,11 +281,11 @@
                     { key: 'event', type: Type.OBJECT },
                 ]);
                 var item = _object(fields), event = _event(fields[4].value);
-                if (channel !== (event.kind === 'channel.publication') ||
-                    (channel && (event.payload.channelAppId !== state.room || event.payload.state !== 'active'))) {
+                if (channel !== Protocol.channelEvent(event.kind) ||
+                    (channel && (event.payload.channelAppId !== state.room || (event.kind === 'channel.publication' && event.payload.state !== 'active')))) {
                     throw _error('DataError', 'Snapshot profile mismatch.');
                 }
-                if (event.kind === 'gift.confirmed' || ((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
+                if (Protocol.giftEvent(event.kind) || ((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
                     (event.kind === 'media.resource' && event.payload.state === 'revoked') ||
                     (event.kind === 'stage.member' && event.payload.state === 'ended') ||
                     state.projection[event.kind + ':' + event.entityId] ||
@@ -543,10 +567,10 @@
                     }
                     previous = item.messageSequence;
                     event = item.event = _event(entry.value[4].value);
-                    if (channel !== (event.kind === 'channel.publication') || (channel && event.payload.channelAppId !== state.room)) {
+                    if (channel !== Protocol.channelEvent(event.kind) || (channel && event.payload.channelAppId !== state.room)) {
                         throw _error('DataError', 'Event profile mismatch.');
                     }
-                    if (event.kind !== 'gift.confirmed' && (((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
+                    if ((!Protocol.giftEvent(event.kind) || channel) && (((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.room) ||
                         Protocol.compare64((channel ? event.payload.channelGeneration : event.payload.roomGeneration), page.epoch) !== 0)) {
                         throw _error('DataError', 'State belongs to another room generation.');
                     }
@@ -559,7 +583,7 @@
                         meta: { messageId: item.messageId, conversationId: page.conversationId, epoch: page.epoch,
                             messageSequence: item.messageSequence, acceptedAt: item.acceptedAt, expiresAt: item.expiresAt },
                         type: event.kind, content: event.payload, event: event,
-                        live: event.kind === 'gift.confirmed' && _milliseconds(event.payload.displayUntil) > Date.now() });
+                        live: Protocol.giftEvent(event.kind) && _milliseconds(event.payload.displayUntil) > Date.now() });
                 });
                 if (Protocol.compare64(previous, page.last) !== 0) {
                     throw _error('DataError', 'Room page boundary does not match its records.');
@@ -580,10 +604,10 @@
                     var changed = false;
                     added.forEach(function (index) {
                         active(state);
-                        if ((records[index].event.kind === 'gift.confirmed' ||
+                        if ((Protocol.giftEvent(records[index].event.kind) ||
                             Protocol.compare64(records[index].messageSequence, state.info.head) > 0) &&
                             _apply(state.projection, records[index].event)) {
-                            changed = changed || records[index].event.kind !== 'gift.confirmed';
+                            changed = changed || !Protocol.giftEvent(records[index].event.kind);
                             deliver(notifications[index]);
                         }
                     });

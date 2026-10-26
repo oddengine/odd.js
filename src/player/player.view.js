@@ -16,6 +16,8 @@
             _model = model,
             _logger = logger,
             _module,
+            _moduleForward,
+            _generation = 0,
             _source,
             _definition,
             _vod,
@@ -44,7 +46,11 @@
                 _module = new Module[kind](config, _logger);
                 _container.appendChild(_module.element());
 
-                _module.addGlobalListener(_this.forward);
+                var generation = _generation;
+                _moduleForward = function (event) {
+                    if (generation === _generation) { _this.forward(event); }
+                };
+                _module.addGlobalListener(_moduleForward);
                 _module.muted(_model.config.muted);
                 _module.volume(_model.config.volume);
                 _module.setup();
@@ -67,7 +73,8 @@
 
             var index = _model.definition(),
                 source = utils.typeOf(program.sources) === 'array' ? program.sources[index] : null;
-            var routed = source && program.type === 'RTC' && !source.url && typeof source.streamId === 'string';
+            var routed = source && (program.type === 'RTC' || program.type === 'FLV' && typeof _model.config.credentials === 'function') &&
+                !source.url && typeof source.streamId === 'string';
             if (!source || (!routed && (utils.typeOf(source.url) !== 'string' || !source.url))) {
                 _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'The selected source does not exist.' });
                 return;
@@ -198,6 +205,7 @@
         };
 
         _this.destroy = function () {
+            _generation++;
             if (_module) {
                 var module = _module,
                     element = module.element();
@@ -205,7 +213,8 @@
                 _module = undefined;
                 _source = undefined;
                 _definition = undefined;
-                module.removeGlobalListener(_this.forward);
+                module.removeGlobalListener(_moduleForward);
+                _moduleForward = undefined;
                 module.destroy();
 
                 if (element.parentNode === _container) {

@@ -468,8 +468,19 @@
     Protocol.validateTarget = _validateTarget;
     Protocol.validateMessageRequest = _validateMessageRequest;
     Protocol.validateResult = _validateResult;
+    Protocol.channelEvent = function (kind) {
+        return kind === 'channel.publication' || kind === 'channel.program' || kind === 'channel.gift';
+    };
+    Protocol.giftEvent = function (kind) { return kind === 'gift.confirmed' || kind === 'channel.gift'; };
+
     Protocol.compareEventState = function (left, right) {
         var zero = { high: 0, low: 0 };
+        if (left.kind === 'channel.program' || right.kind === 'channel.program') {
+            if (left.kind !== right.kind || left.payload.channelAppId !== right.payload.channelAppId) {
+                _fail('DataError', 'Channel program identity changed.');
+            }
+            return Protocol.compare64(left.payload.channelGeneration, right.payload.channelGeneration) || Protocol.compare64(left.revision, right.revision);
+        }
         if (left.kind === 'channel.publication' || right.kind === 'channel.publication') {
             if (left.kind !== right.kind || left.payload.appId !== right.payload.appId ||
                 left.payload.streamId !== right.payload.streamId || left.payload.instanceId !== right.payload.instanceId) {

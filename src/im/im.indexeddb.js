@@ -505,12 +505,12 @@
             var states = visit.states || [], projection = Object.create(null);
             states.forEach(function (event) { projection[event.kind + ':' + event.entityId] = event; });
             events.forEach(function (event) {
-                if (event.kind === 'gift.confirmed') {
+                if (Protocol.giftEvent(event.kind)) {
                     return;
                 }
                 var key = event.kind + ':' + _identifier(event.entityId), previous = projection[key];
                 _sequence(event.revision);
-                _sequence(event.kind === 'channel.publication' ? event.payload.channelGeneration : event.payload.roomGeneration);
+                _sequence(Protocol.channelEvent(event.kind) ? event.payload.channelGeneration : event.payload.roomGeneration);
                 if (!previous || Protocol.compareEventState(event, previous) > 0) {
                     if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
                         delete projection[key];

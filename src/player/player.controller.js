@@ -19,6 +19,8 @@
             _stalled = 0,
             _retries = 0,
             _retrying = false,
+            _intent = true,
+            _selection = 0,
             _retryTimer;
 
         function _init() {
@@ -59,8 +61,9 @@
         }
 
         _this.play = function (program) {
+            _intent = true;
             if (program === undefined) {
-                if (_model.state() === Event.PAUSE) {
+                if (_model.state() === Event.PAUSE && _view.element()) {
                     _view.play();
                     return;
                 }
@@ -82,6 +85,30 @@
             _view.play(program);
         };
 
+        // A business playback choice replaces the entire source lifecycle.
+        // Preserve an explicit pause/stop; the next user play uses this choice.
+        _this.select = function (program) {
+            if (!program || !Array.isArray(program.sources)) {
+                throw { name: 'TypeError', message: 'A playback selection requires a program.' };
+            }
+            _selection++;
+            _retries = 0;
+            _switching = undefined;
+            var playing = _intent && _model.state() !== Event.PAUSE;
+            _this.stop();
+            _view.destroy();
+            _model.program(program);
+            _intent = playing;
+            if (playing && program.sources.length) { _this.play(program); }
+        };
+
+        _this.pause = function () {
+            _intent = false;
+            clearTimeout(_retryTimer);
+            _retryTimer = undefined;
+            _view.pause();
+        };
+
         _this.reload = function () {
             if (_view) {
                 _view.stop();
@@ -90,6 +117,7 @@
         };
 
         _this.stop = function () {
+            _intent = false;
             clearTimeout(_retryTimer);
             _retryTimer = undefined;
             _retrying = false;
@@ -149,7 +177,7 @@
         function _onReady(e) {
             _logger.log(e.data.kind + ' module is ready.');
             _onStateChange(e);
-            _this.play(_model.program());
+            if (_intent) { _this.play(_model.program()); }
         }
 
         function _onLoadStart(e) {
@@ -244,14 +272,18 @@
                 return;
             }
 
-            if (_retries++ < _model.config.retry.count || _model.config.retry.count === -1) {
+            if (_intent && (_retries++ < _model.config.retry.count || _model.config.retry.count === -1)) {
                 _logger.log('Retrying...');
                 _retrying = true;
                 clearTimeout(_retryTimer);
-                _retryTimer = setTimeout(_this.reload, _model.config.retry.delay);
+                var selection = _selection;
+                _retryTimer = setTimeout(function () {
+                    if (_intent && selection === _selection) { _this.reload(); }
+                }, _model.config.retry.delay);
             } else {
+                var selection = _selection;
                 _view.stop();
-                _onStateChange(e);
+                if (selection === _selection) { _onStateChange(e); }
             }
         }
 

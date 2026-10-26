@@ -222,7 +222,10 @@
                 _logger.log('Loading selected source.');
 
                 try {
-                    _url.parse(file);
+                    if (file) { _url.parse(file); }
+                    else if (typeof _this.config.credentials !== 'function' || typeof program.sources[0].streamId !== 'string') {
+                        throw { name: 'TypeError', message: 'A routed live source requires a credential provider and streamId.' };
+                    }
                 } catch (err) {
                     _logger.error('Failed to parse the selected source URL.');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
@@ -431,7 +434,9 @@
 
         function _onSourceError(e) {
             _logger.log('MediaSource.onsourceerror');
-            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            if (!_destroyed) {
+                _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'MediaSource failed to process the selected stream.' });
+            }
         }
 
         async function _load() {
@@ -1214,6 +1219,7 @@
             return false;
         }
         for (var source of program.sources) {
+            if (program.type === 'FLV' && !source.url && typeof source.streamId === 'string') { continue; }
             var url = new utils.URL(source.url);
             if (!url.protocol.match(/^(http|https|ws|wss)\:$/gi)) {
                 return false;

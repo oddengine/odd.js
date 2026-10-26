@@ -15,3 +15,7 @@
 默认内存投影预算为 8 MiB（setup 的 `channelStateBytes`），没有频道 64 条总量上限。IndexedDB 使用版本 6 的独立快照暂存表，沿原字节和记录预算，分批写入后一次原子切换。来源 node／boot 状态也分页；重建中的未知来源保持 unknown，不把分页截断误认为完整。
 
 2026-10-25 完成源码／diff 审阅；网站按 SDK 源码清单完成集成构建。未执行 SDK 独立发布构建或协议互通测试，R-075 整体仍在进行。
+
+## 直播 PK
+
+R-076 增加 channel.program／channel.gift，播放器按当前节目完整换源，见 [live-pk.md](live-pk.md)。gift 不进入当前状态快照，节目 revision 跨 PK 单调比较。
