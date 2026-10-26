@@ -272,6 +272,8 @@
                 return;
             }
             if (value.messaging) {
+                // Channel publication snapshots share this holder's connection.
+                if (!value.meta || value.target.type === 'channel') { return; }
                 if (value.meta.conversationId === channel.id) {
                     if (_older) { _notice.textContent = '有新保存的消息，刷新后查看。'; }
                     else { load(false).catch(failure); }
@@ -401,3 +403,4 @@
     Conversation.State = State;
     UI.register(Conversation);
 })(odd);
+

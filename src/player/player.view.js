@@ -67,7 +67,8 @@
 
             var index = _model.definition(),
                 source = utils.typeOf(program.sources) === 'array' ? program.sources[index] : null;
-            if (!source || utils.typeOf(source.url) !== 'string' || !source.url) {
+            var routed = source && program.type === 'RTC' && !source.url && typeof source.streamId === 'string';
+            if (!source || (!routed && (utils.typeOf(source.url) !== 'string' || !source.url))) {
                 _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'The selected source does not exist.' });
                 return;
             }
@@ -85,9 +86,10 @@
                 return;
             }
 
-            if (!_module || _module.kind !== module.prototype.kind || _source !== source.url || _definition !== index || _vod !== !!program.vod) {
+            var identity = routed ? 'stream:' + source.streamId : source.url;
+            if (!_module || _module.kind !== module.prototype.kind || _source !== identity || _definition !== index || _vod !== !!program.vod) {
                 _this.destroy();
-                _source = source.url;
+                _source = identity;
                 _definition = index;
                 _vod = !!program.vod;
                 _this.setup(module.prototype.kind);

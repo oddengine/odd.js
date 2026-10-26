@@ -22,6 +22,7 @@
             _destroyed = false,
             _generation = 0,
             _url,
+            _streamId = '',
             _rtc,
             _loadStartAt,
             _firstAudioFrameReceivedIn,
@@ -37,6 +38,7 @@
 
             _ready = false;
             _url = new utils.URL();
+            _streamId = '';
 
             _video = utils.createElement('video');
             _video.addEventListener('play', _this.forward);
@@ -115,10 +117,20 @@
                 return;
             }
 
-            if (program && program.sources[0].url !== _url.href) {
+            var source = program && program.sources[0];
+            var routed = source && !source.url && typeof source.streamId === 'string';
+            if (source && (routed ? source.streamId !== _streamId : source.url !== _url.href)) {
                 var url;
                 try {
-                    url = new utils.URL(program.sources[0].url);
+                    if (routed) {
+                        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(source.streamId) ||
+                            source.streamId === '00000000-0000-0000-0000-000000000000' || typeof _rtc.config.credentials !== 'function') {
+                            throw { name: 'TypeError', message: 'A routed stream requires its credential provider.' };
+                        }
+                        url = new utils.URL();
+                    } else {
+                        url = new utils.URL(source.url);
+                    }
                 } catch (err) {
                     _logger.error('Failed to parse the selected source URL.');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: 'Invalid RTC source URL.' });
@@ -128,6 +140,7 @@
                 _generation++;
                 _rtc.stop();
                 _url = url;
+                _streamId = routed ? source.streamId : '';
                 _video.srcObject = null;
 
                 _loadStartAt = new Date();
@@ -142,9 +155,11 @@
 
                 var generation = _generation,
                     index = _url.path.lastIndexOf('/'),
-                    name = _url.path.substring(index + 1) + (_url.search || ''),
+                    name = routed ? _streamId : _url.path.substring(index + 1) + (_url.search || ''),
                     rtc = _rtc;
-                rtc.config.whep = _url.origin + _url.path.substring(0, index);
+                // Stream identity is known before allocation; the credentials
+                // provider supplies the actual HTTPS node. No invented URL.
+                rtc.config.whep = routed ? '' : _url.origin + _url.path.substring(0, index);
                 rtc.play(name).then(function (ns) {
                     if (_destroyed || generation !== _generation) {
                         ns.close('source changed');
@@ -220,6 +235,7 @@
                 _rtc.stop();
             }
             _url = new utils.URL();
+            _streamId = '';
             _video.srcObject = null;
             _video.load();
             _video.controls = false;
@@ -364,6 +380,9 @@
             return false;
         }
         for (var source of program.sources) {
+            if (!source.url && typeof source.streamId === 'string' &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(source.streamId) &&
+                source.streamId !== '00000000-0000-0000-0000-000000000000') { continue; }
             var url = new utils.URL(source.url);
             if (!url.protocol.match(/^(http|https)\:$/gi)) {
                 return false;
