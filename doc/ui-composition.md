@@ -58,3 +58,17 @@ rtcUI.layout('left'); // right / top / bottom / left / grid
 `labels` 可提供 more、close、controls、show、layout、volume、timebar 和各控件的名称。`IM.UI.createView(null,{kind:'Settings',settings,labels,...})` 的 labels 可替换设置表单的标题、选项和状态文案；不改变设备权限、持久化或下一会话生效语义。
 
 R-079 仅修改源码和 Linux／Windows 拼接清单，未生成 release，未编译、测试、启动浏览器或验证实际媒体与键盘交互。跨窗口偏好同步、设备枚举和 SVC 仍未完成。
+
+## 本机偏好与设备列表（R-080）
+
+`Settings` 保留现有读写方法，新增只读 `devices()`：通过浏览器枚举摄像头／麦克风，返回 `{kind,deviceId,label}`，不启动采集、不上传设备列表。`describe().devices` 表示枚举能力，设备名称为空不代表采集已授权。预览仍需显式 `preview(draft)`；设备缺失或权限拒绝作为实际错误返回，不静默换设备。
+
+存储可选实现 `subscribe(key,listener)`，listener 仅提供最新版本；Settings重新读取，不从通知直接接受配置。返回解绑函数，在Settings.destroy时调用。Settings沿EventDispatcher发送CHANGE：`{name:'settings',reason:'saved'|'loaded',value:read()}` 或 `{name:'settings-error',error:{name,message}}`。旧未注入storage的实例继续只保留内存。存储实现必须在事务完成后返回，expectedVersion和写入比较必须原子；原有load/save签名不变。
+
+SettingsPanel保留未保存草稿；其他实例改变默认值时提示加载最新设置，显式“加载最新并放弃修改”才覆盖草稿。设备变化重新枚举，保留已保存但不可用的ID；刷新／权限错误有恢复操作。保存只影响下次会话；面板关闭停止本Settings对象的独立预览，不停止发布流。
+
+网站提供单独IndexedDB适配，key为schema／账号身份域／subject／产品／模块，不和IM消息存储共库。每key仅一条当前值，最多512条本机身份组合，达到上限时拒绝新增key，已有key仍可更新；不自动删除记录或重用版本。BroadcastChannel只传key/version，不包含设备ID或配置；没有此能力时可通过窗口focus或手动加载恢复。组织不是个人设备偏好的所有者。游客与账号分key，只有显式采用才按账号当前观察版本保存。
+
+网站媒体创建等待本机设置加载完成，并在异步边界检查所属账号与会话；同账号后续加载复用对象。存储不可用时可以重试或明确选择仅本次会话；不会伪装持久成功。完整CALL业务接线仍以实际产品入口为准，存了IM偏好不等于相关呼叫入口已开通。SVC／Simulcast和扬声器设置不属于本轮已实现字段。
+
+R-080仍仅源码与diff审阅，未编译、测试、启动浏览器或设备，不将IndexedDB事务、跨窗口和权限分支称为运行通过。
