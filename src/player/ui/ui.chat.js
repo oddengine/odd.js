@@ -76,8 +76,15 @@
         }
 
         _this.configureDefaults = function (config) {
-            _this.config = utils.extendz(_this.config, config || {});
+            Object.keys(config || {}).forEach(function (name) {
+                _this.config[name] = utils.extendz({}, { value: config[name] }).value;
+            });
             _this.constraints = _getConstraints(_this.config);
+            ['profile', 'video', 'codecpreferences'].forEach(function (name) {
+                if (config && config[name] !== undefined) {
+                    _this.rtc.config[name] = utils.extendz({}, { value: config[name] }).value;
+                }
+            });
             return _this.config;
         };
 

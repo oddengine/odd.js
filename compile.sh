@@ -103,15 +103,16 @@ done
 scripts=()
 scripts[0]="./src/rtc/rtc.js"
 scripts[1]="./src/rtc/rtc.constraints.js"
-scripts[2]="./src/rtc/rtc.stats.js"
-scripts[3]="./src/rtc/rtc.audiometer.js"
-scripts[4]="./src/rtc/rtc.beauty.js"
-scripts[5]="./src/rtc/rtc.beauty.shader.js"
-scripts[6]="./src/rtc/rtc.mixer.js"
-scripts[7]="./src/rtc/rtc.audiomixer.js"
-scripts[8]="./src/rtc/rtc.videomixer.js"
-scripts[9]="./src/rtc/rtc.participation.js"
-scripts[10]="./src/rtc/rtc.netstream.js"
+scripts[2]="./src/rtc/rtc.encodings.js"
+scripts[3]="./src/rtc/rtc.stats.js"
+scripts[4]="./src/rtc/rtc.audiometer.js"
+scripts[5]="./src/rtc/rtc.beauty.js"
+scripts[6]="./src/rtc/rtc.beauty.shader.js"
+scripts[7]="./src/rtc/rtc.mixer.js"
+scripts[8]="./src/rtc/rtc.audiomixer.js"
+scripts[9]="./src/rtc/rtc.videomixer.js"
+scripts[10]="./src/rtc/rtc.participation.js"
+scripts[11]="./src/rtc/rtc.netstream.js"
 
 :>./release/odd.rtc.js
 

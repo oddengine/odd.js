@@ -79,4 +79,12 @@ NetStream 跟踪自己采集的原始轨道，包括 beauty／mixer 上游。发
 
 这些是源码行为说明，未执行构建、测试或真实浏览器／设备验证。
 
+## R-082 发布编码默认值
+
+加载RTC模块时，Settings在原字段之外保存既有`video`及`codecpreferences`结构。video沿`simulcast`／`svc`独立开关及`encodings`数组；不另造扁平媒体配置。新配置深复制，旧本机记录缺新字段时补模块原默认，不自动重写或丢弃旧偏好。RTC UI原默认H264优先和单编码保持；Player／IM沿其原RTC默认。独立RTC UI、Player Chat更新未来NetStream配置，IM自有实例更新calls.rtc对象的未来CALL默认；活动NetStream已复制配置，不重拨。借用的IM实例由宿主配置下次CALL，面板不偷偷修改外部所有者。
+
+`RTC.Encodings.validate(video,codecpreferences)`复用原NetStream参数校验；`describe()`只读浏览器声明能力，不创建PC或保证协商；`preset(profile,simulcast,svc,mode)`生成明确选择的配置。标准多路预设沿已有示例high／medium／low、缩放1／2／4、码率1:1/3:1/8，低路至多15fps；最高路受profile上限，总上行会更高。两开关可组合，SVC仅AV1；模式沿核心支持集合，L1T1不表示分层。
+
+SDK面板显示编码偏好、开关、模式及限制。未编辑编码时保留宿主自定义RID／各路参数；切换开关或模式才套预设。已存但当前未声明支持的选择可见、不静默降级；实际发布继续由既有answer／getParameters核对，不支持就失败并局部清理。预览只检查输入采集。Windows清单同步新增helper并补入既有participation依赖；未生成release、构建或运行设备测试。
+
 R-080仍仅源码与diff审阅，未编译、测试、启动浏览器或设备，不将IndexedDB事务、跨窗口和权限分支称为运行通过。

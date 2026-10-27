@@ -131,7 +131,14 @@
                     }
                     return null;
                 })(plugin.prototype.kind);
-                plugins.push(utils.extendz({}, def, cfg));
+                var options = utils.extendz({}, def);
+                if (plugin.prototype.kind === 'Chat' && config.rtc) {
+                    options.rtc = utils.extendz({}, config.rtc);
+                    ['profile', 'camera', 'microphone'].forEach(function (name) {
+                        if (config.rtc[name] !== undefined) { options[name] = config.rtc[name]; }
+                    });
+                }
+                plugins.push(utils.extendz(options, cfg));
             }
 
             _this.config = utils.extendz({ id: _id }, Player.prototype.CONF, _default, config);
@@ -802,7 +809,7 @@
             if (!_this.config) { throw { name: 'InvalidStateError', message: '请先初始化模块。' }; }
             if (!_settings) {
                 var chat = _this.plugins['Chat'];
-                _settings = new utils.Settings({ module: 'player', defaults: chat ? chat.config : _this.config.rtc,
+                _settings = new utils.Settings({ module: 'player', defaults: chat ? utils.extendz({}, chat.rtc.config, chat.config) : _this.config.rtc,
                     applyDefaults: function (values) {
                         _this.config.rtc = utils.extendz({}, _this.config.rtc || {}, values);
                         if (chat) { chat.configureDefaults(values); }

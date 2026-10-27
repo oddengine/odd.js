@@ -14,6 +14,15 @@
             deviceMissing: 'Saved device (currently unavailable)', unnamedCamera: 'Camera', unnamedMicrophone: 'Microphone',
             devicesUnavailable: 'Device names may require permission. Use preview to grant access, or choose the system default.',
             systemOutput: 'Playback uses the system output device. Change speakers or headphones in your system settings.',
+            encodings: 'Publishing encoding', codec: 'Video codec', currentCodecs: 'Keep configured preferences',
+            simulcast: 'Simulcast: publish multiple resolutions', svc: 'AV1 SVC: use dependent layers', scalabilityMode: 'Layer mode',
+            currentModes: 'No uniform mode selected', noLayers: 'no dependent layers', unavailable: 'not advertised by this browser',
+            encodingNotice: 'Choices apply to the next session. Input preview does not verify encoding; publishing checks the negotiated result.',
+            encodingPreset: 'Changing a multi-stream or layer option applies the standard preset, with three streams when Simulcast is enabled. Other edits preserve custom encoding parameters.',
+            encodingBandwidth: 'Simulcast increases device work and upload bandwidth. The quality limit applies to the highest stream, not their combined bitrate.',
+            encodingUnavailable: 'Encoding capabilities are unavailable. Keep the current settings or disable layered publishing.',
+            svcRequiresAV1: 'SVC requires AV1. Select AV1 before enabling it; turn SVC off before choosing another codec.',
+            DataError: 'Check the selected settings and encoding combination before saving.',
             reload: 'Load latest settings and discard edits', changed: 'Defaults changed. Your edits are kept; load the latest settings before saving.',
             loaded: 'Latest defaults loaded. The current call is unchanged.', failed: 'The operation did not finish. Please retry.',
             ConflictError: 'Defaults changed. Load the latest settings before saving.',
@@ -26,11 +35,12 @@
             InvalidStateError: 'Settings are busy. Wait for the current operation and retry.',
         }, config.labels || {});
         if (!settings || typeof settings.read !== 'function') { throw { name: 'DataError', message: 'Module settings are required.' }; }
-        var _this = this, state = settings.read(), draft = Object.assign({}, state.effective),
+        var _this = this, state = settings.read(), draft = odd.utils.extendz({}, state.effective),
             root = document.createElement('section'), form = document.createElement('form'),
             notice = document.createElement('p'), video = document.createElement('video'),
             inputs = {}, buttons = [], devices = [], dirty = false, closed = false,
-            operation = 0, deviceGeneration = 0, busy = false, cancellable = false;
+            operation = 0, deviceGeneration = 0, busy = false, cancellable = false,
+            encodingNotice, encodingCapability, encodingPreset = false;
         root.className = 'odd-settings-panel';
         var title = document.createElement('h2'); title.textContent = labels.title; root.appendChild(title);
         var persistence = document.createElement('p');
@@ -46,6 +56,7 @@
             input.onchange = function () {
                 draft[name] = input.value === 'false' ? false : input.value;
                 dirty = true;
+                if (name === 'profile' && encodingPreset) { updateEncodings(); }
             };
             label.appendChild(input); form.appendChild(label); inputs[name] = input;
             options(input, choices, draft[name]);
@@ -67,9 +78,83 @@
         select('layout', labels.layout, state.capabilities.layouts.map(function (name) { return [name, layouts[name] || name]; }));
         var deviceNotice = document.createElement('p'); deviceNotice.textContent = labels.devicesUnavailable; form.appendChild(deviceNotice);
         var outputNotice = document.createElement('p'); outputNotice.textContent = labels.systemOutput; form.appendChild(outputNotice);
+        if (state.capabilities.encodings) { buildEncodings(); }
         video.muted = true; video.autoplay = true; video.playsInline = true; video.hidden = true;
         form.appendChild(video);
         var actions = document.createElement('div'); actions.className = 'odd-settings-actions'; form.appendChild(actions);
+
+        function buildEncodings() {
+            var group = document.createElement('fieldset'); group.className = 'odd-settings-encodings';
+            var legend = document.createElement('legend'); legend.textContent = labels.encodings; group.appendChild(legend);
+            form.appendChild(group);
+            var label = document.createElement('label'); label.textContent = labels.codec;
+            var input = document.createElement('select'); input.name = 'codecpreferences';
+            inputs.codecpreferences = input; label.appendChild(input); group.appendChild(label);
+            options(input, [['', labels.currentCodecs], ['video/H264', 'H.264'], ['video/H265', 'H.265'], ['video/AV1', 'AV1']], '');
+            input.onchange = function () {
+                if (input.value) {
+                    draft.codecpreferences = draft.codecpreferences.filter(function (codec) { return codec.toLowerCase().indexOf('audio/') === 0; }).concat(input.value);
+                } else {
+                    draft.codecpreferences = state.effective.codecpreferences.slice(0);
+                }
+                dirty = true; renderEncodings();
+            };
+            ['simulcast', 'svc'].forEach(function (name) {
+                var label = document.createElement('label'); label.className = 'odd-settings-toggle';
+                var toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.name = name;
+                toggle.onchange = updateEncodings; inputs[name] = toggle;
+                label.appendChild(toggle); label.appendChild(document.createTextNode(labels[name])); group.appendChild(label);
+            });
+            var modeLabel = document.createElement('label'); modeLabel.textContent = labels.scalabilityMode;
+            var modes = document.createElement('select'); modes.name = 'scalabilityMode'; inputs.scalabilityMode = modes;
+            modeLabel.appendChild(modes); group.appendChild(modeLabel);
+            options(modes, [['', labels.currentModes]].concat(state.capabilities.encodings.modes.map(function (mode) {
+                return [mode, mode + (mode === 'L1T1' ? ' (' + labels.noLayers + ')' : '')];
+            })), '');
+            modes.options[0].disabled = true;
+            modes.onchange = function () { if (modes.value) { updateEncodings(); } };
+            encodingCapability = document.createElement('p'); encodingCapability.setAttribute('role', 'status'); group.appendChild(encodingCapability);
+            encodingNotice = document.createElement('p'); encodingNotice.textContent = labels.encodingNotice; group.appendChild(encodingNotice);
+            var preset = document.createElement('p'); preset.textContent = labels.encodingPreset; group.appendChild(preset);
+            var bandwidth = document.createElement('p'); bandwidth.textContent = labels.encodingBandwidth; group.appendChild(bandwidth);
+        }
+
+        function updateEncodings() {
+            try {
+                draft.video = odd.RTC.Encodings.preset(draft.profile, inputs.simulcast.checked, inputs.svc.checked,
+                    inputs.scalabilityMode.value || 'L3T3_KEY');
+                encodingPreset = true; dirty = true;
+            } catch (error) { notice.textContent = labels[error.name] || labels.failed; }
+            renderEncodings();
+        }
+
+        function renderEncodings() {
+            if (!encodingNotice) { return; }
+            var capability = state.capabilities.encodings, video = draft.video;
+            var selected = draft.codecpreferences.filter(function (codec) { return /^video\/(H264|H265|AV1)$/i.test(codec); });
+            inputs.codecpreferences.value = selected.length === 1 ? ['video/H264', 'video/H265', 'video/AV1'].filter(function (codec) {
+                return codec.toLowerCase() === selected[0].toLowerCase();
+            })[0] : '';
+            inputs.simulcast.checked = video.simulcast === undefined ? video.encodings.length > 1 : video.simulcast;
+            inputs.svc.checked = video.svc;
+            var modes = video.encodings.map(function (encoding) { return encoding.scalabilityMode || ''; });
+            inputs.scalabilityMode.value = modes.length && modes.every(function (mode) { return mode === modes[0]; }) ? modes[0] : '';
+            var av1 = selected.some(function (codec) { return codec.toLowerCase() === 'video/av1'; });
+            var originalCompatible = true;
+            try { odd.RTC.Encodings.validate(video, state.effective.codecpreferences); }
+            catch (error) { originalCompatible = false; }
+            Array.prototype.forEach.call(inputs.codecpreferences.options, function (option) {
+                var unavailable = option.value && capability.codecs.indexOf(option.value) < 0;
+                option.disabled = option.value ? !!unavailable || video.svc && option.value !== 'video/AV1' : !originalCompatible;
+                var title = { '': labels.currentCodecs, 'video/H264': 'H.264', 'video/H265': 'H.265', 'video/AV1': 'AV1' }[option.value];
+                option.textContent = title + (unavailable ? ' (' + labels.unavailable + ')' : '');
+            });
+            inputs.simulcast.disabled = busy || !capability.available && !inputs.simulcast.checked;
+            inputs.svc.disabled = busy || !video.svc && (!av1 || capability.codecs.indexOf('video/AV1') < 0);
+            inputs.scalabilityMode.disabled = busy || !video.svc;
+            var missing = selected.some(function (codec) { return !capability.codecs.some(function (supported) { return codec.toLowerCase() === supported.toLowerCase(); }); });
+            encodingCapability.textContent = !capability.available ? labels.encodingUnavailable : missing ? labels.unavailable : labels.svcRequiresAV1;
+        }
 
         function deviceOptions() {
             [['camera', 'videoinput', labels.unnamedCamera], ['microphone', 'audioinput', labels.unnamedMicrophone]].forEach(function (definition) {
@@ -98,6 +183,7 @@
         function setBusy(value, allowCancel) {
             busy = value; cancellable = !!allowCancel;
             Object.keys(inputs).forEach(function (name) { inputs[name].disabled = value; });
+            renderEncodings();
             buttons.forEach(function (button) { button.element.disabled = value && (!button.cancel || !cancellable) || button.unavailable; });
             form.setAttribute('aria-busy', String(value));
         }
@@ -136,19 +222,19 @@
         var save = button(labels.save, async function () {
             var result = await settings.save(draft, { expectedVersion: state.version, scope: 'next-session' });
             if (closed) { return; }
-            state = settings.read(); dirty = false; draft = Object.assign({}, state.effective);
+            state = settings.read(); dirty = false; encodingPreset = false; draft = odd.utils.extendz({}, state.effective);
             video.srcObject = null; video.hidden = true; render();
             notice.textContent = labels.saved + (result.warnings.length ? ' ' + labels.temporary : '');
         });
         button(labels.reload, async function () {
             await settings.load();
             if (closed) { return; }
-            state = settings.read(); draft = Object.assign({}, state.effective); dirty = false;
+            state = settings.read(); draft = odd.utils.extendz({}, state.effective); dirty = false; encodingPreset = false;
             settings.cancel(); video.srcObject = null; video.hidden = true; render(); notice.textContent = labels.loaded;
         });
         form.onsubmit = function (event) { event.preventDefault(); save.click(); };
         function render() {
-            inputs.profile.value = draft.profile; inputs.layout.value = draft.layout; deviceOptions();
+            inputs.profile.value = draft.profile; inputs.layout.value = draft.layout; deviceOptions(); renderEncodings();
         }
         function changed(event) {
             if (closed) { return; }
@@ -157,7 +243,7 @@
             var next = event.data.value;
             if (next.version === state.version) { return; }
             if (dirty || busy) { notice.textContent = labels.changed; return; }
-            state = next; draft = Object.assign({}, state.effective); render(); notice.textContent = labels.loaded;
+            state = next; draft = odd.utils.extendz({}, state.effective); encodingPreset = false; render(); notice.textContent = labels.loaded;
         }
         function refreshDefaults() {
             if (closed || busy || state.capabilities.persistence !== 'host') { return; }

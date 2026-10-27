@@ -62,7 +62,7 @@ RTC参与固定在原node／boot，公共分配为该目标准备本地原始源
 
 ## 当前边界
 
-直接使用 `RTC.NetStream` 不能自己建立共享参与，必须由RTC实例持有控制器。原逐流路径保持独立。[产品CALL v2](product-calls.md)已接真实频道／RTC App、被选设备私下证明与可靠成员发布事实；旧静态CALL v1保持原逐流配置，不把旧resourceId当产品流ID规则。源代码引用须按顺序加载 `rtc.js`、`rtc.participation.js`、`rtc.netstream.js`。
+直接使用 `RTC.NetStream` 不能自己建立共享参与，必须由RTC实例持有控制器。原逐流路径保持独立。[产品CALL v2](product-calls.md)已接真实频道／RTC App、被选设备私下证明与可靠成员发布事实；旧静态CALL v1保持原逐流配置，不把旧resourceId当产品流ID规则。源代码引用须沿compile.sh的RTC模块顺序；其中 `rtc.constraints.js`、`rtc.encodings.js` 和 `rtc.participation.js` 必须早于 `rtc.netstream.js`。
 
 本次仅源码与差异审阅，未编译、测试、运行浏览器或重建发布产物。
 

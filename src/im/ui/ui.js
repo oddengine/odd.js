@@ -180,6 +180,13 @@
 
             _this.config = utils.extendz({ id: _id }, IM.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
+            if (!_borrowedInstance && _this.config.calls && _this.config.calls.rtc) {
+                ['profile', 'camera', 'microphone', 'video', 'codecpreferences'].forEach(function (name) {
+                    if (_this.config.calls.rtc[name] === undefined && _this.config.rtc[name] !== undefined) {
+                        _this.config.calls.rtc[name] = utils.extendz({}, { value: _this.config.rtc[name] }).value;
+                    }
+                });
+            }
         }
 
         function _normalizePresentation(value) {
@@ -360,8 +367,17 @@
         _this.settings = function () {
             if (!_this.config) { throw { name: 'InvalidStateError', message: '请先初始化模块。' }; }
             if (!_settings) {
-                _settings = new utils.Settings({ module: 'im', defaults: _this.config.rtc,
-                    applyDefaults: function (values) { _this.config.rtc = utils.extendz({}, _this.config.rtc || {}, values); } });
+                _settings = new utils.Settings({ module: 'im', defaults: utils.extendz({}, _this.config.rtc,
+                    !_borrowedInstance && _this.config.calls && _this.config.calls.rtc || {}),
+                    applyDefaults: function (values) {
+                        _this.config.rtc = _this.config.rtc || {};
+                        Object.keys(values).forEach(function (name) {
+                            _this.config.rtc[name] = utils.extendz({}, { value: values[name] }).value;
+                            if (!_borrowedInstance && _this.config.calls && _this.config.calls.rtc) {
+                                _this.config.calls.rtc[name] = utils.extendz({}, { value: values[name] }).value;
+                            }
+                        });
+                    } });
             }
             return _settings;
         };

@@ -615,46 +615,7 @@
         };
 
         function _videoEncodings() {
-            var video = _this.config.video;
-            if (!Array.isArray(video.encodings) ||
-                (video.simulcast !== undefined && typeof video.simulcast !== 'boolean') ||
-                typeof video.svc !== 'boolean') {
-                throw { name: 'TypeError', message: 'Invalid video scalability configuration.' };
-            }
-            var simulcast = video.simulcast === undefined ? video.encodings.length > 1 : video.simulcast;
-            if ((simulcast && (video.encodings.length < 2 || video.encodings.length > 3)) ||
-                (!simulcast && video.encodings.length > 1) ||
-                (video.svc && video.encodings.length === 0)) {
-                throw { name: 'TypeError', message: 'Video encoding count conflicts with simulcast/SVC flags.' };
-            }
-            if (video.svc && !_this.config.codecpreferences.some(function (codec) {
-                return codec.toLowerCase() === 'video/av1';
-            })) {
-                throw { name: 'NotSupportedError', message: 'SVC requires an explicit video/AV1 codec preference.' };
-            }
-            var rids = [];
-            return video.encodings.map(function (value) {
-                var encoding = utils.extendz({}, value);
-                if ((simulcast && (!encoding.rid || !/^[a-zA-Z0-9]{1,16}$/.test(encoding.rid))) ||
-                    (encoding.rid && rids.indexOf(encoding.rid) !== -1) ||
-                    !Number.isFinite(encoding.maxBitrate) || encoding.maxBitrate <= 0) {
-                    throw { name: 'TypeError', message: 'Video encodings require unique RIDs for simulcast and positive bitrate limits.' };
-                }
-                rids.push(encoding.rid);
-                if (video.svc) {
-                    // AV1 full spatial/temporal modes. Independent S modes,
-                    // half-resolution and key-shift variants are not implemented.
-                    if (!/^L(?:1T[1-3]|[23]T[1-3](?:_KEY)?)$/.test(encoding.scalabilityMode || '')) {
-                        throw { name: 'NotSupportedError', message: 'Unsupported AV1 scalabilityMode.' };
-                    }
-                } else {
-                    if (encoding.scalabilityMode && encoding.scalabilityMode !== 'L1T1') {
-                        throw { name: 'TypeError', message: 'A layered scalabilityMode requires video.svc=true.' };
-                    }
-                    delete encoding.scalabilityMode;
-                }
-                return encoding;
-            });
+            return RTC.Encodings.validate(_this.config.video, _this.config.codecpreferences);
         }
 
         function _videoSection(sdp, mid) {

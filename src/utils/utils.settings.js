@@ -12,9 +12,18 @@
             profile: config.module === 'rtc' ? '720P_2' : '180P_1',
             camera: '', microphone: '', layout: 'right',
         };
+        var encodings = odd.RTC && odd.RTC.Encodings;
+        if (encodings) {
+            defaults.video = { svc: false, encodings: [] };
+            var rtcDefaults = config.module === 'rtc' && odd.RTC.UI ? odd.RTC.UI.prototype.CONF : odd.RTC.prototype.CONF;
+            defaults.codecpreferences = rtcDefaults.codecpreferences.slice(0);
+        }
         Object.keys(defaults).forEach(function (name) {
-            if (config.defaults && config.defaults[name] !== undefined) { defaults[name] = config.defaults[name]; }
+            if (config.defaults && config.defaults[name] !== undefined) {
+                defaults[name] = name === 'video' ? utils.extendz({}, defaults.video, config.defaults.video) : config.defaults[name];
+            }
         });
+        defaults = utils.extendz({}, defaults);
         var values = utils.extendz({}, defaults), version = 0,
             generation = 0, preview = null, closed = false, saving = false,
             loading = null, refresh = false, unsubscribe, storageError = null;
@@ -25,6 +34,7 @@
                 layouts: ['right', 'top', 'bottom', 'left', 'grid'],
                 preview: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
                 devices: !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices),
+                encodings: encodings ? encodings.describe() : null,
                 persistence: config.storage ? 'host' : 'instance', scope: 'next-session' };
         };
         _this.read = function () {
@@ -46,8 +56,12 @@
                         typeof value === 'string' && value.length <= 256)) {
                     errors[name] = 'The setting value is unavailable.'; return;
                 }
-                result[name] = value;
+                result[name] = utils.extendz({}, { value: value }).value;
             });
+            if (encodings) {
+                try { encodings.validate(result.video, result.codecpreferences); }
+                catch (error) { errors.video = error.message; }
+            }
             return { value: result, errors: errors };
         };
         function _changed(reason) {
@@ -108,7 +122,7 @@
                     refresh = false;
                     var saved = await config.storage.load(config.key);
                     if (closed || version !== previous) { throw { name: 'AbortError', message: 'Settings changed.' }; }
-                    var checked = _this.validate(saved ? saved.value : defaults);
+                    var checked = _this.validate(Object.assign({}, defaults, saved ? saved.value : {}));
                     if (saved && (!Number.isSafeInteger(saved.version) || saved.version < 0) || Object.keys(checked.errors).length) {
                         throw { name: 'DataError', message: 'Stored settings are invalid.' };
                     }

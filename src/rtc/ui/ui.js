@@ -1100,7 +1100,15 @@
             if (!_this.config) { throw { name: 'InvalidStateError', message: '请先初始化模块。' }; }
             if (!_settings) {
                 _settings = new utils.Settings({ module: 'rtc', defaults: _this.config,
-                    applyDefaults: function (values) { utils.extendz(_this.config, values); _constraints = _getConstraints(_this.config); } });
+                    applyDefaults: function (values) {
+                        Object.keys(values).forEach(function (name) {
+                            _this.config[name] = utils.extendz({}, { value: values[name] }).value;
+                        });
+                        ['profile', 'video', 'codecpreferences'].forEach(function (name) {
+                            _api.config[name] = utils.extendz({}, { value: values[name] }).value;
+                        });
+                        _constraints = _getConstraints(_this.config);
+                    } });
             }
             return _settings;
         };

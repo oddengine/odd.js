@@ -121,15 +121,17 @@ goto loop4
 
 set scripts[0]=".\src\rtc\rtc.js"
 set scripts[1]=".\src\rtc\rtc.constraints.js"
-set scripts[2]=".\src\rtc\rtc.stats.js"
-set scripts[3]=".\src\rtc\rtc.audiometer.js"
-set scripts[4]=".\src\rtc\rtc.beauty.js"
-set scripts[5]=".\src\rtc\rtc.beauty.shader.js"
-set scripts[6]=".\src\rtc\rtc.mixer.js"
-set scripts[7]=".\src\rtc\rtc.audiomixer.js"
-set scripts[8]=".\src\rtc\rtc.videomixer.js"
-set scripts[9]=".\src\rtc\rtc.netstream.js"
-set length=10
+set scripts[2]=".\src\rtc\rtc.encodings.js"
+set scripts[3]=".\src\rtc\rtc.stats.js"
+set scripts[4]=".\src\rtc\rtc.audiometer.js"
+set scripts[5]=".\src\rtc\rtc.beauty.js"
+set scripts[6]=".\src\rtc\rtc.beauty.shader.js"
+set scripts[7]=".\src\rtc\rtc.mixer.js"
+set scripts[8]=".\src\rtc\rtc.audiomixer.js"
+set scripts[9]=".\src\rtc\rtc.videomixer.js"
+set scripts[10]=".\src\rtc\rtc.participation.js"
+set scripts[11]=".\src\rtc\rtc.netstream.js"
+set length=12
 
 cd.>.\release\odd.rtc.js
 

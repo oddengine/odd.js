@@ -41,6 +41,11 @@
 .odd-settings-panel form { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
 .odd-settings-panel label { display:grid; gap:10px; }
 .odd-settings-panel select { min-height:46px; width:100%; border:1px solid var(--odd-line); border-radius:6px; color:var(--odd-ink); background:var(--odd-surface); padding:8px; }
+.odd-settings-panel .odd-settings-encodings { min-width:0; display:grid; gap:16px; grid-column:1/-1; margin:0; padding:20px; border:1px solid var(--odd-line); border-radius:6px; }
+.odd-settings-panel .odd-settings-encodings legend { padding:0 8px; font-weight:600; }
+.odd-settings-panel .odd-settings-encodings p { margin:0; line-height:1.6; }
+.odd-settings-panel .odd-settings-toggle { min-height:44px; display:flex; align-items:center; gap:12px; cursor:pointer; }
+.odd-settings-panel .odd-settings-toggle input { width:20px; height:20px; margin:0; accent-color:var(--odd-accent); }
 .odd-settings-panel video { width:100%; max-height:280px; background:#14191C; grid-column:1/-1; }
 .odd-settings-actions { display:flex; flex-wrap:wrap; gap:12px; grid-column:1/-1; }
 .odd-settings-actions button { border:1px solid var(--odd-line); border-radius:6px; background:var(--odd-surface); padding:10px 18px; }
