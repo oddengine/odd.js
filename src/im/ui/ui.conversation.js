@@ -83,7 +83,12 @@
             rows.forEach(function (row) { _rows[row.id] = row; });
             var messages = _this.components.messages;
             if (messages) {
-                messages.update(rows);
+                messages.update(rows.map(function (row) {
+                    if (typeof config.formatMessage !== 'function') { return row; }
+                    var copy = utils.extendz({}, row);
+                    copy.text = String(config.formatMessage(row.text, { target: _this.target(), incoming: row.incoming }));
+                    return copy;
+                }));
                 messages.element().scrollTop = older ? 0 : messages.element().scrollHeight;
             }
             _readButton.hidden = !_channel || _channel.room;
@@ -130,7 +135,11 @@
         }
         async function open(target, generation) {
             if (!im.connected()) { _notice.textContent = '连接已断开，重新连接后恢复已保存消息。'; return; }
-            var store = im.storage(), room = target.type === 'room', resolved;
+            var store = im.storage(), room = target.type === 'room', resolved, readOnly = target.type === 'system';
+            if (target.type === 'conversation' && store && typeof store.destination === 'function') {
+                var saved = await store.destination(target.id);
+                readOnly = !!(saved && saved.target && saved.target.type === 'system');
+            }
             var reads = ['history', 'outgoing', 'outboxEntry', 'projection', 'gaps', 'destination', 'saveRead', 'eventHistory'];
             if (!room && (!store || reads.some(function (name) { return typeof store[name] !== 'function'; }))) {
                 throw new Error('可靠会话需要支持历史记录的持久消息存储。');
@@ -139,7 +148,9 @@
             if (!current(generation)) { return; }
             var destination = room ? target : { type: 'conversation', id: resolved.conversationId },
                 channel = { id: destination.id, target: destination, room: room, session: store, user: im.userId(), storage: store && reads.every(function (name) { return typeof store[name] === 'function'; }) ? store : null, resolution: resolved, visit: null, events: false, ready: false };
+            channel.readOnly = readOnly;
             _channel = channel;
+            if (_this.components.composer) { _this.components.composer.element().hidden = readOnly; }
             if (!room && target.type !== 'conversation') {
                 var value = _selected || contact(config.active) || {};
                 await store.destination(channel.id, { target: target, name: String(value.name || target.id).slice(0, 128), avatar: String(value.avatar || '').slice(0, 2048) });
@@ -147,10 +158,10 @@
             if (!current(generation)) { release(channel); return; }
             if (config.manageSubscriptions !== false) {
                 channel.subscription = UI.Subscriptions.acquire(im, destination, room ? {} : { messaging: true,
-                    actions: Action.MESSAGE_SUBSCRIBE | Action.MESSAGE_PUBLISH | Action.MESSAGE_COMMIT | Action.MESSAGE_READ });
+                    actions: Action.MESSAGE_SUBSCRIBE | Action.MESSAGE_COMMIT | Action.MESSAGE_READ });
                 await channel.subscription.ready;
             } else {
-                await im.refresh(destination, room ? Action.MESSAGE_PUBLISH : Action.MESSAGE_PUBLISH | Action.MESSAGE_READ, !room);
+                await im.refresh(destination, room ? Action.MESSAGE_PUBLISH : Action.MESSAGE_READ, !room);
             }
             if (!current(generation)) { release(channel); return; }
             if (room) {
@@ -180,6 +191,7 @@
         async function send(text) {
             var channel = _channel, generation = _generation;
             if (!channel || !channel.ready || !im.connected()) { failure(new Error('请先选择已连接的会话。')); return; }
+            if (channel.readOnly) { failure(new Error('系统消息仅供接收与查看。')); return; }
             if (Object.keys(_sending).length >= 8) { failure(new Error('请等待正在发送的消息完成。')); return; }
             var id = channel.room ? null : Protocol.messageId(channel.resolution.partition, channel.resolution.partitions), key = id ? _history.hex(id) : utils.guid(),
                 row = { id: key, text: text, from: im.userId(), align: 'right', incoming: false, reliable: !channel.room, ephemeral: channel.room,

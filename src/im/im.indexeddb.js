@@ -1026,7 +1026,7 @@
         _this.destination = function (conversation, value) {
             _identifier(conversation);
             if (value) {
-                if (!value.target || ['user', 'group', 'conversation'].indexOf(value.target.type) < 0 ||
+                if (!value.target || ['user', 'group', 'conversation', 'channel', 'system'].indexOf(value.target.type) < 0 ||
                     typeof value.name !== 'string' || value.name.length > 128 || typeof value.avatar !== 'string' || value.avatar.length > 2048) {
                     return Promise.reject(_error('DataError', 'Invalid conversation display metadata.'));
                 }

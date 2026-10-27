@@ -31,7 +31,7 @@
         view.skin(skin);
         view.open = function (target) {
             if (closed) { return Promise.reject({ name: 'InvalidStateError', message: '窗口已关闭。' }); }
-            if (!target || typeof target.id !== 'string' || ['user', 'group', 'room', 'conversation'].indexOf(target.type) < 0) {
+            if (!target || typeof target.id !== 'string' || ['user', 'group', 'room', 'conversation', 'channel', 'system'].indexOf(target.type) < 0) {
                 return Promise.reject({ name: 'DataError', message: '需要明确的会话目标。' });
             }
             if (kind === 'Conversation' && !im.connected()) {

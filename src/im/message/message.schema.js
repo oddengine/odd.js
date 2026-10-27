@@ -123,7 +123,7 @@
             { key: 'deviceId', type: Type.STRING, required: false },
         ]);
         var kind = fields[0].value;
-        if (['room', 'group', 'user', 'endpoint', 'conversation', 'stream', 'channel'].indexOf(kind) < 0 ||
+        if (['room', 'group', 'user', 'endpoint', 'conversation', 'stream', 'channel', 'system'].indexOf(kind) < 0 ||
             (kind === 'endpoint') !== (fields.length === 3)) {
             _fail('DataError', 'Invalid target type or device.');
         }

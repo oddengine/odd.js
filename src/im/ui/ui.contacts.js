@@ -29,7 +29,7 @@
             _container = utils.createElement('div', CLASS_CONTACTS);
         }
 
-        _this.add = function (id, type, name, avatar) {
+        _this.add = function (id, type, name, avatar, metadata) {
             _this.remove(id);
 
             var data = {
@@ -37,6 +37,8 @@
                 type: type,
                 name: name,
                 avatar: avatar,
+                appId: metadata && metadata.appId,
+                target: metadata && metadata.target,
             },
                 element = utils.createElement('button', CLASS_CONTACT),
                 image = new Avatar('avatar', data, logger),
