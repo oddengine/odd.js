@@ -18,7 +18,7 @@
         _this.describe = function () {
             var profiles = odd.RTC && odd.RTC.Constraints || {};
             return { module: config.module || 'im', profiles: Object.keys(profiles),
-                layouts: ['right', 'top', 'grid'],
+                layouts: ['right', 'top', 'bottom', 'left', 'grid'],
                 preview: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
                 persistence: config.storage ? 'host' : 'instance', scope: 'next-session' };
         };
@@ -28,27 +28,27 @@
         };
         _this.validate = function (draft) {
             var errors = {}, result = utils.extendz({}, values), description = _this.describe();
-            if (!draft || typeof draft !== 'object') { return { value: result, errors: { form: '设置格式不正确。' } }; }
+            if (!draft || typeof draft !== 'object') { return { value: result, errors: { form: 'Invalid settings format.' } }; }
             Object.keys(draft).forEach(function (name) {
-                if (Object.keys(defaults).indexOf(name) < 0) { errors[name] = '不支持此设置。'; return; }
+                if (Object.keys(defaults).indexOf(name) < 0) { errors[name] = 'Unsupported setting.'; return; }
                 var value = draft[name];
                 if (name === 'profile' && description.profiles.indexOf(value) < 0 ||
                     name === 'layout' && description.layouts.indexOf(value) < 0 ||
                     (name === 'camera' || name === 'microphone') && !(typeof value === 'boolean' ||
                         typeof value === 'string' && value.length <= 256)) {
-                    errors[name] = '设置值不可用。'; return;
+                    errors[name] = 'The setting value is unavailable.'; return;
                 }
                 result[name] = value;
             });
             return { value: result, errors: errors };
         };
         _this.save = async function (draft, options) {
-            if (closed || saving) { throw { name: 'InvalidStateError', message: '设置已关闭或正在保存。' }; }
+            if (closed || saving) { throw { name: 'InvalidStateError', message: 'Settings are closed or being saved.' }; }
             if (!options || options.scope !== 'next-session' || options.expectedVersion !== version) {
-                throw { name: 'ConflictError', message: '设置已变化，请重新读取后保存。' };
+                throw { name: 'ConflictError', message: 'Settings changed. Read the current version before saving.' };
             }
             var checked = _this.validate(draft), current = generation;
-            if (Object.keys(checked.errors).length) { throw { name: 'DataError', message: '请检查设置选项。', fields: checked.errors }; }
+            if (Object.keys(checked.errors).length) { throw { name: 'DataError', message: 'Check the settings values.', fields: checked.errors }; }
             saving = true;
             try {
                 if (config.storage) {
@@ -56,23 +56,23 @@
                     // write is never presented as a successful local save.
                     await config.storage.save(config.key, { value: checked.value, version: version + 1 }, { expectedVersion: version });
                 }
-                if (closed || current !== generation) { throw { name: 'AbortError', message: '设置窗口已关闭。' }; }
+                if (closed || current !== generation) { throw { name: 'AbortError', message: 'The settings view was closed.' }; }
                 values = checked.value;
                 version++;
                 if (config.applyDefaults) { config.applyDefaults(utils.extendz({}, values)); }
                 _this.cancel();
                 return { version: version, applied: [], deferred: Object.keys(values),
-                    warnings: config.storage ? [] : ['当前偏好仅保留在本次实例中。'] };
+                    warnings: config.storage ? [] : ['Preferences are stored in this instance only.'] };
             } finally { saving = false; }
         };
         _this.load = async function () {
             if (!config.storage) { return _this.read(); }
             var current = generation, previous = version, saved = await config.storage.load(config.key);
-            if (closed || generation !== current || version !== previous || saving) { throw { name: 'AbortError', message: '设置已变化。' }; }
+            if (closed || generation !== current || version !== previous || saving) { throw { name: 'AbortError', message: 'Settings changed.' }; }
             if (saved) {
                 var checked = _this.validate(saved.value);
                 if (!Number.isSafeInteger(saved.version) || saved.version < 0 || Object.keys(checked.errors).length) {
-                    throw { name: 'DataError', message: '保存的设置不可用。' };
+                    throw { name: 'DataError', message: 'Stored settings are invalid.' };
                 }
                 values = checked.value; version = saved.version;
                 if (config.applyDefaults) { config.applyDefaults(utils.extendz({}, values)); }
@@ -80,11 +80,11 @@
             return _this.read();
         };
         _this.preview = async function (draft) {
-            if (closed) { throw { name: 'InvalidStateError', message: '设置已关闭。' }; }
+            if (closed) { throw { name: 'InvalidStateError', message: 'Settings are closed.' }; }
             _this.cancel();
             var checked = _this.validate(draft), current = generation;
             if (Object.keys(checked.errors).length || !_this.describe().preview) {
-                throw { name: 'NotSupportedError', message: '设备预览不可用，请检查浏览器权限。' };
+                throw { name: 'NotSupportedError', message: 'Device preview is unavailable. Check browser permissions.' };
             }
             var value = checked.value, profile = odd.RTC.Constraints[value.profile];
             var video = value.camera === false ? false : utils.extendz({}, profile.video || {});
@@ -93,7 +93,7 @@
             if (audio && typeof value.microphone === 'string' && value.microphone) { audio.deviceId = { exact: value.microphone }; }
             var stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: audio });
             function stop() { stream.getTracks().forEach(function (track) { track.stop(); }); if (preview === stream) { preview = null; } }
-            if (closed || current !== generation) { stop(); throw { name: 'AbortError', message: '预览已取消。' }; }
+            if (closed || current !== generation) { stop(); throw { name: 'AbortError', message: 'Preview was cancelled.' }; }
             preview = stream;
             return { stream: stream, stop: stop };
         };

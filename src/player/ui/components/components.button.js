@@ -18,12 +18,14 @@
             _tooltip;
 
         function _init() {
-            _container = utils.createElement('span', CLASS_BUTTON + ' ' + name);
+            _container = utils.createElement('button', CLASS_BUTTON + ' ' + name);
+            _container.type = 'button';
+            _container.setAttribute('aria-label', value || name);
             _container.addEventListener('click', _onClick);
 
             if (value !== undefined) {
                 _tooltip = utils.createElement('span', CLASS_TOOLTIP);
-                _tooltip.innerHTML = value;
+                _tooltip.textContent = value;
                 _container.appendChild(_tooltip);
             }
         }

@@ -20,7 +20,7 @@
             if (name !== 'container' && name !== 'settings') { provided[name] = config[name]; }
         });
         var options = utils.extendz({}, constructor.prototype.CONF || {}, provided);
-        var view = kind === 'Settings' ? new constructor(config.settings) : new constructor(im, options, logger),
+        var view = kind === 'Settings' ? new constructor(config.settings, options) : new constructor(im, options, logger),
             element = view.element(), originalDestroy = view.destroy, originalOpen = view.open,
             closed = false, skin = config.skin || { brand: 'im', theme: 'light' }, observer;
         element.classList.add('odd-view', 'odd-view-' + kind.toLowerCase());

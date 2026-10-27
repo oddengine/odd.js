@@ -52,6 +52,10 @@
             _wrapper,
             _settings,
             _content,
+            _main,
+            _rail,
+            _videoOrder = new WeakMap(),
+            _videoIndex = 0,
             _constraints,
             _api,
             _calling,
@@ -97,12 +101,16 @@
             _parseConfig(config || {});
             _constraints = _getConstraints(_this.config);
 
-            _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
+            _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-media-window pe-ui-' + _this.config.skin);
             _wrapper.setAttribute('kind', 'rtc');
             _container.appendChild(_wrapper);
 
             _content = utils.createElement('div', CLASS_CONTENT);
             _wrapper.appendChild(_content);
+            _main = utils.createElement('div', 'pe-rtc-main');
+            _rail = utils.createElement('div', 'pe-rtc-rail');
+            _content.appendChild(_main);
+            _content.appendChild(_rail);
 
             _api = RTC.get(_id, _logger);
             _api.addEventListener(Event.BIND, _onBind);
@@ -213,8 +221,9 @@
                 controlbar.state('camera', _wrapper.getAttribute('camera'));
                 controlbar.state('layout', _wrapper.getAttribute('layout'));
                 _wrapper.setAttribute('controls', controlbar.config.autohide ? 'motion' : 'always');
+                if (typeof controlbar.bind === 'function') { controlbar.bind(_wrapper, _onMouseMove); }
                 if (controlbar.config.autohide) {
-                    _wrapper.addEventListener('mousemove', _onMouseMove);
+                    _wrapper.addEventListener('pointermove', _onMouseMove);
                 }
             } else {
                 _wrapper.setAttribute('controls', 'never');
@@ -268,7 +277,7 @@
                 _calling = ns;
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
                 ns.element().classList.add('pe-rtc-calling');
-                _content.appendChild(ns.element());
+                _attachVideo(ns.element());
                 _attachMeter(ns);
                 _wrapper.setAttribute('calling', 'on');
 
@@ -325,7 +334,7 @@
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
                 ns.element().classList.add('pe-rtc-sharing');
                 _content.setAttribute('sharing', 'true');
-                _content.appendChild(ns.element());
+                _attachVideo(ns.element());
 
                 var tracks = ns.stream().getVideoTracks();
                 if (tracks.length) {
@@ -421,7 +430,7 @@
             _subscribing[name] = ns;
             ns.addEventListener(Event.RELEASE, _onStreamRelease);
             ns.element().classList.add('pe-rtc-subscribing');
-            _content.appendChild(ns.element());
+            _attachVideo(ns.element());
             _attachMeter(ns);
             return ns;
         };
@@ -487,6 +496,30 @@
                     element.setAttribute('presentation-role', item.presentation);
                 }
             });
+            _layoutVideos();
+        }
+
+        function _attachVideo(video) {
+            if (!_videoOrder.has(video)) { _videoOrder.set(video, ++_videoIndex); }
+            _rail.appendChild(video);
+            _layoutVideos();
+        }
+
+        function _layoutVideos() {
+            if (!_main) { return; }
+            var videos = Array.prototype.slice.call(_content.querySelectorAll('video'));
+            videos.sort(function (a, b) {
+                var ap = a.classList.contains('pe-rtc-sharing') || a.classList.contains('pe-rtc-screen') ? -32 : Number(a.style.order) || 0;
+                var bp = b.classList.contains('pe-rtc-sharing') || b.classList.contains('pe-rtc-screen') ? -32 : Number(b.style.order) || 0;
+                return ap - bp || _videoOrder.get(a) - _videoOrder.get(b);
+            });
+            videos.forEach(function (video, index) {
+                var parent = index === 0 ? _main : _rail;
+                if (video.parentNode !== parent) { parent.appendChild(video); }
+            });
+            _rail.hidden = videos.length < 2;
+            _content.style.setProperty('--pe-grid-columns', String(videos.length < 2 ? 1 : videos.length <= 4 ? 2 : 3));
+            _content.style.setProperty('--pe-grid-rows', String(Math.ceil(videos.length / (videos.length < 2 ? 1 : videos.length <= 4 ? 2 : 3)) || 1));
         }
 
         function _attachMeter(ns) {
@@ -521,17 +554,18 @@
                     _orderSpeakers(now);
                     var bounds = _content.getBoundingClientRect();
                     _meters.forEach(function (meter, ns) {
-                        var element = ns.element(), rect = element.getBoundingClientRect(),
-                            showing = rect.width > 0 && rect.height > 0 && rect.bottom > Math.max(0, bounds.top) &&
-                                rect.top < Math.min(window.innerHeight, bounds.bottom) && rect.right > Math.max(0, bounds.left) &&
-                                rect.left < Math.min(window.innerWidth, bounds.right);
+                        var element = ns.element(), rect = element.getBoundingClientRect();
+                        var clip = _rail.contains(element) && _wrapper.getAttribute('layout') !== 'grid' ? _rail.getBoundingClientRect() : bounds;
+                        var left = Math.max(0, bounds.left, clip.left, rect.left), top = Math.max(0, bounds.top, clip.top, rect.top);
+                        var right = Math.min(window.innerWidth, bounds.right, clip.right, rect.right), bottom = Math.min(window.innerHeight, bounds.bottom, clip.bottom, rect.bottom);
+                        var showing = right - left > 30 && bottom - top > 30;
                         meter.style.display = showing ? '' : 'none';
                         if (showing) {
                             var measurement = ns === local ? localMeasurement : ns.measureAudio();
                             meter.setAttribute('audio-state', measurement.state);
                             meter.style.setProperty('--pe-audio-level', (measurement.value || 0) + '%');
-                            meter.style.left = (element.offsetLeft + 8) + 'px';
-                            meter.style.top = (element.offsetTop + 8) + 'px';
+                            meter.style.left = (left - bounds.left + 8) + 'px';
+                            meter.style.top = (top - bounds.top + 8) + 'px';
                             meter.title = measurement.state === 'unavailable' ? 'Audio unavailable' :
                                 measurement.state === 'muted' ? 'Audio track muted' : 'Audio level';
                         }
@@ -603,10 +637,12 @@
             } else {
                 delete _subscribing[ns.name()];
             }
+            _layoutVideos();
         }
 
         _this.layout = function (state) {
             if (state !== undefined) {
+                if (['right', 'top', 'bottom', 'left', 'grid'].indexOf(state) < 0) { throw { name: 'DataError', message: 'Unknown media layout.' }; }
                 _wrapper.setAttribute('layout', state);
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
@@ -701,12 +737,13 @@
                     if (!!status) {
                         if (!controlbar.config.autohide) {
                             _wrapper.setAttribute('controls', 'motion');
-                            _wrapper.addEventListener('mousemove', _onMouseMove);
+                            _wrapper.addEventListener('pointermove', _onMouseMove);
                         }
                     } else {
                         if (!controlbar.config.autohide) {
                             _wrapper.setAttribute('controls', 'always');
-                            _wrapper.removeEventListener('mousemove', _onMouseMove);
+                            if (typeof controlbar.visible === 'function') { controlbar.visible(true); }
+                            _wrapper.removeEventListener('pointermove', _onMouseMove);
                             _timer.stop();
                         }
                     }
@@ -856,24 +893,22 @@
         }
 
         function _onMouseMove(e) {
+            if (e && e.pointerType === 'touch') { return; }
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
-                css.style(controlbar.element(), {
-                    'visibility': 'visible',
-                });
+                if (typeof controlbar.visible === 'function') { controlbar.visible(true); }
+                else { css.style(controlbar.element(), { visibility: 'visible' }); }
             }
-
             _timer.stop();
-            _timer.start();
+            if (_wrapper.getAttribute('controls') === 'motion') { _timer.start(); }
         }
 
-        function _onTimer(e) {
+        function _onTimer() {
             var controlbar = _this.plugins['Controlbar'];
-            if (controlbar) {
-                css.style(controlbar.element(), {
-                    'visibility': 'hidden',
-                });
-            }
+            if (!controlbar || _wrapper.getAttribute('controls') !== 'motion') { return; }
+            if (typeof controlbar.active === 'function' && controlbar.active()) { _onMouseMove(); return; }
+            if (typeof controlbar.visible === 'function') { controlbar.visible(false); }
+            else { css.style(controlbar.element(), { visibility: 'hidden' }); }
         }
 
         function _onMouseUp(e) {
@@ -1109,7 +1144,7 @@
 
                     document.removeEventListener('mouseup', _onMouseUp);
                     if (_wrapper) {
-                        _wrapper.removeEventListener('mousemove', _onMouseMove);
+                        _wrapper.removeEventListener('pointermove', _onMouseMove);
                         _wrapper.removeEventListener('mouseup', _onMouseUp);
                         _wrapper.removeEventListener('mousedown', _onMouseDown);
                     }

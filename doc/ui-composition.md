@@ -34,10 +34,27 @@ await settings.save({ profile: '720P_2' }, {
 });
 ```
 
-保存不挂断、重拨或立即修改活动发布者。默认 RTC 为 720P_2，IM／Player 连麦为 180P_1。当前支持 profile、camera、microphone、layout；布局只列已有 right/top/grid，完整四方向媒体浮窗与控制条折叠仍待实施。设备 UI 当前提供系统默认／关闭，不宣称已完成设备枚举、SVC 协商或扬声器选择。
+保存不挂断、重拨或立即修改活动发布者。默认 RTC 为 720P_2，IM／Player 连麦为 180P_1。当前支持 profile、camera、microphone、layout；布局支持 right/top/bottom/left/grid；控制条与媒体浮窗见下文。设备 UI 当前提供系统默认／关闭，不宣称已完成设备枚举、SVC 协商或扬声器选择。
 
 默认存储只在实例内存。可注入 `storage.load(key)` 和 `storage.save(key,{value,version},{expectedVersion})`；宿主实现必须原子比较版本，并为 key 划分账号、产品、模块和 schema 身份。未提供跨窗口广播／访客合并，不声称偏好已跨窗口同步。
 
 `skin({brand,theme})` 使用 `css/odd.products.css` 的根类，只改 SDK 所有的品牌／明暗类，保留其它 class。brand 为 account/paas/live/meeting/im，theme 为 light/dark；不重建连接、不打开设备。旧字符串皮肤继续使用原前缀。
 
-网站 Vite 已按 SDK 源清单完成组合构建；Chromium 已加载独立设置页面并保存默认值。修复了 fMP4 的未声明 STCO 局部变量，使严格模块加载可用。没有重建 SDK release 包，没有运行真实 IM／RTC／Player 服务互通，也没有编写单元测试。
+R-070 曾以网站 Vite 按当时的 SDK 源清单完成组合构建，Chromium 加载独立设置页面并保存默认值。该历史证据不覆盖后续 R-079。修复了 fMP4 的未声明 STCO 局部变量，使严格模块加载可用。没有重建 SDK release 包，没有运行真实 IM／RTC／Player 服务互通，也没有编写单元测试。
+
+## 媒体控制条与布局（R-079）
+
+Player／RTC 仍用 `plugins: [{kind:'Controlbar', layout, labels}]` 定制，layout 保留 `[Type:name=value]` 与三个 `|` 分段。Player 左右分组，RTC 三段合为居中操作组；宿主可省略没有对应业务能力的操作。默认 SDK 文案为英文，网站通过 layout 和 labels 提供中文。
+
+```js
+rtcUI.layout('left'); // right / top / bottom / left / grid
+// 初始布局使用 setup(..., {layout:'left'})；保存下一次默认仍用 settings.save。
+```
+
+四向布局将其他视频放在主画面内的可滚动浮窗列；grid 平铺已有视频。屏幕共享及已有主持／说话人排序保留，只移动 DOM，不新建发布或订阅。Player 的浮窗属于原 Chat 插件；网站外部聊天与 PK 监看仍由原会话管理。
+
+控件按实际容器宽度把低优先级动作移入“更多”，复用同一节点和事件，窗口极小时核心操作可横向滚动。选择布局或清晰度打开单选菜单；方向键、Home/End、Escape 和焦点返回由 SDK 管理。音量／播放进度支持键盘与指针操作，无 DVR 的直播仍不显示可拖动时轴。焦点、拖动或菜单打开时保持控制条可见；隐藏控件退出 Tab 顺序，媒体根保留可访问的唤出按钮，触屏点媒体空白处可切换显示。
+
+`labels` 可提供 more、close、controls、show、layout、volume、timebar 和各控件的名称。`IM.UI.createView(null,{kind:'Settings',settings,labels,...})` 的 labels 可替换设置表单的标题、选项和状态文案；不改变设备权限、持久化或下一会话生效语义。
+
+R-079 仅修改源码和 Linux／Windows 拼接清单，未生成 release，未编译、测试、启动浏览器或验证实际媒体与键盘交互。跨窗口偏好同步、设备枚举和 SVC 仍未完成。

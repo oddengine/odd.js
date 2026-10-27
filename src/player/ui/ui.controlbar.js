@@ -1,6 +1,5 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         OS = odd.OS,
         Browser = odd.Browser,
         events = odd.events,
@@ -12,7 +11,6 @@
         components = UI.components,
 
         CLASS_CONTROLBAR = 'pe-controlbar',
-        CLASS_TOOLTIP = 'pe-tooltip',
 
         _regi = /\[([a-z]+)\:([a-z-]+)=([^\]]*)\]/gi,
         _default = {
@@ -31,10 +29,11 @@
                     '[Slider:volume=80]' +
                     '[Select:definition=Definition]' +
                     '[Toggle:comments=on off=Comments Off;on=Comments On]' +
-                    '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
+                    '[Toggle:layout=right right=Right;top=Top;bottom=Bottom;left=Left;grid=Grid]' +
                     '[Button:settings=Settings]' +
                     '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
                     '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
+            labels: { more: 'More controls', close: 'Close controls', controls: 'Media controls', layout: 'Layout', show: 'Show controls', volume: 'Volume', timebar: 'Playback position' },
             autohide: true,
             visibility: true,
         };
@@ -46,10 +45,12 @@
             _logger = logger,
             _container,
             _content,
-            _timebar;
+            _timebar,
+            _presentation,
+            _entries = [];
 
         function _init() {
-            _this.config = config;
+            _this.config = utils.extendz({}, _default, config);
             _this.components = {};
 
             _container = utils.createElement('div', CLASS_CONTROLBAR);
@@ -58,13 +59,15 @@
             _container.appendChild(_content);
 
             _buildComponents();
+            _presentation = new utils.MediaControls(_container, _content, _entries, { module: 'player', labels: _this.config.labels });
         }
 
         function _buildComponents() {
             _timebar = new components.Slider('timebar', undefined, _logger);
             _timebar.addGlobalListener(_this.forward);
-            _container.appendChild(_timebar);
+            _container.appendChild(_timebar.element());
             _this.components['timebar'] = _timebar;
+            _timebar.element().setAttribute('aria-label', _this.config.labels.timebar);
 
             var layouts = _this.config.layout.split('|');
             if (layouts.length !== 3) {
@@ -75,6 +78,7 @@
             for (var i = 0; i < layouts.length; i++) {
                 var section = utils.createElement('div', 'pe-' + sections[i]);
                 var arr;
+                _regi.lastIndex = 0;
                 while ((arr = _regi.exec(layouts[i])) !== null) {
                     _buildComponent(section, arr[1], arr[2], arr[3]);
                 }
@@ -102,10 +106,18 @@
                     break;
             }
 
+            if (typeof components[type] !== 'function' || _this.components[name]) {
+                throw { name: 'DataError', message: 'Unknown or duplicate control: ' + name + '.' };
+            }
             var component = new components[type](name, value, _logger);
+            if (typeof component.label === 'function' && _this.config.labels[name]) { component.label(_this.config.labels[name]); }
             component.addGlobalListener(_this.forward);
             container.appendChild(component.element());
             _this.components[name] = component;
+            if (component.kind === 'Slider' && _this.config.labels[name]) {
+                component.element().setAttribute('aria-label', _this.config.labels[name]);
+            }
+            _entries.push({ name: name, component: component, element: component.element() });
         }
 
         _this.state = function (name, value) {
@@ -119,54 +131,17 @@
             return _container;
         };
 
+        _this.bind = function (wrapper, activity) { _presentation.bind(wrapper, activity); };
+        _this.visible = function (visible) { return _presentation.visible(visible); };
+        _this.active = function () { return _presentation.active(); };
+
         _this.resize = function (width, height) {
-            utils.forEach(_this.components, function (name, component) {
-                component.resize(width, height);
-
-                switch (name) {
-                    case 'timebar':
-                        break;
-                    default:
-                        if (component.tooltip === undefined) {
-                            break;
-                        }
-
-                        var element = component.element();
-                        var tooltip = component.tooltip;
-                        var offset = (element.clientWidth - tooltip.clientWidth) / 2;
-
-                        var left = offset + element.offsetLeft;
-                        if (left < 1 && element.offsetParent === _content) {
-                            css.style(tooltip, {
-                                'left': 1 - element.offsetLeft + 'px',
-                                'right': 'auto',
-                            });
-                            break;
-                        }
-
-                        // Skips element whose display == none
-                        if (element.offsetParent === null) {
-                            break;
-                        }
-
-                        var right = element.offsetParent.offsetLeft + left + tooltip.clientWidth;
-                        if (right > _content.clientWidth - 1) {
-                            css.style(tooltip, {
-                                'left': 'auto',
-                                'right': element.offsetParent.offsetLeft + element.offsetLeft + element.clientWidth + 1 - _content.clientWidth + 'px',
-                            });
-                        } else {
-                            css.style(tooltip, {
-                                'left': offset + 'px',
-                                'right': 'auto',
-                            });
-                        }
-                        break;
-                }
-            });
+            utils.forEach(_this.components, function (_, component) { component.resize(width, height); });
+            _presentation.resize();
         };
 
         _this.destroy = function () {
+            if (_presentation) { _presentation.destroy(); }
             utils.forEach(_this.components, function (_, component) {
                 component.removeGlobalListener(_this.forward);
                 component.destroy();
@@ -174,7 +149,12 @@
             _this.components = {};
         };
 
-        _init();
+        try {
+            _init();
+        } catch (error) {
+            _this.destroy();
+            throw error;
+        }
     }
 
     Controlbar.prototype = Object.create(EventDispatcher.prototype);

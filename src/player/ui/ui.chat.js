@@ -119,6 +119,7 @@
                     _logger.warn(`${err}`);
                 });
                 _playlist.appendChild(video);
+                _updateLayout();
 
                 if (_this.constraints.video && !Kernel.isAppleWebKit) {
                     ns.beauty(true, {
@@ -209,6 +210,7 @@
 
             if (video.parentNode !== _playlist) {
                 _playlist.appendChild(video);
+                _updateLayout();
             }
         }
 
@@ -218,6 +220,7 @@
                 if (video.parentNode) {
                     video.parentNode.removeChild(video);
                 }
+                _updateLayout();
             }
         }
 
@@ -230,9 +233,14 @@
             return _container;
         };
 
-        _this.resize = function (width, height) {
+        function _updateLayout() {
+            var wrapper = _container.parentNode;
+            if (!wrapper) { return; }
+            wrapper.setAttribute('chat-videos', String(_playlist.children.length > 0));
+            wrapper.style.setProperty('--pe-chat-rows', String(Math.ceil((_playlist.children.length + 1) / 2)));
+        }
 
-        };
+        _this.resize = function () { _updateLayout(); };
 
         _this.destroy = function () {
             _this.rtc.removeEventListener(NetStatusEvent.NETSTATUS, _onStatus);

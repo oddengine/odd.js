@@ -37,6 +37,8 @@ scripts[30]="./src/utils/utils.settings.js"
 scripts[31]="./src/utils/utils.settingspanel.js"
 scripts[32]="./src/utils/utils.mediarequest.js"
 scripts[33]="./src/utils/utils.routing.js"
+scripts[34]="./src/utils/utils.controlmenu.js"
+scripts[35]="./src/utils/utils.mediacontrols.js"
 
 :>./release/odd.common.js
 

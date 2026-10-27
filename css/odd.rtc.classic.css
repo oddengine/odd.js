@@ -1,4 +1,5 @@
 @import url("odd.common.classic.css");
+@import url("odd.media.css");
 
 .pe-ui-classic[kind="rtc"] {
     width: 100%;

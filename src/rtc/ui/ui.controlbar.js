@@ -8,7 +8,6 @@
         components = UI.components,
 
         CLASS_CONTROLBAR = 'pe-controlbar',
-        CLASS_TOOLTIP = 'pe-tooltip',
 
         _regi = /\[([a-z]+)\:([a-z-]+)=([^\]]*)\]/gi,
         _default = {
@@ -17,12 +16,13 @@
                     '[Toggle:camera=on off=Camera Off;on=Camera On]' +
                     '[Toggle:sharing=off off=Share Screen;on=Stop Sharing]' +
                     '|' +
-                    '[Toggle:calling=off off=Call;on=Hang Up]' +
-                    '|' +
-                    '[Toggle:layout=right right=Right;top=Top;grid=Grid]' +
+                    '[Toggle:layout=right right=Right;top=Top;bottom=Bottom;left=Left;grid=Grid]' +
                     '[Button:settings=Settings]' +
                     '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
-                    '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]',
+                    '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]' +
+                    '|' +
+                    '[Toggle:calling=off off=Call;on=Hang Up]',
+            labels: { more: 'More controls', close: 'Close controls', controls: 'Media controls', layout: 'Layout', show: 'Show controls', volume: 'Volume', timebar: 'Playback position' },
             autohide: true,
             visibility: true,
         };
@@ -33,10 +33,12 @@
         var _this = this,
             _logger = logger,
             _container,
-            _content;
+            _content,
+            _presentation,
+            _entries = [];
 
         function _init() {
-            _this.config = config;
+            _this.config = utils.extendz({}, _default, config);
             _this.components = {};
 
             _container = utils.createElement('div', CLASS_CONTROLBAR);
@@ -45,6 +47,7 @@
             _container.appendChild(_content);
 
             _buildComponents();
+            _presentation = new utils.MediaControls(_container, _content, _entries, { module: 'rtc', labels: _this.config.labels });
         }
 
         function _buildComponents() {
@@ -57,6 +60,7 @@
             for (var i = 0; i < layouts.length; i++) {
                 var section = utils.createElement('div', 'pe-' + sections[i]);
                 var arr;
+                _regi.lastIndex = 0;
                 while ((arr = _regi.exec(layouts[i])) !== null) {
                     _buildComponent(section, arr[1], arr[2], arr[3]);
                 }
@@ -65,10 +69,18 @@
         }
 
         function _buildComponent(container, type, name, value) {
+            if (typeof components[type] !== 'function' || _this.components[name]) {
+                throw { name: 'DataError', message: 'Unknown or duplicate control: ' + name + '.' };
+            }
             var component = new components[type](name, value, _logger);
+            if (typeof component.label === 'function' && _this.config.labels[name]) { component.label(_this.config.labels[name]); }
             component.addGlobalListener(_this.forward);
             container.appendChild(component.element());
             _this.components[name] = component;
+            if (component.kind === 'Slider' && _this.config.labels[name]) {
+                component.element().setAttribute('aria-label', _this.config.labels[name]);
+            }
+            _entries.push({ name: name, component: component, element: component.element() });
         }
 
         _this.state = function (name, value) {
@@ -90,11 +102,17 @@
             return _container;
         };
 
-        _this.resize = function (width, height) {
+        _this.bind = function (wrapper, activity) { _presentation.bind(wrapper, activity); };
+        _this.visible = function (visible) { return _presentation.visible(visible); };
+        _this.active = function () { return _presentation.active(); };
 
+        _this.resize = function (width, height) {
+            utils.forEach(_this.components, function (_, component) { component.resize(width, height); });
+            _presentation.resize();
         };
 
         _this.destroy = function () {
+            if (_presentation) { _presentation.destroy(); }
             utils.forEach(_this.components, function (_, component) {
                 component.removeGlobalListener(_this.forward);
                 component.destroy();
@@ -102,7 +120,12 @@
             _this.components = {};
         };
 
-        _init();
+        try {
+            _init();
+        } catch (error) {
+            _this.destroy();
+            throw error;
+        }
     }
 
     Controlbar.prototype = Object.create(EventDispatcher.prototype);

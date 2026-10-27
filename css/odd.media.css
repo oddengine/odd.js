@@ -1,0 +1,179 @@
+/* Shared media presentation. Product themes do not recolor the stage. */
+.pe-ui-classic.pe-media-window[controls][kind] {
+    --pe-media-stage: #10141B;
+    --pe-media-raised: #1C2431;
+    --pe-media-ink: #FFF8F2;
+    --pe-media-muted: #CFD6DE;
+    --pe-media-line: #526273;
+    --pe-media-focus: #E7C98F;
+    --pe-media-danger: #B5293D;
+    --pe-controls-height: 64px;
+    --pe-icon-more: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23FFF8F2"%3E%3Ccircle cx="5" cy="12" r="2"/%3E%3Ccircle cx="12" cy="12" r="2"/%3E%3Ccircle cx="19" cy="12" r="2"/%3E%3C/svg%3E');
+    position: relative;
+    overflow: hidden;
+    color: var(--pe-media-ink);
+    background: var(--pe-media-stage);
+    container-type: inline-size;
+}
+/* Keep Theater anchored to the viewport after the media root override. */
+.pe-ui-classic.pe-media-window[controls][kind][theater="true"] { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 100; }
+.pe-ui-classic.pe-media-window[controls][kind][controls="never"] { --pe-controls-height: 0px; }
+.pe-ui-classic.pe-media-window[controls][kind] * { box-sizing: border-box; }
+.pe-ui-classic.pe-media-window[controls][kind] [hidden] { display: none !important; }
+.pe-ui-classic.pe-media-window[controls][kind] :focus-visible { outline: 2px solid var(--pe-media-focus); outline-offset: -3px; }
+.pe-ui-classic.pe-media-window[controls][kind] ::selection { color: var(--pe-media-stage); background: var(--pe-media-focus); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar {
+    width: 100%; height: var(--pe-controls-height); min-height: 0;
+    inset: auto 0 0; position: absolute; z-index: 6;
+    padding: 8px; border: 0; border-radius: 0;
+    color: var(--pe-media-ink); background: var(--pe-media-stage);
+    box-shadow: none; backdrop-filter: none;
+}
+.pe-ui-classic.pe-media-window[controls][kind][controls] .pe-controlbar[shown="true"] { visibility: visible; opacity: 1; pointer-events: auto; }
+.pe-ui-classic.pe-media-window[controls][kind][controls] .pe-controlbar[shown="false"] { visibility: hidden; opacity: 0; pointer-events: none; }
+.pe-ui-classic.pe-media-window[controls][kind][controls="never"] .pe-controlbar { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-row {
+    width: 100%; height: 48px; position: relative;
+    display: flex; align-items: center; gap: 24px;
+    overflow: visible;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-row[scrollable="true"] { overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-left,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-center,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-right {
+    height: auto; position: static; display: flex; flex: 0 0 auto; align-items: center; gap: 8px; float: none; margin: 0;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-left:empty,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-center:empty { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-controlbar .pe-right { margin-left: auto; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-controls-row { justify-content: center; gap: 8px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-button,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-toggle,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-select-label {
+    width: 44px; height: 44px; min-width: 44px; padding: 0;
+    position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center;
+    margin: 0; border: 0; border-radius: 6px; font: inherit;
+    color: var(--pe-media-ink); background-color: transparent; background-position: center; background-repeat: no-repeat;
+    cursor: pointer;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar button:hover,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu button:hover { background-color: var(--pe-media-raised); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar button:disabled { opacity: .5; cursor: not-allowed; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .more { background-image: var(--pe-icon-more); background-size: 24px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .layout[state="left"] { background-image: var(--pe-icon-layout-right); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .layout[state="bottom"] { background-image: var(--pe-icon-layout-top); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .calling[state="on"] { background-color: var(--pe-media-danger); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-label {
+    max-width: 112px; min-width: 40px; height: auto; line-height: 1.5; margin: 0;
+    overflow: hidden; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--pe-media-muted); text-overflow: ellipsis; white-space: nowrap;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-select { flex: none; margin: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-select-label { width: auto; max-width: 112px; padding: 0 8px; font-size: 13px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.volume { width: 80px; height: 44px; flex: none; margin: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.timebar { height: 44px; top: -44px; left: 0; z-index: 1; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-rail,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-thumb { height: 8px; top: auto; bottom: 0; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][mode="vod"] .pe-controlbar .calling { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-action-caption { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-tooltip {
+    max-width: min(240px, 85cqw); width: max-content; height: auto; bottom: 50px; top: auto;
+    z-index: 9; padding: 6px 10px; border-radius: 4px;
+    font-size: 13px; line-height: 1.5; color: var(--pe-media-ink); background: var(--pe-media-raised);
+    white-space: normal; pointer-events: none;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar button:focus-visible > .pe-tooltip { visibility: visible; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar[tooltip-dismissed="true"] .pe-tooltip,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar [aria-expanded="true"] > .pe-tooltip { visibility: hidden; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu {
+    width: min(320px, calc(100cqw - 16px)); max-height: min(440px, var(--pe-panel-height, 240px));
+    inset: auto 8px calc(100% + 8px) auto; position: absolute; z-index: 10;
+    display: block; padding: 8px; overflow: auto;
+    border: 1px solid var(--pe-media-line); border-radius: 8px;
+    color: var(--pe-media-ink); background: var(--pe-media-raised);
+    scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-tools { display: grid; gap: 4px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-close,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu .pe-select-option {
+    width: 100%; min-height: 44px; padding: 10px 12px; display: block;
+    border: 0; border-radius: 4px; font: inherit; text-align: left;
+    color: var(--pe-media-ink); background: transparent; cursor: pointer;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-close { margin-bottom: 8px; border-bottom: 1px solid var(--pe-media-line); border-radius: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu [aria-checked="true"],
+.pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu button[aria-checked="true"]:hover { color: var(--pe-media-stage); background: var(--pe-media-focus); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-button,
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-toggle {
+    width: 100%; height: auto; min-height: 44px; justify-content: flex-start; padding: 8px 12px;
+    background-position: 10px center; text-align: left;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-action-caption { display: inline; margin-left: 40px; line-height: 1.5; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-tooltip { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-slider.volume { width: 100%; margin-bottom: 28px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-slider.volume .pe-action-caption { position: absolute; inset: auto 0 -20px; margin: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-select { display: flex; align-items: center; gap: 8px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-reveal {
+    min-height: 44px; inset: auto 8px 8px auto; position: absolute; z-index: 7; padding: 8px 12px;
+    border: 1px solid var(--pe-media-line); border-radius: 6px; font: inherit;
+    color: var(--pe-media-ink); background: var(--pe-media-raised); cursor: pointer;
+}
+
+/* The stage stays the same size while controls are temporarily hidden. */
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-content { height: calc(100% - var(--pe-controls-height)); padding: 0; display: block; overflow: hidden; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-main { position: absolute; inset: 0; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-content video { border-radius: 0; border: 0; object-fit: cover; background: var(--pe-media-stage); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-main video { width: 100%; height: 100%; object-fit: contain; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail {
+    width: clamp(112px, 24%, 240px); position: absolute; inset: 12px 12px 12px auto;
+    z-index: 2; display: flex; flex-direction: column; gap: 8px; overflow: auto;
+    scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-stage);
+}
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail video { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: 0 0 auto; border: 1px solid var(--pe-media-line); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="left"] .pe-rtc-rail { inset: 12px auto 12px 12px; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="top"] .pe-rtc-rail,
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail { width: auto; height: clamp(80px, 24%, 144px); inset: 12px 12px auto; flex-direction: row; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail { inset: auto 12px 12px; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="top"] .pe-rtc-rail video,
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail video { height: 100%; width: auto; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="grid"] .pe-content { display: grid; grid-template-columns: repeat(var(--pe-grid-columns, 2), minmax(0, 1fr)); grid-template-rows: repeat(var(--pe-grid-rows, 1), minmax(0, 1fr)); gap: 8px; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="grid"] .pe-rtc-main,
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="grid"] .pe-rtc-rail { display: contents; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="grid"] .pe-content video { width: 100%; height: 100%; aspect-ratio: auto; grid-column: auto; object-fit: contain; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-content video[speaking="true"] { outline: 2px solid var(--pe-media-focus); outline-offset: -2px; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-meter { z-index: 3; }
+
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-content,
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-poster,
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-chat,
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-comments,
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-display { height: calc(100% - var(--pe-controls-height)); }
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-chat > div { width: 100%; height: 100%; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-chat .pe-playlist {
+    width: clamp(112px, 24%, 240px); height: auto; position: absolute; inset: 12px 12px 12px auto;
+    display: flex; flex-direction: column; gap: 8px; overflow: auto; pointer-events: auto;
+    scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-stage);
+}
+.pe-ui-classic.pe-media-window[controls][kind="player"][chat-videos="false"] .pe-chat { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] .pe-chat .pe-playlist video { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: 0 0 auto; object-fit: cover; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="left"] .pe-chat .pe-playlist { inset: 12px auto 12px 12px; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="top"] .pe-chat .pe-playlist,
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="bottom"] .pe-chat .pe-playlist { width: auto; height: clamp(80px, 24%, 144px); inset: 12px 12px auto; flex-direction: row; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="bottom"] .pe-chat .pe-playlist { inset: auto 12px 12px; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="top"] .pe-chat video,
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="bottom"] .pe-chat video { height: 100%; width: auto; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="grid"][chat-videos="true"] .pe-content video { width: calc(50% - 4px); height: calc((100% - (var(--pe-chat-rows) - 1) * 8px) / var(--pe-chat-rows)); object-fit: contain; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="grid"] .pe-chat .pe-playlist { width: 100%; height: 100%; inset: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(var(--pe-chat-rows, 1), minmax(0, 1fr)); }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="grid"] .pe-chat .pe-playlist::before { content: ''; pointer-events: none; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][layout="grid"] .pe-chat .pe-playlist video { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; }
+@container (max-width: 640px) {
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar { left: 8px; right: 8px; bottom: 8px; width: auto; border-radius: 8px; background: var(--pe-media-raised); }
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-content,
+    .pe-ui-classic.pe-media-window[controls][kind="player"] .pe-poster,
+    .pe-ui-classic.pe-media-window[controls][kind="player"] .pe-comments,
+    .pe-ui-classic.pe-media-window[controls][kind="player"] .pe-display { height: 100%; }
+    .pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + 16px); }
+    .pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="top"] .pe-rtc-rail { bottom: auto; }
+    .pe-ui-classic.pe-media-window[controls][kind="player"] .pe-chat { height: calc(100% - var(--pe-controls-height) - 16px); }
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-label { max-width: 72px; }
+}

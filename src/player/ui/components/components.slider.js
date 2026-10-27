@@ -31,10 +31,19 @@
             _position,
             _thumb,
             _direction = HORIZONTAL,
-            _active = false;
+            _active = false,
+            _pointer = null;
 
         function _init() {
             _container = utils.createElement('div', CLASS_SLIDER + ' ' + _name);
+            _container.setAttribute('role', 'slider');
+            _container.setAttribute('aria-label', _name === 'volume' ? 'Volume' : 'Playback position');
+            _container.setAttribute('aria-valuemin', '0');
+            _container.setAttribute('aria-valuemax', '100');
+            _container.setAttribute('aria-valuenow', '0');
+            _container.tabIndex = 0;
+            _container.style.touchAction = 'none';
+            _container.addEventListener('keydown', _onKeyDown);
 
             _tooltip = utils.createElement('span', CLASS_TOOLTIP + ' value');
             _container.appendChild(_tooltip);
@@ -55,9 +64,10 @@
             _thumb.innerHTML = '<span></span>';
             _content.appendChild(_thumb);
 
-            document.addEventListener('mousedown', _onMouseDown);
-            document.addEventListener('mousemove', _onMouseMove);
-            document.addEventListener('mouseup', _onMouseUp);
+            document.addEventListener('pointerdown', _onMouseDown);
+            document.addEventListener('pointermove', _onMouseMove);
+            document.addEventListener('pointerup', _onMouseUp);
+            document.addEventListener('pointercancel', _onCancel);
         }
 
         _this.tips = function (value) {
@@ -75,6 +85,8 @@
         };
 
         _this.position = function (value) {
+            value = Number.isFinite(Number(value)) ? Math.max(0, Math.min(100, Number(value))) : 0;
+            _container.setAttribute('aria-valuenow', String(value));
             css.style(_position, {
                 'width': value + '%',
             });
@@ -91,12 +103,14 @@
             if (!e.target) {
                 e.target = e.srcElement;
             }
-            if (_content !== e.target &&
-                _content !== e.target.parentNode &&
-                _content !== e.target.parentNode.parentNode) {
+            if (!_content.contains(e.target)) {
                 return;
             }
 
+            if (_active) { return; }
+            _pointer = e.pointerId;
+            e.preventDefault();
+            _container.focus();
             var value = _calc(e.clientX, e.clientY);
             if (value !== _position.getAttribute('value')) {
                 _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
@@ -105,62 +119,43 @@
         }
 
         function _onMouseMove(e) {
-            if (!_active) {
-                return;
-            }
+            if (!_active || e.pointerId !== _pointer) { return; }
             var value = _calc(e.clientX, e.clientY);
-            if (_content === e.target ||
-                _content === e.target.parentNode ||
-                _content === e.target.parentNode.parentNode) {
-                var offset = _container.clientWidth * value / 100 - _tooltip.clientWidth / 2;
-                var left = offset + _container.offsetLeft;
-                var right = element.offsetParent.offsetLeft + left + tooltip.clientWidth;
-
-                if (left < 1 && _container.offsetParent === e.target.parentNode.parentNode) {
-                    css.style(tooltip, {
-                        'left': 1 - element.offsetLeft + 'px',
-                        'right': 'auto',
-                    });
-                } else if (right > e.target.parentNode.parentNode.clientWidth - 1) {
-                    css.style(tooltip, {
-                        'left': 'auto',
-                        'right': element.offsetParent.offsetLeft + element.offsetLeft + element.clientWidth + 1 - _content.clientWidth + 'px',
-                    });
-                } else {
-                    css.style(tooltip, {
-                        'left': offset + 'px',
-                        'right': 'auto',
-                    });
-                }
-                if (value !== _position.getAttribute('value')) {
-                    _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
-                }
+            var offset = _container.clientWidth * value / 100 - _tooltip.clientWidth / 2;
+            css.style(_tooltip, { left: Math.max(0, Math.min(offset, _container.clientWidth - _tooltip.clientWidth)) + 'px', right: 'auto' });
+            if (value !== _position.getAttribute('value')) {
+                _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
             }
         }
 
         function _onMouseUp(e) {
-            if (!_active) {
+            if (!_active || e.pointerId !== _pointer) {
                 return;
             }
             var value = _calc(e.clientX, e.clientY);
             if (value !== _position.getAttribute('value')) {
                 _this.dispatchEvent(Event.CHANGE, { name: _name, value: value });
             }
-            _active = false;
+            _onCancel();
+        }
+
+        function _onCancel() { _active = false; _pointer = null; }
+
+        function _onKeyDown(event) {
+            var value = Number(_position.getAttribute('value')) || 0, next = value;
+            if (event.key === 'ArrowRight' || event.key === 'ArrowUp') { next += 5; }
+            else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') { next -= 5; }
+            else if (event.key === 'Home') { next = 0; }
+            else if (event.key === 'End') { next = 100; }
+            else { return; }
+            event.preventDefault(); event.stopPropagation();
+            _this.dispatchEvent(Event.CHANGE, { name: _name, value: Math.max(0, Math.min(100, next)) });
         }
 
         function _calc(x, y) {
-            var offsetX = x, offsetY = y, value;
-            for (var node = _content; node; node = node.offsetParent) {
-                offsetX -= node.offsetLeft;
-                offsetY -= node.offsetTop;
-            }
-            if (_direction === HORIZONTAL) {
-                value = (offsetX / _content.clientWidth * 100).toFixed(3);
-            } else {
-                value = (offsetY / _content.clientHeight * 100).toFixed(3);
-            }
-            return Math.max(0, Math.min(value, 100));
+            var rect = _content.getBoundingClientRect();
+            var value = _direction === HORIZONTAL ? (x - rect.left) / rect.width : (y - rect.top) / rect.height;
+            return Number.isFinite(value) ? Math.max(0, Math.min(value * 100, 100)).toFixed(3) : '0';
         }
 
         _this.tooltip = function () {
@@ -176,7 +171,12 @@
         };
 
         _this.destroy = function () {
-            _container.removeEventListener('click', _onClick);
+            _onCancel();
+            _container.removeEventListener('keydown', _onKeyDown);
+            document.removeEventListener('pointerdown', _onMouseDown);
+            document.removeEventListener('pointermove', _onMouseMove);
+            document.removeEventListener('pointerup', _onMouseUp);
+            document.removeEventListener('pointercancel', _onCancel);
             _container.innerHTML = '';
         };
 

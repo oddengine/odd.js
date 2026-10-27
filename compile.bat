@@ -32,7 +32,11 @@ set scripts[28]=".\src\io\io.xhr.js"
 set scripts[29]=".\src\utils\utils.skin.js"
 set scripts[30]=".\src\utils\utils.settings.js"
 set scripts[31]=".\src\utils\utils.settingspanel.js"
-set length=32
+set scripts[32]=".\src\utils\utils.mediarequest.js"
+set scripts[33]=".\src\utils\utils.routing.js"
+set scripts[34]=".\src\utils\utils.controlmenu.js"
+set scripts[35]=".\src\utils\utils.mediacontrols.js"
+set length=36
 
 cd.>.\release\odd.common.js
 

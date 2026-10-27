@@ -58,7 +58,7 @@
             _parseConfig(config || {});
             _program = _this.config.playlist[0];
 
-            _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-ui-' + _this.config.skin);
+            _wrapper = utils.createElement('div', CLASS_WRAPPER + ' pe-media-window pe-ui-' + _this.config.skin);
             _wrapper.setAttribute('kind', 'player');
             _container.appendChild(_wrapper);
 
@@ -170,8 +170,9 @@
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
                 _wrapper.setAttribute('controls', controlbar.config.autohide ? 'motion' : 'always');
+                if (typeof controlbar.bind === 'function') { controlbar.bind(_wrapper, _onMouseMove); }
                 if (controlbar.config.autohide) {
-                    _wrapper.addEventListener('mousemove', _onMouseMove);
+                    _wrapper.addEventListener('pointermove', _onMouseMove);
                 }
                 controlbar.state('muted', _this.config.muted ? 'on' : 'off');
             } else {
@@ -195,7 +196,8 @@
             }
 
             _wrapper.setAttribute('muted', _this.config.muted);
-            _wrapper.setAttribute('layout', 'right');
+            _wrapper.setAttribute('layout', _this.config.layout || 'right');
+            if (controlbar) { controlbar.state('layout', _wrapper.getAttribute('layout')); }
             _wrapper.setAttribute('theater', false);
             _wrapper.setAttribute('fullscreen', false);
 
@@ -318,6 +320,7 @@
 
         _this.layout = function (state) {
             if (state !== undefined) {
+                if (['right', 'top', 'bottom', 'left', 'grid'].indexOf(state) < 0) { throw { name: 'DataError', message: 'Unknown media layout.' }; }
                 _wrapper.setAttribute('layout', state);
 
                 var controlbar = _this.plugins['Controlbar'];
@@ -413,12 +416,13 @@
                     if (!!status) {
                         if (!controlbar.config.autohide) {
                             _wrapper.setAttribute('controls', 'motion');
-                            _wrapper.addEventListener('mousemove', _onMouseMove);
+                            _wrapper.addEventListener('pointermove', _onMouseMove);
                         }
                     } else {
                         if (!controlbar.config.autohide) {
                             _wrapper.setAttribute('controls', 'always');
-                            _wrapper.removeEventListener('mousemove', _onMouseMove);
+                            if (typeof controlbar.visible === 'function') { controlbar.visible(true); }
+                            _wrapper.removeEventListener('pointermove', _onMouseMove);
                             _timer.stop();
                         }
                     }
@@ -540,24 +544,22 @@
         }
 
         function _onMouseMove(e) {
+            if (e && e.pointerType === 'touch') { return; }
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
-                css.style(controlbar.element(), {
-                    'visibility': 'visible',
-                });
+                if (typeof controlbar.visible === 'function') { controlbar.visible(true); }
+                else { css.style(controlbar.element(), { visibility: 'visible' }); }
             }
-
             _timer.stop();
-            _timer.start();
+            if (_wrapper.getAttribute('controls') === 'motion') { _timer.start(); }
         }
 
-        function _onTimer(e) {
+        function _onTimer() {
             var controlbar = _this.plugins['Controlbar'];
-            if (controlbar) {
-                css.style(controlbar.element(), {
-                    'visibility': 'hidden',
-                });
-            }
+            if (!controlbar || _wrapper.getAttribute('controls') !== 'motion') { return; }
+            if (typeof controlbar.active === 'function' && controlbar.active()) { _onMouseMove(); return; }
+            if (typeof controlbar.visible === 'function') { controlbar.visible(false); }
+            else { css.style(controlbar.element(), { visibility: 'hidden' }); }
         }
 
         function _onMouseUp(e) {
@@ -838,7 +840,7 @@
 
             document.removeEventListener('mouseup', _onMouseUp);
             if (_wrapper) {
-                _wrapper.removeEventListener('mousemove', _onMouseMove);
+                _wrapper.removeEventListener('pointermove', _onMouseMove);
                 _wrapper.removeEventListener('mouseup', _onMouseUp);
                 _wrapper.removeEventListener('mousedown', _onMouseDown);
             }

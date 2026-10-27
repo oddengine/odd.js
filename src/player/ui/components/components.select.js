@@ -1,140 +1,65 @@
 (function (odd) {
     var utils = odd.utils,
-        css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
         Event = events.Event,
         MouseEvent = events.MouseEvent,
-        components = odd.Player.UI.components,
-
-        CLASS_SELECT = 'pe-select',
-        CLASS_SELECT_LABEL = 'pe-select-label',
-        CLASS_SELECT_LIST = 'pe-select-list',
-        CLASS_SELECT_OPTION = 'pe-select-option';
+        components = odd.Player.UI.components;
 
     function Select(name, value, logger) {
         EventDispatcher.call(this, 'Select', { logger: logger }, [Event.CHANGE, MouseEvent.CLICK]);
-
-        var _this = this,
-            _name = name,
-            _logger = logger,
-            _container,
-            _label,
-            _list,
-            _index = NaN;
+        var _this = this, _container, _label, _menu, _items = [], _index = NaN;
 
         function _init() {
-            _container = utils.createElement('div', CLASS_SELECT + ' ' + _name);
-
-            _label = utils.createElement('span', CLASS_SELECT_LABEL);
+            _container = utils.createElement('div', 'pe-select ' + name);
+            _label = utils.createElement('button', 'pe-select-label');
+            _label.type = 'button'; _label.disabled = true; _label.setAttribute('aria-label', value || name);
             _label.addEventListener('click', _onClick);
             _container.appendChild(_label);
-
-            _list = utils.createElement('div', CLASS_SELECT_LIST);
-            _list.style.visibility = 'hidden';
-            _container.appendChild(_list);
+            _menu = new utils.ControlMenu(_label, function (index) {
+                _this.select(index);
+                _this.dispatchEvent(MouseEvent.CLICK, { name: name, visibility: 'hidden' });
+            });
         }
-
-        function _onClick(e) {
-            _list.style.visibility = _list.style.visibility === 'hidden' ? 'visible' : 'hidden';
-            _this.dispatchEvent(MouseEvent.CLICK, { name: _name, visibility: _list.style.visibility });
+        function _onClick() {
+            _menu.toggle();
+            _this.dispatchEvent(MouseEvent.CLICK, { name: name, visibility: _menu.visible() ? 'visible' : 'hidden' });
         }
-
         _this.append = function (label, value) {
-            var option = utils.createElement('span', CLASS_SELECT_OPTION);
-            option.value = value === undefined ? _list.children.length : value;
-            option.addEventListener('click', _onItemClick);
-            option.textContent = label;
-            _list.appendChild(option);
-
-            if (isNaN(_index)) {
-                _this.select(0);
-            }
-            _this.resize();
+            _items.push({ label: String(label), value: value === undefined ? _items.length : value });
+            _menu.append(String(label)); _label.disabled = false;
+            if (isNaN(_index)) { _this.select(0); }
         };
-
-        function _onItemClick(e) {
-            var index = utils.indexOf(_list.children, e.currentTarget);
-            _this.select(index);
-            _list.style.visibility = 'hidden';
-            _this.dispatchEvent(MouseEvent.CLICK, { name: _name, visibility: _list.style.visibility });
-        }
-
         _this.remove = function (index) {
-            if (index >= 0 && index < _list.children.length) {
-                var option = _list.children[index];
-                option.removeEventListener('click', _onItemClick);
-                _label.innerHTML = '';
-                _list.removeChild(option);
-
-                if (_index >= index) {
-                    _this.select(0);
-                }
-                _this.resize();
-            }
+            if (index < 0 || index >= _items.length) { return; }
+            _items.splice(index, 1); _menu.remove(index); _label.disabled = !_items.length;
+            if (_index === index) { _index = NaN; _label.textContent = ''; if (_items.length) { _this.select(0); } }
+            else if (_index > index) { _index--; _menu.selected(_index); }
         };
-
-        _this.clear = function () {
-            while (_list.firstChild) {
-                var option = _list.firstChild;
-                option.removeEventListener('click', _onItemClick);
-                _list.removeChild(option);
-            }
-
-            _index = NaN;
-            _label.textContent = '';
-            _list.style.visibility = 'hidden';
-        };
-
+        _this.clear = function () { _items = []; _index = NaN; _label.textContent = ''; _label.disabled = true; _menu.clear(); };
         _this.select = function (index) {
-            if (_index !== index && index >= 0 && index < _list.children.length) {
-                _index = index;
-
-                var option = _list.children[_index];
-                _label.innerHTML = option.innerHTML;
-                _this.dispatchEvent(Event.CHANGE, { name: _name, value: option.value });
-            }
+            if (_index === index || index < 0 || index >= _items.length) { return; }
+            _index = index;
+            var item = _items[index];
+            _label.textContent = item.label;
+            _label.setAttribute('aria-label', (value || name) + ': ' + item.label);
+            _menu.selected(index);
+            _this.dispatchEvent(Event.CHANGE, { name: name, value: item.value });
         };
-
         _this.value = function (value) {
             if (value !== undefined) {
-                for (var i = 0; i < _list.children.length; i++) {
-                    if (_list.children[i].value === value) {
-                        _this.select(i);
-                        break;
-                    }
-                }
+                for (var i = 0; i < _items.length; i++) { if (_items[i].value === value) { _this.select(i); break; } }
             }
-            return isNaN(_index) ? undefined : _list.children[_index].value;
+            return isNaN(_index) ? undefined : _items[_index].value;
         };
-
-        _this.index = function () {
-            return _index;
-        };
-
-        _this.element = function () {
-            return _container;
-        };
-
-        _this.resize = function (width, height) {
-            css.style(_list, {
-                'left': (_container.clientWidth - _list.clientWidth) / 2 + 'px',
-            });
-        };
-
-        _this.destroy = function () {
-            _this.clear();
-            _label.removeEventListener('click', _onClick);
-            _container.innerHTML = '';
-        };
-
+        _this.index = function () { return _index; };
+        _this.element = function () { return _container; };
+        _this.resize = function () {};
+        _this.destroy = function () { _menu.destroy(); _label.removeEventListener('click', _onClick); _container.innerHTML = ''; };
         _init();
     }
-
     Select.prototype = Object.create(EventDispatcher.prototype);
     Select.prototype.constructor = Select;
     Select.prototype.kind = 'Select';
-
     components.Select = Select;
 })(odd);
-
