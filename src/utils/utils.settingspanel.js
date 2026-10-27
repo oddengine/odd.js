@@ -13,6 +13,7 @@
             refreshDevices: 'Refresh devices', devicesUpdated: 'Device list updated. Select a device or use the system default.',
             deviceMissing: 'Saved device (currently unavailable)', unnamedCamera: 'Camera', unnamedMicrophone: 'Microphone',
             devicesUnavailable: 'Device names may require permission. Use preview to grant access, or choose the system default.',
+            systemOutput: 'Playback uses the system output device. Change speakers or headphones in your system settings.',
             reload: 'Load latest settings and discard edits', changed: 'Defaults changed. Your edits are kept; load the latest settings before saving.',
             loaded: 'Latest defaults loaded. The current call is unchanged.', failed: 'The operation did not finish. Please retry.',
             ConflictError: 'Defaults changed. Load the latest settings before saving.',
@@ -65,6 +66,7 @@
         var layouts = { right: labels.right, top: labels.top, bottom: labels.bottom, left: labels.left, grid: labels.grid };
         select('layout', labels.layout, state.capabilities.layouts.map(function (name) { return [name, layouts[name] || name]; }));
         var deviceNotice = document.createElement('p'); deviceNotice.textContent = labels.devicesUnavailable; form.appendChild(deviceNotice);
+        var outputNotice = document.createElement('p'); outputNotice.textContent = labels.systemOutput; form.appendChild(outputNotice);
         video.muted = true; video.autoplay = true; video.playsInline = true; video.hidden = true;
         form.appendChild(video);
         var actions = document.createElement('div'); actions.className = 'odd-settings-actions'; form.appendChild(actions);

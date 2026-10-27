@@ -55,6 +55,8 @@
             _pc,
             _name,
             _stream,
+            _captures = [],
+            _captureFailure,
             _videomixer,
             _screensharing = false,
             _withcamera = false,
@@ -163,7 +165,7 @@
                 });
                 var source;
                 try {
-                    source = await navigator.mediaDevices.getUserMedia(constraints);
+                    source = await _this.getUserMedia(constraints);
                     _logger.log(`Got user media: id=${_this.config.id}, stream=${_name}, stream=${source.id}, constraints=`, constraints);
                 } catch (err) {
                     _logger.error(`Failed to get user media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
@@ -176,6 +178,7 @@
                         var found = false;
                         _videomixer.forEach(function (element) {
                             if (element.kind === 'camera') {
+                                _forgetCapture(element.track);
                                 element.track.stop();
                                 element.track = track;
                                 element.srcObject = source;
@@ -184,12 +187,15 @@
                             }
                         });
                         if (found === false) {
+                            _forgetCapture(track);
                             track.stop();
                         }
                     }
                 } else {
-                    _this.replaceTrack(track, true).catch(function (err) {
+                    await _this.replaceTrack(track, true).catch(function (err) {
+                        _forgetCapture(track);
                         track.stop();
+                        throw err;
                     });
                 }
             }
@@ -245,7 +251,7 @@
 
         _this.getUserMedia = async function (constraints) {
             if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
-                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+                return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC stream has been closed.' });
             }
 
             var stream;
@@ -254,14 +260,21 @@
                 _logger.log(`Got user media: id=${_this.config.id}, stream=${_name}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
                 _logger.error(`Failed to get user media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
+                if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                    return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC capture was cancelled.' });
+                }
+                if (err.name === 'AbortError') {
+                    return Promise.reject({ name: err.name, message: err.message, operation: 'capture' });
+                }
                 return Promise.reject(err);
             }
             if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
                 stream.getTracks().forEach(function (track) {
                     track.stop();
                 });
-                return Promise.reject({ name: 'AbortError', message: 'RTC capture was cancelled.' });
+                return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC capture was cancelled.' });
             }
+            _watchCapture(stream, false);
             return Promise.resolve(stream);
         };
 
@@ -270,22 +283,80 @@
                 return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
             }
 
+            // Display capture selects a surface in the browser. Saved input
+            // device constraints apply only to camera/microphone capture.
+            constraints = utils.extendz({}, constraints);
+            if (constraints.audio && typeof constraints.audio === 'object') {
+                delete constraints.audio.deviceId;
+            }
+            if (constraints.video && typeof constraints.video === 'object') {
+                delete constraints.video.deviceId;
+            }
             var stream;
             try {
                 stream = await navigator.mediaDevices.getDisplayMedia(constraints);
                 _logger.log(`Got display media: id=${_this.config.id}, stream=${_name}, stream=${stream.id}, constraints=`, constraints);
             } catch (err) {
                 _logger.error(`Failed to get display media: id=${_this.config.id}, stream=${_name}, constraints=`, constraints, `, error=${err}`);
+                if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                    return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC capture was cancelled.' });
+                }
+                if (err.name === 'AbortError') {
+                    return Promise.reject({ name: err.name, message: err.message, operation: 'capture' });
+                }
                 return Promise.reject(err);
             }
             if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
                 stream.getTracks().forEach(function (track) {
                     track.stop();
                 });
-                return Promise.reject({ name: 'AbortError', message: 'RTC capture was cancelled.' });
+                return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC capture was cancelled.' });
             }
+            _watchCapture(stream, true);
             return Promise.resolve(stream);
         };
+
+        function _watchCapture(stream, screen) {
+            stream.getTracks().forEach(function (track) {
+                _captures.push({ track: track, screen: screen });
+                track.addEventListener('ended', _onCaptureEnded);
+            });
+            if (stream.getTracks().some(function (track) { return track.readyState === 'ended'; })) {
+                _captureFailure = screen ?
+                    { name: 'CaptureEndedError', message: 'Screen sharing has ended. Start sharing again to continue.' } :
+                    { name: 'NotReadableError', message: 'The capture device became unavailable.' };
+                _this.close(_captureFailure.message);
+                throw _captureFailure;
+            }
+        }
+
+        function _forgetCapture(track) {
+            track.removeEventListener('ended', _onCaptureEnded);
+            _captures = _captures.filter(function (capture) { return capture.track !== track; });
+        }
+
+        function _onCaptureEnded(e) {
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
+                return;
+            }
+            var capture = _captures.filter(function (item) { return item.track === e.target; })[0];
+            if (!capture) {
+                return;
+            }
+            _captureFailure = capture.screen ?
+                { name: 'CaptureEndedError', message: 'Screen sharing has ended. Start sharing again to continue.' } :
+                { name: 'NotReadableError', message: 'The input device became unavailable. Check it before publishing again.' };
+
+            if (_readyState === State.PUBLISHING) {
+                _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
+                    level: Level.ERROR,
+                    code: Code.NETSTREAM_FAILED,
+                    description: _captureFailure.message,
+                    info: { operation: 'capture', kind: e.target.kind, error: _captureFailure },
+                });
+            }
+            _this.close(_captureFailure.message);
+        }
 
         _this.addTrack = function (track, stream) {
             var sender;
@@ -336,6 +407,7 @@
                 }
             });
             if (stopprevious) {
+                _forgetCapture(origin);
                 origin.stop();
             }
             return Promise.resolve();
@@ -432,7 +504,7 @@
                 stream.getTracks().forEach(function (track) {
                     track.stop();
                 });
-                throw { name: 'AbortError', message: 'RTC capture was cancelled.' };
+                throw _captureFailure || { name: 'AbortError', message: 'RTC capture was cancelled.' };
             }
 
             _name = participation ? _sessionId() : stream.id;
@@ -476,7 +548,7 @@
 
         _this.publish = async function () {
             if (_readyState !== State.CONNECTED) {
-                return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
+                return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC stream has been closed.' });
             }
 
             _readyState = State.CONNECTING;
@@ -512,21 +584,21 @@
             } catch (err) {
                 _this.close(err.message);
                 _logger.error(`Failed to publish: id=${_this.config.id}, stream=${_name}, error=${err}`);
-                return Promise.reject(err);
+                return Promise.reject(_captureFailure || err);
             }
 
             if (_readyState !== State.CONNECTING) {
-                return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
+                return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC publishing was cancelled.' });
             }
             try {
                 await _setMaxBitrate();
                 await _checkVideoEncodings();
             } catch (err) {
                 _this.close();
-                return Promise.reject(err);
+                return Promise.reject(_captureFailure || err);
             }
             if (_readyState !== State.CONNECTING) {
-                return Promise.reject({ name: 'AbortError', message: 'RTC publishing was cancelled.' });
+                return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC publishing was cancelled.' });
             }
             _readyState = State.PUBLISHING;
             _this.dispatchEvent(NetStatusEvent.NETSTATUS, {
@@ -1489,6 +1561,11 @@
                 case State.PUBLISHING:
                 case State.PLAYING:
                     _readyState = State.CLOSING;
+                    _captures.forEach(function (capture) {
+                        capture.track.removeEventListener('ended', _onCaptureEnded);
+                        capture.track.stop();
+                    });
+                    _captures = [];
                     _generation++;
                     _negotiated = false;
                     _candidates = [];

@@ -163,10 +163,10 @@
         function _getConstraints(config) {
             var constraints = utils.extendz({}, Constraints[config.profile], {
                 audio: {
-                    deviceId: config.microphone || '',
+                    deviceId: typeof config.microphone === 'string' && config.microphone ? { exact: config.microphone } : '',
                 },
                 video: {
-                    deviceId: config.camera || '',
+                    deviceId: typeof config.camera === 'string' && config.camera ? { exact: config.camera } : '',
                     facingMode: 'user',
                     cursor: 'always', // always, motion, never
                 },
@@ -286,6 +286,11 @@
                     controlbar.state('calling', 'on');
                 }
                 return ns;
+            }).catch(function (err) {
+                if (operation.cancelled || _readyState !== State.CONNECTED) {
+                    throw { name: 'AbortError', message: 'The call was cancelled.' };
+                }
+                throw err;
             }).finally(function () {
                 if (_pendingCall === operation) {
                     _pendingCall = null;
@@ -347,6 +352,11 @@
                     controlbar.state('sharing', 'on');
                 }
                 return ns;
+            }).catch(function (err) {
+                if (operation.cancelled || _readyState !== State.CONNECTED) {
+                    throw { name: 'AbortError', message: 'Screen sharing was cancelled.' };
+                }
+                throw err;
             }).finally(function () {
                 if (_pendingShare === operation) {
                     _pendingShare = null;
@@ -844,7 +854,7 @@
         }
 
         function _onControlError(name, err) {
-            if (_readyState !== State.CONNECTED || err.name === 'AbortError') {
+            if (_readyState !== State.CONNECTED || err.name === 'AbortError' && err.operation !== 'capture') {
                 return;
             }
 
@@ -859,7 +869,7 @@
             if (controlbar) {
                 controlbar.state(name, enable ? 'on' : 'off');
             }
-            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+            _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message, operation: err.operation });
         }
 
         function _onChange(e) {

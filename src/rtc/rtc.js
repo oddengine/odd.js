@@ -253,6 +253,13 @@
                     }
                     break;
                 case Code.NETSTREAM_FAILED:
+                    if (info && info.operation === 'capture') {
+                        // Preserve the capture cause before RELEASE/unpublish
+                        // callbacks remove this stream from its owner's maps.
+                        _this.forward(e);
+                        e.srcElement.close(description);
+                        return;
+                    }
                 case Code.NETSTREAM_PLAY_FAILED:
                 case Code.NETSTREAM_PLAY_RESET:
                     var ns = e.srcElement;

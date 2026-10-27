@@ -268,18 +268,14 @@
         }
 
         _this.chat = function (enable) {
-            _wrapper.setAttribute('chat', enable ? 'on' : 'off');
-
-            var controlbar = _this.plugins['Controlbar'];
-            if (controlbar) {
-                controlbar.state('calling', enable ? 'on' : 'off');
-            }
+            _chatState(enable);
 
             var chat = _this.plugins['Chat'];
             if (chat) {
                 if (enable) {
                     chat.publish().catch(function (err) {
-                        _this.chat(false);
+                        _chatState(false);
+                        _this.dispatchEvent(Event.CHANGE, { name: 'chat', value: false });
                         _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                     });
                 } else {
@@ -288,6 +284,14 @@
             }
             _this.dispatchEvent(Event.CHANGE, { name: 'chat', value: !!enable });
         };
+
+        function _chatState(enable) {
+            _wrapper.setAttribute('chat', enable ? 'on' : 'off');
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar) {
+                controlbar.state('calling', enable ? 'on' : 'off');
+            }
+        }
 
         _this.comments = function (enable) {
             _wrapper.setAttribute('comments', enable ? 'on' : 'off');
@@ -464,6 +468,11 @@
         }
 
         function _onChange(e) {
+            if (e.srcElement === _this.plugins['Chat'] && e.data.name === 'chat' && e.data.value === false) {
+                _chatState(false);
+                _this.forward(e);
+                return;
+            }
             var h = {
                 'profile': function () { _configureChat({ profile: e.data.value }); },
                 'camera': function () { _configureChat({ camera: e.data.value }); },

@@ -34,7 +34,7 @@ await settings.save({ profile: '720P_2' }, {
 });
 ```
 
-保存不挂断、重拨或立即修改活动发布者。默认 RTC 为 720P_2，IM／Player 连麦为 180P_1。当前支持 profile、camera、microphone、layout；布局支持 right/top/bottom/left/grid；控制条与媒体浮窗见下文。设备 UI 当前提供系统默认／关闭，不宣称已完成设备枚举、SVC 协商或扬声器选择。
+保存不挂断、重拨或立即修改活动发布者。默认 RTC 为 720P_2，IM／Player 连麦为 180P_1。当前支持 profile、camera、microphone、layout；布局支持 right/top/bottom/left/grid；控制条与媒体浮窗见下文。输入设备支持枚举、系统默认／关闭；播放输出始终跟随系统，不提供扬声器选择。SVC／Simulcast 的设置接线仍待做。
 
 默认存储只在实例内存。可注入 `storage.load(key)` 和 `storage.save(key,{value,version},{expectedVersion})`；宿主实现必须原子比较版本，并为 key 划分账号、产品、模块和 schema 身份。未提供跨窗口广播／访客合并，不声称偏好已跨窗口同步。
 
@@ -69,6 +69,14 @@ SettingsPanel保留未保存草稿；其他实例改变默认值时提示加载�
 
 网站提供单独IndexedDB适配，key为schema／账号身份域／subject／产品／模块，不和IM消息存储共库。每key仅一条当前值，最多512条本机身份组合，达到上限时拒绝新增key，已有key仍可更新；不自动删除记录或重用版本。BroadcastChannel只传key/version，不包含设备ID或配置；没有此能力时可通过窗口focus或手动加载恢复。组织不是个人设备偏好的所有者。游客与账号分key，只有显式采用才按账号当前观察版本保存。
 
-网站媒体创建等待本机设置加载完成，并在异步边界检查所属账号与会话；同账号后续加载复用对象。存储不可用时可以重试或明确选择仅本次会话；不会伪装持久成功。完整CALL业务接线仍以实际产品入口为准，存了IM偏好不等于相关呼叫入口已开通。SVC／Simulcast和扬声器设置不属于本轮已实现字段。
+网站媒体创建等待本机设置加载完成，并在异步边界检查所属账号与会话；同账号后续加载复用对象。存储不可用时可以重试或明确选择仅本次会话；不会伪装持久成功。完整CALL业务接线仍以实际产品入口为准，存了IM偏好不等于相关呼叫入口已开通。SVC／Simulcast 设置待接；扬声器选择按 R-081 用户决定取消。
+
+## R-081 输入设备与发布失败
+
+仅选择 camera／microphone，输出交给系统，不新增 outputDevice、audioOutput 或 setSinkId。RTC UI、Player Chat 和 IM CallMedia 使用保存的具体输入 ID 时传 deviceId.exact；设备不可用／权限拒绝／占用由发布 Promise 返回，不静默换设备。默认空 ID 仍由浏览器选择；屏幕共享移除输入 deviceId，由浏览器选择共享表面。
+
+NetStream 跟踪自己采集的原始轨道，包括 beauty／mixer 上游。发布中的采集轨道 ended 沿既有 NetStream.Failed 通知，info.operation 为 capture，info.kind 标明轨道类型，info.error 保留错误。RTC 先转发原因再关闭该 NetStream；不广播致命 ERROR 来终止所有观看。普通设备结束为 NotReadableError，共享结束为 CaptureEndedError。准备期间结束由发布 Promise 拒绝；正常静音和短暂 mute 不当作 ended。关闭移除采集监听并停止轨道，迟到的采集结果立即回收。
+
+这些是源码行为说明，未执行构建、测试或真实浏览器／设备验证。
 
 R-080仍仅源码与diff审阅，未编译、测试、启动浏览器或设备，不将IndexedDB事务、跨窗口和权限分支称为运行通过。

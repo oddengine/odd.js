@@ -101,6 +101,10 @@
                 });
                 visit.rtc.addEventListener(NetStatusEvent.NETSTATUS, function (event) {
                     var code = event.data && event.data.code;
+                    if (!visit.closed && event.data.info && event.data.info.operation === 'capture') {
+                        failed(call.callId, event.data.info.error);
+                        return;
+                    }
                     var stream = event.srcElement, name = stream && stream.name ? stream.name() : '';
                     if (name && !visit.rtc.publishing[name] && !visit.playing[name]) { return; }
                     if (!visit.closed && /Failed|Rejected|Unpublish\.Success/.test(String(code))) {
@@ -111,7 +115,18 @@
                     if (visit.closed) {
                         return;
                     }
-                    return visit.rtc.publish(call.mode === 'audio' ? { video: false } : {}, false, false);
+                    var constraints = odd.utils.extendz({}, odd.RTC.Constraints[settings.profile]);
+                    if (call.mode === 'audio' || settings.camera === false) {
+                        constraints.video = false;
+                    } else if (typeof settings.camera === 'string' && settings.camera) {
+                        constraints.video = odd.utils.extendz({}, constraints.video, { deviceId: { exact: settings.camera } });
+                    }
+                    if (settings.microphone === false) {
+                        constraints.audio = false;
+                    } else if (typeof settings.microphone === 'string' && settings.microphone) {
+                        constraints.audio = odd.utils.extendz({}, constraints.audio, { deviceId: { exact: settings.microphone } });
+                    }
+                    return visit.rtc.publish(constraints, false, false);
                 }).then(function (stream) {
                     if (visit.closed || !stream) {
                         return;

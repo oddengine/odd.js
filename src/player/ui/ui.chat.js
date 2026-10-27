@@ -64,9 +64,13 @@
             var constraints = utils.extendz({}, Constraints[config.profile]);
             if (config.camera === false) {
                 constraints.video = false;
+            } else if (typeof config.camera === 'string' && config.camera) {
+                constraints.video.deviceId = { exact: config.camera };
             }
             if (config.microphone === false) {
                 constraints.audio = false;
+            } else if (typeof config.microphone === 'string' && config.microphone) {
+                constraints.audio.deviceId = { exact: config.microphone };
             }
             return constraints;
         }
@@ -110,6 +114,7 @@
                     var video = e.srcElement.element();
                     video.removeEventListener('click', _onClick);
                     _detachVideo(video);
+                    _this.dispatchEvent(Event.CHANGE, { name: 'chat', value: false });
                 });
 
                 var video = ns.element();
