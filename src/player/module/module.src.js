@@ -432,7 +432,7 @@
         };
 
         _this.record = function (mode, option) {
-            return Promise.reject('Failed to record stream, the operation is not supported by this module.');
+            return Promise.reject({ name: 'NotSupportedError', message: 'Local recording is not supported by this playback module.' });
         };
 
         _this.element = function () {

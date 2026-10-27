@@ -51,7 +51,8 @@
             }
         }
 
-        function _onError() {
+        function _onError(e) {
+            if (e && e.data && e.data.recoverable === true && (e.data.operation === 'capture' || e.data.operation === 'record')) { return; }
             var payload = _latest && _latest.payload;
             if (_closed || _selecting || !payload || payload.mode !== 'pk') { return; }
             var key = payload.pkId + ':' + payload.streamId;

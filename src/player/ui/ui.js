@@ -1,6 +1,8 @@
 (function (odd) {
     var utils = odd.utils,
         OS = odd.OS,
+        Browser = odd.Browser,
+        WriterState = utils.StreamWriter.WriterState,
         css = utils.css,
         events = odd.events,
         EventDispatcher = events.EventDispatcher,
@@ -23,6 +25,26 @@
             presentation: 'full', // full, mini, popup
             skin: 'classic',
             plugins: [],
+            tools: {
+                capture: 'Capture', record: 'Record locally', stopRecord: 'Finish recording',
+                cancelRecord: 'Cancel recording', dismiss: 'Dismiss tool status', saveCapture: 'Save capture',
+                captureReady: 'Capture created. Choose Save capture to download it.', noFrame: 'Wait for a video frame before capturing.',
+                captureUnsupported: 'Capture is not supported in this browser.', recordingUnsupported: 'Local recording is not supported by this playback module.',
+                recordingUnavailable: 'Local recording requires a secure context, Service Worker and transferable streams.',
+                noSource: 'Start a supported stream before recording.', preparing: 'Preparing local recording…',
+                waiting: 'Waiting for the first recording frame…', recording: 'Recording locally. Finish to close the download.',
+                closing: 'Finishing recording… Playback can continue.', cancelling: 'Cancelling recording setup…',
+                completed: 'Recording ended. Check your browser downloads.', aborted: 'Recording cancelled.',
+                failed: 'The tool could not finish. Check the browser and retry.',
+                captureSecurityError: 'Capture is blocked by the media source’s cross-origin policy.',
+                recordSecurityError: 'Recording is blocked by browser or worker scope policy. Check the secure origin and worker configuration.',
+                TimeoutError: 'Recording output took too long. Check your browser downloads and retry.',
+                QuotaExceededError: 'Recording output is too slow. Free local resources and retry.',
+                VersionError: 'The recording worker changed. Reload this page before retrying.',
+                NotSupportedError: 'The browser does not support this operation.',
+                InvalidStateError: 'The source is not ready or another recording is still finishing.',
+                DataError: 'The browser could not process this capture or recording.',
+            },
         };
 
     function UI(id, logger) {
@@ -37,7 +59,10 @@
             _program,
             _updatingDefinition = false,
             _timer,
-            _closed = false;
+            _closed = false,
+            _moduleKind = '',
+            _toolStatus, _captureStatus, _captureSave, _recordStatus, _recordCancel, _toolDismiss,
+            _toolWriter, _recordTask, _recordState = '', _lastTool = 'capture';
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, IOEvent, NetStatusEvent, UIEvent);
 
@@ -96,7 +121,7 @@
             _api.addEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
             _api.addEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
             _api.addEventListener(MediaEvent.SEI, _this.forward);
-            _api.addEventListener(MediaEvent.SCREENSHOT, _this.forward);
+            _api.addEventListener(MediaEvent.SCREENSHOT, _onScreenshot);
             _api.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _api.addEventListener(SaverEvent.WRITEREND, _onWriterEnd);
             _api.addEventListener(Event.ENDED, _onStateChange);
@@ -108,6 +133,8 @@
 
             _buildPlugins();
             _setupPlugins();
+            _buildToolStatus();
+            _updateTools();
             _updateDefinition();
             _this.resize();
             return Promise.resolve();
@@ -245,7 +272,7 @@
             _this.seek = _api.seek;
             _this.stop = _api.stop;
             _this.capture = _api.capture;
-            _this.record = _api.record;
+            _this.record = _record;
             _this.muted = _api.muted;
             _this.volume = _api.volume;
             _this.definition = _api.definition;
@@ -524,11 +551,22 @@
                 'playing': function () { e.data.state === 'on' ? _this.play() : _this.pause(); },
                 'reload': _this.reload,
                 'stop': _this.stop,
-                'capture': _this.capture,
+                'capture': function () {
+                    _lastTool = 'capture';
+                    var reason = _captureReason();
+                    if (reason) { _showToolError({ operation: 'capture', message: reason, localized: true }); return; }
+                    _this.capture();
+                },
                 'download': function () {
-                    Promise.resolve(_this.record('fragmented.mp4')).catch(function (err) {
-                        _this.dispatchEvent(Event.ERROR, { name: err.name || 'NotSupportedError', message: err.message || String(err) });
-                    });
+                    _lastTool = 'download';
+                    if (_recordTask) { return; }
+                    if (_toolWriter && _toolWriter.readyState !== WriterState.END) {
+                        _toolWriter.close();
+                        return;
+                    }
+                    var reason = _recordReason();
+                    if (reason) { _showToolError({ operation: 'record', message: reason, localized: true }); return; }
+                    _record('fragmented.mp4').catch(function () { /* The operation reports its own failure. */ });
                 },
                 'calling': function () { _this.chat(e.data.state === 'on'); },
                 'muted': function () { _this.muted(e.data.state === 'on'); },
@@ -573,7 +611,8 @@
         function _onTimer() {
             var controlbar = _this.plugins['Controlbar'];
             if (!controlbar || _wrapper.getAttribute('controls') !== 'motion') { return; }
-            if (typeof controlbar.active === 'function' && controlbar.active()) { _onMouseMove(); return; }
+            if (typeof controlbar.active === 'function' && controlbar.active() ||
+                _toolStatus && !_toolStatus.hidden && _toolStatus.contains(document.activeElement)) { _onMouseMove(); return; }
             if (typeof controlbar.visible === 'function') { controlbar.visible(false); }
             else { css.style(controlbar.element(), { visibility: 'hidden' }); }
         }
@@ -619,6 +658,7 @@
         }
 
         function _onReady(e) {
+            _moduleKind = e.data.kind || '';
             _onStateChange(e);
         }
 
@@ -639,6 +679,7 @@
         }
 
         function _onTimeUpdate(e) {
+            _updateTools();
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
                 var timebar = controlbar.components['timebar'];
@@ -721,6 +762,200 @@
             }
         }
 
+        function _buildToolStatus() {
+            var controlbar = _this.plugins['Controlbar'];
+            if (!controlbar || (!controlbar.components.capture && !controlbar.components.download)) { return; }
+            _toolStatus = utils.createElement('section', 'pe-tool-status');
+            _toolStatus.hidden = true;
+            _toolStatus.tabIndex = -1;
+            _captureStatus = utils.createElement('p');
+            _captureStatus.setAttribute('role', 'status');
+            _toolStatus.appendChild(_captureStatus);
+            _captureSave = utils.createElement('a');
+            _captureSave.textContent = _this.config.tools.saveCapture;
+            _captureSave.download = 'capture.png';
+            _captureSave.hidden = true;
+            _toolStatus.appendChild(_captureSave);
+            _recordStatus = utils.createElement('p');
+            _recordStatus.setAttribute('role', 'status');
+            _toolStatus.appendChild(_recordStatus);
+            _recordCancel = utils.createElement('button');
+            _recordCancel.type = 'button';
+            _recordCancel.textContent = _this.config.tools.cancelRecord;
+            _recordCancel.hidden = true;
+            _recordCancel.onclick = function () {
+                if (_recordTask) {
+                    _recordTask.cancelled = true;
+                    _recordState = 'cancelling';
+                    if (document.activeElement === _recordCancel) { _toolDismiss.focus(); }
+                    _setRecordStatus();
+                } else if (_toolWriter) { _toolWriter.abort(); }
+            };
+            _toolStatus.appendChild(_recordCancel);
+            _toolDismiss = utils.createElement('button');
+            _toolDismiss.type = 'button';
+            _toolDismiss.textContent = _this.config.tools.dismiss;
+            _toolDismiss.onclick = function () {
+                _toolStatus.hidden = true;
+                _returnToolFocus();
+            };
+            _toolStatus.appendChild(_toolDismiss);
+            _wrapper.appendChild(_toolStatus);
+        }
+
+        function _returnToolFocus() {
+            var controlbar = _this.plugins['Controlbar'];
+            if (controlbar && typeof controlbar.focus === 'function') { controlbar.focus(_lastTool); }
+        }
+
+        function _presentToolStatus() {
+            var controlbar = _this.plugins['Controlbar'];
+            _toolStatus.hidden = false;
+            if (controlbar && typeof controlbar.presentResult === 'function') { controlbar.presentResult(_toolStatus); }
+        }
+
+        function _toolErrorMessage(error, operation) {
+            var key = error.name === 'SecurityError' ? operation + 'SecurityError' : error.name;
+            return _this.config.tools[key] || _this.config.tools.failed;
+        }
+
+        function _captureReason() {
+            var video = _api && _api.element();
+            if (OS.isIOS && !Browser.isSafari) { return _this.config.tools.captureUnsupported; }
+            if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) { return _this.config.tools.noFrame; }
+            return '';
+        }
+
+        function _recordReason() {
+            if (!utils.StreamSaver.describe().supported) { return _this.config.tools.recordingUnavailable; }
+            if (_moduleKind && _moduleKind !== 'FLV' && _moduleKind !== 'FMP4') { return _this.config.tools.recordingUnsupported; }
+            var state = _api && _api.state();
+            if (!_moduleKind || !state || [Event.ERROR, Event.ENDED, Event.READY].indexOf(state) !== -1) { return _this.config.tools.noSource; }
+            return '';
+        }
+
+        function _updateTools() {
+            if (_closed) { return; }
+            var controlbar = _this.plugins['Controlbar'];
+            if (!controlbar) { return; }
+            function update(name, label, reason) {
+                var button = controlbar.components[name];
+                if (!button) { return; }
+                var element = button.element(), text = reason ? label + ': ' + reason : label;
+                if (element.getAttribute('aria-label') !== text) { element.setAttribute('aria-label', text); }
+                var disabled = String(!!reason);
+                if (element.getAttribute('aria-disabled') !== disabled) { element.setAttribute('aria-disabled', disabled); }
+                var tip = button.tooltip && button.tooltip();
+                if (tip && tip.textContent !== text) { tip.textContent = text; }
+            }
+            update('capture', _this.config.tools.capture, _captureReason());
+            var active = _toolWriter && _toolWriter.readyState !== WriterState.END,
+                busy = _recordTask || active && _toolWriter.readyState === WriterState.CLOSING;
+            update('download', active ? _this.config.tools.stopRecord : _this.config.tools.record,
+                busy ? _this.config.tools[_recordState] : active ? '' : _recordReason());
+        }
+
+        function _onScreenshot(e) {
+            if (_captureSave && !_closed) {
+                _lastTool = 'capture';
+                _captureSave.href = e.data.image;
+                _captureSave.download = /^data:image\/jpeg/.test(e.data.image) ? 'capture.jpg' : /^data:image\/webp/.test(e.data.image) ? 'capture.webp' : 'capture.png';
+                _captureSave.hidden = false;
+                _captureStatus.textContent = _this.config.tools.captureReady;
+                _presentToolStatus();
+            }
+            _this.forward(e);
+        }
+
+        function _showToolError(error) {
+            if (!_toolStatus || _closed) { return; }
+            var message = error.localized ? error.message : _toolErrorMessage(error, error.operation);
+            if (error.operation === 'capture') {
+                _captureStatus.textContent = message;
+                _captureSave.hidden = true;
+                _captureSave.removeAttribute('href');
+            } else {
+                _recordState = 'failed';
+                _recordStatus.textContent = message;
+            }
+            _presentToolStatus();
+            _updateTools();
+        }
+
+        function _setRecordStatus(error) {
+            if (!_toolStatus || _closed) { return; }
+            var focus = document.activeElement === _recordCancel;
+            _recordStatus.textContent = error ? _toolErrorMessage(error, 'record') : _this.config.tools[_recordState];
+            _recordCancel.hidden = !_recordTask && (!_toolWriter || _toolWriter.readyState === WriterState.END);
+            _recordCancel.disabled = _recordState === 'cancelling';
+            _presentToolStatus();
+            _wrapper.setAttribute('recording', _recordState);
+            _updateTools();
+            if (focus && _recordCancel.hidden) { _returnToolFocus(); }
+        }
+
+        function _record(filename) {
+            if (_closed || _recordTask || _toolWriter && _toolWriter.readyState !== WriterState.END) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'Recording is already active or closing.' });
+            }
+            var task = { cancelled: false };
+            _recordTask = task;
+            _recordState = 'preparing';
+            _setRecordStatus();
+            return Promise.resolve().then(function () {
+                if (_closed || task.cancelled) { throw { name: 'AbortError', message: 'Recording was cancelled.' }; }
+                return _api.record(filename);
+            }).then(function (writer) {
+                if (_closed || task.cancelled || _recordTask !== task) {
+                    writer.abort();
+                    throw { name: 'AbortError', message: 'Recording was cancelled.' };
+                }
+                _recordTask = null;
+                _toolWriter = writer;
+                writer.addEventListener(SaverEvent.WRITERSTART, _onToolWriter);
+                writer.addEventListener(SaverEvent.WRITEREND, _onToolWriter);
+                writer.addEventListener(Event.CHANGE, _onToolWriter);
+                _recordState = writer.readyState === WriterState.INIT ? 'waiting' : writer.readyState === WriterState.START ? 'recording' : writer.readyState;
+                if (writer.readyState === WriterState.END) { _onToolWriter({ srcElement: writer }); }
+                else { _setRecordStatus(); }
+                return writer;
+            }).catch(function (err) {
+                if (_recordTask === task) {
+                    _recordTask = null;
+                    if (!_closed) {
+                        _recordState = task.cancelled || err.name === 'AbortError' ? 'aborted' : 'failed';
+                        _setRecordStatus(_recordState === 'failed' ? err : null);
+                        if (_recordState === 'failed') {
+                            _this.dispatchEvent(Event.ERROR, { name: err.name || 'OperationError', message: err.message || String(err), operation: 'record', recoverable: true });
+                        }
+                    }
+                }
+                throw err;
+            });
+        }
+
+        function _onToolWriter(e) {
+            var writer = e.srcElement;
+            if (_closed || writer !== _toolWriter) { return; }
+            switch (writer.readyState) {
+                case WriterState.START: _recordState = 'recording'; break;
+                case WriterState.CLOSING: _recordState = 'closing'; break;
+                case WriterState.END:
+                    _recordState = writer.result.outcome;
+                    _detachToolWriter();
+                    break;
+            }
+            _setRecordStatus(writer.result && writer.result.error);
+        }
+
+        function _detachToolWriter() {
+            if (!_toolWriter) { return; }
+            _toolWriter.removeEventListener(SaverEvent.WRITERSTART, _onToolWriter);
+            _toolWriter.removeEventListener(SaverEvent.WRITEREND, _onToolWriter);
+            _toolWriter.removeEventListener(Event.CHANGE, _onToolWriter);
+            _toolWriter = null;
+        }
+
         function _onWriterStart(e) {
             _this.forward(e);
         }
@@ -740,17 +975,8 @@
         }
 
         function _onError(e) {
-            // Ignore these specific errors.
-            if ((function () {
-                switch (e.data.name) {
-                    case 'SecurityError':
-                        if (e.data.message.indexOf('toDataURL') !== -1) {
-                            return true;
-                        }
-                        break;
-                }
-                return false;
-            })()) {
+            if (e.data.recoverable === true && (e.data.operation === 'capture' || e.data.operation === 'record')) {
+                _showToolError(e.data);
                 _this.forward(e);
                 return;
             }
@@ -762,6 +988,7 @@
 
         function _onStateChange(e) {
             _wrapper.setAttribute('state', e.type);
+            _updateTools();
 
             var controlbar = _this.plugins['Controlbar'];
             if (controlbar) {
@@ -850,6 +1077,11 @@
                 return;
             }
             _closed = true;
+            if (_recordTask) { _recordTask.cancelled = true; }
+            if (_toolWriter) { _toolWriter.close(); _detachToolWriter(); }
+            if (_recordCancel) { _recordCancel.onclick = null; }
+            if (_toolDismiss) { _toolDismiss.onclick = null; }
+            if (_captureSave) { _captureSave.removeAttribute('href'); }
 
             _timer.stop();
             _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
@@ -903,7 +1135,9 @@
                 _api.removeEventListener(IOEvent.LOAD, _this.forward);
                 _api.removeEventListener(MediaEvent.INFOCHANGE, _onInfoChange);
                 _api.removeEventListener(MediaEvent.STATSCHANGE, _onStatsChange);
-                _api.removeEventListener(MediaEvent.SCREENSHOT, _this.forward);
+                _api.removeEventListener(MediaEvent.SCREENSHOT, _onScreenshot);
+                _api.removeEventListener(SaverEvent.WRITERSTART, _onWriterStart);
+                _api.removeEventListener(SaverEvent.WRITEREND, _onWriterEnd);
                 _api.removeEventListener(Event.ENDED, _onStateChange);
                 _api.removeEventListener(Event.ERROR, _onError);
                 _api = undefined;

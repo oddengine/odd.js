@@ -63,7 +63,7 @@
             _beauty,
             _subscribing = [],
             _audiometer,
-            _recorder,
+            _recordPending = false,
             _location,
             _token,
             _participant,
@@ -112,6 +112,8 @@
             _readyState = State.INITIALIZED;
 
             _saver = new StreamSaver(_this.config.service, _logger);
+            _saver.addEventListener(Event.ERROR, _this.forward);
+            _saver.addEventListener(Event.CHANGE, _this.forward);
             _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
         }
@@ -1392,61 +1394,82 @@
             }
         }
 
-        _this.record = function (filename, ondata) {
-            function handler() {
-                if (_stream == null) {
-                    return Promise.reject('Failed to record stream, not found.');
-                }
-                var writer = _saver.record(filename);
-                if (ondata) {
-                    writer.write = ondata;
-                    writer.close = writer.abort;
-                }
-                _swapWriter(writer);
-                return Promise.resolve(_writer);
+        _this.record = async function (filename, ondata) {
+            if (!_stream || _readyState === State.CLOSING || _readyState === State.CLOSED || _recordPending || _writer) {
+                throw { name: 'InvalidStateError', message: 'The stream is unavailable or a recording is already active.' };
             }
-            if (_this.config.service.enable) {
-                return handler();
-            } else {
-                return _saver.register().then(handler);
+            if (typeof MediaRecorder !== 'function') {
+                throw { name: 'NotSupportedError', message: 'This browser does not support MediaRecorder.' };
+            }
+            var stream = _stream, generation = _generation,
+                deadline = Date.now() + _saver.config.startTimeout,
+                recorder, writer, tailWrite, resolveStop, rejectStop;
+            _recordPending = true;
+            try {
+                if (ondata === undefined) { await _saver.register(); }
+                if (generation !== _generation || _stream !== stream || _readyState === State.CLOSING || _readyState === State.CLOSED) {
+                    throw { name: 'AbortError', message: 'The stream closed before recording was ready.' };
+                }
+                if (Date.now() >= deadline) {
+                    throw { name: 'TimeoutError', message: 'Recording setup exceeded its deadline.' };
+                }
+                recorder = new MediaRecorder(stream);
+                var source = {
+                    close: function (writeFinal) {
+                        tailWrite = writeFinal;
+                        return new Promise(function (resolve, reject) {
+                            resolveStop = resolve;
+                            rejectStop = reject;
+                            if (recorder.state === 'inactive') { resolve(); } else { recorder.stop(); }
+                        });
+                    },
+                    abort: function () {
+                        if (recorder.state !== 'inactive') { recorder.stop(); }
+                        if (resolveStop) { resolveStop(); }
+                    },
+                    release: function () {
+                        recorder.removeEventListener('dataavailable', onData);
+                        recorder.removeEventListener('stop', onStop);
+                        recorder.removeEventListener('error', onError);
+                        tailWrite = resolveStop = rejectStop = null;
+                    },
+                };
+                writer = _saver.record(filename, source, ondata, deadline);
+                _writer = writer;
+                recorder.addEventListener('dataavailable', onData);
+                recorder.addEventListener('stop', onStop);
+                recorder.addEventListener('error', onError);
+                recorder.start(200);
+                return writer;
+            } catch (err) {
+                if (writer) { writer.abort(err); }
+                throw { name: err.name || 'OperationError', message: err.message || String(err) };
+            } finally {
+                _recordPending = false;
+            }
+
+            function onData(e) {
+                if (!e.data || !e.data.size || writer.readyState === WriterState.END) { return; }
+                // Blob bytes are charged before conversion and remain in the ordered writer queue.
+                if (!tailWrite) { writer.start(); }
+                if (tailWrite) { tailWrite(e.data); } else { writer.write(e.data); }
+            }
+            function onStop() {
+                if (resolveStop) { resolveStop(); } else { writer.close(); }
+            }
+            function onError(e) {
+                var err = e.error || { name: 'OperationError', message: 'The media recorder failed.' };
+                if (rejectStop) { rejectStop(err); }
+                writer.abort(err);
             }
         };
 
-        function _swapWriter(writer) {
-            if (_writer !== writer) {
-                if (_writer) {
-                    _writer.close();
-                }
-                _writer = writer;
-
-                _recorder = new MediaRecorder(_stream);
-                _recorder.addEventListener('dataavailable', _onDataAvailable);
-                _recorder.start(200);
-            }
-        }
-
-        function _onDataAvailable(e) {
-            if (_writer) {
-                if (_writer.readyState === WriterState.INIT) {
-                    _writer.start();
-                }
-                e.data.arrayBuffer().then((buffer) => {
-                    _writer.write(new Uint8Array(buffer));
-                });
-            }
-        }
-
         function _onWriterStart(e) {
-            _swapWriter(e.srcElement);
-            _this.forward(e);
+            if (_writer === e.srcElement) { _this.forward(e); }
         }
 
         function _onWriterEnded(e) {
-            if (_recorder) {
-                _recorder.stop();
-                _recorder = null;
-            }
-            _writer = null;
+            if (_writer === e.srcElement) { _writer = null; }
             _this.forward(e);
         }
 
@@ -1522,6 +1545,7 @@
                 case State.PUBLISHING:
                 case State.PLAYING:
                     _readyState = State.CLOSING;
+                    if (_writer) { _writer.close(); }
                     _captures.forEach(function (capture) {
                         capture.track.removeEventListener('ended', _onCaptureEnded);
                         capture.track.stop();
@@ -1599,6 +1623,12 @@
                         _writer.close();
                         _writer = null;
                     }
+                    // File draining is local and bounded; media release never waits for it.
+                    _saver.destroy();
+                    _saver.removeEventListener(Event.ERROR, _this.forward);
+                    _saver.removeEventListener(Event.CHANGE, _this.forward);
+                    _saver.removeEventListener(SaverEvent.WRITERSTART, _onWriterStart);
+                    _saver.removeEventListener(SaverEvent.WRITEREND, _onWriterEnded);
                     if (_stream) {
                         _stream.getTracks().forEach(function (track) {
                             _logger.log(`Stopping track: id=${_this.config.id}, stream=${_name}, kind=${track.kind}, id=${track.id}, label=${track.label}`);

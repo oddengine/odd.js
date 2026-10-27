@@ -451,13 +451,16 @@ function onClose(e) {
 }
 
 async function onRecordClick(e) {
-    for (var i in rtc.publishing) {
-        var ns = rtc.publishing[i];
-        // Save locally; live IM forwarding cannot reliably carry a recording.
-        _writer = await ns.record('vod.webm');
-        _writer.addEventListener(SaverEvent.WRITEREND, onWriterEnd);
-        break;
-    }
+    if (_writer && _writer.readyState !== odd.utils.StreamWriter.WriterState.END) { return; }
+    try {
+        for (var i in rtc.publishing) {
+            var ns = rtc.publishing[i];
+            // File completion is local; it never gates stream release or hangs up the call.
+            _writer = await ns.record('vod.webm');
+            _writer.addEventListener(SaverEvent.WRITEREND, onWriterEnd);
+            break;
+        }
+    } catch (err) { rtc.logger.error('Local recording: ' + err.name + ': ' + err.message); }
 }
 
 function onStopRecordClick(e) {
@@ -465,6 +468,8 @@ function onStopRecordClick(e) {
 }
 
 function onWriterEnd(e) {
+    e.srcElement.removeEventListener(SaverEvent.WRITEREND, onWriterEnd);
+    rtc.logger.log('Local recording ended: ' + e.data.outcome);
     if (_writer === e.srcElement) { _writer = undefined; }
 }
 

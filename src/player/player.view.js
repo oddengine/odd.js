@@ -164,33 +164,46 @@
         };
 
         _this.capture = function (width, height, mime) {
-            if (_module === undefined) {
-                _this.dispatchEvent(Event.ERROR, { name: 'InvalidStateError', message: 'No module initialized yet.' });
-                return '';
-            }
-
-            var video = _module.element();
-            _canvas.width = width || video.videoWidth;
-            _canvas.height = height || video.videoHeight;
-            _context.drawImage(video, 0, 0, _canvas.width, _canvas.height);
-
-            var data;
             try {
-                data = _canvas.toDataURL(mime || 'image/png');
+                var video = _module && _module.element();
+                if (!_context || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+                    throw { name: 'InvalidStateError', message: 'No video frame is available for capture.' };
+                }
+                var w = width === undefined ? video.videoWidth : width,
+                    h = height === undefined ? video.videoHeight : height;
+                if (!Number.isSafeInteger(w) || !Number.isSafeInteger(h) || w <= 0 || h <= 0 || w * h > 16777216) {
+                    throw { name: 'DataError', message: 'Capture dimensions are invalid or exceed 16 megapixels.' };
+                }
+                _canvas.width = w;
+                _canvas.height = h;
+                _context.drawImage(video, 0, 0, w, h);
+                var data = _canvas.toDataURL(mime || 'image/png');
+                if (data === 'data:,') { throw { name: 'OperationError', message: 'The browser could not create the capture.' }; }
+                _this.dispatchEvent(MediaEvent.SCREENSHOT, { image: data });
+                return data;
             } catch (err) {
-                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message, operation: 'capture', recoverable: true });
                 return '';
+            } finally {
+                _canvas.width = _canvas.height = 0;
             }
-            _this.dispatchEvent(MediaEvent.SCREENSHOT, { image: data });
-            return data;
         };
 
         _this.record = function (filename) {
-            if (_module === undefined) {
-                _this.dispatchEvent(Event.ERROR, { name: 'InvalidStateError', message: 'No module initialized yet.' });
-                return null;
-            }
-            return _module.record(filename);
+            var module = _module, generation = _generation;
+            return Promise.resolve().then(function () {
+                if (!module || module !== _module || generation !== _generation) {
+                    throw { name: 'InvalidStateError', message: 'No current recording source is available.' };
+                }
+                return module.record(filename);
+            }).then(function (writer) {
+                if (module !== _module || generation !== _generation) {
+                    if (writer) { writer.abort(); }
+                    throw { name: 'AbortError', message: 'The recording source changed.' };
+                }
+                if (!writer) { throw { name: 'OperationError', message: 'The recording could not be created.' }; }
+                return writer;
+            });
         };
 
         _this.element = function () {

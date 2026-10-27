@@ -88,19 +88,9 @@
 
         function _buildComponent(container, type, name, value) {
             switch (name) {
-                case 'capture':
-                    if (OS.isIOS && !Browser.isSafari) {
-                        return;
-                    }
-                    break;
                 case 'muted':
                 case 'volume':
                     if (OS.isMobile) {
-                        return;
-                    }
-                    break;
-                case 'download':
-                    if (!window.TransformStream) {
                         return;
                     }
                     break;
@@ -134,6 +124,8 @@
         _this.bind = function (wrapper, activity) { _presentation.bind(wrapper, activity); };
         _this.visible = function (visible) { return _presentation.visible(visible); };
         _this.active = function () { return _presentation.active(); };
+        _this.presentResult = function (target) { _presentation.presentResult(target); };
+        _this.focus = function (name) { _presentation.focus(name); };
 
         _this.resize = function (width, height) {
             utils.forEach(_this.components, function (_, component) { component.resize(width, height); });

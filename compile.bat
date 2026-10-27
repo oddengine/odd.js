@@ -1,5 +1,8 @@
 @echo off
 
+copy /Y .\src\utils\utils.streamsaver.worker.js .\release\odd.recording.worker.js >nul
+if errorlevel 1 exit /b 1
+
 set scripts[0]=".\src\odd.js"
 set scripts[1]=".\src\utils\utils.js"
 set scripts[2]=".\src\utils\utils.amf.js"

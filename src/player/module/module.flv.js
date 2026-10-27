@@ -51,6 +51,9 @@
             _segments,
             _saver,
             _writer,
+            _recordPending = false,
+            _configuredTracks = Object.create(null),
+            _recordTracks = Object.create(null),
             _need2remove,
             _removingTimer,
             _loadStartAt,
@@ -119,6 +122,8 @@
             _video.volume = _this.config.volume;
 
             _saver = new StreamSaver(_this.config.service, _logger);
+            _saver.addEventListener(Event.ERROR, _this.forward);
+            _saver.addEventListener(Event.CHANGE, _this.forward);
             _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
 
@@ -195,15 +200,8 @@
                     _ready = true;
                     _this.dispatchEvent(Event.READY, { kind: _this.kind });
                 }
-                if (_this.config.service.enable) {
-                    _saver.register().then(handler).catch(function (err) {
-                        if (!_destroyed) {
-                            _this.dispatchEvent(Event.ERROR, err);
-                        }
-                    });
-                } else {
-                    handler();
-                }
+                // Local downloads are optional; worker readiness must not gate playback.
+                handler();
             }
         };
 
@@ -319,19 +317,26 @@
             return _video.volume;
         };
 
-        _this.record = function (filename) {
-            function handler() {
-                if (_ended) {
-                    return Promise.reject('Failed to record stream, the download already ended.');
-                }
-                var writer = _saver.record(filename);
-                _swapWriter(writer, !isNaN(_firstAudioFrameReceivedIn) || !isNaN(_firstVideoFrameReceivedIn));
-                return Promise.resolve(_writer);
+        _this.record = async function (filename) {
+            if (_destroyed || _recordPending || _writer || !_source || _failed || _ended) {
+                throw { name: 'InvalidStateError', message: 'The source is unavailable or a recording is already active.' };
             }
-            if (_this.config.service.enable) {
-                return handler();
-            } else {
-                return _saver.register().then(handler);
+            var generation = _generation,
+                deadline = Date.now() + _saver.config.startTimeout;
+            _recordPending = true;
+            try {
+                await _saver.register();
+                if (_destroyed || generation !== _generation || !_source || _failed || _ended) {
+                    throw { name: 'AbortError', message: 'The recording source changed before setup completed.' };
+                }
+                if (Date.now() >= deadline) {
+                    throw { name: 'TimeoutError', message: 'Recording setup exceeded its deadline.' };
+                }
+                _recordTracks = Object.create(null);
+                _writer = _saver.record(filename, null, undefined, deadline);
+                return _writer;
+            } finally {
+                _recordPending = false;
             }
         };
 
@@ -347,6 +352,9 @@
             _this.stop();
             _ready = false;
 
+            _saver.destroy();
+            _saver.removeEventListener(Event.ERROR, _this.forward);
+            _saver.removeEventListener(Event.CHANGE, _this.forward);
             _saver.removeEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.removeEventListener(SaverEvent.WRITEREND, _onWriterEnded);
             _removingTimer.removeEventListener(TimerEvent.TIMER, _onRemovingTimer);
@@ -717,9 +725,6 @@
                         _videoPacketsReceivedPerSecond++;
                         track.source.parse(pkt);
                         if (isNaN(_firstVideoFrameReceivedIn) && pkt.get('DataType') === Codec.AVC.DataTypes.NALU) {
-                            if (_writer && isNaN(_firstAudioFrameReceivedIn)) {
-                                _writeInitSegment();
-                            }
                             _firstVideoFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
                             _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstVideoFrameReceivedIn: _firstVideoFrameReceivedIn } });
                         }
@@ -759,9 +764,6 @@
                         _audioPacketsReceivedPerSecond++;
                         track.source.parse(pkt);
                         if (isNaN(_firstAudioFrameReceivedIn) && pkt.get('DataType') === Codec.AAC.DataTypes.RAW_FRAME_DATA) {
-                            if (_writer && isNaN(_firstVideoFrameReceivedIn)) {
-                                _writeInitSegment();
-                            }
                             _firstAudioFrameReceivedIn = new Date().getTime() - _loadStartAt.getTime();
                             _this.dispatchEvent(MediaEvent.STATSCHANGE, { stats: { FirstAudioFrameReceivedIn: _firstAudioFrameReceivedIn } });
                         }
@@ -792,6 +794,7 @@
 
         function _onAddTrack(e) {
             var track = e.data.track.clone();
+            _configuredTracks[track.id] = false;
             track.source.addEventListener(MediaEvent.AVCCONFIGRECORD, _onVideoConfigRecord);
             track.source.addEventListener(MediaEvent.HEVCCONFIGRECORD, _onVideoConfigRecord);
             track.source.addEventListener(MediaEvent.AACSPECIFICCONFIG, _onAudioSpecificConfig);
@@ -808,6 +811,10 @@
 
         function _onRemoveTrack(e) {
             var track = _remuxer.getTrackById(e.data.track.id);
+            delete _configuredTracks[track.id];
+            if (_writer && _recordTracks[track.id]) {
+                _writer.abort({ name: 'NotSupportedError', message: 'A recording track was removed; start a new recording.' });
+            }
             track.source.removeEventListener(MediaEvent.AVCCONFIGRECORD, _onVideoConfigRecord);
             track.source.removeEventListener(MediaEvent.HEVCCONFIGRECORD, _onVideoConfigRecord);
             track.source.removeEventListener(MediaEvent.AACSPECIFICCONFIG, _onAudioSpecificConfig);
@@ -865,6 +872,7 @@
 
         function _onVideoConfigRecord(e) {
             var track = _remuxer.getVideoTracks()[0];
+            _recordConfiguration(track);
             if (!_addSourceBuffer(track)) {
                 return;
             }
@@ -877,6 +885,7 @@
 
         function _onAudioSpecificConfig(e) {
             var track = _remuxer.getAudioTracks()[0];
+            _recordConfiguration(track);
             if (!_addSourceBuffer(track)) {
                 return;
             }
@@ -899,12 +908,7 @@
             _segments.push(segment);
             _appendBuffer();
 
-            if (_writer) {
-                if (_writer.readyState === WriterState.INIT && e.data.packet.get('Keyframe')) {
-                    _writer.start();
-                }
-                _writer.write(segment);
-            }
+            _recordSample(track, segment, e.data.packet.get('Keyframe'));
         }
 
         function _onAudioSample(e) {
@@ -919,9 +923,35 @@
             _segments.push(segment);
             _appendBuffer();
 
-            if (_writer) {
-                _writer.write(segment);
+            _recordSample(track, segment, !_demuxer.hasVideo);
+        }
+
+        function _recordConfiguration(track) {
+            _configuredTracks[track.id] = true;
+            if (_writer && _writer.readyState === WriterState.START && !_recordTracks[track.id]) {
+                _writer.abort({ name: 'NotSupportedError', message: 'A new track requires a new recording initialization.' });
             }
+        }
+
+        function _recordSample(track, segment, independent) {
+            var writer = _writer;
+            if (!writer || writer.readyState === WriterState.CLOSING || writer.readyState === WriterState.END) { return; }
+            try {
+                if (writer.readyState === WriterState.INIT) {
+                    var tracks = _remuxer.getTracks();
+                    if (!independent || !tracks.length ||
+                        (_demuxer.hasVideo && !_remuxer.getVideoTracks().length) ||
+                        (_demuxer.hasAudio && !_remuxer.getAudioTracks().length) ||
+                        tracks.some(function (item) { return !_configuredTracks[item.id]; })) { return; }
+                    tracks.forEach(function (item) { _recordTracks[item.id] = true; });
+                    var init = _remuxer.getInitSegment.apply(_remuxer, tracks);
+                    writer.start();
+                    writer.write([init, segment]);
+                } else {
+                    if (!_recordTracks[track.id]) { throw { name: 'NotSupportedError', message: 'The sample has no recording track initialization.' }; }
+                    writer.write(segment);
+                }
+            } catch (err) { writer.abort(err); }
         }
 
         function _onDecodeError(e) {
@@ -1114,31 +1144,12 @@
             _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'SourceBuffer error occurs.' });
         }
 
-        function _swapWriter(writer, isReady) {
-            if (_writer !== writer) {
-                if (_writer) {
-                    _writer.close();
-                }
-                _writer = writer;
-                if (_writer && isReady) {
-                    _writeInitSegment();
-                }
-            }
-        }
-
-        function _writeInitSegment() {
-            var tracks = _remuxer.getTracks();
-            var segment = _remuxer.getInitSegment.apply(_remuxer, tracks);
-            _writer.write(segment);
-        }
-
         function _onWriterStart(e) {
-            _swapWriter(e.srcElement, !isNaN(_firstAudioFrameReceivedIn) || !isNaN(_firstVideoFrameReceivedIn));
-            _this.forward(e);
+            if (_writer === e.srcElement) { _this.forward(e); }
         }
 
         function _onWriterEnded(e) {
-            _writer = null;
+            if (_writer === e.srcElement) { _writer = null; }
             _this.forward(e);
         }
 

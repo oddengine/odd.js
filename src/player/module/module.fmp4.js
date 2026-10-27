@@ -45,6 +45,9 @@
             _segments,
             _saver,
             _writer,
+            _recordPending = false,
+            _recordFragment,
+            _recordTracks,
             _need2remove,
             _removingTimer,
             _loadStartAt,
@@ -114,6 +117,8 @@
             _video.volume = _this.config.volume;
 
             _saver = new StreamSaver(_this.config.service, _logger);
+            _saver.addEventListener(Event.ERROR, _this.forward);
+            _saver.addEventListener(Event.CHANGE, _this.forward);
             _saver.addEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.addEventListener(SaverEvent.WRITEREND, _onWriterEnded);
 
@@ -180,15 +185,8 @@
                     _ready = true;
                     _this.dispatchEvent(Event.READY, { kind: _this.kind });
                 }
-                if (_this.config.service.enable) {
-                    _saver.register().then(handler).catch(function (err) {
-                        if (!_destroyed) {
-                            _this.dispatchEvent(Event.ERROR, err);
-                        }
-                    });
-                } else {
-                    handler();
-                }
+                // Local downloads are optional; worker readiness must not gate playback.
+                handler();
             }
         };
 
@@ -301,19 +299,30 @@
             return _video.volume;
         };
 
-        _this.record = function (filename) {
-            function handler() {
-                if (_ended) {
-                    return Promise.reject('Failed to record stream, the download already ended.');
-                }
-                var writer = _saver.record(filename);
-                _swapWriter(writer);
-                return Promise.resolve(_writer);
+        _this.record = async function (filename) {
+            if (_destroyed || _recordPending || _writer || !_source || _failed || _ended) {
+                throw { name: 'InvalidStateError', message: 'The source is unavailable or a recording is already active.' };
             }
-            if (_this.config.service.enable) {
-                return handler();
-            } else {
-                return _saver.register().then(handler);
+            var generation = _generation,
+                deadline = Date.now() + _saver.config.startTimeout;
+            _recordPending = true;
+            try {
+                await _saver.register();
+                if (_destroyed || generation !== _generation || !_source || _failed || _ended) {
+                    throw { name: 'AbortError', message: 'The recording source changed before setup completed.' };
+                }
+                if (Date.now() >= deadline) {
+                    throw { name: 'TimeoutError', message: 'Recording setup exceeded its deadline.' };
+                }
+                _recordFragment = null;
+                _recordTracks = _moov ? Format.FMP4.recordingTracks(_moov.payload) : null;
+                _writer = _saver.record(filename, {
+                    close: function () { _recordFragment = null; },
+                    abort: function () { _recordFragment = null; },
+                }, undefined, deadline);
+                return _writer;
+            } finally {
+                _recordPending = false;
             }
         };
 
@@ -329,6 +338,9 @@
             _this.stop();
             _ready = false;
 
+            _saver.destroy();
+            _saver.removeEventListener(Event.ERROR, _this.forward);
+            _saver.removeEventListener(Event.CHANGE, _this.forward);
             _saver.removeEventListener(SaverEvent.WRITERSTART, _onWriterStart);
             _saver.removeEventListener(SaverEvent.WRITEREND, _onWriterEnded);
             _removingTimer.removeEventListener(TimerEvent.TIMER, _onRemovingTimer);
@@ -669,14 +681,34 @@
             _segments.push(pkt.payload);
             _appendBuffer();
 
-            if (_writer) {
-                if (_writer.readyState === WriterState.INIT && pkt.get('Keyframe') && _ftyp && _moov) {
-                    _writer.start();
-                    _writer.write(_ftyp.payload);
-                    _writer.write(_moov.payload);
+            var writer = _writer;
+            if (!writer || writer.readyState === WriterState.CLOSING || writer.readyState === WriterState.END) { return; }
+            try {
+                if (type === 'moov') {
+                    if (writer.readyState === WriterState.START) { throw { name: 'NotSupportedError', message: 'Recording initialization changed; start a new recording.' }; }
+                    _recordTracks = Format.FMP4.recordingTracks(pkt.payload);
+                } else if (type === 'moof' && _ftyp && _moov) {
+                    if (_recordFragment) { throw { name: 'DataError', message: 'The previous recording fragment has no data body.' }; }
+                    if (pkt.payload.byteLength > _saver.config.maxPendingBytes - writer.pendingBytes) {
+                        throw { name: 'QuotaExceededError', message: 'The recording fragment exceeds its buffer budget.' };
+                    }
+                    var layout = Format.FMP4.recordingFragment(pkt.payload, _recordTracks);
+                    _recordFragment = { packet: pkt, layout: layout };
+                } else if (type === 'mdat' && _recordFragment) {
+                    var fragment = _recordFragment;
+                    _recordFragment = null;
+                    Format.FMP4.recordingBody(fragment.packet.payload, pkt.payload, fragment.layout.ranges);
+                    if (writer.readyState === WriterState.INIT) {
+                        if (!fragment.layout.independent) { return; }
+                        writer.start();
+                        writer.write([_ftyp.payload, _moov.payload, fragment.packet.payload, pkt.payload]);
+                    } else {
+                        writer.write([fragment.packet.payload, pkt.payload]);
+                    }
+                } else if (type === 'mdat' && writer.readyState === WriterState.START) {
+                    throw { name: 'NotSupportedError', message: 'Additional mdat bodies require a different recording layout.' };
                 }
-                _writer.write(pkt.payload);
-            }
+            } catch (err) { writer.abort(err); }
         }
 
         function _onEndOfStream(e) {
@@ -828,26 +860,12 @@
             _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'SourceBuffer error occurs.' });
         }
 
-        function _swapWriter(writer) {
-            if (_writer !== writer) {
-                if (_writer) {
-                    _writer.close();
-                }
-                _writer = writer;
-                if (_writer && _ftyp && _moov) {
-                    _writer.write(_ftyp.payload);
-                    _writer.write(_moov.payload);
-                }
-            }
-        }
-
         function _onWriterStart(e) {
-            _swapWriter(e.srcElement);
-            _this.forward(e);
+            if (_writer === e.srcElement) { _this.forward(e); }
         }
 
         function _onWriterEnded(e) {
-            _writer = null;
+            if (_writer === e.srcElement) { _writer = null; }
             _this.forward(e);
         }
 

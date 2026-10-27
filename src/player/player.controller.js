@@ -257,17 +257,7 @@
         function _onError(e) {
             _logger.error(e.data.name + ': ' + e.data.message);
 
-            // Ignore these specific errors.
-            if ((function () {
-                switch (e.data.name) {
-                    case 'SecurityError':
-                        if (e.data.message.indexOf('toDataURL') !== -1) {
-                            return true;
-                        }
-                        break;
-                }
-                return false;
-            })()) {
+            if (e.data.recoverable === true && (e.data.operation === 'capture' || e.data.operation === 'record')) {
                 _this.forward(e);
                 return;
             }

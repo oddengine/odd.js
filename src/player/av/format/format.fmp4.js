@@ -697,6 +697,139 @@
     FMP4.prototype.constructor = FMP4;
     FMP4.prototype.kind = 'FMP4';
 
+    function recordingBoxes(bytes, begin, end, visit) {
+        var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), count = 0;
+        for (var offset = begin; offset < end;) {
+            if (++count > 4096 || end - offset < 8) { throw { name: 'DataError', message: 'Invalid recording box boundaries.' }; }
+            var size = view.getUint32(offset), header = 8;
+            if (size === 1) {
+                if (end - offset < 16 || view.getUint32(offset + 8) !== 0) { throw { name: 'NotSupportedError', message: 'Recording box is too large.' }; }
+                size = view.getUint32(offset + 12); header = 16;
+            } else if (size === 0) { size = end - offset; }
+            if (size < header || size > end - offset) { throw { name: 'DataError', message: 'Incomplete recording box.' }; }
+            var type = String.fromCharCode(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7]);
+            visit(type, offset + header, offset + size, view);
+            offset += size;
+        }
+    }
+
+    FMP4.recordingTracks = function (bytes) {
+        var tracks = Object.create(null), defaults = Object.create(null), count = 0, root = false;
+        recordingBoxes(bytes, 0, bytes.length, function (type, begin, end) {
+            if (type !== 'moov' || root) { throw { name: 'DataError', message: 'A recording initialization box is required.' }; }
+            root = true;
+            recordingBoxes(bytes, begin, end, function (type, begin, end) {
+                if (type === 'trak') {
+                    if (++count > 64) { throw { name: 'NotSupportedError', message: 'Too many recording tracks.' }; }
+                    var id, kind;
+                    recordingBoxes(bytes, begin, end, function (type, begin, end, view) {
+                        if (type === 'tkhd') {
+                            var offset = begin + (bytes[begin] === 1 ? 20 : 12);
+                            if (offset + 4 > end || bytes[begin] > 1) { throw { name: 'DataError', message: 'Invalid recording track header.' }; }
+                            id = view.getUint32(offset);
+                        } else if (type === 'mdia') {
+                            recordingBoxes(bytes, begin, end, function (type, begin, end) {
+                                if (type === 'hdlr') {
+                                    if (end - begin < 12) { throw { name: 'DataError', message: 'Invalid recording handler.' }; }
+                                    kind = String.fromCharCode.apply(null, bytes.subarray(begin + 8, begin + 12));
+                                }
+                            });
+                        }
+                    });
+                    if (!id || tracks[id] || (kind !== 'vide' && kind !== 'soun')) { throw { name: 'NotSupportedError', message: 'Unsupported recording track layout.' }; }
+                    tracks[id] = { kind: kind, flags: null, size: 0 };
+                } else if (type === 'mvex') {
+                    recordingBoxes(bytes, begin, end, function (type, begin, end, view) {
+                        if (type !== 'trex') { return; }
+                        if (end - begin < 24) { throw { name: 'DataError', message: 'Invalid recording fragment defaults.' }; }
+                        defaults[view.getUint32(begin + 4)] = { size: view.getUint32(begin + 16), flags: view.getUint32(begin + 20) };
+                    });
+                }
+            });
+        });
+        if (!root || !count) { throw { name: 'DataError', message: 'No recording tracks were found.' }; }
+        Object.keys(tracks).forEach(function (id) { if (defaults[id]) { tracks[id].flags = defaults[id].flags; tracks[id].size = defaults[id].size; } });
+        return tracks;
+    };
+
+    FMP4.recordingFragment = function (bytes, tracks) {
+        var video = Object.keys(tracks).filter(function (id) { return tracks[id].kind === 'vide'; }),
+            seen = Object.create(null), ranges = [], previousEnd = 0;
+        recordingBoxes(bytes, 0, bytes.length, function (type, begin, end) {
+            if (type !== 'moof') { throw { name: 'DataError', message: 'A recording fragment header is required.' }; }
+            recordingBoxes(bytes, begin, end, function (type, begin, end) {
+                if (type !== 'traf') { return; }
+                var id, defaults, defaultSize, first, base = previousEnd, runEnd;
+                recordingBoxes(bytes, begin, end, function (type, begin, end, view) {
+                    if (type !== 'tfhd' && type !== 'trun') { return; }
+                    if (end - begin < 8) { throw { name: 'DataError', message: 'Invalid recording fragment header.' }; }
+                    var flags = view.getUint32(begin) & 0xffffff, offset = begin + 8;
+                    if (type === 'tfhd') {
+                        id = view.getUint32(begin + 4);
+                        if (!tracks[id] || flags & 1) { throw { name: 'NotSupportedError', message: 'Recording needs fragment-relative media offsets.' }; }
+                        if (flags & 0x20000) { base = 0; }
+                        defaults = tracks[id].flags;
+                        defaultSize = tracks[id].size;
+                        offset += (flags & 2 ? 4 : 0) + (flags & 8 ? 4 : 0);
+                        if (flags & 16) {
+                            if (offset + 4 > end) { throw { name: 'DataError', message: 'Incomplete recording sample size.' }; }
+                            defaultSize = view.getUint32(offset); offset += 4;
+                        }
+                        if (flags & 32) {
+                            if (offset + 4 > end) { throw { name: 'DataError', message: 'Incomplete recording sample flags.' }; }
+                            defaults = view.getUint32(offset); offset += 4;
+                        }
+                        if (offset > end) { throw { name: 'DataError', message: 'Incomplete recording track defaults.' }; }
+                    } else {
+                        var count = view.getUint32(begin + 4);
+                        if (!count) { return; }
+                        if (!id || ranges.length >= 4096 || (flags & 4 && flags & 0x400)) {
+                            throw { name: 'NotSupportedError', message: 'Unsupported recording fragment run layout.' };
+                        }
+                        var start = runEnd, sampleFlags = defaults;
+                        if (flags & 1) {
+                            if (offset + 4 > end) { throw { name: 'DataError', message: 'Incomplete recording data offset.' }; }
+                            start = base + view.getInt32(offset); offset += 4;
+                        }
+                        if (flags & 4) {
+                            if (offset + 4 > end) { throw { name: 'DataError', message: 'Incomplete recording first-sample flags.' }; }
+                            sampleFlags = view.getUint32(offset); offset += 4;
+                        }
+                        var stride = (flags & 0x100 ? 4 : 0) + (flags & 0x200 ? 4 : 0) + (flags & 0x400 ? 4 : 0) + (flags & 0x800 ? 4 : 0);
+                        if (count * stride > end - offset || start === undefined || start < bytes.length) {
+                            throw { name: 'NotSupportedError', message: 'Recording needs explicit complete fragment sample ranges.' };
+                        }
+                        if (flags & 0x400) { sampleFlags = view.getUint32(offset + (flags & 0x100 ? 4 : 0) + (flags & 0x200 ? 4 : 0)); }
+                        if (first === undefined) { first = sampleFlags; }
+                        var size = count * defaultSize;
+                        if (flags & 0x200) {
+                            size = 0;
+                            for (var i = 0; i < count; i++) { size += view.getUint32(offset + (flags & 0x100 ? 4 : 0) + i * stride); }
+                        }
+                        if (!Number.isSafeInteger(size) || size <= 0 || !Number.isSafeInteger(start + size)) {
+                            throw { name: 'DataError', message: 'Invalid recording sample range.' };
+                        }
+                        runEnd = start + size;
+                        ranges.push({ start: start, end: runEnd });
+                    }
+                });
+                if (runEnd !== undefined) { previousEnd = runEnd; }
+                if (id && first !== undefined && seen[id] === undefined) {
+                    seen[id] = first !== null && !(first & 0x10000) && ((first >>> 24) & 3) !== 1;
+                }
+            });
+        });
+        return { ranges: ranges, independent: ranges.length > 0 && (video.length ? video.every(function (id) { return seen[id] === true; }) : true) };
+    };
+
+    FMP4.recordingBody = function (header, body, ranges) {
+        var view = new DataView(body.buffer, body.byteOffset, body.byteLength),
+            begin = header.byteLength + (view.getUint32(0) === 1 ? 16 : 8), end = header.byteLength + body.byteLength;
+        if (!ranges.length || ranges.some(function (range) { return range.start < begin || range.end > end; })) {
+            throw { name: 'NotSupportedError', message: 'Recording requires all fragment samples in one complete mdat body.' };
+        }
+    };
+
     FMP4.merge = function () {
         var args = Array.prototype.slice.call(arguments, 0);
         var size = 0;

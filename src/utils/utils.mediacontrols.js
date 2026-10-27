@@ -78,6 +78,31 @@
             else if (restore !== false && _more.isConnected && !_more.hidden) { _more.focus(); }
             if (!visible) { _schedule(); }
         };
+        // Hand off an action's result without leaving focus inside a hidden drawer.
+        _this.presentResult = function (target) {
+            var focused = container.contains(document.activeElement);
+            _this.visible(true);
+            _this.open(false, false);
+            if (_activity) { _activity(); }
+            if (focused && target) { target.focus(); }
+        };
+
+        _this.focus = function (name) {
+            if (_closed) { return; }
+            _this.visible(true);
+            _this.open(false, false);
+            if (_activity) { _activity(); }
+            _this.resize();
+            var entry = entries.find(function (item) { return item.name === name; }),
+                target = entry && !_body.contains(entry.element) ? entry.element : _more;
+            if (target && !target.hidden && target.getClientRects().length && getComputedStyle(target).visibility !== 'hidden') {
+                target.focus();
+            } else if (_wrapper) {
+                _wrapper.tabIndex = -1;
+                _wrapper.focus();
+            }
+        };
+
         function _onKeyDown(event) {
             if (event.key !== 'Escape' || event.defaultPrevented) { return; }
             event.preventDefault(); event.stopPropagation();

@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+cp ./src/utils/utils.streamsaver.worker.js ./release/odd.recording.worker.js
+
 scripts=()
 scripts[0]="./src/odd.js"
 scripts[1]="./src/utils/utils.js"

@@ -88,3 +88,17 @@ NetStream 跟踪自己采集的原始轨道，包括 beauty／mixer 上游。发
 SDK面板显示编码偏好、开关、模式及限制。未编辑编码时保留宿主自定义RID／各路参数；切换开关或模式才套预设。已存但当前未声明支持的选择可见、不静默降级；实际发布继续由既有answer／getParameters核对，不支持就失败并局部清理。预览只检查输入采集。Windows清单同步新增helper并补入既有participation依赖；未生成release、构建或运行设备测试。
 
 R-080仍仅源码与diff审阅，未编译、测试、启动浏览器或设备，不将IndexedDB事务、跨窗口和权限分支称为运行通过。
+
+## Local capture and recording tools (R-083)
+
+Player UI keeps capture and local recording in its own Controlbar, including the existing overflow menu. `tools` supplies localized labels and result messages; the SDK defaults are English. The product mounts the same UI and passes Chinese strings. Unsupported actions remain focusable with `aria-disabled`, an explanatory name and a guarded action. A local tool result never replaces the playing/waiting/error state of the media.
+
+`capture(width?, height?, mime?)` returns an image data URL or an empty string. It requires a decoded video frame and a 2D canvas; drawing and export failures emit `ERROR` with `{name, message, operation:'capture', recoverable:true}`. Invalid dimensions and captures above 16 megapixels fail before canvas allocation. `SCREENSHOT` still carries `{image}`. The UI provides an explicit Save capture link; generating an image does not prove the browser saved a file.
+
+`record(filename)` returns a Promise for the existing StreamWriter. Player FLV and supported fragmented MP4 paths save locally; SRC and the Player RTC adapter reject with `NotSupportedError`. RTC NetStream has its separate MediaRecorder-based `record(filename, ondata?)` API. A stored/default publishing codec does not grant local recording support. Preparation, waiting for the first frame, recording, finishing and cancelled/failed/completed are distinct UI states. Finish requests graceful close; Cancel aborts this recording. Cancelling preparation invalidates its result and aborts a late writer; the preparation remains bounded by its original deadline.
+
+Writer states are `INIT → START → CLOSING → END`. `close()` is idempotent and starts bounded draining; `abort()` cancels only this writer. `WRITEREND` now fires once after a terminal result, with `{outcome:'completed'|'aborted'|'failed', error?}` and the original writer as `srcElement`. This is an explicitly approved change from the old immediate-close event. `writer.result` exposes that result. `CHANGE` with `{name:'recording', value:{state:'closing'}}` describes the closing transition. Runtime errors retain `ERROR` and carry `operation:'record', recoverable:true`. Handle identity must be checked before clearing the current writer. `completed` means the SDK's byte stream closed successfully, not durable disk storage; the UI asks the user to inspect browser downloads.
+
+Player Controller, Player UI and Program PK fallback ignore these classified local errors for playback recovery. Actual source/decoder errors retain their normal behavior. Stopping or switching media closes its local recording without waiting for the download; the returned writer can report its independent terminal result after its old media UI/module is gone. A media owner never destroys another instance's worker registration.
+
+See [local recording delivery](local-recording.md) for configuration, worker deployment and producer details. This round was reviewed in source only; no build, browser, device, download or media interoperability run was performed.

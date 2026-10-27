@@ -1,2 +1,2 @@
-// Use the same recording download worker as the standalone Player demo.
-importScripts('../../player/js/sw.js');
+// Share the SDK recording worker; deploy it inside the configured recording scope.
+importScripts('../../../src/utils/utils.streamsaver.worker.js');
