@@ -12,6 +12,9 @@
         _default = {
             kind: 'Playlist',
             title: 'Playlist',
+            empty: 'No items in this playlist.',
+            untitled: 'Untitled media',
+            unavailable: 'Unavailable',
             items: [],
             visibility: true,
         };
@@ -22,86 +25,123 @@
         var _this = this,
             _container,
             _list,
-            _index = NaN;
+            _empty,
+            _index = NaN,
+            _closed = false;
 
         function _init() {
-            _this.config = config;
+            _this.config = utils.extendz({}, _default, config);
+            // Own the list, while preserving each program's identity.
+            var items = config && utils.typeOf(config.items) === 'array' ? config.items.slice() : [];
+            _this.config.items = [];
             _this.components = {};
 
             _container = utils.createElement('section', CLASS_PLAYLIST);
+            _container.setAttribute('aria-label', _this.config.title);
+            _container.tabIndex = -1;
+
+            var details = utils.createElement('details');
+            details.open = true;
+            _container.appendChild(details);
+            var title = utils.createElement('summary');
+            title.textContent = _this.config.title;
+            details.appendChild(title);
+
+            _empty = utils.createElement('p');
+            _empty.textContent = _this.config.empty;
+            _empty.setAttribute('role', 'status');
+            details.appendChild(_empty);
 
             _list = utils.createElement('div');
-            _container.appendChild(_list);
+            _list.setAttribute('role', 'list');
+            details.appendChild(_list);
 
-            _buildComponents();
+            for (var i = 0; i < items.length; i++) { _this.append(items[i]); }
+            _updateEmpty();
         }
 
-        function _buildComponents() {
-            utils.emptyElement(_list);
-
-            for (var i = 0; i < _this.config.items.length; i++) {
-                var item = _this.config.items[i];
-                _buildItem(i, item);
-            }
-        }
-
-        function _buildItem(index, item) {
+        function _buildItem(item) {
+            var row = utils.createElement('div');
+            row.setAttribute('role', 'listitem');
             var option = utils.createElement('button');
             option.addEventListener('click', _onItemClick);
             option.type = 'button';
+            option.disabled = item.disabled === true || item.type === 'disabled';
+            row.appendChild(option);
 
             if (item.snapshot) {
                 var snapshot = utils.createElement('img');
-                snapshot.src = item.snapshot;
                 snapshot.alt = '';
+                snapshot.loading = 'lazy';
+                snapshot.onerror = function () { snapshot.hidden = true; };
+                snapshot.src = item.snapshot;
                 option.appendChild(snapshot);
             }
 
             var title = utils.createElement('strong');
-            title.textContent = item.title;
+            title.textContent = item.title || _this.config.untitled;
             option.appendChild(title);
 
             var description = utils.createElement('small');
-            description.textContent = item.description || '';
+            description.textContent = option.disabled ? _this.config.unavailable : item.description || '';
             option.appendChild(description);
 
-            _list.appendChild(option);
+            _list.appendChild(row);
         }
 
         function _onItemClick(e) {
-            var index = utils.indexOf(_list.children, e.currentTarget);
+            var index = utils.indexOf(_list.children, e.currentTarget.parentNode);
             _this.select(index);
         }
 
         _this.append = function (item) {
-            _buildItem(_list.children.length, item);
+            if (_closed || !item) { return; }
+            _this.config.items.push(item);
+            _buildItem(item);
+            _updateEmpty();
         };
 
         _this.remove = function (index) {
-            if (index >= 0 && index < _list.children.length) {
-                var option = _list.children[index];
-                option.removeEventListener('click', _onItemClick);
-                _list.removeChild(option);
-
-                if (_index >= index) {
-                    _this.select(0);
-                }
-            }
+            if (_closed || !Number.isInteger(index) || index < 0 || index >= _list.children.length) { return; }
+            var row = _list.children[index];
+            var focused = row.contains(document.activeElement);
+            _release(row);
+            _list.removeChild(row);
+            _this.config.items.splice(index, 1);
+            if (_index === index) { _index = NaN; }
+            else if (_index > index) { _index--; }
+            _updateEmpty();
+            // Removing an item does not start another stream.
+            if (focused) { _container.focus(); }
         };
 
-        _this.select = function (index) {
-            if (_index !== index && index >= 0 && index < _list.children.length) {
-                if (!isNaN(_index)) {
-                    var option = _list.children[_index];
-                    option.classList.toggle('selected', false);
-                }
-                _index = index;
-
-                var option = _list.children[_index];
-                option.classList.toggle('selected', true);
-                _this.dispatchEvent(Event.CHANGE, { name: 'playlist', value: index });
+        _this.select = function (index, silent) {
+            if (_closed || index === _index) { return; }
+            var clear = typeof index === 'number' && isNaN(index);
+            if (!clear && (!Number.isInteger(index) || index < 0 || index >= _list.children.length || _list.children[index].firstChild.disabled)) { return; }
+            var previous = _list.children[_index];
+            if (previous) {
+                previous.firstChild.classList.remove('selected');
+                previous.firstChild.removeAttribute('aria-current');
             }
+            _index = index;
+            if (clear) { return; }
+            var option = _list.children[_index].firstChild;
+            option.classList.add('selected');
+            option.setAttribute('aria-current', 'true');
+            if (!silent) { _this.dispatchEvent(Event.CHANGE, { name: 'playlist', value: index }); }
         };
+
+        function _updateEmpty() {
+            _empty.hidden = _this.config.items.length !== 0;
+            _list.hidden = _this.config.items.length === 0;
+        }
+
+        function _release(row) {
+            row.firstChild.removeEventListener('click', _onItemClick);
+            var snapshot = row.querySelector('img');
+            if (snapshot) { snapshot.onerror = null; snapshot.removeAttribute('src'); }
+        }
 
         _this.index = function () {
             return _index;
@@ -116,10 +156,13 @@
         };
 
         _this.destroy = function () {
-            utils.forEach(_this.components, function (_, component) {
-                component.removeGlobalListener(_this.forward);
-                component.destroy();
-            });
+            if (_closed) { return; }
+            _closed = true;
+            for (var i = 0; i < _list.children.length; i++) { _release(_list.children[i]); }
+            utils.emptyElement(_list);
+            _this.config.items = [];
+            _index = NaN;
+            _container.hidden = true;
             _this.components = {};
         };
 

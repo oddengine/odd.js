@@ -20,6 +20,82 @@
 .pe-ui-classic.pe-media-window[controls][kind][controls="never"] { --pe-controls-height: 0px; }
 .pe-ui-classic.pe-media-window[controls][kind] * { box-sizing: border-box; }
 .pe-ui-classic.pe-media-window[controls][kind] [hidden] { display: none !important; }
+/* Auxiliary plugins stay within the same media surface and focus system. */
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu {
+    width: max-content; max-width: 100%; z-index: 12; padding: 4px;
+    border: 1px solid var(--pe-media-line); border-radius: 8px; overflow: auto;
+    color: var(--pe-media-ink); background: var(--pe-media-raised); white-space: normal;
+    scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item {
+    width: 100%; min-height: 44px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;
+    border: 0; border-radius: 4px; font: inherit; font-size: 14px; line-height: 1.5; text-align: left;
+    color: var(--pe-media-ink); background: transparent; white-space: normal; overflow-wrap: anywhere;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item:not(:disabled):hover {
+    color: var(--pe-media-stage); background: var(--pe-media-focus);
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item:disabled {
+    color: var(--pe-media-muted); opacity: .65; cursor: not-allowed;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item .pe-contextmenu-item-text { color: inherit; min-width: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item-icon { width: 20px; height: 20px; object-fit: contain; margin: 0; padding: 0; border: 0; flex: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item-shortcut { margin-left: auto; font-size: 13px; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist {
+    position: absolute; z-index: 5; inset: 12px 12px auto auto; width: min(300px, calc(100% - 24px));
+    max-height: calc(100% - var(--pe-controls-height) - 24px); padding: 12px; overflow: auto;
+    border: 1px solid var(--pe-media-line); border-radius: 8px; color: var(--pe-media-ink); background: var(--pe-media-raised);
+    scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
+}
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist summary { min-height: 44px; padding: 10px 0; font-size: 16px; line-height: 1.5; cursor: pointer; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--pe-media-muted); }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button {
+    width: 100%; min-height: 44px; padding: 10px; margin: 4px 0 0; border: 0; border-radius: 4px; text-align: left;
+    font: inherit; font-size: 14px; line-height: 1.5; color: var(--pe-media-ink); background: transparent; cursor: pointer; overflow-wrap: anywhere;
+}
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button:not(:disabled):hover { background: var(--pe-media-stage); }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button.selected,
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button.selected:hover { color: var(--pe-media-stage); background: var(--pe-media-focus); }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button:disabled { opacity: .65; cursor: not-allowed; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist strong,
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist small { display: block; font-size: 14px; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist img { float: left; width: 56px; height: 42px; object-fit: cover; margin-right: 10px; border-radius: 4px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-logo img { width: 100%; height: 100%; object-fit: contain; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-logo > span { display: block; width: 100%; height: 100%; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-logo a { min-width: 44px; min-height: 44px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-ad { z-index: 4; pointer-events: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-ad > * { pointer-events: auto; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-display .pe-label.reason {
+    width: 100%; max-height: 100%; margin: 0; padding: 16px; overflow: auto; overflow-wrap: anywhere;
+    font-size: 14px; line-height: 1.5; color: var(--pe-media-ink); background: var(--pe-media-stage);
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-display-status {
+    position: absolute; inset: auto 12px 12px; text-align: center; font-size: 14px; line-height: 1.5;
+    color: var(--pe-media-muted); pointer-events: none;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet {
+    position: absolute; inset: 12px 12px auto auto; width: min(520px, calc(100% - 24px));
+    max-height: calc(100% - 24px); padding: 16px; overflow: auto; pointer-events: auto;
+    border: 1px solid var(--pe-media-line); border-radius: 8px; color: var(--pe-media-ink); background: var(--pe-media-raised);
+    scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet h3 { margin: 12px 0; font-size: 16px; line-height: 1.5; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet .pe-panel {
+    position: static; inset: auto; transform: none; width: 100%; max-height: none; padding: 0; margin: 0;
+    border: 0; border-radius: 0; background: transparent; color: inherit; box-shadow: none;
+    white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close {
+    min-height: 44px; padding: 10px 12px; border: 1px solid var(--pe-media-line); border-radius: 4px;
+    color: var(--pe-media-ink); background: var(--pe-media-stage); font: inherit; font-size: 14px; cursor: pointer;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close:hover { color: var(--pe-media-stage); background: var(--pe-media-focus); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-empty { margin: 0; font-size: 14px; line-height: 1.5; color: var(--pe-media-muted); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-display[data-state="waiting"] .waiting { animation: pe-media-wait 1s linear infinite; pointer-events: none; }
+@keyframes pe-media-wait { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-display[data-state="waiting"] .waiting { animation: none; }
+}
 .pe-ui-classic.pe-media-window[controls][kind] :focus-visible { outline: 2px solid var(--pe-media-focus); outline-offset: -3px; }
 .pe-ui-classic.pe-media-window[controls][kind] ::selection { color: var(--pe-media-stage); background: var(--pe-media-focus); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar {

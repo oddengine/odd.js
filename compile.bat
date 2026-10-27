@@ -155,11 +155,14 @@ set scripts[0]=".\src\rtc\ui\ui.js"
 set scripts[1]=".\src\rtc\ui\components\components.js"
 set scripts[2]=".\src\rtc\ui\components\components.button.js"
 set scripts[3]=".\src\rtc\ui\components\components.toggle.js"
-set scripts[4]=".\src\rtc\ui\components\components.panel.js"
-set scripts[5]=".\src\rtc\ui\components\components.settings.js"
-set scripts[6]=".\src\rtc\ui\ui.controlbar.js"
-set scripts[7]=".\src\rtc\ui\ui.dashboard.js"
-set length=8
+set scripts[4]=".\src\rtc\ui\components\components.label.js"
+set scripts[5]=".\src\rtc\ui\components\components.panel.js"
+set scripts[6]=".\src\rtc\ui\components\components.settings.js"
+set scripts[7]=".\src\rtc\ui\ui.controlbar.js"
+set scripts[8]=".\src\rtc\ui\ui.display.js"
+set scripts[9]=".\src\rtc\ui\ui.dashboard.js"
+set scripts[10]=".\src\rtc\ui\ui.poster.js"
+set length=11
 
 cd.>.\release\odd.rtc.ui.js
 

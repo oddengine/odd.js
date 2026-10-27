@@ -57,6 +57,7 @@
             _content,
             _api,
             _program,
+            _playlistItems = new WeakMap(),
             _updatingDefinition = false,
             _timer,
             _closed = false,
@@ -170,6 +171,30 @@
 
             _this.config = utils.extendz({ id: _id }, Player.prototype.CONF, _default, config);
             _this.config.plugins = plugins;
+            for (var i = 0; i < plugins.length; i++) {
+                var options = plugins[i];
+                if (options.kind !== 'Playlist') { continue; }
+                var supplied = config.plugins.filter(function (item) { return item.kind === 'Playlist'; })[0];
+                var programs = _this.config.playlist;
+                if (supplied && utils.typeOf(supplied.items) === 'array') {
+                    options.items = supplied.items.map(function (item, index) {
+                        var program = utils.extendz({}, programs[index], item);
+                        program.disabled = program.disabled === true || utils.typeOf(program.sources) !== 'array' || !program.sources.some(function (source) { return source && source.url; });
+                        if (!item || !Object.prototype.hasOwnProperty.call(item, 'sources')) {
+                            if (utils.typeOf(programs[index]) === 'object') { _playlistItems.set(programs[index], program); }
+                            if (config.playlist && utils.typeOf(config.playlist[index]) === 'object') { _playlistItems.set(config.playlist[index], program); }
+                        }
+                        return program;
+                    });
+                } else {
+                    options.items = programs.slice();
+                    options.items.forEach(function (program, index) {
+                        if (program && config.playlist && utils.typeOf(config.playlist[index]) === 'object') { _playlistItems.set(config.playlist[index], program); }
+                        if (program && (utils.typeOf(program.sources) !== 'array' || !program.sources.some(function (source) { return source && source.url; }))) { program.disabled = true; }
+                    });
+                    if (!supplied && !programs.length) { options.visibility = false; }
+                }
+            }
         }
 
         function _buildPlugins() {
@@ -236,17 +261,9 @@
             _wrapper.setAttribute('fullscreen', false);
 
             var contextmenu = _this.plugins['ContextMenu'];
-            if (contextmenu) {
-                _wrapper.oncontextmenu = function (e) {
-                    e = e || window.event;
-                    e.preventDefault ? e.preventDefault() : e.returnValue = false;
-                    return false;
-                };
-                document.addEventListener('mouseup', _onMouseUp);
-                _wrapper.addEventListener('mouseup', _onMouseUp);
-                document.addEventListener('mousedown', _onMouseDown);
-                _wrapper.addEventListener('mousedown', _onMouseDown);
-            }
+            if (contextmenu && typeof contextmenu.bind === 'function') { contextmenu.bind(_wrapper); }
+
+            if (_this.config.autoplay) { _updatePlaylist(); }
 
             document.addEventListener('fullscreenchange', _onFullscreenChange);
             document.addEventListener('webkitfullscreenchange', _onFullscreenChange);
@@ -256,16 +273,21 @@
 
         function _onBind(e) {
             _this.play = function (program) {
+                if (Number.isInteger(program) && program >= 0 && program < _this.config.playlist.length) {
+                    _program = _this.config.playlist[program];
+                }
                 if (program && utils.typeOf(program.sources) === 'array' && program.sources.length) {
                     _program = program;
                 }
                 _api.play(program);
+                _updatePlaylist();
                 _updateDefinition();
             };
             _this.pause = _api.pause;
             _this.select = function (program) {
-                _program = program;
+                _program = Number.isInteger(program) ? _this.config.playlist[program] : program;
                 _api.select(program);
+                _updatePlaylist();
                 _updateDefinition();
             };
             _this.reload = _api.reload;
@@ -280,6 +302,14 @@
             _this.duration = _api.duration;
             _this.state = _api.state;
             _this.forward(e);
+        }
+
+        function _updatePlaylist() {
+            var playlist = _this.plugins['Playlist'];
+            if (!playlist) { return; }
+            var item = _program && _playlistItems.get(_program) || _program;
+            var index = utils.indexOf(playlist.config.items, item);
+            playlist.select(index < 0 ? NaN : index, true);
         }
 
         function _updateDefinition() {
@@ -526,8 +556,9 @@
                     }
                 },
                 'playlist': function () {
-                    var program = _this.config.playlist[e.data.value];
-                    if (program) {
+                    var playlist = _this.plugins['Playlist'];
+                    var program = playlist && playlist.config.items[e.data.value];
+                    if (program && !program.disabled && utils.typeOf(program.sources) === 'array' && program.sources.length) {
                         _this.play(program);
                     }
                 },
@@ -548,6 +579,7 @@
 
         function _onClick(e) {
             var h = {
+                'play': function () { _this.play(); },
                 'playing': function () { e.data.state === 'on' ? _this.play() : _this.pause(); },
                 'reload': _this.reload,
                 'stop': _this.stop,
@@ -615,46 +647,6 @@
                 _toolStatus && !_toolStatus.hidden && _toolStatus.contains(document.activeElement)) { _onMouseMove(); return; }
             if (typeof controlbar.visible === 'function') { controlbar.visible(false); }
             else { css.style(controlbar.element(), { visibility: 'hidden' }); }
-        }
-
-        function _onMouseUp(e) {
-            var contextmenu = _this.plugins['ContextMenu'];
-
-            if (e.currentTarget === undefined) {
-                for (var node = e.srcElement; node; node = node.offsetParent) {
-                    if (node === _wrapper) {
-                        e.currentTarget = _wrapper;
-                        break;
-                    }
-                }
-            }
-
-            if (e.button === 2 && e.currentTarget === _wrapper) {
-                var offsetX = 0;
-                var offsetY = 0;
-
-                for (var node = e.srcElement || e.target; node && node !== _wrapper; node = node.offsetParent) {
-                    offsetX += node.offsetLeft;
-                    offsetY += node.offsetTop;
-                }
-
-                css.style(contextmenu.element(), {
-                    left: e.offsetX + offsetX + 'px',
-                    top: e.offsetY + offsetY + 'px',
-                    display: 'block',
-                });
-
-                e.preventDefault ? e.preventDefault() : e.returnValue = false;
-                e.stopPropagation ? e.stopPropagation() : e.cancelBubble = true;
-                return false;
-            }
-        }
-
-        function _onMouseDown(e) {
-            var contextmenu = _this.plugins['ContextMenu'];
-            css.style(contextmenu.element(), {
-                'display': 'none',
-            });
         }
 
         function _onReady(e) {
@@ -1077,6 +1069,7 @@
                 return;
             }
             _closed = true;
+            _playlistItems = new WeakMap();
             if (_recordTask) { _recordTask.cancelled = true; }
             if (_toolWriter) { _toolWriter.close(); _detachToolWriter(); }
             if (_recordCancel) { _recordCancel.onclick = null; }
@@ -1086,13 +1079,9 @@
             _timer.stop();
             _timer.removeEventListener(TimerEvent.TIMER, _onTimer);
 
-            document.removeEventListener('mouseup', _onMouseUp);
             if (_wrapper) {
                 _wrapper.removeEventListener('pointermove', _onMouseMove);
-                _wrapper.removeEventListener('mouseup', _onMouseUp);
-                _wrapper.removeEventListener('mousedown', _onMouseDown);
             }
-            document.removeEventListener('mousedown', _onMouseDown);
 
             document.removeEventListener('fullscreenchange', _onFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', _onFullscreenChange);

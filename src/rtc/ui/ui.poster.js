@@ -21,15 +21,20 @@
         var _this = this,
             _logger = logger,
             _container,
-            _img;
+            _img,
+            _closed = false;
 
         function _init() {
-            _this.config = config;
+            _this.config = utils.extendz({}, _default, config);
             _this.components = {};
 
             _container = utils.createElement('div', CLASS_POSTER);
+            _container.setAttribute('aria-hidden', 'true');
+            _container.setAttribute('data-state', _this.config.file ? 'loading' : 'empty');
+            if (!_this.config.file) { return; }
 
             _img = new Image();
+            _img.alt = '';
             _img.onload = _onLoad;
             _img.onabort = _onError;
             _img.onerror = _onError;
@@ -43,11 +48,17 @@
         }
 
         function _onLoad(e) {
+            if (_closed) { return; }
+            _img.onload = _img.onabort = _img.onerror = null;
+            _container.setAttribute('data-state', 'ready');
             _container.appendChild(_img);
         }
 
         function _onError(e) {
-            _logger.log('Failed to load poster "' + _img.src + '".');
+            if (_closed) { return; }
+            _img.onload = _img.onabort = _img.onerror = null;
+            _container.setAttribute('data-state', 'unavailable');
+            _logger.log('Poster image is unavailable.');
         }
 
         _this.element = function () {
@@ -59,6 +70,13 @@
         };
 
         _this.destroy = function () {
+            if (_closed) { return; }
+            _closed = true;
+            if (_img) {
+                _img.onload = _img.onabort = _img.onerror = null;
+                _img.removeAttribute('src');
+            }
+            utils.emptyElement(_container);
             utils.forEach(_this.components, function (_, component) {
                 component.removeGlobalListener(_this.forward);
                 component.destroy();

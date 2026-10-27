@@ -102,3 +102,7 @@ Writer states are `INIT → START → CLOSING → END`. `close()` is idempotent 
 Player Controller, Player UI and Program PK fallback ignore these classified local errors for playback recovery. Actual source/decoder errors retain their normal behavior. Stopping or switching media closes its local recording without waiting for the download; the returned writer can report its independent terminal result after its old media UI/module is gone. A media owner never destroys another instance's worker registration.
 
 See [local recording delivery](local-recording.md) for configuration, worker deployment and producer details. This round was reviewed in source only; no build, browser, device, download or media interoperability run was performed.
+
+## R-084 auxiliary plugins
+
+See [auxiliary plugins](auxiliary-plugins.md) for finite context-menu setup, native keyboard actions, playlist identity and removal, safe media error text, image cleanup and nonmodal information panels. These retain the UI/plugin/component boundary and source-only delivery scope.

@@ -61,6 +61,9 @@
             _calling,
             _sharing,
             _preview,
+            _previewGeneration = 0,
+            _settingsGeneration = 0,
+            _settingsOpen = false,
             _subscribing,
             _timer,
             _pendingCall,
@@ -788,6 +791,17 @@
                 case Event.CHANGE:
                     _onChange(e);
                     break;
+                case Event.VISIBILITYCHANGE:
+                    var dashboard = _this.plugins['Dashboard'];
+                    if (dashboard && e.srcElement === dashboard.components['settings']) {
+                        _settingsOpen = e.data.state === 'visible';
+                        if (!_settingsOpen) {
+                            _settingsGeneration++;
+                            _releasePreview();
+                        }
+                    }
+                    _this.forward(e);
+                    break;
                 default:
                     _this.forward(e);
                     break;
@@ -990,11 +1004,12 @@
                 return;
             }
 
+            var generation = ++_settingsGeneration;
             Promise.all([
                 RTC.getCameras(_logger),
                 RTC.getMicrophones(_logger),
             ]).then(function (devices) {
-                if (_readyState !== State.CONNECTED) {
+                if (_readyState !== State.CONNECTED || generation !== _settingsGeneration) {
                     return;
                 }
                 dashboard.update('settings', {
@@ -1006,19 +1021,19 @@
                 });
                 dashboard.show('settings');
             }).catch(function (err) {
-                if (_readyState === State.CONNECTED) {
+                if (_readyState === State.CONNECTED && generation === _settingsGeneration) {
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
                 }
             });
         }
 
         function _previewSettings(settings) {
-            if (_preview) {
-                _api.stop(_preview.name());
-            }
+            _releasePreview();
+            if (!_settingsOpen || _readyState !== State.CONNECTED) { return Promise.resolve(); }
+            var generation = _previewGeneration;
             var config = utils.extendz({}, _this.config, settings);
             return _api.preview(_getConstraints(config), false, false).then(function (ns) {
-                if (_readyState !== State.CONNECTED) {
+                if (_readyState !== State.CONNECTED || !_settingsOpen || generation !== _previewGeneration) {
                     ns.close('cancelled');
                     return;
                 }
@@ -1030,11 +1045,26 @@
                     dashboard.components['settings'].preview(ns.element());
                 }
                 return ns;
+            }).catch(function (err) {
+                if (_readyState !== State.CONNECTED || !_settingsOpen || generation !== _previewGeneration) { return; }
+                throw err;
             });
         }
 
+        function _releasePreview() {
+            _previewGeneration++;
+            var preview = _preview;
+            _preview = null;
+            var dashboard = _this.plugins['Dashboard'];
+            if (dashboard && dashboard.components['settings']) { dashboard.components['settings'].preview(null); }
+            if (preview) {
+                preview.removeEventListener(Event.RELEASE, _onStreamRelease);
+                preview.close('preview-closed');
+            }
+        }
+
         async function _saveSettings(settings) {
-            if (_preview) { _api.stop(_preview.name()); _preview = null; }
+            _releasePreview();
             var preferences = _this.settings();
             var result = await preferences.save(settings, { expectedVersion: preferences.read().version, scope: 'next-session' });
             var dashboard = _this.plugins['Dashboard'];
@@ -1150,6 +1180,9 @@
                 case State.CONNECTING:
                 case State.CONNECTED:
                     _readyState = State.CLOSING;
+                    _settingsOpen = false;
+                    _settingsGeneration++;
+                    _releasePreview();
                     if (_meterFrame) { cancelAnimationFrame(_meterFrame); _meterFrame = 0; }
                     document.removeEventListener('visibilitychange', _onVisibility);
                     _speakerView = null;

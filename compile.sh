@@ -135,6 +135,7 @@ scripts[6]="./src/rtc/ui/components/components.settings.js"
 scripts[7]="./src/rtc/ui/ui.controlbar.js"
 scripts[8]="./src/rtc/ui/ui.display.js"
 scripts[9]="./src/rtc/ui/ui.dashboard.js"
+scripts[10]="./src/rtc/ui/ui.poster.js"
 
 :>./release/odd.rtc.ui.js
 
