@@ -69,7 +69,8 @@ set scripts[9]=".\src\im\im.messaging.js"
 set scripts[10]=".\src\im\im.calls.protocol.js"
 set scripts[11]=".\src\im\im.calls.media.js"
 set scripts[12]=".\src\im\im.calls.js"
-set length=13
+set scripts[13]=".\src\im\im.history.js"
+set length=14
 
 cd.>.\release\odd.im.js
 
@@ -105,7 +106,8 @@ set scripts[15]=".\src\im\ui\ui.dashboard.js"
 set scripts[16]=".\src\im\ui\ui.calls.js"
 set scripts[17]=".\src\im\ui\ui.subscriptions.js"
 set scripts[18]=".\src\im\ui\ui.views.js"
-set length=19
+set scripts[19]=".\src\im\ui\ui.reading.js"
+set length=20
 
 cd.>.\release\odd.im.ui.js
 

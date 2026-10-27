@@ -1,4 +1,5 @@
 @import url("odd.common.classic.css");
+@import url("odd.im.reading.css");
 
 .im-wrapper.im-ui-classic {
     width: 100%;
@@ -249,9 +250,18 @@
 
 .im-ui-classic .im-conversation {
     display: grid;
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "title" "notice" "tools" "room" "reading" "messages" "composer";
     background: #0d1117;
 }
+
+.im-ui-classic .im-conversation-title { grid-area: title; }
+.im-ui-classic .im-history-notice { grid-area: notice; }
+.im-ui-classic .im-history-tools { grid-area: tools; }
+.im-ui-classic .im-room-state { grid-area: room; }
+.im-ui-classic .im-reading { grid-area: reading; }
+.im-ui-classic .im-conversation-messages { grid-area: messages; }
+.im-ui-classic .im-conversation > .im-composer { grid-area: composer; }
 
 .im-ui-classic .im-conversation-title {
     padding: 14px 18px;
@@ -262,10 +272,6 @@
 
 .im-ui-classic .im-conversation[data-conversation=""] .im-conversation-title {
     display: none;
-}
-
-.im-ui-classic .im-conversation[data-conversation=""] {
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 
 .im-ui-classic .im-conversation-messages {

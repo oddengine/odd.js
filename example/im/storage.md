@@ -170,3 +170,5 @@ unlimited cloud history or a full local retention/cleanup policy.
 See [reliable-ui.md](reliable-ui.md) for status meanings, explicit read actions,
 subscription ownership and unknown-result recovery. CALL remains on the same
 account/device database and keeps its independent UI and media ownership.
+
+R-086 的独立云历史、实际显示证据及中文阅读面板见[有限云历史与公开阅读](history.md)。历史保存不推进可靠确认或私人 READ。

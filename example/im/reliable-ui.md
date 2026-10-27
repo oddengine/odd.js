@@ -72,3 +72,5 @@ and snapshot and never creates or removes that external visit.
 IndexedDB v5 preserves v4 CALL stores; see [storage.md](storage.md). Endpoint URLs,
 admission credentials and database identity continue to come from existing setup
 providers. This UI adds no server database, cache, token registry or media checks.
+
+R-086 的独立云历史、实际显示证据及中文阅读面板见[有限云历史与公开阅读](history.md)。历史保存不推进可靠确认或私人 READ。

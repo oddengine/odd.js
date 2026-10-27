@@ -16,7 +16,7 @@
             _readyState = State.INITIALIZED, _generation = 0, _channel = null, _selected = null,
             _rows = Object.create(null), _sending = Object.create(null), _gifts = Object.create(null),
             _before = null, _outBefore = null, _loading = null, _opening = Promise.resolve(), _reload = false, _older = false,
-            _read = { high: 0, low: 0 }, _history = UI.History, _loadButton, _readButton;
+            _read = { high: 0, low: 0 }, _history = UI.History, _loadButton, _readButton, _reading;
         _this.config = config;
         _this.components = {};
         _notice.setAttribute('role', 'status');
@@ -73,6 +73,7 @@
             if (_gifts[row.id]) { row.state = 'gift-pending'; }
             row.from = title(row.from);
             if (row.incoming && row.sequence && Protocol.compare64(row.sequence, _read) <= 0) { row.state = 'read'; }
+            row.receipts = !row.incoming && row.sequence && _reading && _reading.supported() ? function () { _reading.inspect(row); } : null;
             row.retry = row.packet && (row.state === 'unknown' || row.state === 'gift-pending') ? function () { retry(row).catch(failure); } : null;
             _rows[row.id] = row;
         }
@@ -187,6 +188,13 @@
             if (!room) { _this.dispatchEvent(Event.CHANGE, { name: 'conversation-resolved', conversationId: channel.id }); }
             if (!room) { _notice.textContent = '消息持久保存后确认收取；已读由你主动标记。'; }
             await load(false);
+            if (current(generation)) {
+                await _reading.attach(channel);
+                if (current(generation)) {
+                    Object.keys(_rows).forEach(function (id) { merge(_rows[id]); });
+                    render();
+                }
+            }
         }
         async function send(text) {
             var channel = _channel, generation = _generation;
@@ -307,7 +315,7 @@
                     _channel.visit = null;
                     _channel.events = false;
                     roomState({ known: false, states: [] });
-                } else { _channel.ready = false; }
+                } else { _channel.ready = false; _reading.close(); }
                 return;
             }
             if (event.data.event !== Protocol.Event.IM_SYNC_REQUIRED) { return; }
@@ -324,6 +332,7 @@
         function onClose() {
             ++_generation;
             _channel = null;
+            _reading.close();
             _notice.textContent = '连接已断开。已保存的历史仍在本机，未完成操作的结果待确认。';
             Object.keys(_rows).forEach(function (id) { if (_rows[id].state === 'sending') { _rows[id].state = 'unknown'; } });
             render();
@@ -339,6 +348,7 @@
                 (!selected || JSON.stringify(selected.target) === JSON.stringify(_this.target()))) { return id; }
             var previous = _channel, previousId = config.active;
             _channel = null;
+            _reading.close();
             config.active = id;
             _container.setAttribute('data-conversation', id);
             _selected = selected || (id === previousId ? _selected : null) || contact(id);
@@ -378,6 +388,7 @@
             _channel = null;
             release(previous);
             _readyState = State.CLOSING;
+            _reading.destroy();
             ++_generation;
             im.removeEventListener(IMEvent.MESSAGE, onMessage);
             im.removeEventListener(IMEvent.NOTIFY, onNotify);
@@ -392,7 +403,30 @@
 
         _loadButton = button('更早的本机历史', function () { return load(true); });
         button('刷新消息与结果', function () { return im.recover().then(function () { return load(false); }); });
-        _readButton = button('将已显示消息标为已读', markRead);
+        _readButton = button('清除本账号未读', markRead);
+        _reading = new UI.Reading(im, {
+            visible: function () { return _this.components.messages ? _this.components.messages.visible() : []; },
+            changed: function () {
+                var messages = _this.components.messages, position = messages && messages.element().scrollTop;
+                Object.keys(_rows).forEach(function (id) { merge(_rows[id]); });
+                render();
+                if (messages) { messages.element().scrollTop = position; }
+            },
+            show: function (records, restart) {
+                if (restart) {
+                    Object.keys(_rows).forEach(function (id) {
+                        var row = _rows[id];
+                        if (row.state !== 'sending' && row.state !== 'unknown' && row.state !== 'gift-pending') { delete _rows[id]; }
+                    });
+                }
+                _older = !restart;
+                records.forEach(function (record) {
+                    if (record.kind === 'message') { merge(_history.message({ packet: record.packet }, im.userId())); }
+                });
+                render(!restart);
+            },
+        });
+        _container.appendChild(_reading.element());
         var expression = /\[([a-z]+)\:([a-z]+)=([^\]]+)?\]/gi, match;
         while ((match = expression.exec(config.layout)) !== null) {
             var component = new UI.components[match[1]](match[2], match[3], logger);

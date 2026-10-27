@@ -678,7 +678,7 @@
                                 _this.dispatchEvent(IMEvent.NOTIFY, { event: Protocol.Event.IM_SPEAKERS_CHANGE,
                                     messaging: false, payload: snapshot });
                             }
-                        }, channel && !attempt.ephemeral && attempt.session.ext.messagesVersion === 1);
+                        }, channel && !attempt.ephemeral && attempt.session.ext.messagesVersion === 1, session.ext);
                     return attempt.messaging.open().then(function () {
                         if (!_this.config.calls || _this.config.calls.enabled !== true) {
                             return;
@@ -887,6 +887,11 @@
                         return reliable.resolve(_object(fields[0].value));
                     case Protocol.Opcode.FETCH:
                         return reliable.fetch(fields[0].value, fields[1].value, fields[2].value);
+                    case Protocol.Opcode.HISTORY:
+                        return reliable.history(fields[0].value, fields[1].value, fields[2].value);
+                    case Protocol.Opcode.RECEIPT:
+                    case Protocol.Opcode.RECEIPTS:
+                        return Promise.reject(_error('NotAllowedError', 'Use receipt() or receipts() to preserve consent and saved display evidence.'));
                     case Protocol.Opcode.COMMIT:
                         return reliable.commit(fields[0].value, fields[1].value);
                     case Protocol.Opcode.SYNC:
@@ -1496,6 +1501,18 @@
                 _field('limit', Protocol.Type.UINT16, limit === undefined ? 50 : limit),
             ], true);
         };
+
+        _this.historyCapabilities = function () {
+            return _attempt && _attempt.messaging ? _attempt.messaging.historyCapabilities() : { history: false, publicRead: false };
+        };
+        ['history', 'receipts', 'receipt'].forEach(function (method) {
+            _this[method] = function () {
+                if (_readyState !== State.CONNECTED || !_attempt || !_attempt.messaging) {
+                    return Promise.reject(_error('InvalidStateError', 'Reliable messaging is not ready.'));
+                }
+                return _attempt.messaging[method].apply(_attempt.messaging, arguments);
+            };
+        });
 
         _this.inspect = function (conversationId, clientMessageId) {
             return _this.request(Protocol.Opcode.INSPECT, [

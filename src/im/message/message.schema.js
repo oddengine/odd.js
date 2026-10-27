@@ -253,6 +253,24 @@
                     { key: 'hasMore', type: Type.BOOL },
                 ];
                 break;
+            case Opcode.HISTORY:
+                rules = [{ key: 'items', type: Type.ARRAY }, { key: 'nextCursor', type: Type.BYTES },
+                    { key: 'hasMore', type: Type.BOOL }, { key: 'historyProof', type: Type.BYTES }];
+                break;
+            case Opcode.RECEIPT:
+                rules = [{ key: 'acceptedRanges', type: Type.ARRAY }, { key: 'enabled', type: Type.BOOL },
+                    { key: 'receiptRevision', type: Type.UINT64 }, { key: 'memberEpoch', type: Type.UINT64 },
+                    { key: 'policyRevision', type: Type.UINT64 }];
+                break;
+            case Opcode.RECEIPTS:
+                rules = request && request[1].value === 'policy' ? [
+                    { key: 'historyDays', type: Type.UINT16 }, { key: 'publicReceipts', type: Type.BOOL },
+                    { key: 'enabled', type: Type.BOOL }, { key: 'policyRevision', type: Type.UINT64 },
+                    { key: 'memberEpoch', type: Type.UINT64 }, { key: 'receiptRevision', type: Type.UINT64 },
+                    { key: 'visibleFrom', type: Type.UINT64 },
+                ] : [{ key: 'items', type: Type.ARRAY }, { key: 'nextCursor', type: Type.BYTES },
+                    { key: 'hasMore', type: Type.BOOL }, { key: 'snapshotRevision', type: Type.UINT64 }];
+                break;
             case Opcode.RESOLVE:
                 rules = [
                     { key: 'conversationId', type: Type.STRING },
@@ -292,7 +310,7 @@
             if (field.type === Type.STRING && (!field.value || _text(field.value).length > 128)) {
                 _fail('DataError', 'Invalid result identifier.');
             }
-            if (field.key === 'nextCursor' && _bytes(field.value).length > 512) {
+            if ((field.key === 'nextCursor' || field.key === 'historyProof') && _bytes(field.value).length > 512) {
                 _fail('DataError', 'Result cursor exceeds its limit.');
             }
             if (field.key === 'items') {

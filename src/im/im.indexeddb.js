@@ -348,7 +348,7 @@
 
         // Completion is the storage boundary for COMMIT. A duplicate still
         // participates in the same transaction as its newly received cursor.
-        _this.receive = function (conversationId, items, cursor, previousCursor) {
+        function receive(conversationId, items, cursor, previousCursor, cloudHistory) {
             return Promise.resolve().then(function () {
                 _identifier(conversationId);
                 if (!Array.isArray(items) || items.length > 64) {
@@ -404,11 +404,46 @@
                             }
                         };
                     });
-                    terminal.forEach(function (record) {
-                        transaction.objectStore('terminal').put(record);
-                    });
-                    _advance(transaction, 'messages', conversationId, previous, position, abort);
+                    if (!cloudHistory) {
+                        terminal.forEach(function (record) { transaction.objectStore('terminal').put(record); });
+                        _advance(transaction, 'messages', conversationId, previous, position, abort);
+                    }
                     result(position);
+                });
+            });
+        };
+
+        _this.receive = function (conversation, items, cursor, previous) {
+            return receive(conversation, items, cursor, previous, false);
+        };
+        _this.receiveHistory = function (conversation, items) {
+            // The same immutable body is shared locally; there is no receive
+            // position, private READ or public-read side effect here.
+            return receive(conversation, items, new Uint8Array(0), new Uint8Array(0), true);
+        };
+
+        _this.display = function (conversation, epoch, messageIds) {
+            _identifier(conversation); _sequence(epoch);
+            if (!Array.isArray(messageIds) || !messageIds.length || messageIds.length > 64) {
+                return Promise.reject(_error('RangeError', 'Explicit display evidence requires 1 to 64 saved messages.'));
+            }
+            var ids = messageIds.map(_id);
+            return _transaction(['messages', 'positions'], 'readwrite', function (transaction, result, abort) {
+                var messages = transaction.objectStore('messages'), positions = transaction.objectStore('positions');
+                var sequences = [], pending = ids.length;
+                ids.forEach(function (id) {
+                    var request = messages.get([conversation, id]);
+                    request.onsuccess = function () {
+                        if (!request.result) { abort(_error('NotFoundError', 'Displayed messages must already be durably saved.')); return; }
+                        sequences.push({ high: request.result.high, low: request.result.low });
+                        if (--pending) { return; }
+                        sequences.sort(Protocol.compare64);
+                        sequences = sequences.filter(function (value, index) { return !index || Protocol.compare64(value, sequences[index - 1]) !== 0; });
+                        // Keep the last explicit visible page for this member
+                        // period, rather than accumulating one row per display.
+                        positions.put({ kind: 'display', id: conversation, epoch: epoch, sequences: sequences });
+                        result(sequences);
+                    };
                 });
             });
         };

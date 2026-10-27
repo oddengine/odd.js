@@ -37,7 +37,7 @@
 
     // Composes an account/device storage adapter with the existing request
     // table. It owns no socket, timer, credential or independent reconnect loop.
-    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled, stateVersion, speakersChanged, messagesEnabled) {
+    function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled, stateVersion, speakersChanged, messagesEnabled, capabilities) {
         var _this = this, _closed = false, _pending = 0, _queues = Object.create(null),
             _resolved = Object.create(null), _positions = Object.create(null), _recovering = null,
             _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed, stateVersion, speakersChanged, function (room) {
@@ -234,7 +234,7 @@
             return result;
         }
 
-        function save(conversation, page) {
+        function decodePage(conversation, page) {
             var records = [], notifications = [], bytes = 0;
             items(page).forEach(function (item) {
                 var value = item.value;
@@ -268,6 +268,11 @@
             if (bytes > 65536 || !page.nextCursor.length) {
                 throw _error('QuotaExceededError', 'Reliable page exceeds its storage boundary.');
             }
+            return { records: records, notifications: notifications };
+        }
+
+        function save(conversation, page) {
+            var decoded = decodePage(conversation, page), records = decoded.records, notifications = decoded.notifications;
             return storage.position('messages', conversation).then(function (previous) {
                 active();
                 return storage.receive(conversation, records, page.nextCursor, previous);
@@ -452,9 +457,19 @@
             });
         };
 
+        var history = IM.History ? new IM.History(identity, storage, request, authorize, decodePage, ordinary, serialize, capabilities || {}) : null;
+        _this.historyCapabilities = function () { return history ? history.capabilities() : { history: false, publicRead: false }; };
+        ['history', 'receipts', 'receipt'].forEach(function (method) {
+            _this[method] = function () {
+                if (!history) { return Promise.reject(_error('NotSupportedError', 'History support is not loaded.')); }
+                return history[method].apply(history, arguments);
+            };
+        });
+
         _this.close = function () {
             if (!_closed) {
                 _closed = true;
+                if (history) { history.close(); }
                 if (_events) {
                     _events.close();
                 }

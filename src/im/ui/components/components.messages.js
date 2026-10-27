@@ -67,6 +67,17 @@
             return _data;
         };
 
+        _this.visible = function () {
+            if (document.visibilityState !== 'visible') { return []; }
+            var bounds = _container.getBoundingClientRect(), top = Math.max(0, bounds.top),
+                bottom = Math.min(window.innerHeight, bounds.bottom), left = Math.max(0, bounds.left), right = Math.min(window.innerWidth, bounds.right);
+            if (top >= bottom || left >= right) { return []; }
+            return _items.filter(function (item) {
+                var box = item.element().getBoundingClientRect();
+                return box.top < bottom && box.bottom > top && box.left < right && box.right > left;
+            }).map(function (item) { return item.data(); });
+        };
+
         _this.element = function () {
             return _container;
         };

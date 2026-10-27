@@ -30,7 +30,8 @@
             _time,
             _body,
             _status,
-            _retry;
+            _retry,
+            _receipts;
 
         function _init() {
             _container = utils.createElement('article', CLASS_MESSAGE + (name ? ' ' + name : ''));
@@ -49,12 +50,17 @@
             _retry.type = 'button';
             _retry.textContent = '沿原标识重试';
             _retry.onclick = function () { if (_data.retry) { _data.retry(); } };
+            _receipts = utils.createElement('button', 'im-message-receipts');
+            _receipts.type = 'button';
+            _receipts.textContent = '阅读记录';
+            _receipts.onclick = function () { if (_data.receipts) { _data.receipts(); } };
             meta.appendChild(_from);
             meta.appendChild(_time);
             bubble.appendChild(meta);
             bubble.appendChild(_body);
             bubble.appendChild(_status);
             bubble.appendChild(_retry);
+            bubble.appendChild(_receipts);
             _container.appendChild(_avatar.element());
             _container.appendChild(_indicator);
             _container.appendChild(bubble);
@@ -74,6 +80,7 @@
             _time.textContent = _data.time || '';
             _body.textContent = _data.text || '';
             _this.state(_data.state || State.SENT);
+            _receipts.hidden = !_data.receipts;
             _retry.hidden = !_data.retry || (_data.state !== State.UNKNOWN && _data.state !== 'gift-pending');
             return _data;
         };
@@ -116,6 +123,7 @@
 
         _this.destroy = function () {
             _retry.onclick = null;
+            _receipts.onclick = null;
             _avatar.destroy();
             _container.innerHTML = '';
         };

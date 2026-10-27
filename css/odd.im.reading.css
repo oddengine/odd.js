@@ -1,0 +1,36 @@
+/* Explicit cloud-history and public-reading controls share the product skin. */
+:is(.odd-view, .im-ui-classic) .im-reading {
+    flex: none;
+    min-width: 0;
+    max-height: 18rem;
+    overflow: auto;
+    padding: .5rem .75rem;
+    border-block: 1px solid var(--odd-line, currentColor);
+    font-size: .875rem;
+    line-height: 1.5;
+}
+:is(.odd-view, .im-ui-classic) .im-reading summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
+:is(.odd-view, .im-ui-classic) .im-reading p { max-width: 70ch; margin: .5rem 0; overflow-wrap: anywhere; }
+:is(.odd-view, .im-ui-classic) .im-reading-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+:is(.odd-view, .im-ui-classic) :is(.im-reading button, .im-message-receipts) {
+    min-height: 2.75rem;
+    max-width: 100%;
+    padding: .4rem .7rem;
+    border: 1px solid var(--odd-line, currentColor);
+    border-radius: .375rem;
+    font: inherit;
+    color: inherit;
+    background: var(--odd-surface, transparent);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+:is(.odd-view, .im-ui-classic) .im-reading button { margin: .2rem .35rem .2rem 0; }
+:is(.odd-view, .im-ui-classic) :is(.im-reading button, .im-message-receipts):hover:not(:disabled) { background: var(--odd-selected, transparent); text-decoration: underline; text-underline-offset: .2em; }
+:is(.odd-view, .im-ui-classic) .im-reading button:disabled { opacity: .55; cursor: default; }
+:is(.odd-view, .im-ui-classic) :is(.im-reading summary, .im-reading button, .im-reading-table, .im-reading-results, .im-message-receipts):focus-visible { outline: 2px solid var(--odd-accent, currentColor); outline-offset: 2px; }
+:is(.odd-view, .im-ui-classic) .im-reading-table { max-width: 100%; overflow: auto; margin-block: 1rem .5rem; }
+:is(.odd-view, .im-ui-classic) .im-reading table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+:is(.odd-view, .im-ui-classic) .im-reading :is(th, td) { padding: .5rem; border-bottom: 1px solid var(--odd-line, currentColor); text-align: start; overflow-wrap: anywhere; }
+:is(.odd-view, .im-ui-classic) .im-reading caption { text-align: start; font-weight: 600; padding-bottom: .5rem; }
+:is(.odd-view, .im-ui-classic) .im-message-receipts { margin-top: .5rem; font-size: .8rem; }
+:is(.odd-view, .im-ui-classic) .im-reading[hidden] { display: none; }

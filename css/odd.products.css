@@ -1,3 +1,4 @@
+@import url("odd.im.reading.css");
 /* Frozen R-067 product skins. Media pixels remain neutral. */
 .odd-view, .odd-settings-panel { box-sizing: border-box; font-family: inherit; color: var(--odd-ink); background: var(--odd-bg); }
 .odd-theme-light { --odd-bg:#F6F4ED; --odd-surface:#FFFEFA; --odd-ink:#172E2B; --odd-muted:#536760; --odd-line:#C3CDC8; --odd-selected:#DDEBE1; --odd-accent:#0D5B50; --odd-onaccent:#fff; }
