@@ -41,6 +41,7 @@ scripts[32]="./src/utils/utils.mediarequest.js"
 scripts[33]="./src/utils/utils.routing.js"
 scripts[34]="./src/utils/utils.controlmenu.js"
 scripts[35]="./src/utils/utils.mediacontrols.js"
+scripts[36]="./src/utils/utils.vod.js"
 
 :>./release/odd.common.js
 
