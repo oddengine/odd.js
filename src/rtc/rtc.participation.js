@@ -55,6 +55,11 @@
             _limit < 1 || _limit > 1024 || !Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647) {
             throw { name: 'TypeError', message: 'Invalid RTC participation configuration.' };
         }
+        if (config.publishSeats && (typeof config.publishSeats.reserve !== 'function' ||
+            typeof config.publishSeats.release !== 'function' ||
+            (config.publishSeats.change !== undefined && typeof config.publishSeats.change !== 'function'))) {
+            throw { name: 'TypeError', message: 'Invalid publisher seat provider.' };
+        }
         if (!window.crypto || !window.crypto.getRandomValues || !window.fetch || !window.AbortController ||
             !window.ReadableStream || !window.TextDecoder || !odd.utils.MediaRequest) {
             throw { name: 'NotSupportedError', message: 'RTC participation requires secure Fetch and cancellation.' };
@@ -96,6 +101,7 @@
                 if (method === 'POST') {
                     headers['Odd-Media-Instance'] = media.instanceId;
                     headers['Odd-Media-Generation'] = String(media.generation);
+                    if (media.seatBinding) { headers['Odd-Meeting-Seat'] = media.seatBinding; }
                     if (media.purpose) {
                         headers['Odd-Media-Purpose'] = media.purpose;
                     }
@@ -162,11 +168,129 @@
             }
         }
 
+        function _seatChanged(value) {
+            if (config.publishSeats && typeof config.publishSeats.change === 'function') {
+                config.publishSeats.change(value ? { seatId: value.seatId, state: value.state } : null);
+            }
+        }
+
+        function _releaseSeat(entry, expected) {
+            var seat = expected || entry && entry.seat;
+            if (!seat || !seat.value || seat.releasing || !config.publishSeats) { return Promise.resolve(); }
+            seat.closing = true;
+            _seatChanged({ seatId: seat.value.seatId, state: 'ending' });
+            var controller = new AbortController(), timer;
+            var expired = new Promise(function (_, reject) {
+                timer = setTimeout(function () {
+                    reject({ name: 'TimeoutError', code: 'seat_unknown', message: 'Publisher seat release is unconfirmed.' });
+                    controller.abort();
+                }, Math.min(timeout, 5000));
+            });
+            var request = Promise.resolve().then(function () {
+                return config.publishSeats.release({ seatId: seat.value.seatId, generation: seat.value.generation, signal: controller.signal });
+            }).then(function (value) {
+                if (!value || value.seatId !== seat.value.seatId || value.generation !== seat.value.generation ||
+                    ['ending', 'ended'].indexOf(value.state) === -1) {
+                    throw { name: 'DataError', message: 'Invalid publisher seat release result.' };
+                }
+                seat.value.state = value.state;
+                _seatChanged(value);
+                if (value.state === 'ended' && entry.seat === seat) { entry.seat = undefined; }
+            });
+            var pending = Promise.race([request, expired]).catch(function (error) {
+                throw { name: error.name || 'NetworkError', code: 'seat_unknown', message: 'Publisher seat release is unconfirmed.' };
+            }).finally(function () {
+                clearTimeout(timer);
+                if (seat.releasing === pending) { seat.releasing = undefined; }
+            });
+            seat.releasing = pending;
+            return seat.releasing;
+        }
+
+        async function _seat(entry, deadline) {
+            if (!config.publishSeats) { return ''; }
+            if (entry.seat && entry.seat.closing) {
+                await (entry.seat.releasing || _releaseSeat(entry));
+                if (entry.seat) { throw { name: 'InvalidStateError', code: 'seat_releasing', message: 'Publisher seat is still releasing.' }; }
+            }
+            var seat = entry.seat || (entry.seat = { operationId: requestId(), createdAt: String(Date.now()) });
+            if (seat.value) {
+                if (Number(seat.value.useUntil) <= Date.now()) {
+                    seat.closing = true;
+                    throw { name: 'InvalidStateError', code: 'seat_expired', message: 'Publisher seat has expired.' };
+                }
+                return seat.value.seatBinding;
+            }
+            if (!seat.pending) {
+                var controller = new AbortController(), timer;
+                var expired = new Promise(function (_, reject) {
+                    timer = setTimeout(function () {
+                        reject({ name: 'TimeoutError', code: 'seat_unknown', message: 'Publisher seat result is unknown; retry the same operation.' });
+                        controller.abort();
+                    }, Math.max(1, Math.min(deadline - Date.now(), timeout)));
+                });
+                var request = Promise.resolve().then(function () {
+                    return config.publishSeats.reserve({ operationId: seat.operationId, createdAt: seat.createdAt,
+                        participationId: entry.participantId, nodeId: entry.nodeId, bootId: entry.bootId, signal: controller.signal });
+                }).then(function (value) {
+                    if (!value || !uuid(value.seatId) || !uuid(value.participationId) || value.participationId !== entry.participantId ||
+                        value.nodeId !== entry.nodeId || value.bootId !== entry.bootId || value.userId !== entry.userId ||
+                        typeof value.generation !== 'string' || !/^[1-9][0-9]*$/.test(value.generation) || !Number.isSafeInteger(Number(value.generation)) ||
+                        ['reserved', 'active', 'ending', 'ended'].indexOf(value.state) === -1 ||
+                        !Number.isSafeInteger(Number(value.connectBefore)) || !Number.isSafeInteger(Number(value.useUntil))) {
+                        throw { name: 'DataError', message: 'Invalid publisher seat reservation.' };
+                    }
+                    // A callback that ignored cancellation may arrive after a retry.
+                    // The same operation never regresses a known terminal state.
+                    var order = ['reserved', 'active', 'ending', 'ended'];
+                    if (seat.value && order.indexOf(seat.value.state) > order.indexOf(value.state)) { value = seat.value; }
+                    seat.value = value;
+                    if (value.state === 'ended') {
+                        if (entry.seat === seat) { entry.seat = undefined; }
+                        _seatChanged(value);
+                        throw { name: 'InvalidStateError', code: 'seat_expired', message: 'The previous publisher seat has ended; retry publication.' };
+                    }
+                    if (entry.seat !== seat || entry.releasing || _closed || !Array.from(_members).some(function (member) { return member.entry === entry && member.publishing; })) {
+                        _releaseSeat(entry, seat).catch(function (error) { logger.warn('Publisher seat release remains pending: ' + error.name); });
+                        throw { name: 'AbortError', message: 'Publisher seat arrived after cancellation.' };
+                    }
+                    if (value.state === 'ending') { seat.closing = true; }
+                    if (seat.closing || typeof value.seatBinding !== 'string' || !value.seatBinding ||
+                        value.seatBinding.length > 8192 || /[^\x21-\x7e]/.test(value.seatBinding)) {
+                        seat.closing = true;
+                        _seatChanged({ seatId: value.seatId, state: 'ending' });
+                        throw { name: 'InvalidStateError', code: 'seat_releasing', message: 'Publisher seat is not ready for publication.' };
+                    }
+                    _seatChanged(value);
+                    return value.seatBinding;
+                }).catch(function (error) {
+                    var rejected = [400, 401, 403, 404, 409, 429].indexOf(error.status) !== -1;
+                    if (rejected && !seat.value && entry.seat === seat) {
+                        entry.seat = undefined;
+                    }
+                    if (!error.code || !error.code.startsWith('seat_')) {
+                        error = { name: error.name || 'NetworkError', status: error.status,
+                            code: rejected ? (error.status === 401 ? 'seat_login' : error.status === 403 ? 'seat_forbidden' :
+                                error.status === 409 ? 'seat_conflict' : error.status === 429 ? 'seat_capacity' : 'seat_invalid') : 'seat_unknown',
+                            message: rejected ? 'Publisher seat request was rejected.' : 'Publisher seat result could not be confirmed.' };
+                    }
+                    throw error;
+                });
+                var pending = Promise.race([request, expired]).finally(function () {
+                    clearTimeout(timer);
+                    if (seat.pending === pending) { seat.pending = undefined; }
+                });
+                seat.pending = pending;
+            }
+            return seat.pending;
+        }
+
         function _cleanup(entry) {
             if (!entry || !entry.participantId || entry.releasing) {
                 return;
             }
             entry.releasing = true;
+            _releaseSeat(entry).catch(function (error) { logger.warn('Publisher seat release remains pending: ' + error.name); });
             _request(entry, 'DELETE', entry.controlUrl, undefined, '', '',
                 Date.now() + Math.min(timeout, 5000), new Map(), 4096).catch(function (error) {
                 logger.warn('Failed to release RTC participation: error=' + error.name + '.');
@@ -188,6 +312,9 @@
         function _release(member) {
             if (!_members.delete(member)) {
                 return;
+            }
+            if (member.publishing && !Array.from(_members).some(function (item) { return item.entry === member.entry && item.publishing; })) {
+                _releaseSeat(member.entry).catch(function (error) { logger.warn('Publisher seat release remains pending: ' + error.name); });
             }
             clearTimeout(member.timer);
             member.requests.forEach(function (_, controller) { controller.abort(); });
@@ -233,7 +360,8 @@
                         throw { name: 'InvalidStateError', message: 'Invalid RTC media routing operation.' };
                     }
                     member.routing = true;
-                    var controller = new AbortController(), timer;
+                    member.publishing = direction === 'publish';
+                    var controller = new AbortController(), timer, expired = false, awaitingSeat = direction === 'publish' && !!config.publishSeats;
                     var until = Math.min(deadline, Date.now() + timeout, entry.credentials.connectBefore * 1000);
                     var request = {
                         direction: direction, protocol: direction === 'publish' ? 'WHIP' : 'WHEP', product: 'rtc',
@@ -250,10 +378,17 @@
                         // scheduler reserves capacity. The browser never receives its secret.
                         var cancelled = new Promise(function (_, reject) {
                             controller.signal.addEventListener('abort', function () {
-                                reject({ name: 'AbortError', message: 'RTC media routing was cancelled.' });
+                                reject(expired && awaitingSeat ?
+                                    { name: 'TimeoutError', code: 'seat_unknown', message: 'Publisher seat result is unknown; retry publication.' } :
+                                    { name: expired ? 'TimeoutError' : 'AbortError', message: 'RTC media routing was cancelled or timed out.' });
                             }, { once: true });
-                            timer = setTimeout(function () { controller.abort(); }, Math.max(1, until - Date.now()));
+                            timer = setTimeout(function () { expired = true; controller.abort(); }, Math.max(1, until - Date.now()));
                         });
+                        var seatBinding = direction === 'publish' ? await Promise.race([_seat(entry, until), cancelled]) : '';
+                        awaitingSeat = false;
+                        if (controller.signal.aborted || !_members.has(member) || entry.releasing) {
+                            throw { name: 'AbortError', message: 'Publisher seat preparation was cancelled.' };
+                        }
                         var value = await Promise.race([Promise.resolve().then(function () {
                             return config.route(request);
                         }), cancelled]);
@@ -274,7 +409,7 @@
                             throw { name: 'DataError', message: 'RTC routing changed the assigned participation or resource.' };
                         }
                         var media = {
-                            instanceId: instance, generation: value.generation, ticket: value.ticket,
+                            seatBinding: seatBinding, instanceId: instance, generation: value.generation, ticket: value.ticket,
                             subscriptionTicket: value.subscriptionTicket, relayInstanceId: value.relayInstanceId,
                             purpose: direction === 'publish' ? purpose : undefined,
                             proof: btoa(String.fromCharCode.apply(null, random(32)))
@@ -471,6 +606,7 @@
                     return;
                 }
                 // Keep one object for existing leases while updating the cached JWT.
+                if (previous) { delete candidate.seat; }  // Keep seat changes made during credential renewal.
                 _current = previous ? Object.assign(previous, candidate) : candidate;
                 _pending = undefined;
                 clearTimeout(job.timer);
