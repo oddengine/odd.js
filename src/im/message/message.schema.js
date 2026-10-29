@@ -487,13 +487,13 @@
     Protocol.validateMessageRequest = _validateMessageRequest;
     Protocol.validateResult = _validateResult;
     Protocol.channelEvent = function (kind) {
-        return kind === 'channel.publication' || kind === 'channel.program' || kind === 'channel.gift';
+        return kind === 'channel.publication' || kind === 'channel.program' || kind === 'channel.meeting' || kind === 'channel.gift';
     };
     Protocol.giftEvent = function (kind) { return kind === 'gift.confirmed' || kind === 'channel.gift'; };
 
     Protocol.compareEventState = function (left, right) {
         var zero = { high: 0, low: 0 };
-        if (left.kind === 'channel.program' || right.kind === 'channel.program') {
+        if (['channel.program', 'channel.meeting'].indexOf(left.kind) >= 0 || ['channel.program', 'channel.meeting'].indexOf(right.kind) >= 0) {
             if (left.kind !== right.kind || left.payload.channelAppId !== right.payload.channelAppId) {
                 _fail('DataError', 'Channel program identity changed.');
             }

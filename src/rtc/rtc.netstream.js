@@ -55,6 +55,7 @@
             _pc,
             _name,
             _stream,
+            _audioAllowed = true,
             _captures = [],
             _captureFailure,
             _videomixer,
@@ -360,7 +361,18 @@
             _this.close(_captureFailure.message);
         }
 
+        // A product policy gate silences current and future outgoing audio.
+        // Releasing the gate never turns a user's microphone back on.
+        _this.audioPolicy = function (allowed) {
+            if (allowed === undefined) { return _audioAllowed; }
+            _audioAllowed = !!allowed;
+            if (!_audioAllowed && _stream) {
+                _stream.getAudioTracks().forEach(function (track) { track.enabled = false; });
+            }
+        };
+
         _this.addTrack = function (track, stream) {
+            if (track.kind === 'audio' && !_audioAllowed) { track.enabled = false; }
             var sender;
             var encodings = track.kind === 'video' ? _videoEncodings() : [];
             if (track.kind === 'video' && encodings.length) {
@@ -385,6 +397,7 @@
         };
 
         _this.replaceTrack = function (track, stopprevious) {
+            if (track.kind === 'audio' && !_audioAllowed) { track.enabled = false; }
             var origin;
             if (track.kind === 'audio') {
                 origin = _stream.getAudioTracks()[0];

@@ -51,6 +51,7 @@
         };
 
     function RTC(id, logger) {
+        var _audioAllowed = true;
         var _this = this,
             _id = id,
             _logger = logger instanceof utils.Logger ? logger : new utils.Logger(id, logger),
@@ -114,6 +115,7 @@
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.applyConstraints(constraints);
+            ns.audioPolicy(_audioAllowed);
             _pending.push(ns);
 
             try {
@@ -136,6 +138,13 @@
             }
         };
 
+        _this.audioPolicy = function (allowed) {
+            if (allowed === undefined) { return _audioAllowed; }
+            _audioAllowed = !!allowed;
+            _pending.forEach(function (stream) { stream.audioPolicy(_audioAllowed); });
+            Object.keys(_this.publishing).forEach(function (key) { _this.publishing[key].audioPolicy(_audioAllowed); });
+        };
+
         _this.publish = async function (constraints, screensharing, withcamera, option) {
             if (_readyState !== State.CONNECTED) {
                 return Promise.reject({ name: 'InvalidStateError', message: 'RTC is not ready: state=' + _readyState + '.' });
@@ -145,6 +154,7 @@
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
             ns.applyConstraints(constraints);
+            ns.audioPolicy(_audioAllowed);
             _pending.push(ns);
 
             try {

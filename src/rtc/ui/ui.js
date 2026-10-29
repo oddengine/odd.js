@@ -57,6 +57,7 @@
             _videoOrder = new WeakMap(),
             _videoIndex = 0,
             _constraints,
+            _audioAllowed = true,
             _api,
             _calling,
             _sharing,
@@ -176,7 +177,7 @@
             });
             var microphone = _wrapper && _wrapper.getAttribute('microphone');
             var camera = _wrapper && _wrapper.getAttribute('camera');
-            if (microphone === 'off' || !microphone && config.microphone === false) {
+            if (!_audioAllowed || microphone === 'off' || !microphone && config.microphone === false) {
                 constraints.audio = false;
             }
             if (camera === 'off' || !camera && config.camera === false) {
@@ -384,11 +385,19 @@
             return Promise.resolve();
         };
 
+        _this.audioPolicy = function (allowed) {
+            if (allowed === undefined) { return _audioAllowed; }
+            _audioAllowed = !!allowed;
+            _api.audioPolicy(_audioAllowed);
+            if (!_audioAllowed && _wrapper) { _this.microphone(false); }
+        };
+
         _this.microphone = function (enable) {
             if (enable === undefined) {
                 return _wrapper.getAttribute('microphone') === 'on';
             }
 
+            if (enable && !_audioAllowed) { return Promise.reject({ name: 'NotAllowedError', message: '主持人已开启全体静音，暂不能开麦。' }); }
             var tracks = _calling ? _calling.stream().getAudioTracks() : [],
                 restart = _calling && !tracks.length && enable;
             for (var i = 0; i < tracks.length; i++) {

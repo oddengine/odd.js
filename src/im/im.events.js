@@ -127,6 +127,19 @@
             if (['camera', 'screen', 'audio'].indexOf(payload.purpose) < 0 || ['enabled', 'revoked'].indexOf(payload.state) < 0) {
                 throw _error('DataError', 'Invalid media resource state.');
             }
+        } else if (event.kind === 'channel.meeting') {
+            rules = ['appId', 'channelAppId', 'businessId', 'state', 'audio', 'managers'].map(function (key) { return { key: key, type: Type.STRING }; })
+                .concat(['channelGeneration', 'channelRevision'].map(function (key) { return { key: key, type: Type.UINT64 }; }));
+            var identifier = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+            var managers;
+            try { managers = JSON.parse(payload.managers); } catch (_) { throw _error('DataError', 'Invalid meeting managers.'); }
+            if (['appId', 'channelAppId', 'businessId'].some(function (key) { return !identifier.test(payload[key]); }) ||
+                event.entityId !== 'meeting-' + payload.channelAppId || payload.appId === payload.channelAppId ||
+                ['scheduled', 'active', 'ending', 'ended', 'cancelled'].indexOf(payload.state) < 0 || ['open', 'muted'].indexOf(payload.audio) < 0 ||
+                typeof payload.managers !== 'string' || payload.managers.length > 128 || !Array.isArray(managers) || managers.length > 3 ||
+                managers.some(function (id) { return !identifier.test(id); }) || new Set(managers).size !== managers.length) {
+                throw _error('DataError', 'Invalid meeting policy.');
+            }
         } else if (event.kind === 'channel.program') {
             rules = ['appId', 'channelAppId', 'businessId', 'pkId', 'state', 'mode', 'streamId', 'originalStreamId', 'userId', 'protocol', 'details'].map(function (key) {
                 return { key: key, type: Type.STRING };
