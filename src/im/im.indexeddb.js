@@ -916,6 +916,30 @@
             });
         };
 
+        // Read the retained local call projection without opening or retrying
+        // a call. UUIDv7 keys provide a stable newest-first page position.
+        _this.callHistory = function (before, limit) {
+            if (!_integer(limit, 1, 64) || before && !/^[0-9a-f]{32}$/.test(before)) {
+                return Promise.reject(_error('DataError', 'Invalid call history page.'));
+            }
+            return _transaction(['calls'], 'readonly', function (transaction, result) {
+                var items = [], range = before ? IDBKeyRange.upperBound(before, true) : null;
+                var request = transaction.objectStore('calls').openCursor(range, 'prev');
+                request.onsuccess = function () {
+                    var cursor = request.result;
+                    if (!cursor || items.length === limit) {
+                        result({ items: items, cursor: cursor ? items[items.length - 1].callId : '' });
+                        return;
+                    }
+                    var value = cursor.value.value;
+                    items.push({ callId: value.callId, conversationId: value.conversationId, callerId: value.callerId,
+                        targetType: value.targetType, targetId: value.targetId, mode: value.mode,
+                        state: value.state, revision: value.revision, createdAt: value.createdAt });
+                    cursor.continue();
+                };
+            });
+        };
+
         _this.receiveCalls = function (items, cursor) {
             if (!Array.isArray(items) || items.length > 8) {
                 return Promise.reject(_error('DataError', 'Invalid call page.'));

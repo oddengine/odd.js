@@ -71,5 +71,20 @@
         if (left.sequence || right.sequence) { return left.sequence ? -1 : 1; }
         return left.timestamp - right.timestamp || left.id.localeCompare(right.id);
     }
-    UI.History = { object: object, hex: hex, received: received, message: message, outgoing: outgoing, fact: fact, event: event, compare: compare };
+    // Keep packet decoding and content projection inside the SDK. This read
+    // does not acknowledge a message or repeat a business operation.
+    function pendingPage(storage, user, after, limit) {
+        if (after && !/^[0-9a-f]{32}$/.test(after)) { return Promise.reject(new TypeError('Invalid outbox page position.')); }
+        return storage.pending(limit, after).then(function (records) {
+            var items = records.map(function (record) {
+                var value = outgoing(record, user);
+                return { id: record.id, conversationId: record.conversationId, text: value.text.slice(0, 240),
+                    timestamp: value.timestamp, state: record.state, gift: value.gift };
+            });
+            // The byte bound can end a short page before the row limit.
+            return { items: items, cursor: items.length ? items[items.length - 1].id : '' };
+        });
+    }
+    UI.History = { object: object, hex: hex, received: received, message: message, outgoing: outgoing, fact: fact, event: event, compare: compare,
+        pendingPage: pendingPage };
 })(odd);
