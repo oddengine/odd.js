@@ -299,42 +299,6 @@ set /a index=%index% + 1
 goto loop7
 :end7
 
-set scripts[0]=".\src\app\app.js"
-set length=1
-
-cd.>.\release\odd.app.js
-
-set index=0
-:loop11
-if %index% equ %length% goto end11
-
-for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
-    echo %%j
-    type %%j >> .\release\odd.app.js
-)
-set /a index=%index% + 1
-
-goto loop11
-:end11
-
-set scripts[0]=".\src\app\ui\ui.js"
-set length=1
-
-cd.>.\release\odd.app.ui.js
-
-set index=0
-:loop12
-if %index% equ %length% goto end12
-
-for /f "usebackq delims== tokens=1-7" %%i in (`set scripts[%index%]`) do (
-    echo %%j
-    type %%j >> .\release\odd.app.ui.js
-)
-set /a index=%index% + 1
-
-goto loop12
-:end12
-
 set scripts[0]=".\release\odd.common.js"
 set scripts[1]=".\release\odd.im.js"
 set scripts[2]=".\release\odd.im.ui.js"
@@ -344,9 +308,7 @@ set scripts[5]=".\release\odd.famicom.js"
 set scripts[6]=".\release\odd.famicom.ui.js"
 set scripts[7]=".\release\odd.player.js"
 set scripts[8]=".\release\odd.player.ui.js"
-set scripts[9]=".\release\odd.app.js"
-set scripts[10]=".\release\odd.app.ui.js"
-set length=11
+set length=9
 
 cd.>.\release\odd.js
 
@@ -372,8 +334,6 @@ terser .\\release\\odd.famicom.js -c -m --warn -o .\\release\\odd.famicom.min.js
 terser .\\release\\odd.famicom.ui.js -c -m --warn -o .\\release\\odd.famicom.ui.min.js || exit /b 1
 terser .\\release\\odd.player.js -c -m --warn -o .\\release\\odd.player.min.js || exit /b 1
 terser .\\release\\odd.player.ui.js -c -m --warn -o .\\release\\odd.player.ui.min.js || exit /b 1
-terser .\\release\\odd.app.js -c -m --warn -o .\\release\\odd.app.min.js || exit /b 1
-terser .\\release\\odd.app.ui.js -c -m --warn -o .\\release\\odd.app.ui.min.js || exit /b 1
 terser .\\release\\odd.js -c -m --warn -o .\\release\\odd.min.js || exit /b 1
 
 del /q .\\release\\odd.common.js
@@ -385,6 +345,4 @@ del /q .\\release\\odd.famicom.js
 del /q .\\release\\odd.famicom.ui.js
 del /q .\\release\\odd.player.js
 del /q .\\release\\odd.player.ui.js
-del /q .\\release\\odd.app.js
-del /q .\\release\\odd.app.ui.js
 del /q .\\release\\odd.js

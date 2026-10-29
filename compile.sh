@@ -241,28 +241,6 @@ do
 done
 
 scripts=()
-scripts[0]="./src/app/app.js"
-
-:>./release/odd.app.js
-
-for item in ${scripts[@]};
-do
-    echo ${item}
-    cat ${item} >> ./release/odd.app.js
-done
-
-scripts=()
-scripts[0]="./src/app/ui/ui.js"
-
-:>./release/odd.app.ui.js
-
-for item in ${scripts[@]};
-do
-    echo ${item}
-    cat ${item} >> ./release/odd.app.ui.js
-done
-
-scripts=()
 scripts[0]="./release/odd.common.js"
 scripts[1]="./release/odd.im.js"
 scripts[2]="./release/odd.im.ui.js"
@@ -272,8 +250,6 @@ scripts[5]="./release/odd.famicom.js"
 scripts[6]="./release/odd.famicom.ui.js"
 scripts[7]="./release/odd.player.js"
 scripts[8]="./release/odd.player.ui.js"
-scripts[9]="./release/odd.app.js"
-scripts[10]="./release/odd.app.ui.js"
 
 :>./release/odd.js
 
@@ -292,8 +268,6 @@ terser ./release/odd.famicom.js -c -m --warn -o ./release/odd.famicom.min.js
 terser ./release/odd.famicom.ui.js -c -m --warn -o ./release/odd.famicom.ui.min.js
 terser ./release/odd.player.js -c -m --warn -o ./release/odd.player.min.js
 terser ./release/odd.player.ui.js -c -m --warn -o ./release/odd.player.ui.min.js
-terser ./release/odd.app.js -c -m --warn -o ./release/odd.app.min.js
-terser ./release/odd.app.ui.js -c -m --warn -o ./release/odd.app.ui.min.js
 terser ./release/odd.js -c -m --warn -o ./release/odd.min.js
 
 rm ./release/odd.common.js \
@@ -305,6 +279,4 @@ rm ./release/odd.common.js \
    ./release/odd.famicom.ui.js \
    ./release/odd.player.js \
    ./release/odd.player.ui.js \
-   ./release/odd.app.js \
-   ./release/odd.app.ui.js \
    ./release/odd.js
