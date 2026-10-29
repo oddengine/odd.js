@@ -2,7 +2,8 @@
     var utils = odd.utils, events = odd.events, EventDispatcher = events.EventDispatcher,
         Event = events.Event, MouseEvent = events.MouseEvent, IMEvent = events.IMEvent,
         IM = odd.IM, UI = IM.UI, Protocol = IM.Protocol, Avatar = UI.components.Avatar,
-        _default = { kind: 'Conversations', tab: 'messages', active: '', visibility: true };
+        _default = { kind: 'Conversations', tab: 'messages', active: '', visibility: true,
+            labels: { refresh: 'Refresh', more: 'More saved conversations' } };
 
     function Conversations(im, config, logger) {
         EventDispatcher.call(this, 'Conversations', { logger: logger }, MouseEvent);
@@ -195,8 +196,8 @@
             Object.keys(_items).forEach(_this.remove);
             _tools.querySelectorAll('button').forEach(function (element) { element.onclick = null; });
         };
-        button('Refresh', function () { return im.recover().then(function () { return directory(false); }); });
-        _more = button('More saved conversations', function () { return directory(true); });
+        button(config.labels.refresh, function () { return im.recover().then(function () { return directory(false); }); });
+        _more = button(config.labels.more, function () { return directory(true); });
         im.addEventListener(IMEvent.MESSAGE, onMessage);
         im.addEventListener(IMEvent.NOTIFY, onNotify);
         im.addEventListener(Event.READY, onReady);
