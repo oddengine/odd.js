@@ -32,3 +32,6 @@ let checkpoint = await download.start(handle, previousCheckpoint);
 下载录制清单不等于下载全部媒体分片；没有ZIP或自动FLV分段拼接。网站预览组合SDK Player/UI及同实例SettingsPanel，原生HLS仍取决于浏览器格式支持。
 
 本轮仅源码审阅；未构建SDK、运行测试或浏览器验证。
+
+
+R102：已提交版本的progress返回完整 `sha256-parts-v1` 汇总及空parts，不依赖可能已压缩的分片确认。Upload在恢复时先验证身份、事实ID、控制版本、摘要和ETag，再逐片读取所选文件生成同一有序摘要；一致后报告uploaded，不重复PUT。摘要字符串总量在10GiB/128KiB上限下少于6MiB；正文仍每次只读一片。不一致报file_mismatch，宿主仍通过中央完成意图核对资产结果，SDK不把uploaded冒称已发布。

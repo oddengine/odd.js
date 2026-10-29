@@ -167,6 +167,15 @@
             if (!same(this.identity, page) || !Array.isArray(page.parts) || page.parts.length > 100 ||
                 !integer(page.nextCursor, 0, total) || Number(page.nextCursor) && Number(page.nextCursor) <= cursor ||
                 !['pending', 'allocating', 'uploading', 'committing', 'storage_committed'].includes(page.status)) { throw failure('invalid_progress'); }
+            if (page.status === 'storage_committed') {
+                if (page.schema !== '1' || !integer(page.revision, 1, Number.MAX_SAFE_INTEGER) ||
+                    !integer(page.committedAt, 1, Number.MAX_SAFE_INTEGER) || page.factId !== this.identity.version ||
+                    !DIGEST.test(page.digest || '') || page.digestAlgorithm !== 'sha256-parts-v1' ||
+                    page.etag !== '"' + this.identity.version + '-' + page.digest + '"' || page.nextCursor !== '0') {
+                    throw failure('invalid_receipt');
+                }
+                return { parts: found, committed: page };
+            }
             if (status && status !== page.status) { throw failure('progress_changed', true); }
             status = page.status;
             page.parts.forEach(function (part) {
@@ -176,7 +185,25 @@
             }, this);
             cursor = Number(page.nextCursor);
         } while (cursor);
-        return found;
+        return { parts: found, committed: null };
+    };
+
+    // Completed objects retain one aggregate, not their individual receipts.
+    // Verify the reselected file with the same ordered digest before reporting
+    // completion; same name and size still do not prove the file is identical.
+    Upload.prototype.verifyCommitted = async function (file, receipt, verified, signal) {
+        var size = Number(this.identity.size), partSize = Number(this.identity.partSize), pieces = [];
+        for (var index = 0; index < Math.ceil(size / partSize); index++) {
+            check(signal);
+            var piece = file.slice(index * partSize, Math.min((index + 1) * partSize, size));
+            this.progress({ phase: 'verifying', bytes: index * partSize, total: size });
+            var hash = verified.get(index) || await digest(piece, signal);
+            verified.set(index, hash);
+            pieces.push(hash + ':' + piece.size + '\n');
+        }
+        // At the SDK's 10 GiB / 128 KiB limits this transcript is under 6 MiB.
+        if (await digest(new Blob(pieces), signal) !== receipt.digest) { throw failure('file_mismatch'); }
+        this.progress({ phase: 'uploaded', bytes: size, total: size });
     };
     Upload.prototype.start = async function (file) {
         if (this.controller) { throw failure('transfer_busy'); }
@@ -187,7 +214,11 @@
             while (true) {
                 try {
                     await this.prepare(signal);
-                    var parts = await this.parts(signal);
+                    var progress = await this.parts(signal), parts = progress.parts;
+                    if (progress.committed) {
+                        await this.verifyCommitted(file, progress.committed, verified, signal);
+                        return { identity: this.identity, bytes: size };
+                    }
                     confirmed = 0;
                     // Reselecting a same-name/same-size file does not prove its
                     // contents. Verify every acknowledged chunk before writes.
