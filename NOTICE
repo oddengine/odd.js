@@ -18,3 +18,8 @@ the names "oddengine" and "odd.js" must not be used to endorse or
 promote products derived from this software without specific prior 
 written permission. For written permission, please contact
 spencerlau@qq.com.
+
+The optional HEVC WebAssembly decoder under wasm/hevc includes FFmpeg 7.0.1
+and an LGPL-2.1-or-later C adapter. Its source archive, build scripts and
+licenses accompany the binaries in that directory. The root BSD license
+does not replace the licenses of these components. See wasm/hevc/README.md.

@@ -1,0 +1,32 @@
+{
+  "ffmpeg": "7.0.1",
+  "emscripten": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.64 (a1fe3902bf73a3802eae0357d273d0e37ea79898)",
+  "image": "emscripten/emsdk:3.1.64@sha256:8847dad4171ebc8a53d9ae5cda86a2546ef5b2e68834c14dc1ba2b2962e125cc",
+  "sourceArchive": "../vendor/ffmpeg-n7.0.1.tar.gz",
+  "sourceSHA256": "8dab1da0c7ebccb2dce99265901f22ac40f8e0fbbe4a89a368d7645f2e79caa0",
+  "license": "LGPL-2.1-or-later",
+  "decoders": [
+    "hevc"
+  ],
+  "threads": 1,
+  "initialMemoryBytes": 67108864,
+  "maximumMemoryBytes": 536870912,
+  "files": {
+    "odd.hevc.scalar.mjs": {
+      "bytes": 15223,
+      "sha256": "e18064c40fc31c7d82014c7193bb4f236db98d0e3372a50634edd6c14ebc0178"
+    },
+    "odd.hevc.scalar.wasm": {
+      "bytes": 790596,
+      "sha256": "2cbcef203ddeac0f38325d22567df23369db0299740a9cb786cd691c8837f7d9"
+    },
+    "odd.hevc.simd.mjs": {
+      "bytes": 15219,
+      "sha256": "590df0e753d3555b5dee00e495f978f5f283fec717716ea726855ec77bf122a4"
+    },
+    "odd.hevc.simd.wasm": {
+      "bytes": 1103659,
+      "sha256": "3f0337c25ef3209d68971bfd4251aa42f25e71afbf9e2faccf8059594aebb589"
+    }
+  }
+}
