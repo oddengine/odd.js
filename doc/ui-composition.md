@@ -141,3 +141,12 @@ voice messages remain unavailable.
 Offline browser checks cover focus, drafts, compact Send, 320/390px layouts,
 landscape and simulated 44/34px safe-area overrides. This is not physical-device,
 native keyboard, message-service or media interoperability verification.
+
+On phones and short coarse-pointer landscape screens, message avatars are 40px
+squares with 4px corners and align to the top of their bubbles. Avatar-to-bubble
+spacing is 8px; messages are separated by 12px. Bubbles use 8px vertical / 10px
+horizontal padding, 6px corners and 16px text on a 24px line. Paragraph margins
+are reset; sender and time remain at 12px / 16px. Long text wraps within the
+remaining width, including delivery indicators. Sent avatars remain on the right.
+These rules cover modern and classic IM skins, without shrinking retry or
+receipt controls or changing desktop, contact-list or composer behavior.
