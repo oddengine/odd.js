@@ -94,6 +94,7 @@
             }
             _readButton.hidden = !_channel || _channel.room;
             _loadButton.hidden = !_channel || !_channel.storage;
+            _tools.hidden = _readButton.hidden && _loadButton.hidden;
         }
         function load(older) {
             var channel = _channel, generation = _generation;
@@ -402,7 +403,6 @@
         };
 
         _loadButton = button('更早的本机历史', function () { return load(true); });
-        button('刷新消息与结果', function () { return im.recover().then(function () { return load(false); }); });
         _readButton = button('清除本账号未读', markRead);
         _reading = new UI.Reading(im, {
             visible: function () { return _this.components.messages ? _this.components.messages.visible() : []; },
