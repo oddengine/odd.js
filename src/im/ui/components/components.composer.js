@@ -72,6 +72,13 @@
             ],
         };
 
+    var _icons = {
+        emoji: ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', 'M8 14c1.5 3 6.5 3 8 0', 'M8 9h.01M16 9h.01'],
+        file: ['M8 12l6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l8-8', 'M6 14l8-8'],
+        'video-call': ['M4 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2', 'M16 10l6-4v12l-6-4'],
+        'voice-call': ['M5 3h3l2 5-3 2c2 4 3 5 7 7l2-3 5 2v3c0 2-2 3-4 2C10 19 5 14 3 7c-1-2 0-4 2-4'],
+    };
+
     function Composer(name, config, logger) {
         EventDispatcher.call(this, 'Composer', { logger: logger }, MouseEvent);
 
@@ -125,7 +132,27 @@
             button.title = label;
             button.setAttribute('aria-label', label);
             button.setAttribute('data-action', action);
-            button.textContent = label;
+            if (Object.prototype.hasOwnProperty.call(_icons, action)) {
+                var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('viewBox', '0 0 24 24');
+                svg.setAttribute('width', '20');
+                svg.setAttribute('height', '20');
+                svg.setAttribute('fill', 'none');
+                svg.setAttribute('stroke', 'currentColor');
+                svg.setAttribute('stroke-width', '1.8');
+                svg.setAttribute('stroke-linecap', 'round');
+                svg.setAttribute('stroke-linejoin', 'round');
+                svg.setAttribute('aria-hidden', 'true');
+                svg.setAttribute('focusable', 'false');
+                _icons[action].forEach(function (value) {
+                    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', value);
+                    svg.appendChild(path);
+                });
+                button.appendChild(svg);
+            } else {
+                button.textContent = label;
+            }
             return button;
         }
 
@@ -150,8 +177,15 @@
             }
         }
 
+        function _fitInput() {
+            _input.style.height = 'auto';
+            _input.style.height = Math.min(Math.max(_input.scrollHeight, 44), 112) + 'px';
+        }
+
         function _onInput() {
             _counter.textContent = _input.value.length + '/' + _config.maxlength;
+            _counter.hidden = !_input.value.length;
+            _fitInput();
         }
 
         function _onKeyDown(e) {
@@ -213,6 +247,7 @@
             _config = utils.extendz({}, _config, value || {});
             _input.maxLength = _config.maxlength;
             _input.placeholder = _config.placeholder;
+            _input.setAttribute('aria-label', _config.placeholder);
             _send.textContent = _config.labels.send;
             _send.title = _config.labels.send;
             _send.setAttribute('aria-label', _config.labels.send);
@@ -267,6 +302,7 @@
         };
 
         _this.resize = function () {
+            _fitInput();
         };
 
         _this.destroy = function () {

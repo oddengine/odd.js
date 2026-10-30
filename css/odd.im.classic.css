@@ -197,6 +197,8 @@
 
 .im-ui-classic .im-conversation-item small,
 .im-ui-classic .im-conversation-item time,
+.im-ui-classic .im-composer-counter[hidden] { display: none; }
+
 .im-ui-classic .im-composer-counter {
     color: #7f8996;
 }
@@ -402,6 +404,8 @@
     color: inherit;
     background: rgba(255, 255, 255, .05);
 }
+
+.im-ui-classic .im-composer-counter[hidden] { display: none; }
 
 .im-ui-classic .im-composer-counter {
     margin-top: 5px;
