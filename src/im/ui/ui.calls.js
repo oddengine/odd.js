@@ -3,6 +3,17 @@
 
     // A call stays visible independently of the selected conversation/tab.
     function CallPanel(im, config) {
+        config = config || {};
+        var labels = odd.utils.extendz({
+            call: 'Call', video: 'Video call', voice: 'Voice call', waiting: 'Waiting for an answer',
+            ringing: 'Ringing', connecting: 'Connecting', connected: 'Connected', recovering: 'Reconnecting',
+            closing: 'Closing media resources', ended: 'Ended', callEnded: 'Call ended', incoming: 'Incoming call',
+            answeredElsewhere: 'Answered on another device', dismiss: 'Dismiss', accept: 'Accept',
+            declineHere: 'Decline here', declineAll: 'Decline on all devices', end: 'End call', leave: 'Leave call',
+            retryPending: 'Retry pending operation', unknown: 'Result unknown. Reconnecting will retry the same operation.',
+            retry: 'Retry', disconnected: 'Connection lost. Waiting for authoritative call state.',
+            choose: 'Choose participants', calling: 'Calling', callSelected: 'Call selected participants', cancel: 'Cancel',
+        }, config.labels || {});
         var _this = this, _closed = false, _call = null, _selection = 0,
             _panel = document.createElement('section'), _title = document.createElement('h2'),
             _status = document.createElement('p'), _members = document.createElement('ul'),
@@ -10,7 +21,7 @@
             _elements = Object.create(null);
         _panel.className = 'im-call';
         _panel.hidden = true;
-        _panel.setAttribute('aria-label', 'Call');
+        _panel.setAttribute('aria-label', labels.call);
         _status.setAttribute('role', 'status');
         _media.className = 'im-call-media';
         _actions.className = 'im-call-actions';
@@ -50,12 +61,12 @@
             if (_call && _call.callId !== call.callId && _call.state !== 'ended') { return; }
             _call = call;
             _panel.hidden = false;
-            _title.textContent = (call.mode === 'video' ? 'Video call' : 'Voice call') + ' · ' + label(call.callerId);
-            var states = { invited: 'Waiting for an answer', ringing: 'Ringing', accepted: 'Waiting for an answer',
-                preparing: 'Connecting', connecting: 'Connecting', connected: 'Connected', recovering: 'Reconnecting',
-                ending: 'Closing media resources', ended: 'Ended' };
-            _status.textContent = ended ? 'Call ended' : closing ? states.ending : incoming ? 'Incoming call' :
-                own.deviceId && !selected ? 'Answered on another device' : states[own.state] || states.accepted;
+            _title.textContent = (call.mode === 'video' ? labels.video : labels.voice) + ' · ' + label(call.callerId);
+            var states = { invited: labels.waiting, ringing: labels.ringing, accepted: labels.waiting,
+                preparing: labels.connecting, connecting: labels.connecting, connected: labels.connected, recovering: labels.recovering,
+                ending: labels.closing, ended: labels.ended };
+            _status.textContent = ended ? labels.callEnded : closing ? states.ending : incoming ? labels.incoming :
+                own.deviceId && !selected ? labels.answeredElsewhere : states[own.state] || states.accepted;
             if (call.reason || own.reason) { _status.textContent += ' · ' + (own.reason || call.reason); }
             _members.textContent = '';
             call.participants.forEach(function (value) {
@@ -68,18 +79,18 @@
             });
             _actions.textContent = '';
             if (ended || own.state === 'ended' || (!incoming && own.deviceId && !selected)) {
-                button('Dismiss', dismiss);
+                button(labels.dismiss, dismiss);
             } else if (incoming && !closing) {
-                button('Accept', function () { return im.calls().accept(call.callId); });
-                button('Decline here', function () { return im.calls().reject(call.callId, false); });
-                button('Decline on all devices', function () { return im.calls().reject(call.callId, true); });
+                button(labels.accept, function () { return im.calls().accept(call.callId); });
+                button(labels.declineHere, function () { return im.calls().reject(call.callId, false); });
+                button(labels.declineAll, function () { return im.calls().reject(call.callId, true); });
             } else if (selected && !closing) {
-                button(call.callerId === endpoint.userId ? 'End call' : 'Leave call', function () {
+                button(call.callerId === endpoint.userId ? labels.end : labels.leave, function () {
                     return im.calls().action(call.callId, call.callerId === endpoint.userId ?
                         (call.state === 'inviting' ? 'cancel' : 'end') : 'leave');
                 });
             }
-            if (closing) { button('Retry pending operation', function () { im.calls().retry(); }); }
+            if (closing) { button(labels.retryPending, function () { im.calls().retry(); }); }
         }
         function changed(event) {
             var value = event.data.payload;
@@ -101,17 +112,17 @@
                     _media.appendChild(value.element);
                 }
             } else if (value.kind === 'call-operation' && value.state === 'unknown') {
-                _status.textContent = 'Result unknown. Reconnecting will retry the same operation.';
+                _status.textContent = labels.unknown;
                 _panel.hidden = false;
                 _actions.textContent = '';
-                button('Retry', function () { im.calls().retry(); });
+                button(labels.retry, function () { im.calls().retry(); });
             } else if (value.kind === 'calls-error' || value.kind === 'calls-gap' || value.state === 'rejected' || value.state === 'expired') {
                 _status.textContent = value.message;
             }
         }
         function disconnected() {
             if (!_panel.hidden) {
-                _status.textContent = 'Connection lost. Waiting for authoritative call state.';
+                _status.textContent = labels.disconnected;
                 _actions.textContent = '';
             }
         }
@@ -120,11 +131,11 @@
             if (im.calls().current()) { return Promise.reject(new Error('Finish the current call first.')); }
             _call = null;
             _panel.hidden = false;
-            _title.textContent = mode === 'video' ? 'Video call' : 'Voice call';
+            _title.textContent = mode === 'video' ? labels.video : labels.voice;
             _members.textContent = '';
             _media.textContent = '';
             _actions.textContent = '';
-            _status.textContent = target.type === 'group' ? 'Choose participants' : 'Calling';
+            _status.textContent = target.type === 'group' ? labels.choose : labels.calling;
             if (target.type === 'user') { return im.calls().invite(target, { mode: mode }); }
             if (target.type !== 'group' || typeof config.members !== 'function') {
                 return Promise.reject(new Error('Choose a contact or configure the group member directory.'));
@@ -145,11 +156,11 @@
                     row.appendChild(label);
                     _members.appendChild(row);
                 });
-                button('Call selected participants', function () {
+                button(labels.callSelected, function () {
                     var invitees = choices.filter(function (input) { return input.checked; }).map(function (input) { return input.value; });
                     return im.calls().invite(target, { mode: mode, invitees: invitees });
                 });
-                button('Cancel', dismiss);
+                button(labels.cancel, dismiss);
             });
         };
         _this.element = function () { return _panel; };

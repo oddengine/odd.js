@@ -112,7 +112,7 @@
                 if (_closed || _generation !== generation) { return; }
                 _cursor = records.length ? records[records.length - 1].conversationId : _cursor;
                 _more.hidden = records.length < 32;
-                _notice.textContent = '已保存的会话 · 未读表示当前账号尚未阅读的消息';
+                _notice.textContent = config.labels.summary === undefined ? '已保存的会话 · 未读表示当前账号尚未阅读的消息' : config.labels.summary;
             })();
             try { await _loading; }
             finally {
@@ -196,8 +196,11 @@
             Object.keys(_items).forEach(_this.remove);
             _tools.querySelectorAll('button').forEach(function (element) { element.onclick = null; });
         };
-        button(config.labels.refresh, function () { return im.recover().then(function () { return directory(false); }); });
+        if (config.refreshControl !== false) {
+            button(config.labels.refresh, function () { return im.recover().then(function () { return directory(false); }); });
+        }
         _more = button(config.labels.more, function () { return directory(true); });
+        _more.hidden = true;
         im.addEventListener(IMEvent.MESSAGE, onMessage);
         im.addEventListener(IMEvent.NOTIFY, onNotify);
         im.addEventListener(Event.READY, onReady);

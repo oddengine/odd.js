@@ -64,3 +64,8 @@
 
 /* Read-only conversations keep their composer hidden in every skin. */
 .odd-view .im-composer[hidden] { display: none; }
+
+/* Independent call windows size within their host and inherit its semantic theme. */
+.odd-view.odd-view-callpanel { width: auto; height: auto; bottom: auto; max-height: calc(100% - 2rem); background: var(--odd-bg); color: var(--odd-ink); border-color: var(--odd-line); }
+.odd-view.odd-view-callpanel .im-call-actions button { background: var(--odd-surface); color: var(--odd-ink); border-color: var(--odd-line); }
+.odd-view .im-contact[hidden], .odd-view .im-conversation-item[hidden] { display: none; }
