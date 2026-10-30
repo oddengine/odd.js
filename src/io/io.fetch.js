@@ -117,36 +117,30 @@
             });
         };
 
-        function _pump(reader) {
-            return reader.read().then(function (res) {
+        async function _pump(reader) {
+            // Await consumption without building a promise chain for every chunk
+            // of an indefinitely running live connection.
+            while (true) {
+                if (typeof _this.config.wait === 'function') { await _this.config.wait(_controller.signal); }
+                if (_controller.signal.aborted) {
+                    await reader.cancel();
+                    throw { name: 'AbortError', message: 'Loader was cancelled.' };
+                }
+                var res = await reader.read();
                 if (res.done) {
-                    _logger.log('Loader load.');
                     _readyState = ReadyState.DONE;
                     _this.dispatchEvent(IOEvent.LOAD);
                     _this.dispatchEvent(IOEvent.LOADEND);
-                    return Promise.resolve('load');
+                    return;
                 }
-
-                switch (_readyState) {
-                    case ReadyState.SENT:
-                        _readyState = ReadyState.LOADING;
-                        break;
-                    case ReadyState.DONE:
-                        _logger.warn('Loader state error, probably aborted already.');
-                        return reader.cancel();
-                }
-
-                _logger.debug('Loader progress: ' + res.value.buffer.byteLength + '/' + _total);
+                if (_readyState === ReadyState.DONE) { await reader.cancel(); return; }
+                _readyState = ReadyState.LOADING;
                 _this.dispatchEvent(IOEvent.PROGRESS, {
-                    buffer: res.value.buffer,
-                    loaded: res.value.buffer.byteLength,
+                    buffer: res.value.byteOffset === 0 && res.value.byteLength === res.value.buffer.byteLength ? res.value.buffer : res.value.slice().buffer,
+                    loaded: res.value.byteLength,
                     total: _total,
                 });
-
-                return _pump(reader);
-            }).catch(function (err) {
-                _onError(err);
-            });
+            }
         }
 
         function _onError(err) {

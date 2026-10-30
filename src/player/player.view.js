@@ -114,9 +114,7 @@
         _this.seek = function (offset) {
             if (_module) {
                 _module.seek(offset);
-                if (_model.state() !== 'pause') {
-                    _module.play();
-                }
+                // The presentation preserves the play/pause intent across seek.
             }
         };
 
@@ -163,20 +161,35 @@
             return _model.definition();
         };
 
+        // Presentation is independent of the DOM surface (video or canvas).
+        _this.position = function () {
+            if (_module && _module.position) { return _module.position(); }
+            var element = _module && _module.element();
+            return { time: element ? element.currentTime : 0, rate: element ? element.playbackRate : 1 };
+        };
+        _this.frame = function () {
+            if (_module && _module.frame) { return _module.frame(); }
+            var element = _module && _module.element();
+            return element && element.readyState >= 2 && element.videoWidth ? { source: element, width: element.videoWidth, height: element.videoHeight } : null;
+        };
+        _this.capabilities = function () {
+            return _module && _module.capabilities ? _module.capabilities() : { capture: true, nativeFullscreen: _module && _module.element() };
+        };
+
         _this.capture = function (width, height, mime) {
             try {
-                var video = _module && _module.element();
-                if (!_context || !video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+                var frame = _this.frame();
+                if (!_context || !frame || !frame.width || !frame.height) {
                     throw { name: 'InvalidStateError', message: 'No video frame is available for capture.' };
                 }
-                var w = width === undefined ? video.videoWidth : width,
-                    h = height === undefined ? video.videoHeight : height;
+                var w = width === undefined ? frame.width : width,
+                    h = height === undefined ? frame.height : height;
                 if (!Number.isSafeInteger(w) || !Number.isSafeInteger(h) || w <= 0 || h <= 0 || w * h > 16777216) {
                     throw { name: 'DataError', message: 'Capture dimensions are invalid or exceed 16 megapixels.' };
                 }
                 _canvas.width = w;
                 _canvas.height = h;
-                _context.drawImage(video, 0, 0, w, h);
+                _context.drawImage(frame.source, 0, 0, w, h);
                 var data = _canvas.toDataURL(mime || 'image/png');
                 if (data === 'data:,') { throw { name: 'OperationError', message: 'The browser could not create the capture.' }; }
                 _this.dispatchEvent(MediaEvent.SCREENSHOT, { image: data });

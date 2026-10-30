@@ -22,6 +22,9 @@
         var _this = this,
             _logger = logger,
             _video,
+            _surface,
+            _hevc,
+            _intent = false,
             _ready,
             _destroyed = false,
             _url,
@@ -40,6 +43,7 @@
             _credentialReject,
             _credentialController,
             _demuxer,
+            _samples,
             _ftyp,
             _moov,
             _segments,
@@ -75,29 +79,33 @@
             _writer = null;
             _need2remove = 0;
 
+            _surface = utils.createElement('div', 'odd-media-surface');
+            _surface.style.cssText = 'width:100%;height:100%;position:relative';
             _video = utils.createElement('video');
+            _video.style.cssText = 'width:100%;height:100%;object-fit:contain';
+            _surface.appendChild(_video);
             _video.addEventListener('play', _onPlay);
             _video.addEventListener('waiting', _onWaiting);
-            _video.addEventListener('loadstart', _this.forward);
-            _video.addEventListener('progress', _this.forward);
-            _video.addEventListener('suspend', _this.forward);
-            _video.addEventListener('stalled', _this.forward);
-            _video.addEventListener('abort', _this.forward);
-            _video.addEventListener('timeout', _this.forward);
+            _video.addEventListener('loadstart', _forwardNative);
+            _video.addEventListener('progress', _forwardNative);
+            _video.addEventListener('suspend', _forwardNative);
+            _video.addEventListener('stalled', _forwardNative);
+            _video.addEventListener('abort', _forwardNative);
+            _video.addEventListener('timeout', _forwardNative);
             _video.addEventListener('durationchange', _onDurationChange);
-            _video.addEventListener('loadedmetadata', _this.forward);
-            _video.addEventListener('loadeddata', _this.forward);
-            _video.addEventListener('canplay', _this.forward);
-            _video.addEventListener('playing', _this.forward);
-            _video.addEventListener('canplaythrough', _this.forward);
+            _video.addEventListener('loadedmetadata', _forwardNative);
+            _video.addEventListener('loadeddata', _forwardNative);
+            _video.addEventListener('canplay', _forwardNative);
+            _video.addEventListener('playing', _forwardNative);
+            _video.addEventListener('canplaythrough', _forwardNative);
             _video.addEventListener('pause', _onPause);
-            _video.addEventListener('seeking', _this.forward);
-            _video.addEventListener('seeked', _this.forward);
-            _video.addEventListener('ratechange', _this.forward);
+            _video.addEventListener('seeking', _forwardNative);
+            _video.addEventListener('seeked', _forwardNative);
+            _video.addEventListener('ratechange', _forwardNative);
             _video.addEventListener('timeupdate', _onTimeUpdate);
             _video.addEventListener('volumechange', _onVolumeChange);
-            _video.addEventListener('load', _this.forward);
-            _video.addEventListener('ended', _this.forward);
+            _video.addEventListener('load', _forwardNative);
+            _video.addEventListener('ended', _forwardNative);
             _video.addEventListener('error', _onError);
             if (_this.config.airplay) {
                 _video.setAttribute('x-webkit-airplay', 'allow');
@@ -135,6 +143,32 @@
             _initMuxer();
         }
 
+        function _forwardNative(e) {
+            if (!_hevc || !_hevc.active) { _this.forward(e); }
+        }
+
+        function _resetPresentation() {
+            if (_hevc) { _hevc.destroy(); }
+            _video.hidden = false;
+            _samples = null;
+            _hevc = new AV.HEVCPlayback(_surface, _video, _this.config, _logger);
+            _hevc.addGlobalListener(function (e) {
+                if (e.type === Event.ERROR && !e.data.recoverable) {
+                    _onDecodeError(e);
+                } else { _this.forward(e); }
+            });
+        }
+
+        function _fallback(reason) {
+            if (!_hevc || !_hevc.configuration || _hevc.active) { return false; }
+            _hevc.activate(_video.currentTime, _intent, reason && reason.name ? { name: reason.name, message: reason.message } : { name: 'NotSupportedError', message: 'Native HEVC presentation is unavailable or its configuration changed.' });
+            _segments = [];
+            _clearSourceBuffer();
+            _removingTimer.reset();
+            if (_ended) { _hevc.end(); }
+            return true;
+        }
+
         function _initMSE() {
             var MediaSource = window.MediaSource || window.WebKitMediaSource;
             _ms = new MediaSource();
@@ -162,9 +196,9 @@
         }
 
         function _initMuxer() {
-            _demuxer = new Format.FMP4(_logger);
+            _demuxer = new Format.FMP4(_logger, { streaming: true });
             _demuxer.addEventListener(MediaEvent.PACKET, _onFMP4Packet);
-            _demuxer.addEventListener(Event.ERROR, _this.forward);
+            _demuxer.addEventListener(Event.ERROR, _onDecodeError);
         }
 
         function _cleanupMuxer() {
@@ -191,6 +225,7 @@
         };
 
         _this.play = function (program) {
+            _intent = true;
             if (_destroyed) {
                 return;
             }
@@ -212,6 +247,7 @@
                     return;
                 }
 
+                try { _resetPresentation(); } catch (error) { _onDecodeError({ data: error }); return; }
                 _source = utils.extendz({}, program.sources[0]);
                 _ended = false;
                 _failed = false;
@@ -222,8 +258,9 @@
                 _video.load();
             }
 
+            if (_hevc && _hevc.active) { _hevc.play(); return; }
             _video.play().catch(function (err) {
-                if (_destroyed) {
+                if (_destroyed || (_hevc && _hevc.active)) {
                     return;
                 }
                 switch (err.name) {
@@ -248,15 +285,22 @@
         };
 
         _this.pause = function () {
+            _intent = false;
+            _buffering = false;
+            if (_hevc && _hevc.active) { _hevc.pause(); return; }
             _video.pause();
             _video.controls = false;
         };
 
         _this.seek = function (offset) {
+            if (_hevc && _hevc.active) { _hevc.seek(offset); return; }
             _video.currentTime = offset;
         };
 
         _this.stop = function () {
+            _intent = false;
+            if (_hevc) { _hevc.destroy(); _hevc = null; }
+            _video.hidden = false;
             _sourceTimer.reset();
             _removingTimer.reset();
             _statsTimer.reset();
@@ -288,6 +332,7 @@
         _this.muted = function (status) {
             if (utils.typeOf(status) === 'boolean') {
                 _video.muted = status;
+                if (_hevc) { _hevc.muted(status); }
             }
             return _video.muted;
         };
@@ -295,6 +340,7 @@
         _this.volume = function (f) {
             if (utils.typeOf(f) === 'number') {
                 _video.volume = f;
+                if (_hevc) { _hevc.volume(f); }
             }
             return _video.volume;
         };
@@ -327,8 +373,12 @@
         };
 
         _this.element = function () {
-            return _video;
+            return _surface;
         };
+
+        _this.position = function () { return _hevc && _hevc.active ? _hevc.position() : { time: _video.currentTime, rate: _video.playbackRate }; };
+        _this.frame = function () { return _hevc && _hevc.active ? _hevc.frame() : _video.readyState >= 2 ? { source: _video, width: _video.videoWidth, height: _video.videoHeight } : null; };
+        _this.capabilities = function () { return { capture: true, nativeFullscreen: _hevc && _hevc.active ? null : _video }; };
 
         _this.destroy = function () {
             if (_destroyed) {
@@ -352,43 +402,49 @@
 
             _video.removeEventListener('play', _onPlay);
             _video.removeEventListener('waiting', _onWaiting);
-            _video.removeEventListener('loadstart', _this.forward);
-            _video.removeEventListener('progress', _this.forward);
-            _video.removeEventListener('suspend', _this.forward);
-            _video.removeEventListener('stalled', _this.forward);
-            _video.removeEventListener('abort', _this.forward);
-            _video.removeEventListener('timeout', _this.forward);
+            _video.removeEventListener('loadstart', _forwardNative);
+            _video.removeEventListener('progress', _forwardNative);
+            _video.removeEventListener('suspend', _forwardNative);
+            _video.removeEventListener('stalled', _forwardNative);
+            _video.removeEventListener('abort', _forwardNative);
+            _video.removeEventListener('timeout', _forwardNative);
             _video.removeEventListener('durationchange', _onDurationChange);
-            _video.removeEventListener('loadedmetadata', _this.forward);
-            _video.removeEventListener('loadeddata', _this.forward);
-            _video.removeEventListener('canplay', _this.forward);
-            _video.removeEventListener('playing', _this.forward);
-            _video.removeEventListener('canplaythrough', _this.forward);
+            _video.removeEventListener('loadedmetadata', _forwardNative);
+            _video.removeEventListener('loadeddata', _forwardNative);
+            _video.removeEventListener('canplay', _forwardNative);
+            _video.removeEventListener('playing', _forwardNative);
+            _video.removeEventListener('canplaythrough', _forwardNative);
             _video.removeEventListener('pause', _onPause);
-            _video.removeEventListener('seeking', _this.forward);
-            _video.removeEventListener('seeked', _this.forward);
-            _video.removeEventListener('ratechange', _this.forward);
+            _video.removeEventListener('seeking', _forwardNative);
+            _video.removeEventListener('seeked', _forwardNative);
+            _video.removeEventListener('ratechange', _forwardNative);
             _video.removeEventListener('timeupdate', _onTimeUpdate);
             _video.removeEventListener('volumechange', _onVolumeChange);
-            _video.removeEventListener('load', _this.forward);
-            _video.removeEventListener('ended', _this.forward);
+            _video.removeEventListener('load', _forwardNative);
+            _video.removeEventListener('ended', _forwardNative);
             _video.removeEventListener('error', _onError);
         };
 
         function _onPlay(e) {
+            if (_hevc && _hevc.active) { return; }
             _sourceTimer.reset();
             _this.forward(e);
         }
 
         function _onWaiting(e) {
-            if (_this.config.bufferLength > .1) {
-                _buffering = true;
-                _this.pause();
-            }
+            if (_hevc && _hevc.active) { return; }
+            if (!_intent) { return; }
+            var ranges = _video.buffered;
+            var remaining = ranges.length ? ranges.end(ranges.length - 1) - _video.currentTime : 0;
+            if (remaining >= _this.config.bufferLength || (_ended && remaining > .01)) { return; }
+            if (_buffering) { return; }
+            _buffering = true;
+            _video.pause();
             _this.forward(e);
         }
 
         function _onPause(e) {
+            if (_hevc && _hevc.active) { return; }
             if (_buffering === false) {
                 _this.forward(e);
             }
@@ -408,6 +464,7 @@
         }
 
         function _onSourceEnded(e) {
+            if (_hevc && _hevc.active) { return; }
             _logger.log('MediaSource.onsourceended');
             if (_buffering) {
                 _sourceTimer.start();
@@ -415,11 +472,13 @@
         }
 
         function _onSourceClose(e) {
+            if (_hevc && _hevc.active) { return; }
             _logger.log('MediaSource.onsourceclose');
             _sourceTimer.reset();
         }
 
         function _onSourceTimer(e) {
+            if (_hevc && _hevc.active) { return; }
             if (_buffering) {
                 _logger.warn('Seems stalled, stop playing manually.');
                 _this.stop();
@@ -427,6 +486,7 @@
         }
 
         function _onSourceError(e) {
+            if ((_hevc && _hevc.active) || _fallback()) { return; }
             _logger.log('MediaSource.onsourceerror');
             if (!_destroyed) {
                 _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'MediaSource failed to process the selected stream.' });
@@ -566,13 +626,20 @@
             _cleanupLoader();
         }
 
+        function _onDecodeError(e) {
+            if (_failed) { return; }
+            _this.stop();
+            _this.dispatchEvent(Event.ERROR, e.data);
+        }
+
         function _onLoadError(e) {
             _failed = true;
             _cancelLoad();
-            _this.dispatchEvent(Event.ERROR, { name: e.data.name, message: e.data.message });
+            _this.dispatchEvent(Event.ERROR, e.data);
         }
 
         function _initLoader(option, url) {
+            option.wait = function (signal) { return _hevc ? _hevc.wait(signal) : Promise.resolve(); };
             _cleanupLoader();
 
             var Loader;
@@ -638,6 +705,10 @@
 
         function _onLoadEnd(e) {
             _loading = false;
+            if (_failed) { return; }
+            if (!_demuxer.complete() || (_samples && !_samples.complete())) {
+                _onDecodeError({ data: { name: 'DataError', message: 'Truncated MP4 media.' } }); return;
+            }
             if (_credentialTimer !== undefined) {
                 _onLoadError({ data: { name: 'NetworkError', message: 'Live media ended before the first data.' } });
                 return;
@@ -665,21 +736,28 @@
         }
 
         function _onFMP4Packet(e) {
-            var pkt = e.data.packet;
-            // _logger.log(pkt.get('Type') + ': ' + pkt.timestamp);
-            var type = pkt.get('Type');
-            switch (type) {
-                case 'ftyp':
-                    _ftyp = pkt;
-                    _segments.push(pkt.payload);
-                    return;
-                case 'moov':
+            if (_failed) { return; }
+            var pkt = e.data.packet, type = pkt.get('Type');
+            try {
+                if (type === 'ftyp') { _ftyp = pkt; }
+                if (type === 'moov') {
                     _moov = pkt;
-                    _addSourceBuffer();
-                    break;
-            }
-            _segments.push(pkt.payload);
-            _appendBuffer();
+                    _this.dispatchEvent(MediaEvent.INFOCHANGE, { info: { MimeType: _demuxer.info.MimeType, Codecs: _demuxer.info.Codecs.join(','), Width: _demuxer.info.Width, Height: _demuxer.info.Height } });
+                    var tracks = pkt.get('Tracks'), video = tracks.find(function (track) { return track.lengthSize; });
+                    if (video) {
+                        var changed = !!_hevc.configuration;
+                        var audio = tracks.find(function (track) { return track.kind === 'audio'; });
+                        _hevc.configure(video, !!audio);
+                        if (audio) { _hevc.audio({ mime: 'audio/mp4; codecs="' + audio.codec + '"', init: Format.FMP4.merge(_ftyp ? _ftyp.payload : Format.FMP4.ftyp(), audio.init) }); }
+                        _samples = new Format.FMP4.Samples(tracks, function (sample) { _hevc.append(sample); }, _this.config.hevc?.maxPacketBytes);
+                        var mime = 'video/mp4; codecs="' + tracks.map(function (track) { return track.codec; }).join(',') + '"';
+                        if (changed || _this.config.hevc?.mode === 'wasm' || !MediaSource.isTypeSupported(mime)) { _fallback(); }
+                    }
+                    if (!_hevc.active) { _addSourceBuffer(); }
+                }
+                if (_samples) { _samples.append(pkt); }
+                if (!_hevc.active) { _segments.push(pkt.payload); _appendBuffer(); }
+            } catch (error) { _onDecodeError({ data: error }); return; }
 
             var writer = _writer;
             if (!writer || writer.readyState === WriterState.CLOSING || writer.readyState === WriterState.END) { return; }
@@ -696,15 +774,17 @@
                     _recordFragment = { packet: pkt, layout: layout };
                 } else if (type === 'mdat' && _recordFragment) {
                     var fragment = _recordFragment;
-                    _recordFragment = null;
-                    Format.FMP4.recordingBody(fragment.packet.payload, pkt.payload, fragment.layout.ranges);
-                    if (writer.readyState === WriterState.INIT) {
-                        if (!fragment.layout.independent) { return; }
-                        writer.start();
-                        writer.write([_ftyp.payload, _moov.payload, fragment.packet.payload, pkt.payload]);
-                    } else {
-                        writer.write([fragment.packet.payload, pkt.payload]);
+                    if (!fragment.started) {
+                        Format.FMP4.recordingBody(fragment.packet.payload, pkt.payload, fragment.layout.ranges, pkt.length);
+                        fragment.started = true;
+                        fragment.skip = writer.readyState === WriterState.INIT && !fragment.layout.independent;
+                        if (!fragment.skip) {
+                            if (writer.readyState === WriterState.INIT) { writer.start(); writer.write([_ftyp.payload, _moov.payload]); }
+                            writer.write(fragment.packet.payload);
+                        }
                     }
+                    if (!fragment.skip) { writer.write(pkt.payload); }
+                    if (pkt.get('Final')) { _recordFragment = null; }
                 } else if (type === 'mdat' && writer.readyState === WriterState.START) {
                     throw { name: 'NotSupportedError', message: 'Additional mdat bodies require a different recording layout.' };
                 }
@@ -713,6 +793,11 @@
 
         function _onEndOfStream(e) {
             _ended = true;
+            if (_hevc && _hevc.active) {
+                _hevc.end();
+                if (_writer) { _writer.close(); _writer = null; }
+                return;
+            }
             if (_ms.readyState !== 'open') {
                 return;
             }
@@ -736,7 +821,7 @@
         function _addSourceBuffer() {
             var type = _demuxer.info.MimeType + '; codecs="' + _demuxer.info.Codecs.join(',') + '"';
             if (MediaSource.isTypeSupported(type) === false) {
-                _logger.warn(type + ' not supported!');
+                _onDecodeError({ data: { name: 'NotSupportedError', message: type + ' is not supported.' } });
                 return;
             }
 
@@ -753,7 +838,7 @@
                 // sb.mode = 'sequence';
                 _sb.push(sb);
             } catch (err) {
-                _logger.error(err.name + ': ' + err.message);
+                if (!_fallback(err)) { _onDecodeError({ data: err }); }
             }
 
             _this.dispatchEvent(MediaEvent.INFOCHANGE, {
@@ -783,26 +868,24 @@
         }
 
         function _appendBuffer() {
+            if (_hevc && _hevc.active) { return; }
             if (_segments.length > 0) {
                 var segment = _segments[0];
                 var sb = _sb[0];
-                if (sb === undefined) {
-                    _segments.shift();
-                    _appendBuffer();
-                    return;
-                }
+                if (sb === undefined) { return; }
                 if (!sb.updating) {
                     try {
                         sb.appendBuffer(segment);
                         _segments.shift();
                     } catch (err) {
-                        _logger.debug(err.name + ': ' + err.message);
+                        if (!_fallback(err)) { _onDecodeError({ data: err }); }
                     }
                 }
             }
         }
 
         function _onUpdateEnd(e) {
+            if (_hevc && _hevc.active) { return; }
             _logger.debug('SourceBuffer.onupdateend');
 
             var ranges = _video.buffered;
@@ -816,9 +899,9 @@
                     _logger.warn('Seems stalled, seeking to the available time ' + _video.currentTime + '.');
                 }
             }
-            if (_buffering) {
+            if (_buffering && _intent) {
                 var buffer = buffered - _video.currentTime;
-                if (buffer >= _this.config.bufferLength) {
+                if (buffer >= _this.config.bufferLength || (_ended && buffer > 0)) {
                     _buffering = false;
                     _this.play();
                 }
@@ -856,6 +939,7 @@
         }
 
         function _onSourceBufferError(err) {
+            if ((_hevc && _hevc.active) || _fallback()) { return; }
             _logger.error('SourceBuffer.onerror');
             _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'SourceBuffer error occurs.' });
         }
@@ -870,10 +954,12 @@
         }
 
         function _onRemovingTimer(e) {
+            if (_hevc && _hevc.active) { return; }
             _need2remove = _video.currentTime;
         }
 
         function _onDurationChange(e) {
+            if (_hevc && _hevc.active) { return; }
             _this.dispatchEvent(Event.DURATIONCHANGE, { duration: _video.duration });
             _this.dispatchEvent(MediaEvent.INFOCHANGE, { info: { Duration: _video.duration } });
             if (_this.config.mode === 'live' && !isNaN(_this.config.maxPlaybackLength)) {
@@ -882,6 +968,7 @@
         }
 
         function _onTimeUpdate(e) {
+            if (_hevc && _hevc.active) { return; }
             var ranges = _video.buffered;
             var start = ranges.length ? ranges.start(0) : 0;
             var buffered = ranges.length ? ranges.end(ranges.length - 1) : 0;
@@ -925,6 +1012,8 @@
         }
 
         function _onError(e) {
+            if ((_hevc && _hevc.active) || !_video.error) { return; }
+            if ((_video.error.code === 3 || _video.error.code === 4) && _fallback()) { return; }
             var err = {
                 1: { name: 'AbortError', message: 'The operation was aborted.' },
                 2: { name: 'NetworkError', message: 'A network error occurred.' },

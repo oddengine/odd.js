@@ -1,4 +1,11 @@
 @echo off
+if not exist .\release\wasm\hevc mkdir .\release\wasm\hevc
+copy /y .\wasm\hevc\dist\*.mjs .\release\wasm\hevc\ >nul
+if errorlevel 1 exit /b 1
+copy /y .\wasm\hevc\dist\*.wasm .\release\wasm\hevc\ >nul
+if errorlevel 1 exit /b 1
+copy /y .\src\player\av\av.hevc.worker.js .\release\wasm\hevc\odd.hevc.worker.js >nul
+if errorlevel 1 exit /b 1
 
 copy /Y .\src\utils\utils.streamsaver.worker.js .\release\odd.recording.worker.js >nul
 if errorlevel 1 exit /b 1
@@ -233,20 +240,27 @@ set scripts[2]=".\src\player\av\codec\codec.aac.js"
 set scripts[3]=".\src\player\av\codec\codec.avc.js"
 set scripts[4]=".\src\player\av\codec\codec.avc.sps.js"
 set scripts[5]=".\src\player\av\codec\codec.avc.pps.js"
-set scripts[6]=".\src\player\av\format\format.js"
-set scripts[7]=".\src\player\av\format\format.flv.js"
-set scripts[8]=".\src\player\av\format\format.fmp4.js"
-set scripts[9]=".\src\player\module\module.js"
-set scripts[10]=".\src\player\module\module.src.js"
-set scripts[11]=".\src\player\module\module.flv.js"
-set scripts[12]=".\src\player\module\module.fmp4.js"
-set scripts[13]=".\src\player\module\module.rtc.js"
-set scripts[14]=".\src\player\player.js"
-set scripts[15]=".\src\player\player.model.js"
-set scripts[16]=".\src\player\player.view.js"
-set scripts[17]=".\src\player\player.controller.js"
-set scripts[18]=".\src\player\player.program.js"
-set length=19
+set scripts[6]=".\src\player\av\codec\codec.hevc.js"
+set scripts[7]=".\src\player\av\codec\codec.opus.js"
+set scripts[8]=".\src\player\av\format\format.js"
+set scripts[9]=".\src\player\av\format\format.flv.js"
+set scripts[10]=".\src\player\av\format\format.fmp4.js"
+set scripts[11]=".\src\player\av\format\format.fmp4.samples.js"
+set scripts[12]=".\src\player\av\av.mediabuffer.js"
+set scripts[13]=".\src\player\av\av.yuv.js"
+set scripts[14]=".\src\player\av\av.hevc.js"
+set scripts[15]=".\src\player\module\module.js"
+set scripts[16]=".\src\player\module\module.src.js"
+set scripts[17]=".\src\player\module\module.flv.js"
+set scripts[18]=".\src\player\module\module.fmp4.js"
+set scripts[19]=".\src\player\module\module.rtc.js"
+set scripts[20]=".\src\player\player.js"
+set scripts[21]=".\src\player\player.model.js"
+set scripts[22]=".\src\player\player.view.js"
+set scripts[23]=".\src\player\player.controller.js"
+set scripts[24]=".\src\player\player.program.js"
+
+set length=25
 
 cd.>.\release\odd.player.js
 

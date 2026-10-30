@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+mkdir -p ./release/wasm/hevc
+cp ./wasm/hevc/dist/*.mjs ./wasm/hevc/dist/*.wasm ./release/wasm/hevc/
+cp ./src/player/av/av.hevc.worker.js ./release/wasm/hevc/odd.hevc.worker.js
+
 cp ./src/utils/utils.streamsaver.worker.js ./release/odd.recording.worker.js
 
 scripts=()
@@ -192,16 +196,20 @@ scripts[7]="./src/player/av/codec/codec.opus.js"
 scripts[8]="./src/player/av/format/format.js"
 scripts[9]="./src/player/av/format/format.flv.js"
 scripts[10]="./src/player/av/format/format.fmp4.js"
-scripts[11]="./src/player/module/module.js"
-scripts[12]="./src/player/module/module.src.js"
-scripts[13]="./src/player/module/module.flv.js"
-scripts[14]="./src/player/module/module.fmp4.js"
-scripts[15]="./src/player/module/module.rtc.js"
-scripts[16]="./src/player/player.js"
-scripts[17]="./src/player/player.model.js"
-scripts[18]="./src/player/player.view.js"
-scripts[19]="./src/player/player.controller.js"
-scripts[20]="./src/player/player.program.js"
+scripts[11]="./src/player/av/format/format.fmp4.samples.js"
+scripts[12]="./src/player/av/av.mediabuffer.js"
+scripts[13]="./src/player/av/av.yuv.js"
+scripts[14]="./src/player/av/av.hevc.js"
+scripts[15]="./src/player/module/module.js"
+scripts[16]="./src/player/module/module.src.js"
+scripts[17]="./src/player/module/module.flv.js"
+scripts[18]="./src/player/module/module.fmp4.js"
+scripts[19]="./src/player/module/module.rtc.js"
+scripts[20]="./src/player/player.js"
+scripts[21]="./src/player/player.model.js"
+scripts[22]="./src/player/player.view.js"
+scripts[23]="./src/player/player.controller.js"
+scripts[24]="./src/player/player.program.js"
 
 :>./release/odd.player.js
 

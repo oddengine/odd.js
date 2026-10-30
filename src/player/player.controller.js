@@ -196,10 +196,10 @@
                 return;
             }
 
-            var video = _view.element();
+            var position = _view.position();
             _switching = {
                 index: e.data.index,
-                offset: program.vod && video && isFinite(video.currentTime) ? video.currentTime : 0,
+                offset: program.vod && position && isFinite(position.time) ? position.time : 0,
                 paused: _model.state() === Event.PAUSE,
             };
             _retries = 0;
@@ -227,9 +227,9 @@
         }
 
         function _onRateChange(e) {
-            var video = _view.element();
-            if (video) {
-                _logger.log('Rate change: ' + video.playbackRate);
+            var position = _view.position();
+            if (position) {
+                _logger.log('Rate change: ' + position.rate);
             }
             _this.forward(e);
         }
@@ -257,7 +257,7 @@
         function _onError(e) {
             _logger.error(e.data.name + ': ' + e.data.message);
 
-            if (e.data.recoverable === true && (e.data.operation === 'capture' || e.data.operation === 'record')) {
+            if (e.data.recoverable === true && (['capture', 'record', 'play', 'seek'].indexOf(e.data.operation) !== -1)) {
                 _this.forward(e);
                 return;
             }

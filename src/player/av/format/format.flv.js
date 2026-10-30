@@ -82,9 +82,11 @@
             _logger = logger,
             _parsing,
             _backpointer,
-            _packet;
+            _packet,
+            _revision = 0;
 
         function _init() {
+            _revision++;
             _parsing = sw.f;
             _backpointer = 0;
             _this.hasAudio = false;
@@ -92,9 +94,9 @@
         }
 
         _this.append = function (buffer) {
-            var data = new Uint8Array(buffer);
+            var data = new Uint8Array(buffer), revision = _revision;
 
-            for (var i = 0; i < data.byteLength; i++) {
+            for (var i = 0; i < data.byteLength && revision === _revision; i++) {
                 switch (_parsing) {
                     case sw.f:
                         if (data[i] !== 0x46) {
@@ -287,18 +289,33 @@
                                         _this.dispatchEvent(Event.ERROR, { name: 'DataError', message: 'Incomplete FLV video header.' });
                                         return;
                                     }
-                                    _packet.set('FrameType', (_packet.payload[0] >> 4) & 15);
+                                    _packet.set('FrameType', (_packet.payload[0] >> 4) & 7);
                                     _packet.set('Codec', _packet.payload[0] & 15);
                                     _packet.set('DataType', _packet.payload[1]);
-                                    var cts = _packet.payload[2] << 16 | _packet.payload[3] << 8 | _packet.payload[4];
-                                    cts = cts & 0x800000 ? cts - 0x1000000 : cts;
-                                    if ((_packet.payload[0] & 0x80) || _packet.payload[1] > 2 || cts !== 0) {
-                                        _this.dispatchEvent(Event.ERROR, { name: 'NotSupportedError', message: 'Unsupported FLV video header or composition time.' });
-                                        return;
+                                    var enhanced = (_packet.payload[0] & 0x80) !== 0;
+                                    var dataType = _packet.payload[1], position = 5, cts = 0;
+                                    if (enhanced) {
+                                        var fourcc = String.fromCharCode.apply(null, _packet.payload.subarray(1, 5));
+                                        dataType = _packet.payload[0] & 15;
+                                        if ((fourcc !== 'hvc1' && fourcc !== 'hev1') || dataType > 4) {
+                                            throw { name: 'NotSupportedError', message: 'Unsupported enhanced FLV video.' };
+                                        }
+                                        _packet.set('Codec', Codecs.HEVC);
+                                        _packet.set('FourCC', fourcc);
+                                        if (dataType === 1) {
+                                            if (_packet.length < 8) { throw { name: 'DataError', message: 'Incomplete enhanced FLV CTS.' }; }
+                                            cts = _packet.payload[5] << 16 | _packet.payload[6] << 8 | _packet.payload[7];
+                                            position = 8;
+                                        } else if (dataType === 3) { dataType = 1; }
+                                    } else {
+                                        cts = _packet.payload[2] << 16 | _packet.payload[3] << 8 | _packet.payload[4];
                                     }
+                                    if (dataType > 2 && !(enhanced && dataType === 4)) { throw { name: 'NotSupportedError', message: 'Unsupported FLV video packet.' }; }
+                                    cts = cts & 0x800000 ? cts - 0x1000000 : cts;
                                     _packet.set('CTS', cts);
+                                    _packet.set('DataType', dataType);
                                     _packet.set('Keyframe', _packet.get('FrameType') === Frames.KEYFRAME);
-                                    _packet.position = 5;
+                                    _packet.position = position;
                                     break;
                                 case Packet.KindScript:
                                     _packet.position = 0;
@@ -308,6 +325,7 @@
                                 throw { name: 'DataError', message: 'Unexpected sequence end payload.' };
                             }
                             _this.dispatchEvent(MediaEvent.PACKET, { packet: _packet });
+                            if (revision !== _revision) { return; }
                             _parsing = sw.backpointer0;
                         }
                         break;
@@ -318,6 +336,8 @@
                 }
             }
         };
+
+        _this.complete = function () { return _parsing === sw.type; };
 
         _this.reset = function () {
             _init();

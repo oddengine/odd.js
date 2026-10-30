@@ -24,6 +24,7 @@
                 scope: 'js/',
                 enable: false,
             },
+            hevc: {}, // AV.HEVCPlayback.defaults; assets load only on software fallback.
             loader: {
                 mode: 'cors',          // cors, no-cors, same-origin
                 credentials: 'omit',   // omit, include, same-origin
@@ -31,12 +32,12 @@
             live: {
                 bufferLength: 0.5,     // sec.
                 maxBufferLength: 3,    // sec.
-                maxPlaybackLength: 10, // min.
+                maxPlaybackLength: 10, // sec.
             },
             vod: {
                 chunk: 2,              // MB.
                 maxBufferLength: 30,   // sec.
-                maxPlaybackLength: 30, // min.
+                maxPlaybackLength: 30, // sec.
                 preload: 'metadata',   // none, metadata, auto
                 loop: false,
             },
@@ -118,6 +119,9 @@
             _this.volume = _view.volume;
             _this.definition = _view.definition;
             _this.capture = _view.capture;
+            _this.position = _view.position;
+            _this.frame = _view.frame;
+            _this.capabilities = _view.capabilities;
             _this.record = _view.record;
             _this.getProperty = _model.getProperty;
             _this.dispatchEvent(Event.BIND);

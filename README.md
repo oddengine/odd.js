@@ -1,5 +1,7 @@
 # odd.js
 
+Player 新增 [H.265 原生优先与 WASM 回退](doc/player-hevc.md)，FFmpeg 7.0.1 C 源码、scalar/SIMD 产物与可复现脚本随仓库提供。
+
 聚合 App SDK 已移除。产品应用直接组合独立 Player、RTC、IM、Famicom 实例和可选 UI；巨蟹直播、天秤会议、双子通信的业务流程由网站产品层实现。`odd.min.js` 仅是独立 SDK 的合并分发文件，不提供 `odd.App`／`odd.app`。源码构建配方已更新，未重建 release。
 
 [频道普通消息](doc/channel-messages.md)：具名用户使用稳定设备与持久存储；在线广播和可靠消息沿原消息接口，媒体发现仍使用 events。

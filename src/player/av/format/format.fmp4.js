@@ -9,7 +9,7 @@
         MediaStream = Format.MediaStream,
 
         types = {
-            avc1: [], avcC: [], hvc1: [], hvcC: [], Opus: [], dOps: [], btrt: [], dinf: [],
+            avc1: [], avcC: [], hvc1: [], hev1: [], hvcC: [], Opus: [], dOps: [], btrt: [], dinf: [],
             dref: [], esds: [], ftyp: [], hdlr: [],
             mdat: [], mdhd: [], mdia: [], mfhd: [],
             minf: [], moof: [], moov: [], mp4a: [],
@@ -101,184 +101,130 @@
         arr.push(name.charCodeAt(0), name.charCodeAt(1), name.charCodeAt(2), name.charCodeAt(3));
     });
 
-    function FMP4(logger) {
-        MediaStream.call(this, 'FMP4', { logger: logger }, [MediaEvent.PACKET], [Event.ERROR]);
-
-        var _this = this,
-            _logger = logger,
-            _packet;
-
+    function FMP4(logger, options) {
+        MediaStream.call(this, 'FMP4', {
+            logger: logger
+        }, [ MediaEvent.PACKET ], [ Event.ERROR ]);
+        var _this = this, _logger = logger, _header, _used, _need, _packet, _offset, _revision = 0;
+        options = options || {};
         function _init() {
-            _packet = new AV.Packet();
-            _packet.parsing = sw.size0;
+            _revision++;
+            _header = new Uint8Array(16);
+            _used = 0;
+            _need = 8;
+            _packet = null;
+            _offset = 0;
         }
-
-        _this.append = function (buffer) {
-            var data = new Uint8Array(buffer);
-            for (var i = 0; i < data.byteLength; /* void */) {
-                try {
-                    i += _parse(_packet, data, i);
-                } catch (err) {
-                    _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
-                    break;
+        function emit(packet) {
+            if (packet.get('Type') === 'moov') {
+                var tracks = FMP4.inspect(packet.payload, _logger);
+                packet.set('Tracks', tracks);
+                var video = tracks.find(function(track) {
+                    return track.kind === 'video';
+                });
+                if (video) {
+                    _this.info.Width = video.width;
+                    _this.info.Height = video.height;
                 }
-                if (_packet.parsing === sw.complete) {
-                    _this.dispatchEvent(MediaEvent.PACKET, { packet: _packet });
-                    _packet = new AV.Packet();
-                    _packet.parsing = sw.size0;
-                }
+                _this.info.Codecs = tracks.map(function(track) {
+                    return track.codec;
+                });
+                _this.info.MimeType = tracks.some(function(track) {
+                    return track.kind === 'video';
+                }) ? 'video/mp4' : 'audio/mp4';
             }
-        };
-
-        function _parse(dst, data, byteOffset) {
-            for (var i = byteOffset; i < data.byteLength; i++) {
-                switch (dst.parsing) {
-                    case sw.size0:
-                        dst.length = data[i] << 24;
-                        dst.parsing = sw.size1;
-                        break;
-
-                    case sw.size1:
-                        dst.length |= data[i] << 16;
-                        dst.parsing = sw.size2;
-                        break;
-
-                    case sw.size2:
-                        dst.length |= data[i] << 8;
-                        dst.parsing = sw.size3;
-                        break;
-
-                    case sw.size3:
-                        dst.length |= data[i];
-                        dst.payload = new Uint8Array(dst.length);
-                        dst.payload.set([dst.length >> 24, dst.length >> 16, dst.length >> 8, dst.length], 0);
-                        dst.position = 4;
-                        dst.parsing = sw.type0;
-                        break;
-
-                    case sw.type0:
-                        dst.set('Type', String.fromCharCode(data[i]));
-                        dst.payload.set([data[i]], dst.position++);
-                        dst.parsing = sw.type1;
-                        break;
-
-                    case sw.type1:
-                        dst.set('Type', dst.get('Type') + String.fromCharCode(data[i]));
-                        dst.payload.set([data[i]], dst.position++);
-                        dst.parsing = sw.type2;
-                        break;
-
-                    case sw.type2:
-                        dst.set('Type', dst.get('Type') + String.fromCharCode(data[i]));
-                        dst.payload.set([data[i]], dst.position++);
-                        dst.parsing = sw.type3;
-                        break;
-
-                    case sw.type3:
-                        dst.set('Type', dst.get('Type') + String.fromCharCode(data[i]));
-                        dst.payload.set([data[i]], dst.position++);
-                        dst.parsing = sw.payload;
-                        break;
-
-                    case sw.payload:
-                        var n = Math.min(dst.length - dst.position, data.byteLength - i);
-                        dst.payload.set(data.subarray(i, i + n), dst.position);
-                        dst.position += n;
-                        i += n;
-                        if (dst.position === dst.length) {
-                            dst.parsing = sw.complete;
-
-                            var type = dst.get('Type');
-                            var offset = 8;
-                            switch (type) {
-                                case 'stsd':
-                                    offset += 8;
-                                    break;
-                                case 'hvc1':
-                                case 'avc1':
-                                    offset += 78;
-                                    break;
-                                case 'Opus':
-                                case 'mp4a':
-                                    offset += 28;
-                                    break;
+            _this.dispatchEvent(MediaEvent.PACKET, {
+                packet: packet
+            });
+        }
+        _this.append = function(buffer) {
+            var data = new Uint8Array(buffer), p = 0, revision = _revision;
+            try {
+                while (p < data.length && revision === _revision) {
+                    if (!_packet) {
+                        var n = Math.min(_need - _used, data.length - p);
+                        _header.set(data.subarray(p, p + n), _used);
+                        _used += n;
+                        p += n;
+                        _offset += n;
+                        if (_used < _need) {
+                            break;
+                        }
+                        var view = new DataView(_header.buffer), size = view.getUint32(0);
+                        if (size === 1 && _need === 8) {
+                            _need = 16;
+                            continue;
+                        }
+                        if (size === 1) {
+                            size = view.getUint32(8) * 4294967296 + view.getUint32(12);
+                        }
+                        var type = String.fromCharCode.apply(null, _header.subarray(4, 8));
+                        if (!Number.isSafeInteger(size) || size < _need || type !== 'mdat' && size > (options.maxBoxBytes || 33554432)) {
+                            throw {
+                                name: 'DataError',
+                                message: 'Invalid or oversized MP4 box.'
+                            };
+                        }
+                        _packet = new AV.Packet;
+                        _packet.length = size;
+                        _packet.position = _need;
+                        _packet.set('Type', type);
+                        _packet.set('Offset', _offset - _need);
+                        _packet.set('BodyOffset', _offset);
+                        if (type === 'mdat' && options.streaming) {
+                            _packet.payload = _header.slice(0, _need);
+                            _packet.set('Partial', true);
+                            _packet.set('Final', size === _need);
+                            emit(_packet);
+                            if (revision !== _revision) {
+                                return;
                             }
-                            switch (type) {
-                                case 'moov':
-                                case 'trak':
-                                case 'mdia':
-                                case 'minf':
-                                case 'stbl':
-                                case 'stsd':
-                                case 'hvc1':
-                                case 'avc1':
-                                case 'Opus':
-                                case 'mp4a':
-                                    var content = new Uint8Array(dst.payload.buffer, offset);
-                                    for (var j = 0; j < content.byteLength; /* void */) {
-                                        var sub = new AV.Packet();
-                                        sub.parsing = sw.size0;
-                                        j += _parse(sub, content, j);
-                                    }
-                                    break;
-                                case 'avcC':
-                                    var content = new Uint8Array(dst.payload.buffer, offset);
-                                    var codec = "avc1.";
-                                    utils.forEach(content.subarray(1, 4), function (j, c) {
-                                        var hex = utils.padStart(c.toString(16), 2, '0');
-                                        codec += hex;
-                                    });
-                                    _this.info.MimeType = 'video/mp4';
-                                    _this.info.Codecs.push(codec);
-                                    break;
-                                case 'hvcC':
-                                    var packet = new AV.Packet();
-                                    packet.payload = new Uint8Array(dst.payload.buffer, offset);
-                                    packet.length = packet.payload.length;
-                                    packet.position = 0;
-                                    packet.timestamp = 0;
-                                    packet.set('DataType', 0);
-                                    var source = new AV.Codec.HEVC(_this.info, _logger);
-                                    source.parse(packet);
-                                    break;
-                                case 'dOps':
-                                    var content = new Uint8Array(dst.payload.buffer, offset);
-                                    if (content.length !== 11 || content[0] !== 0 || content[10] !== 0 ||
-                                        (content[1] !== 1 && content[1] !== 2)) {
-                                        throw { name: 'NotSupportedError', message: 'Unsupported Opus sample entry.' };
-                                    }
-                                    _this.info.Codecs.push('opus');
-                                    if (!_this.info.MimeType) {
-                                        _this.info.MimeType = 'audio/mp4';
-                                    }
-                                    break;
-                                case 'esds':
-                                    var content = new Uint8Array(dst.payload.buffer, offset);
-                                    var codec = 'mp4a.40.';
-                                    var o = FMP4.parseDescriptor(content.subarray(4));
-                                    if (o[3] && o[3].data) {
-                                        o = FMP4.parseDescriptor(o[3].data.subarray(3));
-                                        if (o[4] && o[4].data) {
-                                            o = FMP4.parseDescriptor(o[4].data.subarray(13));
-                                            if (o[5] && o[5].data) {
-                                                codec += o[5].data[0] >> 3;
-                                            }
-                                        }
-                                    }
-                                    if (!_this.info.MimeType) {
-                                        _this.info.MimeType = 'video/mp4';
-                                    }
-                                    _this.info.Codecs.push(codec);
-                                    break;
+                        } else {
+                            if (size > (options.maxBoxBytes || 33554432)) {
+                                throw {
+                                    name: 'QuotaExceededError',
+                                    message: 'MP4 box exceeds buffer budget.'
+                                };
+                            }
+                            _packet.payload = new Uint8Array(size);
+                            _packet.payload.set(_header.subarray(0, _need));
+                        }
+                        _used = 0;
+                        _need = 8;
+                    }
+                    var packet = _packet, count = Math.min(packet.length - packet.position, data.length - p);
+                    if (packet.get('Partial')) {
+                        if (count) {
+                            packet.payload = data.subarray(p, p + count);
+                            packet.set('Offset', _offset);
+                            packet.set('Final', packet.position + count === packet.length);
+                            emit(packet);
+                            if (revision !== _revision) {
+                                return;
                             }
                         }
-                        return i - byteOffset;
-
-                    default:
-                        throw { name: 'InvalidStateError', message: 'Invalid state while parsing fmp4 box.' };
+                    } else {
+                        packet.payload.set(data.subarray(p, p + count), packet.position);
+                    }
+                    packet.position += count;
+                    p += count;
+                    _offset += count;
+                    if (packet.position === packet.length) {
+                        if (!packet.get('Partial')) {
+                            emit(packet);
+                        }
+                        _packet = null;
+                    }
                 }
+            } catch (error) {
+                _this.dispatchEvent(Event.ERROR, {
+                    name: error.name || 'DataError',
+                    message: error.message
+                });
             }
-            return data.byteLength - byteOffset;
+        };
+        _this.complete = function() {
+            return !_packet && !_used;
         };
 
         _this.getInitSegment = function () {
@@ -303,8 +249,7 @@
             var moof = _this.moof(track, pkt);
             var mdat = _this.mdat(pkt.get('Data'));
 
-            var delta = pkt.get('DTS') - _this.info.TimeBase - track.timestamp;
-            track.timestamp += source.RefSampleDuration + delta;
+            track.timestamp = pkt.get('DTS') - _this.info.TimeBase + (pkt.get('Duration') || source.RefSampleDuration);
 
             return FMP4.merge(moof, mdat);
         };
@@ -599,7 +544,7 @@
             ]);
             var hevc = track.source.kind === 'HEVC';
             var config = _this.box(hevc ? types.hvcC : types.avcC, hevc ? track.source.HVCC : track.source.AVCC);
-            return _this.box(hevc ? types.hvc1 : types.avc1, data, config);
+            return _this.box(hevc ? types[source.SampleEntry || 'hvc1'] : types.avc1, data, config);
         };
 
         // Track Extends Box
@@ -634,7 +579,7 @@
         // Track Fragment Box
         _this.traf = function (track, pkt) {
             var i = track.id;
-            var t = track.timestamp - _this.info.TimeBase;
+            var t = pkt.get('DTS') - _this.info.TimeBase;
             var tfhd = _this.box(types.tfhd, new Uint8Array([
                 0x00, 0x00, 0x00, 0x00, // version(0) & flags
                 (i >>> 24) & 0xFF, (i >>> 16) & 0xFF, (i >>> 8) & 0xFF, i & 0xFF, // track_ID
@@ -651,13 +596,12 @@
         // Track Fragment Run Box
         _this.trun = function (track, pkt) {
             var source = track.source;
-            var delta = pkt.get('DTS') - _this.info.TimeBase - track.timestamp;
-            var d = source.RefSampleDuration + delta;
+            var d = pkt.get('Duration') || source.RefSampleDuration;
             var n = pkt.get('Data').byteLength;
             var f = source.Flags;
             var t = pkt.get('CTS');
             return _this.box(types.trun, new Uint8Array([
-                0x00, 0x00, 0x0F, 0x01,               // version(0) & flags
+                0x01, 0x00, 0x0F, 0x01,               // version(1, signed CTS) & flags
                 0x00, 0x00, 0x00, 0x01,               // sample_count
                 0x00, 0x00, 0x00, 0x79,               // data_offset
                 (d >>> 24), (d >>> 16), (d >>> 8), d, // sample_duration
@@ -822,9 +766,9 @@
         return { ranges: ranges, independent: ranges.length > 0 && (video.length ? video.every(function (id) { return seen[id] === true; }) : true) };
     };
 
-    FMP4.recordingBody = function (header, body, ranges) {
+    FMP4.recordingBody = function (header, body, ranges, totalLength) {
         var view = new DataView(body.buffer, body.byteOffset, body.byteLength),
-            begin = header.byteLength + (view.getUint32(0) === 1 ? 16 : 8), end = header.byteLength + body.byteLength;
+            begin = header.byteLength + (view.getUint32(0) === 1 ? 16 : 8), end = header.byteLength + (totalLength || body.byteLength);
         if (!ranges.length || ranges.some(function (range) { return range.start < begin || range.end > end; })) {
             throw { name: 'NotSupportedError', message: 'Recording requires all fragment samples in one complete mdat body.' };
         }

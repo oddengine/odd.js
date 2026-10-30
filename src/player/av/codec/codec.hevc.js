@@ -18,7 +18,8 @@
 
         var _this = this,
             _info = info,
-            _started;
+            _started,
+            _recovering = false;
 
         function _init() {
             _started = false;
@@ -102,7 +103,7 @@
                 reversed = reversed * 2 + (compatibility & 1);
                 compatibility >>>= 1;
             }
-            var codec = 'hvc1.' + ['', 'A', 'B', 'C'][data[1] >> 6] + (data[1] & 31) + '.' + reversed.toString(16).toUpperCase();
+            var codec = (_this.SampleEntry || 'hvc1') + '.' + ['', 'A', 'B', 'C'][data[1] >> 6] + (data[1] & 31) + '.' + reversed.toString(16).toUpperCase();
             codec += '.' + ((data[1] & 32) ? 'H' : 'L') + data[12];
             var last = 11;
             while (last >= 6 && data[last] === 0) {
@@ -113,6 +114,8 @@
             }
 
             _this.NalLengthSize = (data[21] & 3) + 1;
+            _started = false;
+            _recovering = false;
             _this.HVCC = new Uint8Array(data);
             _this.HVCC[21] |= 3;
             _this.Codec = codec;
@@ -121,6 +124,7 @@
             _info.Width = geometry.width;
             _info.Height = geometry.height;
             _info.MimeType = _this.MimeType;
+            _info.Codecs = _info.Codecs.filter(function (item) { return !/^(hvc1|hev1)\./.test(item); });
             _info.Codecs.push(codec);
             _this.dispatchEvent(MediaEvent.HEVCCONFIGRECORD, { packet: pkt });
         }
@@ -184,7 +188,7 @@
             var position = pkt.position;
             var nalus = [];
             var size = 0;
-            var keyframe = false;
+            var keyframe = false, classification = { rap: 0, rasl: false, radl: false, vcl: false };
             while (position < pkt.payload.length) {
                 if (position + _this.NalLengthSize > pkt.payload.length) {
                     throw { name: 'DataError', message: 'Incomplete HEVC NAL length.' };
@@ -197,7 +201,11 @@
                     throw { name: 'DataError', message: 'Invalid HEVC NAL length.' };
                 }
                 var type = (pkt.payload[position] >> 1) & 63;
-                keyframe = keyframe || type === 19 || type === 20;
+                keyframe = keyframe || (type >= 16 && type <= 21);
+                if (type >= 16 && type <= 21) { classification.rap = type; }
+                classification.rasl = classification.rasl || type === 8 || type === 9;
+                classification.radl = classification.radl || type === 6 || type === 7;
+                classification.vcl = classification.vcl || type <= 31;
                 nalus.push(pkt.payload.subarray(position, position + length));
                 position += length;
                 size += 4 + length;
@@ -205,6 +213,9 @@
             if (!nalus.length || (!_started && !keyframe)) {
                 return;
             }
+            if (!_started) { _recovering = classification.rap === 21; }
+            if (_recovering && classification.rasl) { return; }
+            if (classification.vcl && !classification.rap && !classification.rasl && !classification.radl) { _recovering = false; }
             _started = true;
 
             var data = new Uint8Array(size);
@@ -218,9 +229,10 @@
             _this.Flags.SampleDependsOn = keyframe ? 2 : 1;
             _this.Flags.IsNonSync = keyframe ? 0 : 1;
             _info.VideoTimestamp = pkt.timestamp;
+            pkt.set('HEVC', classification);
             pkt.set('Keyframe', keyframe);
             pkt.set('DTS', _info.TimeBase + pkt.timestamp);
-            pkt.set('PTS', pkt.get('DTS'));
+            pkt.set('PTS', pkt.get('DTS') + (pkt.get('CTS') || 0));
             pkt.set('Data', data);
             pkt.set('NALUs', nalus);
             _this.dispatchEvent(MediaEvent.HEVCSAMPLE, { packet: pkt });
@@ -232,6 +244,23 @@
     HEVC.prototype = Object.create(EventDispatcher.prototype);
     HEVC.prototype.constructor = HEVC;
     HEVC.prototype.kind = 'HEVC';
+    // Classify complete access units, never infer independence from a container flag.
+    HEVC.inspect = function (data, lengthSize) {
+        var offset = 0, result = { rap: 0, rasl: false, radl: false, vcl: false };
+        while (offset < data.length) {
+            if (offset + lengthSize > data.length) { throw new Error('Incomplete HEVC NAL length.'); }
+            var size = 0;
+            for (var n = 0; n < lengthSize; n++) { size = size * 256 + data[offset++]; }
+            if (size < 2 || offset + size > data.length) { throw new Error('Invalid HEVC access unit.'); }
+            var type = (data[offset] >> 1) & 63;
+            if (type <= 31) { result.vcl = true; }
+            if (type >= 16 && type <= 21) { result.rap = type; }
+            result.rasl = result.rasl || type === 8 || type === 9;
+            result.radl = result.radl || type === 6 || type === 7;
+            offset += size;
+        }
+        return result;
+    };
     HEVC.DataTypes = DataTypes;
     Codec.register(HEVC);
 })(odd);

@@ -425,21 +425,15 @@
 
         _this.fullscreen = function (status) {
             if (status !== undefined) {
-                var video = _api.element();
+                var video = _api.capabilities().nativeFullscreen;
                 if (!!status) {
                     var requestFullscreen = _wrapper.requestFullscreen
                         || _wrapper.webkitRequestFullScreen
                         || _wrapper.mozRequestFullScreen
                         || _wrapper.msRequestFullscreen; // IE 11, Edge
-                    if (OS.isMobile) {
-                        if (video && video.webkitEnterFullscreen) {
-                            video.setAttribute('x5-video-orientation', 'landscape');
-                            video.webkitEnterFullscreen();
-                        }
-                        if (OS.isIOS) {
-                            // TODO(spencer@lau): Need to double check.
-                            return;
-                        }
+                    if (OS.isMobile && video && video.webkitEnterFullscreen) {
+                        video.setAttribute('x5-video-orientation', 'landscape');
+                        video.webkitEnterFullscreen();
                     } else if (requestFullscreen) {
                         var promise = requestFullscreen.call(_wrapper);
                         if (promise) {
@@ -812,9 +806,9 @@
         }
 
         function _captureReason() {
-            var video = _api && _api.element();
+            var frame = _api && _api.frame();
             if (OS.isIOS && !Browser.isSafari) { return _this.config.tools.captureUnsupported; }
-            if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) { return _this.config.tools.noFrame; }
+            if (!frame) { return _this.config.tools.noFrame; }
             return '';
         }
 
