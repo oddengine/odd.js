@@ -106,3 +106,38 @@ See [local recording delivery](local-recording.md) for configuration, worker dep
 ## R-084 auxiliary plugins
 
 See [auxiliary plugins](auxiliary-plugins.md) for finite context-menu setup, native keyboard actions, playlist identity and removal, safe media error text, image cleanup and nonmodal information panels. These retain the UI/plugin/component boundary and source-only delivery scope.
+
+## Mobile safe areas and composer
+
+The IM and RTC skin entries import `odd.safe-area.css`. At viewport widths up to
+640px, or coarse-pointer landscape heights up to 540px, IM windows and RTC media
+windows reserve 16px (IM) or 24px (RTC) above and below their content. Larger CSS safe-area
+insets take precedence. The transparent border is included in the declared size
+and protects absolute controls and panels as well as the stage. Media stays dark;
+the surrounding space follows the existing surface color.
+
+Hosts using edge-to-edge pages should set `viewport-fit=cover`. A shell that
+already handles safe areas may set `--odd-safe-area-top`, `-right`, `-bottom`,
+and `-left` to `0px` on embedded instances. The baseline horizontal gutter is 8px;
+set `--odd-mobile-side: 0px` when the host handles it. Set `--odd-mobile-edge: 0px` only when
+that shell also supplies the baseline gutter. Restore default handling when an
+instance enters fullscreen or theater mode. These are presentation overrides,
+not a new SDK navigation layer.
+
+Full mobile composers initially use a 48px single row with Expand, text, the
+reserved voice-message button and Send. The compact row is inset another 16px
+inside its host, centered, and limited to 652px in landscape. The website follows
+the user reference with 36px on either side and 32px below the compact row, and 12px on either side and below
+the expanded row (larger device safe areas take precedence). Focusing the text area or activating
+Expand shows the existing tools and multiline input. Mobile frames use a 24px radius, 16px input
+text and a 36px Send circle inside a 44px hit target. The full input grows with its
+text up to 112px; its character counter is hidden on mobile, while maxlength still applies. Moving focus between its
+tools preserves the expanded state; leaving the composer collapses it without
+changing its draft. Compact Send stays in place while it receives focus. Existing
+`presentation: 'mini'`, desktop layouts, disabled/read-only state, IME and send
+events retain their contracts. `labels.expand` controls the accessible name;
+voice messages remain unavailable.
+
+Offline browser checks cover focus, drafts, compact Send, 320/390px layouts,
+landscape and simulated 44/34px safe-area overrides. This is not physical-device,
+native keyboard, message-service or media interoperability verification.

@@ -1,0 +1,52 @@
+/* Full composers start as one row on phones; mini is a separate host contract. */
+:is(.odd-view, .im-ui-classic) .im-composer > [data-action="expand"] { display: none; }
+@media (max-width: 640px), (max-height: 540px) and (pointer: coarse) {
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) {
+        border-radius: 24px;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) textarea {
+        font-size: 16px; line-height: 24px; min-height: 44px; padding: 6px 8px;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) .im-composer-counter { display: none; }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) [data-action="send"] {
+        border: 4px solid transparent; background-clip: padding-box;
+    }
+    .odd-view .im-composer:not([presentation="mini"]) textarea:focus-visible { outline: none; }
+    .odd-view .im-composer:not([presentation="mini"]):has(textarea:focus-visible) {
+        outline: 2px solid var(--odd-accent); outline-offset: 2px;
+    }
+    .odd-view .im-composer:not([presentation="mini"]) button:not(:disabled):active { transform: scale(.98); }
+    .odd-view .im-composer:not([presentation="mini"])[expanded="true"] {
+        align-self: center; width: calc(100% + 16px); margin-inline: 0;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] {
+        display: grid;
+        width: min(652px, calc(100% - 32px));
+        margin-inline: auto;
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 4px;
+        padding: 1px;
+        border-radius: 24px;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] > [data-action="expand"] {
+        display: inline-flex;
+        width: 44px; height: 44px; min-width: 44px;
+        grid-column: 1;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] .im-composer-row {
+        grid-column: 2; min-width: 0;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] textarea {
+        min-height: 44px; max-height: 44px;
+        padding: 10px 0; line-height: 24px;
+        overflow: hidden; white-space: nowrap;
+        clip-path: inset(10px 0);
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] .im-composer-footer {
+        grid-column: 3; gap: 0;
+    }
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] :is(.im-composer-tools, .im-composer-counter) {
+        display: none;
+    }
+}

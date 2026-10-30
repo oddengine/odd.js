@@ -1,4 +1,6 @@
 @import url("odd.common.classic.css");
+@import url("odd.safe-area.css");
+@import url("odd.im.mobile.css");
 @import url("odd.im.reading.css");
 
 .im-wrapper.im-ui-classic {

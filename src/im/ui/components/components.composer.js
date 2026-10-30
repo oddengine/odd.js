@@ -14,6 +14,7 @@
             tools: ['emoji', 'file', 'video-call', 'voice-call'],
             miniTools: ['emoji'],
             labels: {
+                expand: '展开输入工具',
                 send: '发送',
                 'voice-message': '语音消息（暂未开放）',
                 emoji: '表情',
@@ -74,6 +75,7 @@
         };
 
     var _icons = {
+        expand: ['M12 5v14', 'M5 12h14'],
         send: ['M12 20V4', 'M5 11l7-7 7 7'],
         'voice-message': ['M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5', 'M5 10v2a7 7 0 0 0 14 0v-2', 'M12 19v3'],
         emoji: ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', 'M8 14c1.5 3 6.5 3 8 0', 'M8 9h.01M16 9h.01'],
@@ -92,6 +94,7 @@
             _input,
             _send,
             _voice,
+            _expand,
             _counter,
             _file,
             _emoji,
@@ -103,6 +106,9 @@
             _container = utils.createElement('div', CLASS_COMPOSER + (name ? ' ' + name : ''));
             _container.setAttribute('presentation', _config.presentation);
             _container.setAttribute('state', 'off');
+            _container.setAttribute('expanded', 'false');
+            _container.addEventListener('focusin', _onFocusIn);
+            _container.addEventListener('focusout', _onFocusOut);
             _tools = utils.createElement('div', 'im-composer-tools');
             _emoji = utils.createElement('div', 'im-composer-emoji');
             _file = utils.createElement('input');
@@ -125,12 +131,16 @@
             _voice = _button('voice-message', _config.labels['voice-message']);
             _voice.classList.add('mini-visible');
             _voice.disabled = true;
+            _expand = _button('expand', _config.labels.expand);
+            _expand.setAttribute('aria-expanded', 'false');
+            _expand.addEventListener('click', _onExpand);
             row.appendChild(_input);
             actions.appendChild(_voice);
             actions.appendChild(_send);
             footer.appendChild(_tools);
             footer.appendChild(actions);
             _counter = utils.createElement('span', 'im-composer-counter');
+            _container.appendChild(_expand);
             _container.appendChild(row);
             _container.appendChild(_counter);
             _container.appendChild(footer);
@@ -191,8 +201,34 @@
         }
 
         function _fitInput() {
+            var style = window.getComputedStyle(_input),
+                minimum = parseFloat(style.minHeight) || 56,
+                maximum = parseFloat(style.maxHeight) || 112;
             _input.style.height = 'auto';
-            _input.style.height = Math.min(Math.max(_input.scrollHeight, 56), 112) + 'px';
+            _input.style.height = Math.min(Math.max(_input.scrollHeight, minimum), maximum) + 'px';
+        }
+
+        function _expanded(value) {
+            _container.setAttribute('expanded', String(value));
+            _expand.setAttribute('aria-expanded', String(value));
+            _fitInput();
+        }
+
+        function _onExpand() {
+            _input.focus();
+        }
+
+        function _onFocusIn(e) {
+            // Focusing Send in the compact row must not move it before the click.
+            if (e.target === _input) { _expanded(true); }
+        }
+
+        function _onFocusOut(e) {
+            if (!_container.contains(e.relatedTarget)) {
+                _emoji.setAttribute('state', 'off');
+                _expanded(false);
+                _input.scrollTop = 0;
+            }
         }
 
         function _onInput() {
@@ -265,6 +301,8 @@
             _send.setAttribute('aria-label', _config.labels.send);
             _voice.title = _config.labels['voice-message'];
             _voice.setAttribute('aria-label', _config.labels['voice-message']);
+            _expand.title = _config.labels.expand;
+            _expand.setAttribute('aria-label', _config.labels.expand);
             _container.setAttribute('presentation', _config.presentation);
             _buildTools();
             _this.state(_container.getAttribute('state'));
@@ -320,6 +358,9 @@
         };
 
         _this.destroy = function () {
+            _container.removeEventListener('focusin', _onFocusIn);
+            _container.removeEventListener('focusout', _onFocusOut);
+            _expand.removeEventListener('click', _onExpand);
             _input.removeEventListener('input', _onInput);
             _input.removeEventListener('keydown', _onKeyDown);
             _file.removeEventListener('change', _onFile);

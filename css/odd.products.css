@@ -1,4 +1,6 @@
 @import url("odd.im.reading.css");
+@import url("odd.safe-area.css");
+@import url("odd.im.mobile.css");
 /* Independent product skins. Media pixels remain neutral. */
 .odd-view, .odd-settings-panel { box-sizing: border-box; font-family: inherit; color: var(--odd-ink); background: var(--odd-bg); }
 .odd-theme-light { --odd-bg:#F6F4ED; --odd-surface:#FFFEFA; --odd-ink:#172E2B; --odd-muted:#536760; --odd-line:#C3CDC8; --odd-selected:#DDEBE1; --odd-accent:#0D5B50; --odd-onaccent:#fff; }
@@ -65,7 +67,7 @@
 .odd-settings-actions { display:flex; flex-wrap:wrap; gap:12px; grid-column:1/-1; }
 .odd-settings-actions button { border:1px solid var(--odd-line); border-radius:6px; background:var(--odd-surface); padding:10px 18px; }
 .odd-settings-actions button:last-child { background:var(--odd-accent); color:var(--odd-onaccent); border-color:var(--odd-accent); }
-@media (max-width:600px) { .odd-settings-panel { padding:18px; } .odd-settings-panel form { grid-template-columns:1fr; } .odd-view-conversation { padding:16px; } }
+@media (max-width:600px) { .odd-settings-panel { padding:18px; } .odd-settings-panel form { grid-template-columns:1fr; } .odd-view-conversation { padding:16px 12px; } }
 
 /* Read-only conversations keep their composer hidden in every skin. */
 .odd-view .im-composer[hidden] { display: none; }

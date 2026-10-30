@@ -1,0 +1,22 @@
+/* Standalone IM / RTC surfaces reserve the phone's rounded-screen edges.
+   The border stays inside the declared size and also insets absolute controls.
+   Embedded hosts can claim an edge with --odd-safe-area-*: 0px, and remove
+   the extra gutter with --odd-mobile-edge: 0px when their own shell provides it. */
+@media (max-width: 640px), (max-height: 540px) and (pointer: coarse) {
+    :is(.im-ui-classic, .odd-view-conversation, .odd-view-conversations, .odd-view-contacts,
+        .pe-ui-classic.pe-media-window[controls][kind="rtc"]) {
+        box-sizing: border-box;
+        border-style: solid;
+        border-color: transparent;
+        border-width:
+            max(var(--odd-mobile-edge, 16px), var(--odd-safe-area-top, env(safe-area-inset-top, 0px)))
+            max(var(--odd-mobile-side, 8px), var(--odd-safe-area-right, env(safe-area-inset-right, 0px)))
+            max(var(--odd-mobile-edge, 16px), var(--odd-safe-area-bottom, env(safe-area-inset-bottom, 0px)))
+            max(var(--odd-mobile-side, 8px), var(--odd-safe-area-left, env(safe-area-inset-left, 0px)));
+    }
+    .pe-ui-classic.pe-media-window[controls][kind="rtc"] { --odd-mobile-edge: 24px; }
+    .odd-view.odd-view-conversation:has(.im-composer[expanded="true"]) {
+        border-bottom-width: max(0px, calc(var(--odd-safe-area-bottom, env(safe-area-inset-bottom, 0px)) - 12px));
+        padding-bottom: 12px;
+    }
+}
