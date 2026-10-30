@@ -294,6 +294,10 @@
     justify-content: flex-end;
 }
 
+.im-ui-classic .im-message[align="right"] > .im-avatar {
+    order: 1;
+}
+
 .im-ui-classic .im-message-state {
     width: 16px;
     height: 16px;

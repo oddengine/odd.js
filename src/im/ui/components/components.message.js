@@ -75,7 +75,6 @@
                 avatar: _data.avatar,
                 online: _data.online,
             });
-            _avatar.element().hidden = _this.align() === 'right';
             _from.textContent = _data.from || '';
             _time.textContent = _data.time || '';
             _body.textContent = _data.text || '';

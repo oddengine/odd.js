@@ -40,6 +40,7 @@
 .odd-view-conversation { container-type:inline-size; container-name:conversation; }
 .odd-view .im-message { display:flex; gap:12px; margin:20px 0; }
 .odd-view .im-message[align="right"] { justify-content:flex-end; }
+.odd-view .im-message[align="right"] > .im-avatar { order:1; }
 .odd-view .im-message-bubble { max-width:80%; padding:12px 16px; border-radius:10px; background:var(--odd-surface); overflow-wrap:anywhere; }
 .odd-view .im-message[align="right"] .im-message-bubble { background:var(--odd-selected); }
 .odd-view .im-message-bubble header { display:flex; gap:16px; font-size:12px; color:var(--odd-muted); }
