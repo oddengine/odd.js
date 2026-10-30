@@ -1,5 +1,6 @@
 @import url("odd.im.reading.css");
 @import url("odd.safe-area.css");
+@import url("odd.im.layout.css");
 @import url("odd.im.mobile.css");
 /* Independent product skins. Media pixels remain neutral. */
 .odd-view, .odd-settings-panel { box-sizing: border-box; font-family: inherit; color: var(--odd-ink); background: var(--odd-bg); }
@@ -15,7 +16,6 @@
 .odd-view button, .odd-settings-panel button { font:inherit; color:inherit; cursor:pointer; min-height:44px; }
 .odd-view :focus-visible, .odd-settings-panel :focus-visible { outline:3px solid var(--odd-accent); outline-offset:3px; }
 .odd-view-conversation { display:flex; flex-direction:column; padding:24px; gap:12px; }
-.odd-view .im-conversation-title { font-size:22px; font-weight:700; }
 .odd-view .im-history-notice { font-size:14px; color:var(--odd-muted); margin:0; }
 .odd-view .im-history-tools { display:flex; flex-wrap:wrap; gap:8px; }
 .odd-view .im-history-tools button { border:0; background:transparent; color:var(--odd-accent); }
@@ -40,20 +40,15 @@
 .odd-view .im-composer-emoji button { border:0; background:transparent; }
 @container conversation (max-width:320px) { .odd-view .im-composer { padding:6px; } }
 .odd-view-conversation { container-type:inline-size; container-name:conversation; }
-.odd-view .im-message { display:flex; gap:12px; margin:20px 0; }
 .odd-view .im-message[align="right"] { justify-content:flex-end; }
 .odd-view .im-message[align="right"] > .im-avatar { order:1; }
-.odd-view .im-message-bubble { max-width:80%; padding:12px 16px; border-radius:10px; background:var(--odd-surface); overflow-wrap:anywhere; }
+.odd-view .im-message-bubble { background:var(--odd-surface); }
 .odd-view .im-message[align="right"] .im-message-bubble { background:var(--odd-selected); }
-.odd-view .im-message-bubble header { display:flex; gap:16px; font-size:12px; color:var(--odd-muted); }
-.odd-view .im-message-bubble p { white-space:pre-wrap; }
-.odd-view .im-conversation-item, .odd-view .im-contact { display:flex; align-items:center; gap:16px; text-align:left; width:100%; padding:18px 14px; border:0; border-radius:8px; background:transparent; color:var(--odd-ink); }
+.odd-view .im-message-bubble header { color:var(--odd-muted); }
+.odd-view .im-conversation-item, .odd-view .im-contact { border:0; border-radius:8px; background:transparent; color:var(--odd-ink); }
 .odd-view .im-conversation-item[state=on], .odd-view .im-contact[state=on] { background:var(--odd-selected); }
 .odd-view .im-avatar { width:44px; height:44px; border-radius:50%; display:flex; justify-content:center; align-items:center; background:var(--odd-selected); flex:none; }
-.odd-view .im-entry-copy { min-width:0; display:flex; flex-direction:column; gap:6px; }
-.odd-view .im-entry-copy small { color:var(--odd-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.odd-view .im-entry-line { display:flex; justify-content:space-between; gap:8px; }
-.odd-view .im-entry-line time { font-size:12px; }
+.odd-view .im-entry-copy small, .odd-view .im-entry-line time { color:var(--odd-muted); }
 .odd-settings-panel { max-width:880px; padding:28px; border-radius:10px; }
 .odd-settings-panel form { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
 .odd-settings-panel label { display:grid; gap:10px; }

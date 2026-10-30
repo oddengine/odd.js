@@ -1,27 +1,15 @@
 /* Compact messages and full composers on phones; mini has a separate host contract. */
 :is(.odd-view, .im-ui-classic) .im-composer > [data-action="expand"] { display: none; }
 @media (max-width: 640px), (max-height: 540px) and (pointer: coarse) {
-    :is(.odd-view, .im-ui-classic) .im-conversation-messages .im-message {
-        align-items: flex-start; gap: 8px; margin: 0 0 12px;
+    :is(.odd-view, .im-ui-classic) {
+        --odd-im-message-gap: 8px;
+        --odd-im-message-spacing: 12px;
+        --odd-im-bubble-padding: 8px 10px;
+        --odd-im-bubble-radius: 6px;
     }
-    :is(.odd-view, .im-ui-classic) .im-conversation-messages .im-message > .im-avatar {
-        width: 40px; height: 40px; border-radius: 4px; font-size: 14px;
-    }
-    :is(.odd-view, .im-ui-classic) .im-message > .im-avatar img {
-        width: 100%; height: 100%; border-radius: inherit; object-fit: cover;
-    }
-    :is(.odd-view, .im-ui-classic) .im-conversation-messages .im-message[align] > .im-message-bubble {
-        box-sizing: border-box; min-width: 0; max-width: calc(100% - 56px);
-        padding: 8px 10px; border-radius: 6px; font-size: 16px; line-height: 1.5;
-    }
-    :is(.odd-view, .im-ui-classic) .im-message-bubble > header {
-        align-items: baseline; flex-wrap: wrap; gap: 2px 8px;
-        margin: 0 0 2px; font-size: 12px; line-height: 16px;
-    }
-    :is(.odd-view, .im-ui-classic) .im-message-bubble > p { margin: 0; }
-    :is(.odd-view, .im-ui-classic) .im-message > .im-message-state {
-        align-self: center; flex-shrink: 0; margin-block: 0;
-    }
+    :is(.odd-view, .im-ui-classic) :is(.im-contact, .im-conversation-item) { padding-inline: 4px; }
+    .odd-view.odd-view-conversation .im-conversation-messages { margin-inline: -8px; }
+    .im-ui-classic .im-conversation > .im-conversation-messages { padding: 12px 4px; }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) {
         border-radius: 24px;
     }

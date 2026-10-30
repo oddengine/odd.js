@@ -1,5 +1,6 @@
 @import url("odd.common.classic.css");
 @import url("odd.safe-area.css");
+@import url("odd.im.layout.css");
 @import url("odd.im.mobile.css");
 @import url("odd.im.reading.css");
 
@@ -148,14 +149,6 @@
 
 .im-ui-classic .im-contact,
 .im-ui-classic .im-conversation-item {
-    width: calc(100% - 16px);
-    min-height: 68px;
-    margin: 2px 8px;
-    padding: 10px;
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
     border: 0;
     border-radius: 10px;
     color: inherit;
@@ -174,20 +167,6 @@
     background: rgba(0, 170, 238, .14);
 }
 
-.im-ui-classic .im-entry-copy {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.im-ui-classic .im-entry-line {
-    min-width: 0;
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-}
-
 .im-ui-classic .im-contact strong,
 .im-ui-classic .im-conversation-item strong,
 .im-ui-classic .im-conversation-item small,
@@ -197,8 +176,6 @@
     white-space: nowrap;
 }
 
-.im-ui-classic .im-conversation-item small,
-.im-ui-classic .im-conversation-item time,
 .im-ui-classic .im-composer-counter[hidden] { display: none; }
 
 .im-ui-classic .im-composer-counter {
@@ -270,8 +247,6 @@
 .im-ui-classic .im-conversation-title {
     padding: 14px 18px;
     border-bottom: 1px solid rgba(255, 255, 255, .08);
-    font-size: 15px;
-    line-height: 22px;
 }
 
 .im-ui-classic .im-conversation[data-conversation=""] .im-conversation-title {
@@ -283,13 +258,6 @@
     min-height: 0;
     padding: 18px;
     overflow: auto;
-}
-
-.im-ui-classic .im-message {
-    margin: 0 0 14px;
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
 }
 
 .im-ui-classic .im-message[align="right"] {
@@ -333,30 +301,17 @@
 }
 
 .im-ui-classic .im-message-bubble {
-    max-width: min(72%, 640px);
-    padding: 10px 12px;
-    border-radius: 12px 12px 12px 3px;
     color: #e9edf2;
     background: #202833;
 }
 
 .im-ui-classic .im-message[align="right"] .im-message-bubble {
-    border-radius: 12px 12px 3px;
     color: #fff;
     background: #087ba8;
 }
 
 .im-ui-classic .im-message-bubble header {
-    margin-bottom: 4px;
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
     color: #9aa4b1;
-}
-
-.im-ui-classic .im-message-bubble p {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
 }
 
 .im-ui-classic .im-composer {

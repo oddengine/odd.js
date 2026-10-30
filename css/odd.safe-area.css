@@ -9,7 +9,7 @@
         border-style: solid;
         border-color: transparent;
         border-width:
-            max(var(--odd-mobile-edge, 16px), var(--odd-safe-area-top, env(safe-area-inset-top, 0px)))
+            max(var(--odd-mobile-top, var(--odd-mobile-edge, 16px)), var(--odd-safe-area-top, env(safe-area-inset-top, 0px)))
             max(var(--odd-mobile-side, 8px), var(--odd-safe-area-right, env(safe-area-inset-right, 0px)))
             max(var(--odd-mobile-edge, 16px), var(--odd-safe-area-bottom, env(safe-area-inset-bottom, 0px)))
             max(var(--odd-mobile-side, 8px), var(--odd-safe-area-left, env(safe-area-inset-left, 0px)));
@@ -18,5 +18,10 @@
     .odd-view.odd-view-conversation:has(.im-composer[expanded="true"]) {
         border-bottom-width: max(0px, calc(var(--odd-safe-area-bottom, env(safe-area-inset-bottom, 0px)) - 12px));
         padding-bottom: 12px;
+    }
+}
+@media (max-width: 640px) {
+    :is(.im-ui-classic, .odd-view-conversation, .odd-view-conversations, .odd-view-contacts) {
+        --odd-mobile-top: 44px;
     }
 }

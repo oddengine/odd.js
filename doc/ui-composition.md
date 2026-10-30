@@ -111,7 +111,8 @@ See [auxiliary plugins](auxiliary-plugins.md) for finite context-menu setup, nat
 
 The IM and RTC skin entries import `odd.safe-area.css`. At viewport widths up to
 640px, or coarse-pointer landscape heights up to 540px, IM windows and RTC media
-windows reserve 16px (IM) or 24px (RTC) above and below their content. Larger CSS safe-area
+windows reserve 44px above / 16px below IM on phones, 16px on short touch
+landscape IM above 640px wide, or 24px above and below RTC. Larger CSS safe-area
 insets take precedence. The transparent border is included in the declared size
 and protects absolute controls and panels as well as the stage. Media stays dark;
 the surrounding space follows the existing surface color.
@@ -120,7 +121,8 @@ Hosts using edge-to-edge pages should set `viewport-fit=cover`. A shell that
 already handles safe areas may set `--odd-safe-area-top`, `-right`, `-bottom`,
 and `-left` to `0px` on embedded instances. The baseline horizontal gutter is 8px;
 set `--odd-mobile-side: 0px` when the host handles it. Set `--odd-mobile-edge: 0px` only when
-that shell also supplies the baseline gutter. Restore default handling when an
+that shell also supplies the baseline gutter; set `--odd-mobile-top: 0px` to
+claim the IM top fallback as well. Restore default handling when an
 instance enters fullscreen or theater mode. These are presentation overrides,
 not a new SDK navigation layer.
 
@@ -142,11 +144,24 @@ Offline browser checks cover focus, drafts, compact Send, 320/390px layouts,
 landscape and simulated 44/34px safe-area overrides. This is not physical-device,
 native keyboard, message-service or media interoperability verification.
 
-On phones and short coarse-pointer landscape screens, message avatars are 40px
-squares with 4px corners and align to the top of their bubbles. Avatar-to-bubble
-spacing is 8px; messages are separated by 12px. Bubbles use 8px vertical / 10px
-horizontal padding, 6px corners and 16px text on a 24px line. Paragraph margins
-are reset; sender and time remain at 12px / 16px. Long text wraps within the
-remaining width, including delivery indicators. Sent avatars remain on the right.
-These rules cover modern and classic IM skins, without shrinking retry or
-receipt controls or changing desktop, contact-list or composer behavior.
+IM lists and messages share `odd.im.layout.css` in modern and classic skins.
+Avatars are 40px squares with 4px corners. Directory rows have a 64px minimum
+height and 12px avatar gap; names use 15px/22px, previews 13px/20px, times and
+unread labels 12px/16px. Long names and previews ellipsize without squeezing
+times. Conversation titles use 18px/24px. Websites inherit this density and own
+outer navigation, rather than overriding the SDK dimensions.
+
+Messages use 16px/24px text, zero paragraph margins, and top-aligned avatars.
+Desktop bubbles have 10px/12px padding, 8px corners, a 10px avatar gap and 16px
+message separation. Phones retain 8px/10px, 6px, 8px and 12px respectively.
+Sender/time, delivery states, retry and receipts keep their original behavior.
+
+Phone IM windows reserve at least 44px above content, or a larger system safe
+area. `--odd-mobile-top` overrides this top-only fallback; the website sets it
+to 0px on embedded IM and provides its own safe header. Short touch landscape
+windows above 640px retain the 16px fallback. RTC keeps its 24px base spacing.
+Mobile IM message and directory avatars sit 12px from the edge with default
+insets, while larger horizontal device insets take precedence. The website's
+48px minimum chat header keeps 44px back/detail targets and a centered title;
+its `--im-safe-area-top` override also supports host-provided insets. Composer
+margins, sizes, focus, drafts and navigation behavior are unchanged.
