@@ -15,6 +15,7 @@
             miniTools: ['emoji'],
             labels: {
                 send: '发送',
+                'voice-message': '语音消息（暂未开放）',
                 emoji: '表情',
                 file: '文件',
                 'video-call': '视频通话',
@@ -73,6 +74,8 @@
         };
 
     var _icons = {
+        send: ['M12 20V4', 'M5 11l7-7 7 7'],
+        'voice-message': ['M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5', 'M5 10v2a7 7 0 0 0 14 0v-2', 'M12 19v3'],
         emoji: ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', 'M8 14c1.5 3 6.5 3 8 0', 'M8 9h.01M16 9h.01'],
         file: ['M8 12l6-6a3 3 0 0 1 4 4l-8 8a5 5 0 0 1-7-7l8-8', 'M6 14l8-8'],
         'video-call': ['M4 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2', 'M16 10l6-4v12l-6-4'],
@@ -88,6 +91,7 @@
             _tools,
             _input,
             _send,
+            _voice,
             _counter,
             _file,
             _emoji,
@@ -108,19 +112,28 @@
             _file.addEventListener('change', _onFile);
 
             var row = utils.createElement('div', 'im-composer-row');
+            var footer = utils.createElement('div', 'im-composer-footer');
+            var actions = utils.createElement('div', 'im-composer-actions');
             _input = utils.createElement('textarea');
             _input.rows = 1;
             _input.addEventListener('input', _onInput);
             _input.addEventListener('keydown', _onKeyDown);
             _send = _button('send', _config.labels.send);
-            _send.classList.add('primary');
+            _send.classList.add('primary', 'mini-visible');
             _send.addEventListener('click', _onSend);
+            // Reserved voice-message entry. Recording and transport are not connected yet.
+            _voice = _button('voice-message', _config.labels['voice-message']);
+            _voice.classList.add('mini-visible');
+            _voice.disabled = true;
             row.appendChild(_input);
-            row.appendChild(_send);
+            actions.appendChild(_voice);
+            actions.appendChild(_send);
+            footer.appendChild(_tools);
+            footer.appendChild(actions);
             _counter = utils.createElement('span', 'im-composer-counter');
-            _container.appendChild(_tools);
             _container.appendChild(row);
             _container.appendChild(_counter);
+            _container.appendChild(footer);
             _container.appendChild(_file);
             _container.appendChild(_emoji);
             _this.update(_config);
@@ -179,7 +192,7 @@
 
         function _fitInput() {
             _input.style.height = 'auto';
-            _input.style.height = Math.min(Math.max(_input.scrollHeight, 44), 112) + 'px';
+            _input.style.height = Math.min(Math.max(_input.scrollHeight, 56), 112) + 'px';
         }
 
         function _onInput() {
@@ -248,9 +261,10 @@
             _input.maxLength = _config.maxlength;
             _input.placeholder = _config.placeholder;
             _input.setAttribute('aria-label', _config.placeholder);
-            _send.textContent = _config.labels.send;
             _send.title = _config.labels.send;
             _send.setAttribute('aria-label', _config.labels.send);
+            _voice.title = _config.labels['voice-message'];
+            _voice.setAttribute('aria-label', _config.labels['voice-message']);
             _container.setAttribute('presentation', _config.presentation);
             _buildTools();
             _this.state(_container.getAttribute('state'));
@@ -291,7 +305,7 @@
 
                 var buttons = _container.querySelectorAll('button');
                 for (var i = 0; i < buttons.length; i++) {
-                    buttons[i].disabled = _input.disabled;
+                    buttons[i].disabled = _input.disabled || buttons[i] === _voice;
                 }
             }
             return _container.getAttribute('state');

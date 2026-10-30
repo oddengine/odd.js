@@ -361,20 +361,36 @@
 }
 
 .im-ui-classic .im-composer-tools,
-.im-ui-classic .im-composer-row {
+.im-ui-classic .im-composer-row,
+.im-ui-classic .im-composer-footer,
+.im-ui-classic .im-composer-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
 
+.im-ui-classic .im-composer-footer {
+    margin-top: 4px;
+    align-items: flex-end;
+    justify-content: space-between;
+}
+
+.im-ui-classic .im-composer-actions { flex: none; }
+
 .im-ui-classic .im-composer-tools {
-    margin-bottom: 8px;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0;
 }
 
 .im-ui-classic .im-composer-tool {
-    min-width: 34px;
-    height: 34px;
-    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 44px;
+    padding: 8px;
     border: 0;
     border-radius: 8px;
     color: #aab3bf;
@@ -382,20 +398,25 @@
     cursor: pointer;
 }
 
-.im-ui-classic .im-composer-tool:hover {
+.im-ui-classic .im-composer-tool:not(:disabled):hover {
     color: #fff;
     background: rgba(255, 255, 255, .07);
 }
 
 .im-ui-classic .im-composer-tool.primary {
+    width: 44px;
+    border-radius: 50%;
     color: #fff;
     background: #00aaee;
 }
 
 .im-ui-classic .im-composer-row textarea {
+    box-sizing: border-box;
+    width: 100%;
     min-width: 0;
-    min-height: 42px;
-    padding: 10px 12px;
+    min-height: 56px;
+    max-height: 112px;
+    padding: 8px;
     flex: 1 1 auto;
     border: 1px solid rgba(255, 255, 255, .10);
     border-radius: 10px;
@@ -403,12 +424,17 @@
     resize: none;
     color: inherit;
     background: rgba(255, 255, 255, .05);
+    font: inherit;
+    line-height: 24px;
 }
+
+.im-ui-classic .im-composer-tool:focus-visible,
+.im-ui-classic .im-composer-row textarea:focus-visible { outline: 2px solid #00aaee; outline-offset: 2px; }
 
 .im-ui-classic .im-composer-counter[hidden] { display: none; }
 
 .im-ui-classic .im-composer-counter {
-    margin-top: 5px;
+    margin-top: 4px;
     display: block;
     font-size: 11px;
     text-align: right;
@@ -419,7 +445,7 @@
     max-height: 240px;
     position: absolute;
     left: 14px;
-    bottom: 102px;
+    bottom: calc(100% + 8px);
     display: none;
     grid-template-columns: repeat(auto-fill, 36px);
     padding: 8px;
