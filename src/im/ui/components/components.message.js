@@ -29,6 +29,9 @@
             _from,
             _time,
             _body,
+            _file,
+            _fileName,
+            _fileSize,
             _status,
             _retry,
             _receipts;
@@ -44,6 +47,21 @@
             _from = utils.createElement('strong');
             _time = utils.createElement('time');
             _body = utils.createElement('p');
+            _file = utils.createElement('button', 'im-message-file');
+            _file.type = 'button';
+            _fileName = utils.createElement('strong');
+            _fileSize = utils.createElement('small');
+            _file.appendChild(_fileName);
+            _file.appendChild(_fileSize);
+            _file.onclick = function () {
+                if (!_data.openAttachment || _file.disabled) { return; }
+                _file.disabled = true;
+                // Invoke synchronously so the host can open a native save
+                // picker within the user's trusted activation.
+                try {
+                    Promise.resolve(_data.openAttachment()).catch(fileError).finally(function () { _file.disabled = !_data.openAttachment; });
+                } catch (reason) { fileError(reason); _file.disabled = false; }
+            };
             _status = utils.createElement('small', 'im-message-status');
             _status.setAttribute('role', 'status');
             _retry = utils.createElement('button', 'im-message-retry');
@@ -58,6 +76,7 @@
             meta.appendChild(_time);
             bubble.appendChild(meta);
             bubble.appendChild(_body);
+            bubble.appendChild(_file);
             bubble.appendChild(_status);
             bubble.appendChild(_retry);
             bubble.appendChild(_receipts);
@@ -65,6 +84,10 @@
             _container.appendChild(_indicator);
             _container.appendChild(bubble);
             _this.update(data);
+        }
+
+        function fileError(reason) {
+            if (reason && reason.name !== 'AbortError') { _status.hidden = false; _status.textContent = reason.message || '文件暂不可用，请重试。'; }
         }
 
         _this.update = function (value) {
@@ -78,6 +101,16 @@
             _from.textContent = _data.from || '';
             _time.textContent = _data.time || '';
             _body.textContent = _data.text || '';
+            var file = odd.IM.UI.History.attachment(_data.attachment);
+            _body.hidden = !!file;
+            _file.hidden = !file;
+            _file.disabled = !_data.openAttachment;
+            if (file) {
+                _fileName.textContent = file.name;
+                var bytes = Number(file.size);
+                _fileSize.textContent = (bytes < 1048576 ? Math.ceil(bytes / 1024) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB') + ' · 下载文件';
+                _file.setAttribute('aria-label', '下载文件：' + file.name);
+            }
             _this.state(_data.state || State.SENT);
             _receipts.hidden = !_data.receipts;
             _retry.hidden = !_data.retry || (_data.state !== State.UNKNOWN && _data.state !== 'gift-pending');
@@ -123,6 +156,7 @@
         _this.destroy = function () {
             _retry.onclick = null;
             _receipts.onclick = null;
+            _file.onclick = null;
             _avatar.destroy();
             _container.innerHTML = '';
         };

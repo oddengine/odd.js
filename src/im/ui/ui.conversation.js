@@ -75,6 +75,9 @@
             if (row.incoming && row.sequence && Protocol.compare64(row.sequence, _read) <= 0) { row.state = 'read'; }
             row.receipts = !row.incoming && row.sequence && _reading && _reading.supported() ? function () { _reading.inspect(row); } : null;
             row.retry = row.packet && (row.state === 'unknown' || row.state === 'gift-pending') ? function () { retry(row).catch(failure); } : null;
+            row.openAttachment = row.attachment && typeof config.openAttachment === 'function' ? function () {
+                return config.openAttachment(row.attachment, { target: _this.target(), incoming: row.incoming });
+            } : null;
             _rows[row.id] = row;
         }
         function render(older) {
@@ -137,7 +140,10 @@
         }
         async function open(target, generation) {
             if (!im.connected()) { _notice.textContent = '连接已断开，重新连接后恢复已保存消息。'; return; }
-            var store = im.storage(), room = target.type === 'room', resolved, readOnly = target.type === 'system';
+            var channelTarget = target.type === 'channel', delivery = channelTarget ? im.messageDelivery() : '',
+                store = im.storage(), room = target.type === 'room' || channelTarget && delivery === 'best-effort',
+                resolved, readOnly = target.type === 'system';
+            if (channelTarget && !delivery) { throw new Error('节点尚未提供频道消息策略，请更新节点后重新连接。'); }
             if (target.type === 'conversation' && store && typeof store.destination === 'function') {
                 var saved = await store.destination(target.id);
                 readOnly = !!(saved && saved.target && saved.target.type === 'system');
@@ -150,6 +156,9 @@
             if (!current(generation)) { return; }
             var destination = room ? target : { type: 'conversation', id: resolved.conversationId },
                 channel = { id: destination.id, target: destination, room: room, session: store, user: im.userId(), storage: store && reads.every(function (name) { return typeof store[name] === 'function'; }) ? store : null, resolution: resolved, visit: null, events: false, ready: false };
+            // Best-effort channel chat has no persisted message history. The
+            // host owns channel publication events on its separate subscription.
+            if (channelTarget && room) { channel.storage = null; }
             channel.readOnly = readOnly;
             _channel = channel;
             if (_this.components.composer) { _this.components.composer.element().hidden = readOnly; }
@@ -197,26 +206,34 @@
                 }
             }
         }
-        async function send(text) {
+        async function send(text, attachment, prepared) {
             var channel = _channel, generation = _generation;
-            if (!channel || !channel.ready || !im.connected()) { failure(new Error('请先选择已连接的会话。')); return; }
-            if (channel.readOnly) { failure(new Error('系统消息仅供接收与查看。')); return; }
-            if (Object.keys(_sending).length >= 8) { failure(new Error('请等待正在发送的消息完成。')); return; }
+            if (!channel || !channel.ready || !im.connected()) { throw new Error('请先选择已连接的会话。'); }
+            if (channel.readOnly) { throw new Error('系统消息仅供接收与查看。'); }
+            if (Object.keys(_sending).length >= 8) { throw new Error('请等待正在发送的消息完成。'); }
             var id = channel.room ? null : Protocol.messageId(channel.resolution.partition, channel.resolution.partitions), key = id ? _history.hex(id) : utils.guid(),
                 row = { id: key, text: text, from: im.userId(), align: 'right', incoming: false, reliable: !channel.room, ephemeral: channel.room,
-                    timestamp: Date.now(), time: new Date().toLocaleTimeString(), state: 'sending', clientMessageId: id };
-            if (_this.components.composer) { _this.components.composer.clear(config.active); }
+                    timestamp: Date.now(), time: new Date().toLocaleTimeString(), state: 'sending', clientMessageId: id, attachment: attachment };
+            if (!attachment && _this.components.composer) { _this.components.composer.clear(config.active); }
             _sending[key] = true;
             merge(row);
             render();
             try {
+                if (prepared) { prepared({ id: key, reliable: !channel.room }); }
                 await im.refresh(channel.target, Action.MESSAGE_PUBLISH, !channel.room);
                 if (im.storage() !== channel.session || im.userId() !== channel.user) { throw new Error('保存发送前连接已变化。'); }
-                await im.send(channel.target, text, channel.room ? { ext: [{ key: 'clientMessageId', type: Protocol.Type.STRING, value: key }] } :
-                    { messaging: true, clientMessageId: id });
-                if (current(generation)) {
-                    row.state = channel.room ? 'sent' : 'accepted';
+                var options = channel.room ? { ext: [{ key: 'clientMessageId', type: Protocol.Type.STRING, value: key }] } :
+                    { messaging: true, clientMessageId: id, ext: [] };
+                if (attachment) {
+                    options.ext.push({ key: 'attachment', type: Protocol.Type.OBJECT, value: [
+                        { key: 'version', type: Protocol.Type.UINT32, value: 1 },
+                        { key: 'id', type: Protocol.Type.STRING, value: attachment.id },
+                        { key: 'name', type: Protocol.Type.STRING, value: attachment.name },
+                        { key: 'size', type: Protocol.Type.STRING, value: attachment.size }
+                    ] });
                 }
+                await im.send(channel.target, text, options);
+                row.state = channel.room ? 'sent' : 'accepted';
             } catch (reason) {
                 row.state = channel.room ? 'failed' : 'unknown';
                 if (!channel.room) {
@@ -234,6 +251,7 @@
                     if (!channel.room) { await load(false).catch(failure); }
                 }
             }
+            return { id: key, state: row.state };
         }
         async function retry(row) {
             var channel = _channel, generation = _generation;
@@ -374,6 +392,27 @@
             return _opening;
         };
         _this.ready = function () { return _opening; };
+        _this.sendAttachment = function (value, prepared) {
+            var file = _history.attachment(value);
+            return file ? send('[文件] ' + file.name, file, typeof prepared === 'function' ? prepared : null) : Promise.reject(new TypeError('文件消息信息无效。'));
+        };
+        // Resolve an incoming private conversation only on a host action. Do
+        // not guess a peer from its label or derive business identity in the UI.
+        _this.destination = async function () {
+            var target = _this.target(), channel = _channel, generation = _generation;
+            if (!channel || !channel.ready || !target) { return null; }
+            if (target.type !== 'conversation') { return target; }
+            var saved = await channel.storage.destination(target.id);
+            if (saved && saved.target) { return saved.target; }
+            var candidate = Object.keys(_rows).map(function (id) { return _rows[id]; }).reverse().filter(function (row) {
+                return row.incoming && !row.roomEvent && row.senderId && row.senderId !== im.userId();
+            })[0];
+            if (!candidate) { return null; }
+            var peer = { type: 'user', id: candidate.senderId }, resolved = await im.resolve(peer);
+            if (!current(generation) || _channel !== channel || resolved.conversationId !== target.id) { return null; }
+            await channel.storage.destination(target.id, { target: peer, name: candidate.from, avatar: '' });
+            return peer;
+        };
         _this.target = function () {
             if (!config.active) { return null; }
             if (_selected && _selected.target) { return _selected.target; }

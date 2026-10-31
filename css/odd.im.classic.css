@@ -544,6 +544,28 @@
     padding: 8px 14px;
 }
 
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: min(240px, 100%);
+    min-width: 120px;
+    min-height: 48px;
+    padding: 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file[hidden] { display: none; }
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file strong { font-size: inherit; font-weight: 500; }
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file small { font-size: 12px; opacity: .7; }
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file:disabled { cursor: default; opacity: .65; }
 .im-ui-classic .im-history-tools button,
 .im-ui-classic .im-message-retry {
     padding: 5px 9px;

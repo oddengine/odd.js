@@ -1505,6 +1505,12 @@
         _this.historyCapabilities = function () {
             return _attempt && _attempt.messaging ? _attempt.messaging.historyCapabilities() : { history: false, publicRead: false };
         };
+
+        _this.messageDelivery = function () {
+            if (_this.config.profile !== 'channel') { return 'reliable'; }
+            var value = _attempt && _attempt.session && _attempt.session.ext.messageDelivery;
+            return value === 'reliable' || value === 'best-effort' ? value : '';
+        };
         ['history', 'receipts', 'receipt'].forEach(function (method) {
             _this[method] = function () {
                 if (_readyState !== State.CONNECTED || !_attempt || !_attempt.messaging) {
