@@ -119,7 +119,9 @@
             })[0];
             if (!candidate) {
                 var original = (own.candidates || []).some(function (endpoint) { return endpoint.deviceId === identity.deviceId && !terminal(endpoint); });
-                if (original && !own.deviceId && Number(call.expiresAt) > Date.now()) { auto(call, 'resume', 'offer'); }
+                var declined = (own.candidates || []).some(function (endpoint) { return endpoint.deviceId === identity.deviceId && terminal(endpoint); });
+                var canEnroll = call.version === 2 && !declined && ['invited', 'ringing'].indexOf(own.state) >= 0;
+                if ((original || canEnroll) && !own.deviceId && Number(call.expiresAt) > Date.now()) { auto(call, 'resume', 'offer'); }
                 return;
             }
             if (_current && _current !== call.callId) {
@@ -378,6 +380,8 @@
             _this.maintain();
         };
         _this.current = function () { return _current ? copy(_states[_current] || null) : null; };
+        _this.busy = function () { return !!(_current || _inviting || Object.keys(_pending).length); };
+        _this.capabilities = function () { return { participants: _negotiated ? _negotiated.participants : 2 }; };
         _this.close = function () {
             _closed = true;
             _media.close();

@@ -1,5 +1,11 @@
 # 频道中的产品 CALL
 
+R-119通信产品接线：私聊使用产品服务频道，群聊使用群本身频道；普通消息仍保留原会话。网站最多维持服务频道与一个群通话上下文，系统可靠通知只唤醒被邀请用户，读通话记录不打开群连接。`CallPanel.members(target,cursor)`兼容原数组，也可返回`{items,nextCursor}`逐页选择；最多1024候选，实际邀请不超过协商成员数减一。首批读取失败提供重读与取消；`onMinimize`仅收起窗口，不停止媒体。`calls().busy()`包含尚未确认的原操作，跨窗口不能据`current()===null`错误新建通话。
+
+CALL v2会对邀请期限内仍未选端的当前受邀用户发送一次resume申请，供可靠唤醒后登记新端。已拒绝的同设备、过期邀请与v1不登记；是否准许由原分区及来源校验。来源签发的通信RTC凭据可带`callOnly:true`，仍不含流ID，由节点强制配合真实CALL参与。
+
+新增Vue／CallPanel／Calls状态逻辑、IndexedDB本地检查通过，使用显式信令替身；没有运行真实后端或媒体互通。下文最初源码交付记录仅描述当时验证范围。
+
 产品CALL v2沿真实频道的可靠消息运行，媒体使用频道绑定的RTC App。具名用户需要CALL权限位128、稳定deviceId和持久storageFactory；服务端协商callVersion=2后才启用。匿名和仅内存频道事件模式不支持CALL。旧静态CALL v1仍使用其原配置。
 
 在现有频道IM setup配置加入以下部分；`routing`为已配置的共享`odd.utils.Routing`实例，`getUserMediaCredential`由客户应用提供：

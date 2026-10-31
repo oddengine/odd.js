@@ -13,6 +13,10 @@
             retryPending: 'Retry pending operation', unknown: 'Result unknown. Reconnecting will retry the same operation.',
             retry: 'Retry', disconnected: 'Connection lost. Waiting for authoritative call state.',
             choose: 'Choose participants', calling: 'Calling', callSelected: 'Call selected participants', cancel: 'Cancel',
+            moreMembers: 'Load more members', memberLimit: 'Member selection limit reached',
+            minimize: 'Minimize call',
+            chooseLimit: 'Choose between 1 and {max} participants',
+            retryMembers: 'Reload members',
         }, config.labels || {});
         var _this = this, _closed = false, _call = null, _selection = 0,
             _panel = document.createElement('section'), _title = document.createElement('h2'),
@@ -26,6 +30,12 @@
         _media.className = 'im-call-media';
         _actions.className = 'im-call-actions';
         [_title, _status, _members, _media, _actions].forEach(function (element) { _panel.appendChild(element); });
+        if (typeof config.onMinimize === 'function') {
+            var minimize = document.createElement('button');
+            minimize.type = 'button'; minimize.className = 'im-call-minimize'; minimize.textContent = labels.minimize;
+            minimize.onclick = function () { if (!_closed) { config.onMinimize(); } };
+            _panel.insertBefore(minimize, _title);
+        }
 
         function button(label, action) {
             var element = document.createElement('button');
@@ -34,10 +44,11 @@
             element.onclick = function () {
                 element.disabled = true;
                 Promise.resolve().then(action).catch(function (reason) {
-                    if (!_closed) { _status.textContent = reason.message; }
+                    if (!_closed) { _status.textContent = typeof config.failureMessage === 'function' ? config.failureMessage(reason) : reason.message; }
                 }).then(function () { element.disabled = false; });
             };
             _actions.appendChild(element);
+            return element;
         }
         function dismiss() {
             ++_selection;
@@ -67,7 +78,7 @@
                 ending: labels.closing, ended: labels.ended };
             _status.textContent = ended ? labels.callEnded : closing ? states.ending : incoming ? labels.incoming :
                 own.deviceId && !selected ? labels.answeredElsewhere : states[own.state] || states.accepted;
-            if (call.reason || own.reason) { _status.textContent += ' · ' + (own.reason || call.reason); }
+            if (call.reason || own.reason) { var reason = own.reason || call.reason; _status.textContent += ' · ' + (config.reasons && (config.reasons[reason] || config.reasons.unknown) || reason); }
             _members.textContent = '';
             call.participants.forEach(function (value) {
                 var row = document.createElement('li');
@@ -117,7 +128,7 @@
                 _actions.textContent = '';
                 button(labels.retry, function () { im.calls().retry(); });
             } else if (value.kind === 'calls-error' || value.kind === 'calls-gap' || value.state === 'rejected' || value.state === 'expired') {
-                _status.textContent = value.message;
+                _status.textContent = typeof config.failureMessage === 'function' ? config.failureMessage(value) : value.message;
             }
         }
         function disconnected() {
@@ -136,14 +147,21 @@
             _media.textContent = '';
             _actions.textContent = '';
             _status.textContent = target.type === 'group' ? labels.choose : labels.calling;
-            if (target.type === 'user') { return im.calls().invite(target, { mode: mode }); }
+            if (target.type === 'user') { return im.calls().invite(target, { mode: mode }).catch(function (reason) {
+                if (!_closed && selection === _selection) {
+                    _status.textContent = typeof config.failureMessage === 'function' ? config.failureMessage(reason) : reason.message;
+                    if (!im.calls().busy || !im.calls().busy()) { button(labels.cancel, dismiss); }
+                }
+                throw reason;
+            }); }
             if (target.type !== 'group' || typeof config.members !== 'function') {
                 return Promise.reject(new Error('Choose a contact or configure the group member directory.'));
             }
-            return Promise.resolve(config.members(target)).then(function (members) {
+            var choices = [], seen = Object.create(null), cursor = null, more;
+            function loadMembers() { return Promise.resolve(config.members(target, cursor)).then(function (page) {
                 if (_closed || selection !== _selection) { return; }
-                if (!Array.isArray(members) || members.length > 1024) { throw new Error('Invalid group member directory.'); }
-                var choices = [], seen = Object.create(null);
+                var members = Array.isArray(page) ? page : page && page.items;
+                if (!Array.isArray(members) || members.length > 1024 || choices.length + members.length > 1024) { throw new Error('Invalid group member directory.'); }
                 members.forEach(function (member) {
                     if (!member.id || member.id === im.userId() || seen[member.id]) { return; }
                     seen[member.id] = true;
@@ -156,14 +174,32 @@
                     row.appendChild(label);
                     _members.appendChild(row);
                 });
+                cursor = !Array.isArray(page) && page.nextCursor || null;
+                if (more) { more.hidden = !cursor; more.disabled = choices.length >= 1024; if (more.disabled) { more.textContent = labels.memberLimit; } }
+            }); }
+            function controls() {
+                if (_closed || selection !== _selection) { return; }
+                _status.textContent = labels.choose;
+                _actions.textContent = '';
                 button(labels.callSelected, function () {
                     var invitees = choices.filter(function (input) { return input.checked; }).map(function (input) { return input.value; });
+                    var maximum = im.calls().capabilities ? im.calls().capabilities().participants - 1 : 15;
+                    if (!invitees.length || invitees.length > maximum) { _status.textContent = labels.chooseLimit.replace('{max}', maximum); return; }
                     return im.calls().invite(target, { mode: mode, invitees: invitees });
                 });
+                more = button(labels.moreMembers, loadMembers); more.hidden = !cursor;
+                button(labels.cancel, dismiss);
+            }
+            return loadMembers().then(controls).catch(function (reason) {
+                if (_closed || selection !== _selection) { return; }
+                _status.textContent = typeof config.failureMessage === 'function' ? config.failureMessage(reason) : reason.message;
+                _actions.textContent = '';
+                button(labels.retryMembers, function () { return loadMembers().then(controls); });
                 button(labels.cancel, dismiss);
             });
         };
         _this.element = function () { return _panel; };
+        _this.refresh = function () { if (_call && !_closed) { render(_call); } };
         _this.destroy = function () {
             _closed = true;
             im.removeEventListener(IMEvent.NOTIFY, changed);
@@ -173,6 +209,8 @@
         };
         im.addEventListener(IMEvent.NOTIFY, changed);
         im.addEventListener(Event.CLOSE, disconnected);
+        var current = im.calls().current();
+        if (current) { render(current); }
     }
 
     UI.CallPanel = CallPanel;
