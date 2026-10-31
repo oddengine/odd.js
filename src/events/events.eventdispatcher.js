@@ -122,6 +122,17 @@
         };
 
         _this.forward = function (event) {
+            // DOM media events have read-only target/srcElement accessors. Keep
+            // the SDK envelope mutable without modifying the browser's event.
+            if (typeof event.stopPropagation === 'function') {
+                event = {
+                    type: event.type,
+                    data: event.data || {},
+                    srcElement: event.srcElement || event.target,
+                    originalEvent: event,
+                    version: odd().version,
+                };
+            }
             event.target = _this;
             event.stopPropagation = false;
             event.api = _option && (typeof _option.id === 'string' || typeof _option.id === 'number') ? _option.id : undefined;
