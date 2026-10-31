@@ -76,6 +76,8 @@
             _speakerBindings = [],
             _speakerAt = 0,
             _speakerFresh = null,
+            _speakerLevels = new Map(),
+            _localOrderAt = 0,
             _readyState;
 
         EventDispatcher.call(this, 'UI', { id: id, logger: _logger }, Event, NetStatusEvent, UIEvent, MouseEvent);
@@ -480,9 +482,13 @@
             }).map(function (binding) {
                 return { resourceId: binding.resourceId, publisherGeneration: String(binding.publisherGeneration), netStream: binding.netStream, screen: binding.netStream === _sharing || binding.purpose === 'screen' };
             });
-            _speakerView = { known: !!snapshot.known && typeof snapshot.observedAt === 'number', items: snapshot.items.map(function (item) { return Object.assign({}, item); }) };
+            _speakerView = { source: snapshot.source === 'local' ? 'local' : 'directory', known: !!snapshot.known && typeof snapshot.observedAt === 'number', items: snapshot.items.map(function (item) { return Object.assign({}, item); }) };
             _speakerAt = typeof snapshot.observedAt === 'number' ? snapshot.observedAt : performance.now();
+            _speakerLevels.forEach(function (value, ns) {
+                if (!_speakerBindings.some(function (binding) { return binding.netStream === ns; })) { _speakerLevels.delete(ns); }
+            });
             _speakerFresh = null;
+            _localOrderAt = 0;
             _orderSpeakers(performance.now());
         };
 
@@ -490,7 +496,29 @@
             if (!_speakerView) { return; }
             var elapsed = now - _speakerAt, items = _speakerView.items.slice(),
                 fresh = _speakerView.known && items.every(function (item) { return !item.measured || elapsed < item.validFor; });
-            if (fresh === _speakerFresh) { return; }
+            var local = _speakerView.source === 'local';
+            if (local) {
+                if (_speakerFresh !== null && now - _localOrderAt < 1200) { return; }
+                _localOrderAt = now;
+                fresh = true;
+                items.forEach(function (item) {
+                    var binding = _speakerBindings.find(function (value) {
+                        return value.resourceId === item.resourceId && value.publisherGeneration === item.publisherGeneration;
+                    });
+                    var level = binding && _speakerLevels.get(binding.netStream);
+                    item.active = !!(level && level.active);
+                    item.level = level ? level.value : 0;
+                    item.previous = binding ? Number(binding.netStream.element().style.order) || 0 : 0;
+                });
+                items.sort(function (a, b) {
+                    var roles = ['owner', 'host', 'anchor', 'presenter', ''];
+                    var priority = roles.indexOf(a.presentation) - roles.indexOf(b.presentation);
+                    if (priority) { return priority; }
+                    if (!a.presentation && a.active !== b.active) { return a.active ? -1 : 1; }
+                    if (!a.presentation && a.active && Math.abs(a.level - b.level) >= 8) { return b.level - a.level; }
+                    return a.previous - b.previous || a.slot - b.slot || a.userId.localeCompare(b.userId);
+                });
+            } else if (fresh === _speakerFresh) { return; }
             _speakerFresh = fresh;
             if (!fresh) {
                 items.sort(function (a, b) {
@@ -519,6 +547,29 @@
                 }
             });
             _layoutVideos();
+        }
+
+        // Local presentation reuses the meter pass. It neither subscribes to
+        // extra streams nor sends measurements or authority to another service.
+        function _measureSpeaker(ns, measurement, now) {
+            if (!_speakerView || _speakerView.source !== 'local') { return; }
+            var value = _speakerLevels.get(ns);
+            if (!value) { value = { value: 0, above: 0, heard: 0, active: false }; _speakerLevels.set(ns, value); }
+            if (measurement.state !== 'live' || !Number.isFinite(measurement.value)) {
+                value.value = 0; value.above = 0; value.heard = 0; value.active = false;
+            } else {
+                value.value = value.value * .65 + Math.max(0, Math.min(100, measurement.value)) * .35;
+                if (value.value >= 4) {
+                    if (!value.above) { value.above = now; }
+                    value.heard = now;
+                    if (now - value.above >= 160) { value.active = true; }
+                } else {
+                    value.above = 0;
+                    if (value.value < 2 && now - value.heard >= 800) { value.active = false; }
+                }
+            }
+            var binding = _speakerBindings.find(function (item) { return item.netStream === ns; });
+            if (binding && !binding.screen) { ns.element().setAttribute('speaking', value.active ? 'true' : 'false'); }
         }
 
         function _attachVideo(video) {
@@ -553,6 +604,7 @@
         }
 
         function _onVisibility() {
+            _speakerLevels.clear(); _speakerFresh = null; _localOrderAt = 0;
             if (_meterFrame) { cancelAnimationFrame(_meterFrame); _meterFrame = 0; }
             if (!document.hidden && _readyState === State.CONNECTED) {
                 _meterFrame = requestAnimationFrame(_measure);
@@ -582,8 +634,10 @@
                         var right = Math.min(window.innerWidth, bounds.right, clip.right, rect.right), bottom = Math.min(window.innerHeight, bounds.bottom, clip.bottom, rect.bottom);
                         var showing = right - left > 30 && bottom - top > 30;
                         meter.style.display = showing ? '' : 'none';
+                        var measurement = showing || _speakerView && _speakerView.source === 'local' ?
+                            (ns === local ? localMeasurement : ns.measureAudio()) : { state: 'unavailable', value: null };
+                        _measureSpeaker(ns, measurement, now);
                         if (showing) {
-                            var measurement = ns === local ? localMeasurement : ns.measureAudio();
                             meter.setAttribute('audio-state', measurement.state);
                             meter.style.setProperty('--pe-audio-level', (measurement.value || 0) + '%');
                             meter.style.left = (left - bounds.left + 8) + 'px';
@@ -625,6 +679,7 @@
             ns.removeEventListener(Event.RELEASE, _onStreamRelease);
             var meter = _meters.get(ns);
             if (meter) { meter.remove(); _meters.delete(ns); }
+            _speakerLevels.delete(ns); _localOrderAt = 0;
             _speakerBindings = _speakerBindings.filter(function (binding) { return binding.netStream !== ns; });
             _speakerFresh = null;
             if (element.parentNode) {
@@ -674,6 +729,20 @@
                 _this.dispatchEvent(Event.CHANGE, { name: 'layout', value: state });
             }
             return _wrapper.getAttribute('layout');
+        };
+
+        // Presentation only: hidden thumbnails retain their streams and audio.
+        // Grid always shows all tiles; returning to the main view restores this choice.
+        _this.thumbnails = function (state) {
+            if (state !== undefined) {
+                if (['expanded', 'compact', 'hidden'].indexOf(state) < 0) {
+                    throw { name: 'DataError', message: 'Unknown thumbnail presentation.' };
+                }
+                _wrapper.setAttribute('thumbnails', state);
+                _this.resize();
+                _this.dispatchEvent(Event.CHANGE, { name: 'thumbnails', value: state });
+            }
+            return _wrapper.getAttribute('thumbnails') || 'expanded';
         };
 
         _this.theater = function (status) {
@@ -1197,7 +1266,7 @@
                     _speakerView = null;
                     _speakerBindings = [];
                     _meters.forEach(function (meter) { meter.remove(); });
-                    _meters.clear();
+                    _meters.clear(); _speakerLevels.clear();
 
                     _timer.stop();
                     _timer.removeEventListener(TimerEvent.TIMER, _onTimer);

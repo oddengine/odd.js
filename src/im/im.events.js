@@ -168,6 +168,10 @@
                 ['active', 'stopped', 'unknown'].indexOf(payload.state) < 0 || !/^p-[0-9a-f]{64}$/.test(event.entityId)) {
                 throw _error('DataError', 'Invalid channel publication.');
             }
+            if (payload.purpose !== undefined) {
+                if (['audio', 'camera', 'screen'].indexOf(payload.purpose) < 0) { throw _error('DataError', 'Invalid publication purpose.'); }
+                rules.push({ key: 'purpose', type: Type.STRING });
+            }
         } else if (event.kind === 'media.publication') {
             rules = [{ key: 'publisherGeneration', type: Type.UINT64 }, { key: 'nodeId', type: Type.STRING },
                 { key: 'bootId', type: Type.STRING }, { key: 'sessionId', type: Type.STRING },

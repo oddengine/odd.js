@@ -206,6 +206,8 @@
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-stage);
 }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail video { width: 100%; height: auto; aspect-ratio: 16 / 9; flex: 0 0 auto; border: 1px solid var(--pe-media-line); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][thumbnails="compact"] .pe-rtc-rail { width: clamp(88px, 14%, 144px); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][thumbnails="hidden"]:not([layout="grid"]) .pe-rtc-rail { display: none; }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="left"] .pe-rtc-rail { inset: 12px auto 12px 12px; }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="top"] .pe-rtc-rail,
 .pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail { width: auto; height: clamp(80px, 24%, 144px); inset: 12px 12px auto; flex-direction: row; }

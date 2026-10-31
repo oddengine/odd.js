@@ -1,5 +1,16 @@
 (function (odd) {
-    var RTC = odd.RTC;
+    var RTC = odd.RTC, suspended = new Set();
+    function gesture() { suspended.forEach(function (resume) { resume(true); }); }
+    function watchGesture(resume, needed) {
+        if (needed) { suspended.add(resume); } else { suspended.delete(resume); }
+        if (suspended.size) {
+            document.addEventListener('pointerdown', gesture, true);
+            document.addEventListener('keydown', gesture, true);
+        } else {
+            document.removeEventListener('pointerdown', gesture, true);
+            document.removeEventListener('keydown', gesture, true);
+        }
+    }
 
     function AudioMeter(logger) {
         var _this = this,
@@ -9,7 +20,8 @@
             _buffer,
             _source,
             _stream,
-            _track;
+            _track,
+            _resuming = false;
 
         function _init() {
 
@@ -51,6 +63,9 @@
             try {
                 if (!_context || _context.state === 'closed') {
                     _context = new (window.AudioContext || window.webkitAudioContext)();
+                    _context.onstatechange = function () {
+                        if (_context) { watchGesture(_resume, _context.state === 'suspended'); }
+                    };
                     _analyser = _context.createAnalyser();
                     _buffer = new Uint8Array(_analyser.frequencyBinCount);
                 }
@@ -73,20 +88,24 @@
             }
         }
 
-        function _resume() {
-            if (_context.state !== 'suspended') {
-                return;
-            }
+        function _resume(fromGesture) {
+            if (!_context || _context.state !== 'suspended') { watchGesture(_resume, false); return; }
+            watchGesture(_resume, true);
+            if (_resuming && !fromGesture) { return; }
             var context = _context;
-            Promise.resolve().then(function () {
-                if (_context === context) {
-                    return context.resume();
-                }
-            }).catch(function (err) {
-                if (_context === context) {
-                    _warn(err);
-                }
-            });
+            _resuming = true;
+            // Call within the trusted gesture when autoplay has suspended the
+            // graph. A single shared listener covers all suspended meters.
+            try {
+                Promise.resolve(context.resume()).catch(function (err) {
+                    if (_context === context) { _warn(err); }
+                }).then(function () {
+                    if (_context === context) {
+                        _resuming = false;
+                        watchGesture(_resume, context.state === 'suspended');
+                    }
+                });
+            } catch (err) { _resuming = false; _warn(err); }
         }
 
         _this.volume = function () {
@@ -145,8 +164,10 @@
         }
 
         function _release() {
+            watchGesture(_resume, false); _resuming = false;
             _disconnect();
             var context = _context;
+            if (context) { context.onstatechange = null; }
             _context = _analyser = _buffer = undefined;
             if (context && context.state !== 'closed') {
                 Promise.resolve().then(function () {
