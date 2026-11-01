@@ -19,6 +19,7 @@
         _id = 0,
         _instances = {},
         _default = {
+            inputPublishing: false,
             speakerLabels: { prefix: 'Speaking: ', unnamed: 'Participant' },
             presentation: 'full', // full, mini, popup
             skin: 'classic',
@@ -70,6 +71,10 @@
             _timer,
             _pendingCall,
             _pendingShare,
+            _inputWanted = { audio: false, video: false },
+            _inputRevision = 0,
+            _inputTask = null,
+            _restartingInputs = false,
             _meterFrame = 0,
             _meterAt = 0,
             _meters = new Map(),
@@ -173,7 +178,7 @@
             _this.config.plugins = plugins;
         }
 
-        function _getConstraints(config) {
+        function _getConstraints(config, preview) {
             var constraints = utils.extendz({}, Constraints[config.profile], {
                 audio: {
                     deviceId: typeof config.microphone === 'string' && config.microphone ? { exact: config.microphone } : '',
@@ -184,8 +189,8 @@
                     cursor: 'always', // always, motion, never
                 },
             });
-            var microphone = _wrapper && _wrapper.getAttribute('microphone');
-            var camera = _wrapper && _wrapper.getAttribute('camera');
+            var microphone = !preview && _wrapper && _wrapper.getAttribute('microphone');
+            var camera = !preview && _wrapper && _wrapper.getAttribute('camera');
             if (!_audioAllowed || microphone === 'off' || !microphone && config.microphone === false) {
                 constraints.audio = false;
             }
@@ -220,10 +225,16 @@
         }
 
         function _setupPlugins() {
+            if (_this.plugins.Dashboard) {
+                _this.plugins.Dashboard.update('settings', { profile: _this.config.profile, camera: _this.config.camera,
+                    microphone: _this.config.microphone, joinAudio: _this.config.joinAudio, joinVideo: _this.config.joinVideo,
+                    joinPreferences: _this.config.inputPublishing });
+            }
             _wrapper.setAttribute('presentation', _this.config.presentation);
             _wrapper.setAttribute('state', '');
-            _wrapper.setAttribute('microphone', _this.config.microphone === false ? 'off' : 'on');
-            _wrapper.setAttribute('camera', _this.config.camera === false ? 'off' : 'on');
+            _wrapper.setAttribute('microphone', _this.config.inputPublishing || _this.config.microphone === false ? 'off' : 'on');
+            _wrapper.setAttribute('camera', _this.config.inputPublishing || _this.config.camera === false ? 'off' : 'on');
+            _constraints = _getConstraints(_this.config);
             _wrapper.setAttribute('sharing', 'off');
             _wrapper.setAttribute('calling', 'off');
             _wrapper.setAttribute('layout', _this.config.layout || 'right');
@@ -398,13 +409,81 @@
             if (allowed === undefined) { return _audioAllowed; }
             _audioAllowed = !!allowed;
             _api.audioPolicy(_audioAllowed);
-            if (!_audioAllowed && _wrapper) { _this.microphone(false); }
+            if (!_audioAllowed && _wrapper) { _this.microphone(false).catch(function (err) { _onControlError('microphone', err); }); }
+        };
+
+        function _inputControls(audio, video) {
+            ['microphone', 'camera'].forEach(function (name, index) {
+                var state = (index ? video : audio) ? 'on' : 'off';
+                _wrapper.setAttribute(name, state);
+                if (_this.plugins.Controlbar) { _this.plugins.Controlbar.state(name, state); }
+            });
+            _constraints = _getConstraints(_this.config);
+        }
+
+        function _enableInputTracks(ns, wanted) {
+            if (!ns || !ns.stream()) { return; }
+            ns.stream().getTracks().forEach(function (track) { track.enabled = !!wanted[track.kind]; });
+        }
+
+        // Opt-in meeting controls: one local publication, serialized changes,
+        // no changes to subscriptions or the independent screen share.
+        _this.publishInputs = function (audio, video) {
+            if (!_this.config.inputPublishing || _readyState !== State.CONNECTED) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'Input publishing is not ready.' });
+            }
+            if (audio && !_audioAllowed) { return Promise.reject({ name: 'NotAllowedError', message: '主持人已开启全体静音，暂不能开麦。' }); }
+            _inputWanted = { audio: !!audio, video: !!video };
+            _inputRevision++;
+            // Turning a device off takes effect even while another input opens.
+            if (_calling && _calling.stream()) {
+                _calling.stream().getTracks().forEach(function (track) { if (!_inputWanted[track.kind]) { track.enabled = false; } });
+            }
+            _inputControls(_inputWanted.audio, _inputWanted.video);
+            if (!audio && !video && _pendingCall) { _pendingCall.cancelled = true; }
+            if (_inputTask) { return _inputTask; }
+            var controls = _this.plugins.Controlbar;
+            if (controls) { controls.element().setAttribute('aria-busy', 'true'); }
+            _inputTask = Promise.resolve().then(async function () {
+                var revision;
+                do {
+                    revision = _inputRevision;
+                    try {
+                        if (_readyState !== State.CONNECTED) { throw { name: 'AbortError', message: 'Meeting closed.' }; }
+                        if (!_inputWanted.audio && !_inputWanted.video) {
+                            await _this.hangup();
+                        } else {
+                            var stream = _calling && _calling.stream();
+                            if (stream && (_inputWanted.audio && !stream.getAudioTracks().length || _inputWanted.video && !stream.getVideoTracks().length)) {
+                                _restartingInputs = true;
+                                try { await _this.hangup(); } finally { _restartingInputs = false; }
+                            }
+                            _inputControls(_inputWanted.audio, _inputWanted.video);
+                            var ns = await _this.call();
+                            if (_readyState !== State.CONNECTED) { throw { name: 'AbortError', message: 'Meeting closed.' }; }
+                            _enableInputTracks(ns, _inputWanted);
+                        }
+                    } catch (err) {
+                        if (revision !== _inputRevision && _readyState === State.CONNECTED) { continue; }
+                        var active = _calling && _calling.stream();
+                        _inputWanted = { audio: !!(active && active.getAudioTracks().some(function (t) { return t.enabled; })),
+                            video: !!(active && active.getVideoTracks().some(function (t) { return t.enabled; })) };
+                        _inputControls(_inputWanted.audio, _inputWanted.video);
+                        throw err;
+                    }
+                } while (revision !== _inputRevision);
+            }).finally(function () {
+                _inputTask = null;
+                if (controls) { controls.element().removeAttribute('aria-busy'); }
+            });
+            return _inputTask;
         };
 
         _this.microphone = function (enable) {
             if (enable === undefined) {
                 return _wrapper.getAttribute('microphone') === 'on';
             }
+            if (_this.config.inputPublishing) { return _this.publishInputs(enable, _inputWanted.video); }
 
             if (enable && !_audioAllowed) { return Promise.reject({ name: 'NotAllowedError', message: '主持人已开启全体静音，暂不能开麦。' }); }
             var tracks = _calling ? _calling.stream().getAudioTracks() : [],
@@ -429,6 +508,7 @@
             if (enable === undefined) {
                 return _wrapper.getAttribute('camera') === 'on';
             }
+            if (_this.config.inputPublishing) { return _this.publishInputs(_inputWanted.audio, enable); }
 
             var tracks = _calling ? _calling.stream().getVideoTracks() : [],
                 restart = _calling && !tracks.length && enable;
@@ -670,8 +750,9 @@
                             // The main video's bottom marker also clears floating controls.
                             var x = markerRight ? right - 30 : left + 8,
                                 y = markerBottom ? bottom - 30 : top + 8;
-                            if (barBounds && _main.contains(element) && x < barBounds.right && x + 22 > barBounds.left &&
-                                y < barBounds.bottom && y + 22 > barBounds.top) { y = Math.max(top + 8, barBounds.top - 30); }
+                            if (barBounds && barBounds.height > 0 && _main.contains(element)) {
+                                y = Math.max(top + 8, Math.min(y, barBounds.top - 30));
+                            }
                             meter.setAttribute('audio-state', measurement.state);
                             meter.style.setProperty('--pe-audio-level', (measurement.value || 0) + '%');
                             meter.style.left = (x - bounds.left) + 'px';
@@ -722,6 +803,10 @@
 
             if (ns === _calling) {
                 _calling = null;
+                if (_this.config.inputPublishing && !_restartingInputs) {
+                    _inputWanted = { audio: false, video: false }; _inputRevision++;
+                    _inputControls(false, false);
+                }
                 _wrapper.setAttribute('calling', 'off');
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
@@ -1129,10 +1214,14 @@
                 if (_readyState !== State.CONNECTED || generation !== _settingsGeneration) {
                     return;
                 }
+                var preferences = _this.settings().read().effective;
                 dashboard.update('settings', {
-                    profile: _this.config.profile,
-                    camera: _this.config.camera,
-                    microphone: _this.config.microphone,
+                    profile: preferences.profile,
+                    camera: preferences.camera,
+                    microphone: preferences.microphone,
+                    joinAudio: preferences.joinAudio,
+                    joinVideo: preferences.joinVideo,
+                    joinPreferences: _this.config.inputPublishing,
                     cameras: devices[0],
                     microphones: devices[1],
                 });
@@ -1149,7 +1238,7 @@
             if (!_settingsOpen || _readyState !== State.CONNECTED) { return Promise.resolve(); }
             var generation = _previewGeneration;
             var config = utils.extendz({}, _this.config, settings);
-            return _api.preview(_getConstraints(config), false, false).then(function (ns) {
+            return _api.preview(_getConstraints(config, true), false, false).then(function (ns) {
                 if (_readyState !== State.CONNECTED || !_settingsOpen || generation !== _previewGeneration) {
                     ns.close('cancelled');
                     return;

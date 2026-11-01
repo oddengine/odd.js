@@ -292,6 +292,9 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close { border-radius: var(--odd-radius-control); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content select { border-radius: var(--odd-radius-control); background: #ffffff17; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-settings-preview { border-radius: var(--odd-radius-control); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content .pe-settings-toggle { display: flex; align-items: center; gap: 10px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content .pe-settings-toggle[hidden] { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--pe-media-ink); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-content,
 .pe-ui-classic.pe-media-window[controls][kind="player"] :is(.pe-poster, .pe-comments, .pe-display) { height: 100%; }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + 28px); }

@@ -13,6 +13,7 @@
             camera: '', microphone: '', layout: 'right',
         };
         var encodings = odd.RTC && odd.RTC.Encodings;
+        if (config.module === 'rtc') { defaults.joinAudio = false; defaults.joinVideo = false; }
         if (encodings) {
             defaults.video = { svc: false, encodings: [] };
             var rtcDefaults = config.module === 'rtc' && odd.RTC.UI ? odd.RTC.UI.prototype.CONF : odd.RTC.prototype.CONF;
@@ -34,6 +35,7 @@
                 layouts: ['right', 'top', 'bottom', 'left', 'grid'],
                 preview: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
                 devices: !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices),
+                autoJoin: config.module === 'rtc',
                 encodings: encodings ? encodings.describe() : null,
                 persistence: config.storage ? 'host' : 'instance', scope: 'next-session' };
         };
@@ -52,11 +54,12 @@
                 var value = draft[name];
                 if (name === 'profile' && description.profiles.indexOf(value) < 0 ||
                     name === 'layout' && description.layouts.indexOf(value) < 0 ||
+                    (name === 'joinAudio' || name === 'joinVideo') && typeof value !== 'boolean' ||
                     (name === 'camera' || name === 'microphone') && !(typeof value === 'boolean' ||
                         typeof value === 'string' && value.length <= 256)) {
                     errors[name] = 'The setting value is unavailable.'; return;
                 }
-                result[name] = utils.extendz({}, { value: value }).value;
+                result[name] = description.autoJoin && (name === 'camera' || name === 'microphone') && value === false ? '' : utils.extendz({}, { value: value }).value;
             });
             if (encodings) {
                 try { encodings.validate(result.video, result.codecpreferences); }

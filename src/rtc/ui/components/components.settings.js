@@ -15,17 +15,21 @@
             profile: '720P_2',
             camera: '',
             microphone: '',
+            joinAudio: false,
+            joinVideo: false,
         };
 
     function Settings(name, value, logger, labels) {
         Panel.call(this, name, 'Settings', logger, [Event.CHANGE]);
 
         var _this = this,
-            _labels = utils.extendz({ video: 'Video', audio: 'Audio', profile: 'Profile', camera: 'Camera', microphone: 'Microphone', preview: 'Preview', save: 'Save' }, labels),
+            _labels = utils.extendz({ video: 'Video', audio: 'Audio', profile: 'Profile', camera: 'Camera', microphone: 'Microphone', preview: 'Preview', save: 'Save', systemDefault: 'System default', joinAudio: 'Turn on microphone when joining', joinVideo: 'Turn on camera when joining' }, labels),
             _container,
             _profile,
             _camera,
             _microphone,
+            _joinAudio,
+            _joinVideo,
             _video;
 
         function _init() {
@@ -35,6 +39,7 @@
 
             _buildVideo();
             _buildAudio();
+            _container.appendChild(_container.querySelector('footer'));
             _this.update(_this.config);
         }
 
@@ -75,6 +80,7 @@
             _camera.name = 'camera';
             _camera.onchange = _onChange;
             label.appendChild(_camera);
+            _joinVideo = _joinChoice(content, 'joinVideo');
 
             var footer = utils.createElement('footer', CLASS_FOOTER);
             _container.appendChild(footer);
@@ -110,6 +116,14 @@
             _microphone.name = 'microphone';
             _microphone.onchange = _onChange;
             label.appendChild(_microphone);
+            _joinAudio = _joinChoice(content, 'joinAudio');
+        }
+
+        function _joinChoice(content, name) {
+            var label = utils.createElement('label', 'pe-settings-toggle'), input = utils.createElement('input');
+            input.type = 'checkbox'; input.name = name; input.onchange = _onChange;
+            label.appendChild(input); label.appendChild(document.createTextNode(_labels[name])); content.appendChild(label);
+            return input;
         }
 
         function _onChange(e) {
@@ -129,7 +143,13 @@
                 profile: data.profile,
                 camera: data.camera,
                 microphone: data.microphone,
+                joinAudio: !!data.joinAudio,
+                joinVideo: !!data.joinVideo,
             };
+            _joinAudio.checked = _this.config.joinAudio;
+            _joinVideo.checked = _this.config.joinVideo;
+            _joinAudio.parentNode.hidden = !data.joinPreferences;
+            _joinVideo.parentNode.hidden = !data.joinPreferences;
 
             _profile.value = _this.config.profile;
 
@@ -148,6 +168,8 @@
 
         function _updateDevices(input, devices, value) {
             utils.emptyElement(input);
+            var defaultOption = utils.createElement('option');
+            defaultOption.value = ''; defaultOption.textContent = _labels.systemDefault; input.appendChild(defaultOption);
             utils.forEach(devices, function (_, device) {
                 var option = utils.createElement('option');
                 option.value = device.deviceId;
@@ -165,6 +187,8 @@
             _profile.onchange = null;
             _camera.onchange = null;
             _microphone.onchange = null;
+            _joinAudio.onchange = null;
+            _joinVideo.onchange = null;
             _video.srcObject = null;
 
             utils.forEach(_container.getElementsByTagName('button'), function (_, button) {

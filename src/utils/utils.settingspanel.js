@@ -14,6 +14,7 @@
             deviceMissing: 'Saved device (currently unavailable)', unnamedCamera: 'Camera', unnamedMicrophone: 'Microphone',
             devicesUnavailable: 'Device names may require permission. Use preview to grant access, or choose the system default.',
             systemOutput: 'Playback uses the system output device. Change speakers or headphones in your system settings.',
+            autoJoin: 'When joining a meeting', joinAudio: 'Turn on microphone when joining', joinVideo: 'Turn on camera when joining',
             encodings: 'Publishing encoding', codec: 'Video codec', currentCodecs: 'Keep configured preferences',
             simulcast: 'Simulcast: publish multiple resolutions', svc: 'AV1 SVC: use dependent layers', scalabilityMode: 'Layer mode',
             currentModes: 'No uniform mode selected', noLayers: 'no dependent layers', unavailable: 'not advertised by this browser',
@@ -74,6 +75,17 @@
         }));
         select('camera', labels.camera, []);
         select('microphone', labels.microphone, []);
+        if (state.capabilities.autoJoin) {
+            var joinGroup = document.createElement('fieldset'); joinGroup.className = 'odd-settings-encodings';
+            var joinLegend = document.createElement('legend'); joinLegend.textContent = labels.autoJoin; joinGroup.appendChild(joinLegend);
+            ['joinAudio', 'joinVideo'].forEach(function (name) {
+                var label = document.createElement('label'), input = document.createElement('input');
+                label.className = 'odd-settings-toggle'; input.type = 'checkbox'; input.name = name;
+                input.checked = draft[name]; input.onchange = function () { draft[name] = input.checked; dirty = true; };
+                inputs[name] = input; label.appendChild(input); label.appendChild(document.createTextNode(labels[name])); joinGroup.appendChild(label);
+            });
+            form.appendChild(joinGroup);
+        }
         var layouts = { right: labels.right, top: labels.top, bottom: labels.bottom, left: labels.left, grid: labels.grid };
         select('layout', labels.layout, state.capabilities.layouts.map(function (name) { return [name, layouts[name] || name]; }));
         var deviceNotice = document.createElement('p'); deviceNotice.textContent = labels.devicesUnavailable; form.appendChild(deviceNotice);
@@ -159,7 +171,8 @@
         function deviceOptions() {
             [['camera', 'videoinput', labels.unnamedCamera], ['microphone', 'audioinput', labels.unnamedMicrophone]].forEach(function (definition) {
                 var name = definition[0], list = devices.filter(function (device) { return device.kind === definition[1]; });
-                var choices = [['', labels.systemDefault], ['false', labels.off]];
+                var choices = [['', labels.systemDefault]];
+                if (!state.capabilities.autoJoin) { choices.push(['false', labels.off]); }
                 list.forEach(function (device, index) { choices.push([device.deviceId, device.label || definition[2] + ' ' + (index + 1)]); });
                 if (typeof draft[name] === 'string' && draft[name] && !list.some(function (device) { return device.deviceId === draft[name]; })) {
                     choices.push([draft[name], labels.deviceMissing]);
@@ -235,6 +248,7 @@
         form.onsubmit = function (event) { event.preventDefault(); save.click(); };
         function render() {
             inputs.profile.value = draft.profile; inputs.layout.value = draft.layout; deviceOptions(); renderEncodings();
+            ['joinAudio', 'joinVideo'].forEach(function (name) { if (inputs[name]) { inputs[name].checked = !!draft[name]; } });
         }
         function changed(event) {
             if (closed) { return; }
