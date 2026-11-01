@@ -80,3 +80,5 @@ or browser verification was performed.
 E08a 已接通可选 IndexedDB、分区 UUIDv7、先落盘后确认及原 ID 重连恢复的 SDK／服务端源码；
 现有 UI 仍走 M=0。参见[接入及适配器契约](example/im/storage.md)。
 未重建 release，未编译、测试或运行浏览器。
+
+网站审批后的只读呈现：[IM 只读会话](doc/im-readonly.md)。

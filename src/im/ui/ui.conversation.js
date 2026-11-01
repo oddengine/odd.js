@@ -6,7 +6,7 @@
         _default = { kind: 'Conversation', tab: 'messages', layout: '[Messages:messages=][Composer:composer=]',
             active: '', contacts: [], conversations: {}, manageSubscriptions: true,
             composer: { maxlength: 500, placeholder: '输入消息…', tools: ['emoji', 'file', 'video-call', 'voice-call'], miniTools: ['emoji'] },
-            visibility: true };
+            visibility: true, readOnly: false };
 
     function Conversation(im, config, logger) {
         EventDispatcher.call(this, 'Conversation', { logger: logger }, Event, MouseEvent);
@@ -142,11 +142,11 @@
             if (!im.connected()) { _notice.textContent = '连接已断开，重新连接后恢复已保存消息。'; return; }
             var channelTarget = target.type === 'channel', delivery = channelTarget ? im.messageDelivery() : '',
                 store = im.storage(), room = target.type === 'room' || channelTarget && delivery === 'best-effort',
-                resolved, readOnly = target.type === 'system';
+                resolved, readOnly = config.readOnly === true || target.type === 'system';
             if (channelTarget && !delivery) { throw new Error('节点尚未提供频道消息策略，请更新节点后重新连接。'); }
             if (target.type === 'conversation' && store && typeof store.destination === 'function') {
                 var saved = await store.destination(target.id);
-                readOnly = !!(saved && saved.target && saved.target.type === 'system');
+                readOnly = config.readOnly === true || !!(saved && saved.target && saved.target.type === 'system');
             }
             var reads = ['history', 'outgoing', 'outboxEntry', 'projection', 'gaps', 'destination', 'saveRead', 'eventHistory'];
             if (!room && (!store || reads.some(function (name) { return typeof store[name] !== 'function'; }))) {
@@ -172,11 +172,18 @@
                     actions: Action.MESSAGE_SUBSCRIBE | Action.MESSAGE_COMMIT | Action.MESSAGE_READ });
                 await channel.subscription.ready;
             } else {
-                await im.refresh(destination, room ? Action.MESSAGE_PUBLISH : Action.MESSAGE_READ, !room);
+                await im.refresh(destination, room ? Action.MESSAGE_SUBSCRIBE : Action.MESSAGE_READ, !room);
             }
             if (!current(generation)) { release(channel); return; }
             if (room) {
-                await im.refresh(destination, Action.MESSAGE_PUBLISH, false);
+                if (!readOnly) {
+                    try { await im.refresh(destination, Action.MESSAGE_PUBLISH, false); }
+                    catch (reason) {
+                        if (reason.name !== 'NotAllowedError') { throw reason; }
+                        readOnly = channel.readOnly = true;
+                        if (_this.components.composer) { _this.components.composer.element().hidden = true; }
+                    }
+                }
                 if (channel.storage && config.manageSubscriptions === false && typeof store.eventVisit === 'function') {
                     var visit = await store.eventVisit(target.id);
                     if (visit) { channel.visit = { conversationId: visit.stream, epoch: visit.epoch }; }
@@ -209,7 +216,7 @@
         async function send(text, attachment, prepared) {
             var channel = _channel, generation = _generation;
             if (!channel || !channel.ready || !im.connected()) { throw new Error('请先选择已连接的会话。'); }
-            if (channel.readOnly) { throw new Error('系统消息仅供接收与查看。'); }
+            if (channel.readOnly) { throw new Error('当前会话仅供接收与查看。'); }
             if (Object.keys(_sending).length >= 8) { throw new Error('请等待正在发送的消息完成。'); }
             var id = channel.room ? null : Protocol.messageId(channel.resolution.partition, channel.resolution.partitions), key = id ? _history.hex(id) : utils.guid(),
                 row = { id: key, text: text, from: im.userId(), align: 'right', incoming: false, reliable: !channel.room, ephemeral: channel.room,
@@ -473,7 +480,10 @@
             _container.appendChild(component.element());
             _this.components[match[2]] = component;
         }
-        if (_this.components.composer) { _this.components.composer.update(config.composer); }
+        if (_this.components.composer) {
+            _this.components.composer.update(config.composer);
+            _this.components.composer.element().hidden = config.readOnly === true;
+        }
         _readyState = State.READY;
         im.addEventListener(IMEvent.MESSAGE, onMessage);
         im.addEventListener(IMEvent.NOTIFY, onNotify);
