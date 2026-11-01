@@ -650,9 +650,11 @@
                 }
                 if (visible) {
                     _orderSpeakers(now);
-                    var layout = _this.layout(), bounds = _content.getBoundingClientRect(), railBounds = _rail.getBoundingClientRect(),
+                    var layout = _this.layout(), markerRight = ['left', 'top', 'bottom'].includes(layout),
+                        markerBottom = ['left', 'right', 'top'].includes(layout),
+                        bounds = _content.getBoundingClientRect(), railBounds = _rail.getBoundingClientRect(),
                         floatingRail = layout !== 'grid' && railBounds.width > 0 && railBounds.height > 0,
-                        barBounds = layout === 'top' && controlbar && _wrapper.getAttribute('controls-visible') !== 'false' ? controlbar.element().getBoundingClientRect() : null;
+                        barBounds = markerBottom && controlbar && _wrapper.getAttribute('controls-visible') !== 'false' ? controlbar.element().getBoundingClientRect() : null;
                     _meters.forEach(function (meter, ns) {
                         var element = ns.element(), rect = element.getBoundingClientRect();
                         var clip = _rail.contains(element) && floatingRail ? railBounds : bounds;
@@ -666,8 +668,8 @@
                         if (showing) {
                             // All 22px markers use the corner opposite the member rail.
                             // The main video's bottom marker also clears floating controls.
-                            var x = layout === 'left' ? right - 30 : left + 8,
-                                y = layout === 'top' ? bottom - 30 : top + 8;
+                            var x = markerRight ? right - 30 : left + 8,
+                                y = markerBottom ? bottom - 30 : top + 8;
                             if (barBounds && _main.contains(element) && x < barBounds.right && x + 22 > barBounds.left &&
                                 y < barBounds.bottom && y + 22 > barBounds.top) { y = Math.max(top + 8, barBounds.top - 30); }
                             meter.setAttribute('audio-state', measurement.state);
