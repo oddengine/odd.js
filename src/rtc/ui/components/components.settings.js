@@ -17,10 +17,11 @@
             microphone: '',
         };
 
-    function Settings(name, value, logger) {
+    function Settings(name, value, logger, labels) {
         Panel.call(this, name, 'Settings', logger, [Event.CHANGE]);
 
         var _this = this,
+            _labels = utils.extendz({ video: 'Video', audio: 'Audio', profile: 'Profile', camera: 'Camera', microphone: 'Microphone', preview: 'Preview', save: 'Save' }, labels),
             _container,
             _profile,
             _camera,
@@ -39,7 +40,7 @@
 
         function _buildVideo() {
             var title = utils.createElement('h3', CLASS_TITLE);
-            title.textContent = 'Video';
+            title.textContent = _labels.video;
             _container.appendChild(title);
 
             var content = utils.createElement('div', CLASS_CONTENT);
@@ -52,7 +53,7 @@
             content.appendChild(_video);
 
             var label = utils.createElement('label');
-            label.textContent = 'Profile:';
+            label.textContent = _labels.profile;
             content.appendChild(label);
 
             _profile = utils.createElement('select');
@@ -67,7 +68,7 @@
             });
 
             label = utils.createElement('label');
-            label.textContent = 'Camera:';
+            label.textContent = _labels.camera;
             content.appendChild(label);
 
             _camera = utils.createElement('select');
@@ -81,28 +82,28 @@
             var button = utils.createElement('button');
             button.type = 'button';
             button.name = 'preview';
-            button.textContent = 'Preview';
+            button.textContent = _labels.preview;
             button.onclick = _onClick;
             footer.appendChild(button);
 
             button = utils.createElement('button');
             button.type = 'button';
             button.name = 'save';
-            button.textContent = 'Save';
+            button.textContent = _labels.save;
             button.onclick = _onClick;
             footer.appendChild(button);
         }
 
         function _buildAudio() {
             var title = utils.createElement('h3', CLASS_TITLE);
-            title.textContent = 'Audio';
+            title.textContent = _labels.audio;
             _container.appendChild(title);
 
             var content = utils.createElement('div', CLASS_CONTENT);
             _container.appendChild(content);
 
             var label = utils.createElement('label');
-            label.textContent = 'Microphone:';
+            label.textContent = _labels.microphone;
             content.appendChild(label);
 
             _microphone = utils.createElement('select');

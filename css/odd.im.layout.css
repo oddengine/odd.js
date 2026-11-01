@@ -3,7 +3,7 @@
     --odd-im-message-gap: 10px;
     --odd-im-message-spacing: 16px;
     --odd-im-bubble-padding: 10px 12px;
-    --odd-im-bubble-radius: 8px;
+    --odd-im-bubble-radius: var(--odd-radius-message);
 }
 /* Empty conversation status and controls must not reserve a row or flex gap. */
 :is(.odd-view, .im-ui-classic) :is(.im-history-notice, .im-room-state):empty,
@@ -16,7 +16,7 @@
     font: inherit; text-align: start;
 }
 :is(.odd-view, .im-ui-classic) :is(.im-contact, .im-conversation-item, .im-message) > .im-avatar {
-    width: 40px; height: 40px; border-radius: 4px;
+    width: 40px; height: 40px; border-radius: var(--odd-radius-message);
     font-size: 14px; line-height: 20px; flex: 0 0 auto;
 }
 :is(.odd-view, .im-ui-classic) :is(.im-contact, .im-conversation-item, .im-message) > .im-avatar img {

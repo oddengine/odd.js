@@ -19,8 +19,9 @@
             _logger = logger,
             _container,
             _tooltip,
-            _menu,
+
             _label = 'Layout',
+            _gridLabel = 'Grid',
             _index = 0,
             _states = [];
 
@@ -49,23 +50,22 @@
             _container.appendChild(_tooltip);
 
             _this.switch(_index);
-            if (_name === 'layout') {
-                _menu = new utils.ControlMenu(_container, function (index) {
-                    var state = _this.switch(index);
-                    _this.dispatchEvent(MouseEvent.CLICK, { name: _name, state: state.key });
-                });
-                _states.forEach(function (state) { _menu.append(state.value); });
-                _menu.selected(_index);
-            }
+
         }
 
         function _onClick() {
-            if (_menu) { _menu.toggle(); return; }
             var state = _this.switch();
             _this.dispatchEvent(MouseEvent.CLICK, { name: _name, state: state.key });
         }
 
         _this.switch = function (to) {
+            if (_name === 'layout' && to === 'grid') {
+                _index = -1;
+                _container.setAttribute('state', 'grid');
+                _container.setAttribute('aria-label', _label + ': ' + _gridLabel);
+                _tooltip.textContent = _gridLabel;
+                return { key: 'grid', value: _gridLabel };
+            }
             var index = _index;
             if (typeof to === 'number') {
                 if (to < 0 || to >= _states.length) { return _states[_index]; }
@@ -79,14 +79,13 @@
             _container.setAttribute('state', state.key);
             _container.setAttribute('aria-label', _name === 'layout' ? _label + ': ' + state.value : state.value);
             _tooltip.textContent = state.value;
-            if (_menu) { _menu.selected(_index); }
             return state;
         };
 
-        _this.label = function (label) { _label = label; _this.switch(_index); };
+        _this.label = function (label, gridLabel) { _label = label; _gridLabel = gridLabel || _gridLabel; _this.switch(_index < 0 ? 'grid' : _index); };
 
         _this.state = function () {
-            return _states[_index].key;
+            return _index < 0 ? 'grid' : _states[_index].key;
         };
 
         _this.element = function () {
@@ -102,7 +101,6 @@
         };
 
         _this.destroy = function () {
-            if (_menu) { _menu.destroy(); }
             _container.removeEventListener('click', _onClick);
             _container.innerHTML = '';
         };

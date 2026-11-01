@@ -1,0 +1,17 @@
+/* Shared IM material; density and navigation remain separate. */
+:is(.odd-view, .im-ui-classic)[class] .im-message-bubble {
+    color: var(--odd-glass-ink); background: var(--odd-glass-content);
+    border: 1px solid var(--odd-glass-edge); box-shadow: inset 0 1px 0 var(--odd-glass-edge);
+}
+:is(.odd-view, .im-ui-classic)[class] .im-message[align="right"] .im-message-bubble { background: var(--odd-glass-send); }
+:is(.odd-view, .im-ui-classic)[class] .im-message-bubble header { color: var(--odd-glass-muted); }
+:is(.odd-view, .im-ui-classic)[class] .im-composer {
+    background: var(--odd-glass-content); border-color: var(--odd-glass-edge);
+    box-shadow: var(--odd-glass-shadow);
+    backdrop-filter: var(--odd-glass-blur); -webkit-backdrop-filter: var(--odd-glass-blur);
+}
+:is(.odd-view, .im-ui-classic)[class] .im-composer-emoji {
+    border: 1px solid var(--odd-glass-edge); border-radius: var(--odd-radius-panel);
+    background: var(--odd-glass-content); box-shadow: var(--odd-glass-shadow);
+    backdrop-filter: var(--odd-glass-floating-blur); -webkit-backdrop-filter: var(--odd-glass-floating-blur);
+}

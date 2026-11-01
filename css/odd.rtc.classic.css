@@ -275,8 +275,8 @@
     height: 22px;
     position: absolute;
     z-index: 1;
-    border-radius: 4px;
-    background: var(--pe-icon-microphone) center / contain no-repeat rgba(7, 9, 12, .65);
+    background: var(--pe-icon-microphone) center / contain no-repeat;
+    filter: drop-shadow(0 1px 2px #000b);
     pointer-events: none;
 }
 

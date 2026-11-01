@@ -23,13 +23,13 @@
 /* Auxiliary plugins stay within the same media surface and focus system. */
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu {
     width: max-content; max-width: 100%; z-index: 12; padding: 4px;
-    border: 1px solid var(--pe-media-line); border-radius: 8px; overflow: auto;
+    border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-panel); overflow: auto;
     color: var(--pe-media-ink); background: var(--pe-media-raised); white-space: normal;
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item {
     width: 100%; min-height: 44px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;
-    border: 0; border-radius: 4px; font: inherit; font-size: 14px; line-height: 1.5; text-align: left;
+    border: 0; border-radius: var(--odd-radius-small); font: inherit; font-size: 14px; line-height: 1.5; text-align: left;
     color: var(--pe-media-ink); background: transparent; white-space: normal; overflow-wrap: anywhere;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item:not(:disabled):hover {
@@ -44,13 +44,13 @@
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist {
     position: absolute; z-index: 5; inset: 12px 12px auto auto; width: min(300px, calc(100% - 24px));
     max-height: calc(100% - var(--pe-controls-height) - 24px); padding: 12px; overflow: auto;
-    border: 1px solid var(--pe-media-line); border-radius: 8px; color: var(--pe-media-ink); background: var(--pe-media-raised);
+    border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-panel); color: var(--pe-media-ink); background: var(--pe-media-raised);
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
 }
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist summary { min-height: 44px; padding: 10px 0; font-size: 16px; line-height: 1.5; cursor: pointer; }
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--pe-media-muted); }
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button {
-    width: 100%; min-height: 44px; padding: 10px; margin: 4px 0 0; border: 0; border-radius: 4px; text-align: left;
+    width: 100%; min-height: 44px; padding: 10px; margin: 4px 0 0; border: 0; border-radius: var(--odd-radius-small); text-align: left;
     font: inherit; font-size: 14px; line-height: 1.5; color: var(--pe-media-ink); background: transparent; cursor: pointer; overflow-wrap: anywhere;
 }
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button:not(:disabled):hover { background: var(--pe-media-stage); }
@@ -59,7 +59,7 @@
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist button:disabled { opacity: .65; cursor: not-allowed; }
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist strong,
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist small { display: block; font-size: 14px; }
-.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist img { float: left; width: 56px; height: 42px; object-fit: cover; margin-right: 10px; border-radius: 4px; }
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist img { float: left; width: 56px; height: 42px; object-fit: cover; margin-right: 10px; border-radius: var(--odd-radius-small); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-logo img { width: 100%; height: 100%; object-fit: contain; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-logo > span { display: block; width: 100%; height: 100%; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-logo a { min-width: 44px; min-height: 44px; }
@@ -76,7 +76,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet {
     position: absolute; inset: 12px 12px auto auto; width: min(520px, calc(100% - 24px));
     max-height: calc(100% - 24px); padding: 16px; overflow: auto; pointer-events: auto;
-    border: 1px solid var(--pe-media-line); border-radius: 8px; color: var(--pe-media-ink); background: var(--pe-media-raised);
+    border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-panel); color: var(--pe-media-ink); background: var(--pe-media-raised);
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet h3 { margin: 12px 0; font-size: 16px; line-height: 1.5; }
@@ -86,7 +86,7 @@
     white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close {
-    min-height: 44px; padding: 10px 12px; border: 1px solid var(--pe-media-line); border-radius: 4px;
+    min-height: 44px; padding: 10px 12px; border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-small);
     color: var(--pe-media-ink); background: var(--pe-media-stage); font: inherit; font-size: 14px; cursor: pointer;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close:hover { color: var(--pe-media-stage); background: var(--pe-media-focus); }
@@ -128,7 +128,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-select-label {
     width: 44px; height: 44px; min-width: 44px; padding: 0;
     position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center;
-    margin: 0; border: 0; border-radius: 6px; font: inherit;
+    margin: 0; border: 0; border-radius: var(--odd-radius-control); font: inherit;
     color: var(--pe-media-ink); background-color: transparent; background-position: center; background-repeat: no-repeat;
     cursor: pointer;
 }
@@ -153,7 +153,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-action-caption { display: none; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-tooltip {
     max-width: min(240px, 85cqw); width: max-content; height: auto; bottom: 50px; top: auto;
-    z-index: 9; padding: 6px 10px; border-radius: 4px;
+    z-index: 9; padding: 6px 10px; border-radius: var(--odd-radius-small);
     font-size: 13px; line-height: 1.5; color: var(--pe-media-ink); background: var(--pe-media-raised);
     white-space: normal; pointer-events: none;
 }
@@ -165,7 +165,7 @@
     width: min(320px, calc(100cqw - 16px)); max-height: min(440px, var(--pe-panel-height, 240px));
     inset: auto 8px calc(100% + 8px) auto; position: absolute; z-index: 10;
     display: block; padding: 8px; overflow: auto;
-    border: 1px solid var(--pe-media-line); border-radius: 8px;
+    border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-panel);
     color: var(--pe-media-ink); background: var(--pe-media-raised);
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
 }
@@ -173,7 +173,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-close,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu .pe-select-option {
     width: 100%; min-height: 44px; padding: 10px 12px; display: block;
-    border: 0; border-radius: 4px; font: inherit; text-align: left;
+    border: 0; border-radius: var(--odd-radius-small); font: inherit; text-align: left;
     color: var(--pe-media-ink); background: transparent; cursor: pointer;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-close { margin-bottom: 8px; border-bottom: 1px solid var(--pe-media-line); border-radius: 0; }
@@ -191,7 +191,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-select { display: flex; align-items: center; gap: 8px; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-reveal {
     min-height: 44px; inset: auto 8px 8px auto; position: absolute; z-index: 7; padding: 8px 12px;
-    border: 1px solid var(--pe-media-line); border-radius: 6px; font: inherit;
+    border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-control); font: inherit;
     color: var(--pe-media-ink); background: var(--pe-media-raised); cursor: pointer;
 }
 
@@ -245,7 +245,7 @@
 .pe-ui-classic.pe-media-window[controls][kind="player"][layout="grid"] .pe-chat .pe-playlist::before { content: ''; pointer-events: none; }
 .pe-ui-classic.pe-media-window[controls][kind="player"][layout="grid"] .pe-chat .pe-playlist video { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; }
 @container (max-width: 640px) {
-    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar { left: 8px; right: 8px; bottom: 8px; width: auto; border-radius: 8px; background: var(--pe-media-raised); }
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar { left: 8px; right: 8px; bottom: 8px; width: auto; border-radius: var(--odd-radius-panel); background: var(--pe-media-raised); }
     .pe-ui-classic.pe-media-window[controls][kind] .pe-content,
     .pe-ui-classic.pe-media-window[controls][kind="player"] .pe-poster,
     .pe-ui-classic.pe-media-window[controls][kind="player"] .pe-comments,
@@ -260,7 +260,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status {
     position: absolute; z-index: 5; inset-inline: 16px; bottom: calc(var(--pe-controls-height) + 8px);
     max-width: 480px; max-height: calc(100% - var(--pe-controls-height) - 24px); overflow: auto;
-    padding: 16px; border: 1px solid var(--pe-media-line); border-radius: 8px;
+    padding: 16px; border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-panel);
     background: var(--pe-media-raised); color: var(--pe-media-ink); font: inherit; font-size: 14px; line-height: 1.5;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status p { margin: 0 0 8px; overflow-wrap: anywhere; }
@@ -268,10 +268,45 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status button,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status a {
     display: inline-flex; align-items: center; min-height: 44px; padding: 8px; margin-inline-end: 8px;
-    border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer;
+    border: 0; border-radius: var(--odd-radius-small); background: transparent; color: inherit; font: inherit; cursor: pointer;
     text-decoration: underline; text-underline-offset: .2em;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status button:hover,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status a:hover { background: var(--pe-media-stage); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status button:disabled { opacity: .65; cursor: wait; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-button[aria-disabled="true"] { opacity: .65; }
+
+/* Floating SDK surfaces share one dark glass treatment over arbitrary video. */
+.pe-ui-classic.pe-media-window[controls][kind] :is(.pe-controlbar, .pe-contextmenu, .pe-controls-drawer, .pe-control-menu, .pe-dashboard-sheet, .pe-tool-status, .pe-controls-reveal),
+.pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist {
+    background: var(--odd-glass-media-sheet); border: 1px solid var(--odd-glass-media-edge);
+    box-shadow: var(--odd-glass-media-shadow); border-radius: var(--odd-radius-panel);
+    backdrop-filter: var(--odd-glass-floating-blur); -webkit-backdrop-filter: var(--odd-glass-floating-blur);
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar {
+    background: var(--odd-glass-media); border-radius: var(--odd-radius-large);
+    left: 12px; right: 12px; bottom: 12px; width: auto;
+}
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet { border-radius: var(--odd-radius-sheet); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet .pe-panel { backdrop-filter: none; background: transparent; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close { border-radius: var(--odd-radius-control); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content select { border-radius: var(--odd-radius-control); background: #ffffff17; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-preview { border-radius: var(--odd-radius-control); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-content,
+.pe-ui-classic.pe-media-window[controls][kind="player"] :is(.pe-poster, .pe-comments, .pe-display) { height: 100%; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + 28px); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="top"] .pe-rtc-rail { bottom: auto; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + 28px); }
+@container (max-width: 640px) {
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar { left: 8px; right: 8px; bottom: 8px; }
+}
+
+/* Hidden members keep their live streams; only visual tiles are suppressed. */
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="hidden"] .pe-rtc-rail { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-speaker-hint {
+    position: absolute; z-index: 4; left: 20px; right: 20px; bottom: calc(var(--pe-controls-height) + 36px);
+    color: #fff; font: inherit; font-size: 12px; line-height: 20px; text-align: center;
+    text-shadow: 0 1px 3px #000, 0 0 8px #000a; pointer-events: none;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-toggle.layout[state="hidden"] { background-size: 24px; background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23fff8f2" stroke-width="1.7" stroke-linecap="round"%3E%3Cpath d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.8 5.3A11 11 0 0112 5c6 0 10 7 10 7a20 20 0 01-3.3 3.9M6.6 6.6A22 22 0 002 12s4 7 10 7a11 11 0 005.4-1.4"/%3E%3C/svg%3E'); }

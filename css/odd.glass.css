@@ -1,0 +1,52 @@
+/* Shared material tokens. The embedding website owns its background imagery. */
+:root {
+    --odd-radius-small: 8px;
+    --odd-radius-control: 12px;
+    --odd-radius-message: 12px;
+    --odd-radius-panel: 20px;
+    --odd-radius-sheet: 24px;
+    --odd-radius-large: 28px;
+    --odd-radius-pill: 999px;
+    --odd-glass-blur: blur(24px) saturate(145%);
+    --odd-glass-floating-blur: blur(28px) saturate(155%);
+    --odd-glass-media: rgb(24 37 42 / .64);
+    --odd-glass-media-sheet: rgb(27 40 48 / .82);
+    --odd-glass-media-edge: rgb(239 249 255 / .38);
+    --odd-glass-media-shadow: inset 0 1px 0 #ffffff52, 0 10px 30px #0000002e;
+}
+:root, [data-theme="light"], .odd-theme-light {
+    --odd-glass-solid: #f2f6f5;
+    --odd-glass-base: rgb(245 248 247 / .44);
+    --odd-glass-surface: rgb(255 255 255 / .59);
+    --odd-glass-content: rgb(255 255 255 / .82);
+    --odd-glass-edge: rgb(255 255 255 / .88);
+    --odd-glass-line: rgb(51 81 94 / .23);
+    --odd-glass-shadow: 0 12px 32px rgb(38 70 84 / .09), inset 0 1px 0 rgb(255 255 255 / .94), inset 1px 0 0 rgb(255 255 255 / .55);
+    --odd-glass-ink: #243b45;
+    --odd-glass-muted: #526570;
+    --odd-glass-selected: rgb(202 227 222 / .82);
+    --odd-glass-send: rgb(210 235 211 / .88);
+}
+[data-theme="dark"], .odd-theme-dark {
+    --odd-glass-solid: #203440;
+    --odd-glass-base: rgb(11 27 37 / .82);
+    --odd-glass-surface: rgb(27 46 56 / .72);
+    --odd-glass-content: rgb(24 42 53 / .88);
+    --odd-glass-edge: rgb(213 239 246 / .24);
+    --odd-glass-line: rgb(213 239 246 / .24);
+    --odd-glass-shadow: 0 12px 32px rgb(0 10 17 / .16), inset 0 1px 0 rgb(226 244 255 / .25), inset 1px 0 0 rgb(226 244 255 / .10);
+    --odd-glass-ink: #edf5f8;
+    --odd-glass-muted: #bbccd5;
+    --odd-glass-selected: rgb(61 96 99 / .88);
+    --odd-glass-send: rgb(52 91 81 / .92);
+}
+@media (prefers-reduced-transparency: reduce) {
+    :root, [data-theme="light"], .odd-theme-light { --odd-glass-surface: #edf2f1; --odd-glass-content: #f8faf9; --odd-glass-base: #edf2f1; }
+    [data-theme="dark"], .odd-theme-dark { --odd-glass-surface: #223844; --odd-glass-content: #203440; --odd-glass-base: #172d38; }
+    :root { --odd-glass-blur: none; --odd-glass-floating-blur: none; --odd-glass-media: #18252a; --odd-glass-media-sheet: #1b2830; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root, [data-theme="light"], .odd-theme-light { --odd-glass-surface: #edf2f1; --odd-glass-content: #f8faf9; }
+    [data-theme="dark"], .odd-theme-dark { --odd-glass-surface: #223844; --odd-glass-content: #203440; }
+    :root { --odd-glass-media: #18252a; --odd-glass-media-sheet: #1b2830; }
+}

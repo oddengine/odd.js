@@ -14,6 +14,7 @@
             kind: 'Dashboard',
             layout: '[Settings:settings=]',
             labels: { close: 'Close panel', empty: 'No media information yet.', info: 'Media information', stats: 'Media statistics', settings: 'Settings' },
+            settingsLabels: {},
             visibility: true,
         };
 
@@ -53,7 +54,7 @@
                 _logger.error('Duplicate dashboard component: ' + name);
                 return;
             }
-            var component = new components[type](name, value, _logger);
+            var component = new components[type](name, value, _logger, _this.config.settingsLabels);
             component.addGlobalListener(_onComponentEvent);
             _this.components[name] = component;
 

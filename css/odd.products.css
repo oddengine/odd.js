@@ -1,3 +1,5 @@
+@import url("odd.glass.css");
+@import url("odd.im.material.css");
 @import url("odd.im.reading.css");
 @import url("odd.safe-area.css");
 @import url("odd.im.layout.css");
@@ -71,3 +73,16 @@
 .odd-view.odd-view-callpanel { width: auto; height: auto; bottom: auto; max-height: calc(100% - 2rem); background: var(--odd-bg); color: var(--odd-ink); border-color: var(--odd-line); }
 .odd-view.odd-view-callpanel .im-call-actions button { background: var(--odd-surface); color: var(--odd-ink); border-color: var(--odd-line); }
 .odd-view .im-contact[hidden], .odd-view .im-conversation-item[hidden] { display: none; }
+
+/* Material is shared with classic IM; host pages supply the scenery. */
+:is(.odd-view, .odd-settings-panel)[class] {
+    --odd-bg: transparent; --odd-surface: var(--odd-glass-content);
+    --odd-ink: var(--odd-glass-ink); --odd-muted: var(--odd-glass-muted);
+    --odd-line: var(--odd-glass-line); --odd-selected: var(--odd-glass-selected);
+}
+.odd-settings-panel[class] {
+    border: 1px solid var(--odd-glass-edge); border-radius: var(--odd-radius-panel);
+    background: var(--odd-glass-content); box-shadow: var(--odd-glass-shadow);
+    backdrop-filter: var(--odd-glass-floating-blur); -webkit-backdrop-filter: var(--odd-glass-floating-blur);
+}
+.odd-settings-panel :is(input, select, button), .odd-view .im-tools button { border-radius: var(--odd-radius-control); }

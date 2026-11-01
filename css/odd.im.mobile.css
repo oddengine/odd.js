@@ -5,13 +5,13 @@
         --odd-im-message-gap: 8px;
         --odd-im-message-spacing: 12px;
         --odd-im-bubble-padding: 8px 10px;
-        --odd-im-bubble-radius: 6px;
+        --odd-im-bubble-radius: var(--odd-radius-message);
     }
     :is(.odd-view, .im-ui-classic) :is(.im-contact, .im-conversation-item) { padding-inline: 4px; }
     .odd-view.odd-view-conversation .im-conversation-messages { margin-inline: -8px; }
     .im-ui-classic .im-conversation > .im-conversation-messages { padding: 12px 4px; }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) {
-        border-radius: 24px;
+        border-radius: var(--odd-radius-sheet);
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) textarea {
         font-size: 16px; line-height: 24px; min-height: 44px; padding: 6px 8px;
@@ -36,7 +36,7 @@
         align-items: center;
         gap: 4px;
         padding: 1px;
-        border-radius: 24px;
+        border-radius: var(--odd-radius-sheet);
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] > [data-action="expand"] {
         display: inline-flex;

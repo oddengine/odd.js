@@ -16,13 +16,13 @@
                     '[Toggle:camera=on off=Camera Off;on=Camera On]' +
                     '[Toggle:sharing=off off=Share Screen;on=Stop Sharing]' +
                     '|' +
-                    '[Toggle:layout=right right=Right;top=Top;bottom=Bottom;left=Left;grid=Grid]' +
+                    '[Toggle:layout=right right=Right;bottom=Bottom;left=Left;top=Top;hidden=Hidden]' +
                     '[Button:settings=Settings]' +
                     '[Toggle:theater=off off=Enter Theater Mode;on=Exit Theater Mode]' +
                     '[Toggle:fullscreen=off off=Enter Fullscreen;on=Exit Fullscreen]' +
                     '|' +
                     '[Toggle:calling=off off=Call;on=Hang Up]',
-            labels: { more: 'More controls', close: 'Close controls', controls: 'Media controls', layout: 'Layout', show: 'Show controls', volume: 'Volume', timebar: 'Playback position' },
+            labels: { more: 'More controls', close: 'Close controls', controls: 'Media controls', layout: 'Layout', grid: 'Grid', show: 'Show controls', volume: 'Volume', timebar: 'Playback position' },
             autohide: true,
             visibility: true,
         };
@@ -73,7 +73,7 @@
                 throw { name: 'DataError', message: 'Unknown or duplicate control: ' + name + '.' };
             }
             var component = new components[type](name, value, _logger);
-            if (typeof component.label === 'function' && _this.config.labels[name]) { component.label(_this.config.labels[name]); }
+            if (typeof component.label === 'function' && _this.config.labels[name]) { component.label(_this.config.labels[name], _this.config.labels.grid); }
             component.addGlobalListener(_this.forward);
             container.appendChild(component.element());
             _this.components[name] = component;

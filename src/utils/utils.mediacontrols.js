@@ -169,7 +169,7 @@
         function _caption(entry) {
             if (!entry.caption) { return; }
             var tooltip = typeof entry.component.tooltip === 'function' ? entry.component.tooltip() : null,
-                label = entry.element.getAttribute('aria-label') || tooltip && tooltip.textContent || _labels[entry.name] || entry.name;
+                label = tooltip && tooltip.textContent || entry.element.getAttribute('aria-label') || _labels[entry.name] || entry.name;
             if (entry.caption.textContent !== label) { entry.caption.textContent = label; }
         }
         _this.resize = function () {

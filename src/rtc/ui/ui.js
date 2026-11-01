@@ -19,6 +19,7 @@
         _id = 0,
         _instances = {},
         _default = {
+            speakerLabels: { prefix: 'Speaking: ', unnamed: 'Participant' },
             presentation: 'full', // full, mini, popup
             skin: 'classic',
             plugins: [],
@@ -72,6 +73,7 @@
             _meterFrame = 0,
             _meterAt = 0,
             _meters = new Map(),
+            _speakerHint,
             _speakerView = null,
             _speakerBindings = [],
             _speakerAt = 0,
@@ -117,6 +119,11 @@
             _rail = utils.createElement('div', 'pe-rtc-rail');
             _content.appendChild(_main);
             _content.appendChild(_rail);
+            _speakerHint = utils.createElement('span', 'pe-rtc-speaker-hint');
+            _speakerHint.hidden = true;
+            _speakerHint.setAttribute('role', 'status');
+            _speakerHint.setAttribute('aria-live', 'polite');
+            _wrapper.appendChild(_speakerHint);
 
             _api = RTC.get(_id, _logger);
             _api.addEventListener(Event.BIND, _onBind);
@@ -546,7 +553,23 @@
                     element.setAttribute('presentation-role', item.presentation);
                 }
             });
+            _updateSpeakerHint(items, fresh);
             _layoutVideos();
+        }
+
+        function _updateSpeakerHint(items, fresh) {
+            var labels = _this.config.speakerLabels, names = [], users = new Set();
+            if (fresh) {
+                items.forEach(function (item) {
+                    if (item.active && !users.has(item.userId)) {
+                        users.add(item.userId);
+                        names.push(item.displayName || labels.unnamed + ' ' + (item.slot + 1));
+                    }
+                });
+            }
+            var text = names.length ? labels.prefix + names.join('、') : '';
+            if (_speakerHint.textContent !== text) { _speakerHint.textContent = text; }
+            _speakerHint.hidden = !text || (_this.layout() !== 'hidden' && _this.thumbnails() !== 'hidden') || _this.layout() === 'grid';
         }
 
         // Local presentation reuses the meter pass. It neither subscribes to
@@ -605,6 +628,7 @@
 
         function _onVisibility() {
             _speakerLevels.clear(); _speakerFresh = null; _localOrderAt = 0;
+            if (_speakerHint) { _speakerHint.hidden = true; }
             if (_meterFrame) { cancelAnimationFrame(_meterFrame); _meterFrame = 0; }
             if (!document.hidden && _readyState === State.CONNECTED) {
                 _meterFrame = requestAnimationFrame(_measure);
@@ -626,10 +650,12 @@
                 }
                 if (visible) {
                     _orderSpeakers(now);
-                    var bounds = _content.getBoundingClientRect();
+                    var layout = _this.layout(), bounds = _content.getBoundingClientRect(), railBounds = _rail.getBoundingClientRect(),
+                        floatingRail = layout !== 'grid' && railBounds.width > 0 && railBounds.height > 0,
+                        barBounds = layout === 'top' && controlbar && _wrapper.getAttribute('controls-visible') !== 'false' ? controlbar.element().getBoundingClientRect() : null;
                     _meters.forEach(function (meter, ns) {
                         var element = ns.element(), rect = element.getBoundingClientRect();
-                        var clip = _rail.contains(element) && _wrapper.getAttribute('layout') !== 'grid' ? _rail.getBoundingClientRect() : bounds;
+                        var clip = _rail.contains(element) && floatingRail ? railBounds : bounds;
                         var left = Math.max(0, bounds.left, clip.left, rect.left), top = Math.max(0, bounds.top, clip.top, rect.top);
                         var right = Math.min(window.innerWidth, bounds.right, clip.right, rect.right), bottom = Math.min(window.innerHeight, bounds.bottom, clip.bottom, rect.bottom);
                         var showing = right - left > 30 && bottom - top > 30;
@@ -638,10 +664,16 @@
                             (ns === local ? localMeasurement : ns.measureAudio()) : { state: 'unavailable', value: null };
                         _measureSpeaker(ns, measurement, now);
                         if (showing) {
+                            // All 22px markers use the corner opposite the member rail.
+                            // The main video's bottom marker also clears floating controls.
+                            var x = layout === 'left' ? right - 30 : left + 8,
+                                y = layout === 'top' ? bottom - 30 : top + 8;
+                            if (barBounds && _main.contains(element) && x < barBounds.right && x + 22 > barBounds.left &&
+                                y < barBounds.bottom && y + 22 > barBounds.top) { y = Math.max(top + 8, barBounds.top - 30); }
                             meter.setAttribute('audio-state', measurement.state);
                             meter.style.setProperty('--pe-audio-level', (measurement.value || 0) + '%');
-                            meter.style.left = (left - bounds.left + 8) + 'px';
-                            meter.style.top = (top - bounds.top + 8) + 'px';
+                            meter.style.left = (x - bounds.left) + 'px';
+                            meter.style.top = (y - bounds.top) + 'px';
                             meter.title = measurement.state === 'unavailable' ? 'Audio unavailable' :
                                 measurement.state === 'muted' ? 'Audio track muted' : 'Audio level';
                         }
@@ -719,8 +751,11 @@
 
         _this.layout = function (state) {
             if (state !== undefined) {
-                if (['right', 'top', 'bottom', 'left', 'grid'].indexOf(state) < 0) { throw { name: 'DataError', message: 'Unknown media layout.' }; }
+                if (['right', 'bottom', 'left', 'top', 'hidden', 'grid'].indexOf(state) < 0) { throw { name: 'DataError', message: 'Unknown media layout.' }; }
                 _wrapper.setAttribute('layout', state);
+                _wrapper.setAttribute('thumbnails', state === 'hidden' ? 'hidden' : 'expanded');
+                _speakerFresh = null; _localOrderAt = 0;
+                _orderSpeakers(performance.now());
                 var controlbar = _this.plugins['Controlbar'];
                 if (controlbar) {
                     controlbar.state('layout', state);
@@ -739,6 +774,8 @@
                     throw { name: 'DataError', message: 'Unknown thumbnail presentation.' };
                 }
                 _wrapper.setAttribute('thumbnails', state);
+                _speakerFresh = null; _localOrderAt = 0;
+                _orderSpeakers(performance.now());
                 _this.resize();
                 _this.dispatchEvent(Event.CHANGE, { name: 'thumbnails', value: state });
             }
