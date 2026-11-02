@@ -39,7 +39,7 @@
        fill is inset by 8px in total, concentric with the secondary outer radius. */
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"])[expanded="false"] button {
         width: 44px; height: 44px; min-width: 44px; padding: 0;
-        border: 6px solid transparent; background-clip: padding-box;
+        border: var(--odd-action-hit-inset) solid transparent; background-clip: padding-box;
         border-radius: 50%;
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] > [data-action="expand"] {

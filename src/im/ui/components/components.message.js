@@ -26,6 +26,8 @@
             _container,
             _avatar,
             _indicator,
+            _bubble,
+            _meta,
             _from,
             _time,
             _body,
@@ -42,8 +44,9 @@
             _indicator = utils.createElement('span', 'im-message-state');
             _indicator.setAttribute('role', 'img');
 
-            var bubble = utils.createElement('div', 'im-message-bubble'),
-                meta = utils.createElement('header');
+            var content = utils.createElement('div', 'im-message-content');
+            _bubble = utils.createElement('div', 'im-message-bubble');
+            _meta = utils.createElement('header', 'im-message-meta');
             _from = utils.createElement('strong');
             _time = utils.createElement('time');
             _body = utils.createElement('p');
@@ -72,17 +75,18 @@
             _receipts.type = 'button';
             _receipts.textContent = '阅读记录';
             _receipts.onclick = function () { if (_data.receipts) { _data.receipts(); } };
-            meta.appendChild(_from);
-            meta.appendChild(_time);
-            bubble.appendChild(meta);
-            bubble.appendChild(_body);
-            bubble.appendChild(_file);
-            bubble.appendChild(_status);
-            bubble.appendChild(_retry);
-            bubble.appendChild(_receipts);
+            _meta.appendChild(_from);
+            _meta.appendChild(_time);
+            content.appendChild(_meta);
+            _bubble.appendChild(_body);
+            _bubble.appendChild(_file);
+            content.appendChild(_bubble);
+            content.appendChild(_status);
+            content.appendChild(_retry);
+            content.appendChild(_receipts);
             _container.appendChild(_avatar.element());
             _container.appendChild(_indicator);
-            _container.appendChild(bubble);
+            _container.appendChild(content);
             _this.update(data);
         }
 
@@ -99,7 +103,10 @@
                 online: _data.online,
             });
             _from.textContent = _data.from || '';
+            _from.hidden = !_data.showSender || !_from.textContent;
             _time.textContent = _data.time || '';
+            _time.hidden = !_time.textContent;
+            _meta.hidden = _from.hidden && _time.hidden;
             _body.textContent = _data.text || '';
             var file = odd.IM.UI.History.attachment(_data.attachment);
             _body.hidden = !!file;
@@ -150,7 +157,9 @@
         };
 
         _this.resize = function () {
-
+            var height = _body.getBoundingClientRect().height;
+            var line = parseFloat(getComputedStyle(_body).lineHeight) || 24;
+            _bubble.setAttribute('single-line', !_body.hidden && height > 0 && height <= line + 1 ? 'true' : 'false');
         };
 
         _this.destroy = function () {

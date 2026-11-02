@@ -16,7 +16,7 @@
             _readyState = State.INITIALIZED, _generation = 0, _channel = null, _selected = null,
             _rows = Object.create(null), _sending = Object.create(null), _gifts = Object.create(null),
             _before = null, _outBefore = null, _loading = null, _opening = Promise.resolve(), _reload = false, _older = false,
-            _read = { high: 0, low: 0 }, _history = UI.History, _loadButton, _readButton, _reading;
+            _read = { high: 0, low: 0 }, _history = UI.History, _loadButton, _readButton, _reading, _group = false;
         _this.config = config;
         _this.components = {};
         _notice.setAttribute('role', 'status');
@@ -88,6 +88,7 @@
             var messages = _this.components.messages;
             if (messages) {
                 messages.update(rows.map(function (row) {
+                    row.showSender = _group;
                     if (typeof config.formatMessage !== 'function') { return row; }
                     var copy = utils.extendz({}, row);
                     copy.text = String(config.formatMessage(row.text, { target: _this.target(), incoming: row.incoming }));
@@ -146,6 +147,8 @@
             if (channelTarget && !delivery) { throw new Error('节点尚未提供频道消息策略，请更新节点后重新连接。'); }
             if (target.type === 'conversation' && store && typeof store.destination === 'function') {
                 var saved = await store.destination(target.id);
+                if (!current(generation)) { return; }
+                _group = !!(saved && saved.target && /^(channel|room|group)$/.test(saved.target.type));
                 readOnly = config.readOnly === true || !!(saved && saved.target && saved.target.type === 'system');
             }
             var reads = ['history', 'outgoing', 'outboxEntry', 'projection', 'gaps', 'destination', 'saveRead', 'eventHistory'];
@@ -378,6 +381,7 @@
             config.active = id;
             _container.setAttribute('data-conversation', id);
             _selected = selected || (id === previousId ? _selected : null) || contact(id);
+            _group = /^(channel|room|group)$/.test((_this.target() || {}).type);
             var generation = ++_generation;
             release(previous);
             _title.textContent = _selected ? _selected.name || id : id || '';

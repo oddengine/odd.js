@@ -47,17 +47,26 @@
     display: flex; align-items: flex-start; gap: var(--odd-im-message-gap);
     margin: 0 0 var(--odd-im-message-spacing);
 }
-:is(.odd-view, .im-ui-classic) .im-conversation-messages .im-message[align] > .im-message-bubble {
+:is(.odd-view, .im-ui-classic) .im-message-content {
     box-sizing: border-box; min-width: 0; max-width: min(640px, calc(100% - 56px));
+    display: flex; flex-direction: column; align-items: flex-start;
+}
+:is(.odd-view, .im-ui-classic) .im-message[align="right"] .im-message-content { align-items: flex-end; }
+:is(.odd-view, .im-ui-classic) .im-conversation-messages .im-message[align] .im-message-bubble {
+    box-sizing: border-box; min-width: 0; max-width: 100%;
     padding: var(--odd-im-bubble-padding); border-radius: var(--odd-im-bubble-radius);
     font-size: 16px; line-height: 24px; text-align: start; overflow-wrap: anywhere;
 }
-:is(.odd-view, .im-ui-classic) .im-message-bubble > header {
+:is(.odd-view, .im-ui-classic) .im-message-meta {
     display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px;
-    margin: 0 0 2px; font-size: 12px; line-height: 16px;
+    max-width: 100%; margin: 0 0 4px; font-size: 12px; line-height: 16px; color: var(--odd-glass-muted);
 }
+:is(.odd-view, .im-ui-classic) .im-message-meta > :is(strong, time) { min-width: 0; overflow-wrap: anywhere; }
+:is(.odd-view, .im-ui-classic) .im-message-meta [hidden],
+:is(.odd-view, .im-ui-classic) .im-message-meta[hidden] { display: none; }
+:is(.odd-view, .im-ui-classic) .im-conversation-messages .im-message[align] .im-message-bubble[single-line="true"] { border-radius: var(--odd-radius-pill); }
 :is(.odd-view, .im-ui-classic) .im-message-bubble > p { margin: 0; white-space: pre-wrap; }
 :is(.odd-view, .im-ui-classic) .im-message > .im-message-state { align-self: center; flex-shrink: 0; margin-block: 0; }
-:is(.odd-view, .im-ui-classic) .im-message-bubble > .im-message-status:not([hidden]) {
+:is(.odd-view, .im-ui-classic) .im-message-content > .im-message-status:not([hidden]) {
     display: block; margin-top: 4px; font-size: 12px; line-height: 16px;
 }

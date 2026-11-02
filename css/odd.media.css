@@ -135,7 +135,7 @@
 }
 /* A 44px hit area contains a 32px circular fill; the 48px bar clears it by 8px. */
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-row :is(.pe-button, .pe-toggle, .pe-select-label) {
-    border: 6px solid transparent; border-radius: 50%; background-clip: padding-box;
+    border: var(--odd-action-hit-inset) solid transparent; border-radius: 50%; background-clip: padding-box;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar button:hover,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu button:hover { background-color: var(--pe-media-raised); }
@@ -298,7 +298,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar {
     background: var(--odd-glass-media); border-radius: var(--odd-radius-secondary);
     padding: calc((var(--odd-controlbar-size) - 44px) / 2 - 1px);
-    left: 12px; right: 12px; bottom: 12px; width: auto;
+    left: 12px; right: 12px; bottom: calc(12px + var(--odd-controlbar-offset)); width: auto;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet { border-radius: var(--odd-radius-sheet); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet .pe-panel { backdrop-filter: none; background: transparent; }
@@ -311,17 +311,17 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-settings-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--pe-media-ink); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-content,
 .pe-ui-classic.pe-media-window[controls][kind="player"] :is(.pe-poster, .pe-comments, .pe-display) { height: 100%; }
-.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + 28px); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + var(--odd-controlbar-offset) + 28px); }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="top"] .pe-rtc-rail { bottom: auto; }
-.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + 28px); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="bottom"] .pe-rtc-rail { bottom: calc(var(--pe-controls-height) + var(--odd-controlbar-offset) + 28px); }
 @container (max-width: 640px) {
-    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar { left: 8px; right: 8px; bottom: 8px; }
+    .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar { left: 8px; right: 8px; bottom: calc(8px + var(--odd-controlbar-offset)); }
 }
 
 /* Hidden members keep their live streams; only visual tiles are suppressed. */
 .pe-ui-classic.pe-media-window[controls][kind="rtc"][layout="hidden"] .pe-rtc-rail { display: none; }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-rtc-speaker-hint {
-    position: absolute; z-index: 4; left: 20px; right: 20px; bottom: calc(var(--pe-controls-height) + 36px);
+    position: absolute; z-index: 4; left: 20px; right: 20px; bottom: calc(var(--pe-controls-height) + var(--odd-controlbar-offset) + 36px);
     color: #fff; font: inherit; font-size: 12px; line-height: 20px; text-align: center;
     text-shadow: 0 1px 3px #000, 0 0 8px #000a; pointer-events: none;
     overflow: hidden; white-space: nowrap; text-overflow: ellipsis;

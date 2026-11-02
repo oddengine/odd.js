@@ -12,12 +12,20 @@
         var _this = this,
             _items,
             _data,
-            _container;
+            _container,
+            _observer,
+            _elements = new WeakMap();
 
         function _init() {
             _items = [];
             _data = [];
             _container = utils.createElement('div', CLASS_MESSAGES + (name ? ' ' + name : ''));
+            // One observer per bounded list, not a layout loop or observer per message.
+            if (typeof ResizeObserver !== 'undefined') {
+                _observer = new ResizeObserver(function (entries) {
+                    entries.forEach(function (entry) { var item = _elements.get(entry.target); if (item) { item.resize(); } });
+                });
+            }
             if (value && utils.typeOf(value) !== 'string') {
                 _this.update(value);
             }
@@ -26,6 +34,7 @@
         _this.append = function (value) {
             if (_items.length >= 200) {
                 var first = _items.shift();
+                if (_observer) { _observer.unobserve(first.element()); }
                 first.element().remove();
                 first.destroy();
                 _data.shift();
@@ -34,6 +43,9 @@
             _items.push(item);
             _data.push(value);
             _container.appendChild(item.element());
+            _elements.set(item.element(), item);
+            if (_observer) { _observer.observe(item.element()); }
+            else { item.resize(); }
             if (_container.scrollHeight - _container.scrollTop - _container.clientHeight < 160) {
                 _container.scrollTop = _container.scrollHeight;
             }
@@ -50,6 +62,7 @@
                 return _data;
             }
 
+            if (_observer) { _observer.disconnect(); }
             for (var i = 0; i < _items.length; i++) {
                 _items[i].destroy();
             }
@@ -83,9 +96,11 @@
         };
 
         _this.resize = function () {
+            _items.forEach(function (item) { item.resize(); });
         };
 
         _this.destroy = function () {
+            if (_observer) { _observer.disconnect(); }
             _items.forEach(function (item) { item.destroy(); });
             _items = [];
             _data = [];
