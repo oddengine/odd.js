@@ -7,7 +7,8 @@
     --pe-media-line: #526273;
     --pe-media-focus: #E7C98F;
     --pe-media-danger: #B5293D;
-    --pe-controls-height: 64px;
+    --pe-media-call: #167455;
+    --pe-controls-height: var(--odd-controlbar-size);
     --pe-icon-more: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23FFF8F2"%3E%3Ccircle cx="5" cy="12" r="2"/%3E%3Ccircle cx="12" cy="12" r="2"/%3E%3Ccircle cx="19" cy="12" r="2"/%3E%3C/svg%3E');
     position: relative;
     overflow: hidden;
@@ -29,7 +30,7 @@
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item {
     width: 100%; min-height: 44px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;
-    border: 0; border-radius: var(--odd-radius-small); font: inherit; font-size: 14px; line-height: 1.5; text-align: left;
+    border: 0; border-radius: var(--odd-radius-pill); font: inherit; font-size: 14px; line-height: 1.5; text-align: left;
     color: var(--pe-media-ink); background: transparent; white-space: normal; overflow-wrap: anywhere;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item:not(:disabled):hover {
@@ -109,7 +110,7 @@
 .pe-ui-classic.pe-media-window[controls][kind][controls] .pe-controlbar[shown="false"] { visibility: hidden; opacity: 0; pointer-events: none; }
 .pe-ui-classic.pe-media-window[controls][kind][controls="never"] .pe-controlbar { display: none; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-row {
-    width: 100%; height: 48px; position: relative;
+    width: 100%; height: 44px; position: relative;
     display: flex; align-items: center; gap: 24px;
     overflow: visible;
 }
@@ -132,19 +133,30 @@
     color: var(--pe-media-ink); background-color: transparent; background-position: center; background-repeat: no-repeat;
     cursor: pointer;
 }
+/* A 44px hit area contains a 32px circular fill; the 48px bar clears it by 8px. */
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-row :is(.pe-button, .pe-toggle, .pe-select-label) {
+    border: 6px solid transparent; border-radius: 50%; background-clip: padding-box;
+}
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar button:hover,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu button:hover { background-color: var(--pe-media-raised); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar button:disabled { opacity: .5; cursor: not-allowed; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .more { background-image: var(--pe-icon-more); background-size: 24px; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .layout[state="left"] { background-image: var(--pe-icon-layout-right); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .layout[state="bottom"] { background-image: var(--pe-icon-layout-top); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .calling { background-color: var(--pe-media-call); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .calling[state="on"] { background-color: var(--pe-media-danger); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .calling:hover { filter: brightness(1.12); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-label {
     max-width: 112px; min-width: 40px; height: auto; line-height: 1.5; margin: 0;
     overflow: hidden; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--pe-media-muted); text-overflow: ellipsis; white-space: nowrap;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-select { flex: none; margin: 0; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-select-label { width: auto; max-width: 112px; padding: 0 8px; font-size: 13px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controls-row .pe-select-label {
+    width: 44px; padding: 0; font-size: 0;
+    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23FFF8F2" stroke-width="1.8" stroke-linecap="round"%3E%3Cpath d="M4 6h4m4 0h8M4 12h10m4 0h2M4 18h2m4 0h10"/%3E%3Cpath d="M8 3v6m6 0v6m-8 0v6"/%3E%3C/svg%3E');
+    background-size: 24px;
+}
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.volume { width: 80px; height: 44px; flex: none; margin: 0; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.timebar { height: 44px; top: -44px; left: 0; z-index: 1; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-rail,
@@ -164,7 +176,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu {
     width: min(320px, calc(100cqw - 16px)); max-height: min(440px, var(--pe-panel-height, 240px));
     inset: auto 8px calc(100% + 8px) auto; position: absolute; z-index: 10;
-    display: block; padding: 8px; overflow: auto;
+    display: block; padding: calc(var(--odd-inset-nested) - 1px); overflow: auto;
     border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-panel);
     color: var(--pe-media-ink); background: var(--pe-media-raised);
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
@@ -173,7 +185,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-close,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-control-menu .pe-select-option {
     width: 100%; min-height: 44px; padding: 10px 12px; display: block;
-    border: 0; border-radius: var(--odd-radius-small); font: inherit; text-align: left;
+    border: 0; border-radius: var(--odd-radius-pill); font: inherit; text-align: left;
     color: var(--pe-media-ink); background: transparent; cursor: pointer;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-close { margin-bottom: 8px; border-bottom: 1px solid var(--pe-media-line); border-radius: 0; }
@@ -182,7 +194,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-button,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-toggle {
     width: 100%; height: auto; min-height: 44px; justify-content: flex-start; padding: 8px 12px;
-    background-position: 10px center; text-align: left;
+    background-position: 10px center; text-align: left; border-radius: var(--odd-radius-pill);
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-action-caption { display: inline; margin-left: 40px; line-height: 1.5; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-tooltip { display: none; }
@@ -268,7 +280,7 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status button,
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status a {
     display: inline-flex; align-items: center; min-height: 44px; padding: 8px; margin-inline-end: 8px;
-    border: 0; border-radius: var(--odd-radius-small); background: transparent; color: inherit; font: inherit; cursor: pointer;
+    border: 0; border-radius: var(--odd-radius-pill); background: transparent; color: inherit; font: inherit; cursor: pointer;
     text-decoration: underline; text-underline-offset: .2em;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-tool-status button:hover,
@@ -284,13 +296,15 @@
     backdrop-filter: var(--odd-glass-floating-blur); -webkit-backdrop-filter: var(--odd-glass-floating-blur);
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar {
-    background: var(--odd-glass-media); border-radius: var(--odd-radius-large);
+    background: var(--odd-glass-media); border-radius: var(--odd-radius-secondary);
+    padding: calc((var(--odd-controlbar-size) - 44px) / 2 - 1px);
     left: 12px; right: 12px; bottom: 12px; width: auto;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet { border-radius: var(--odd-radius-sheet); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-sheet .pe-panel { backdrop-filter: none; background: transparent; }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-dashboard-close { border-radius: var(--odd-radius-control); }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content select { border-radius: var(--odd-radius-control); background: #ffffff17; }
+.pe-ui-classic.pe-media-window[controls][kind] :is(.pe-dashboard-close, .pe-controls-reveal) { border-radius: var(--odd-radius-pill); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content select { border-radius: var(--odd-radius-pill); background: #ffffff17; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-settings-footer button { border-radius: var(--odd-radius-pill); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-settings-preview { border-radius: var(--odd-radius-control); }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content .pe-settings-toggle { display: flex; align-items: center; gap: 10px; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-settings-content .pe-settings-toggle[hidden] { display: none; }

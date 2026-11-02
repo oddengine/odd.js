@@ -1,12 +1,18 @@
 /* Shared material tokens. The embedding website owns its background imagery. */
 :root {
-    --odd-radius-small: 8px;
-    --odd-radius-control: 12px;
-    --odd-radius-message: 12px;
-    --odd-radius-panel: 20px;
-    --odd-radius-sheet: 24px;
-    --odd-radius-large: 28px;
+    /* Surface roles, not DOM depth. Adjacent levels differ by the nested inset. */
+    --odd-radius-primary: 32px;
+    --odd-radius-secondary: 24px;
+    --odd-radius-tertiary: 16px;
+    --odd-inset-nested: 8px;
+    --odd-radius-small: var(--odd-radius-tertiary);
+    --odd-radius-control: var(--odd-radius-tertiary);
+    --odd-radius-message: var(--odd-radius-tertiary);
+    --odd-radius-panel: var(--odd-radius-secondary);
+    --odd-radius-sheet: var(--odd-radius-primary);
+    --odd-radius-large: var(--odd-radius-primary);
     --odd-radius-pill: 999px;
+    --odd-controlbar-size: calc(var(--odd-radius-secondary) * 2);
     --odd-glass-blur: blur(24px) saturate(145%);
     --odd-glass-floating-blur: blur(28px) saturate(155%);
     --odd-glass-media: rgb(24 37 42 / .64);

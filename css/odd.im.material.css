@@ -6,9 +6,17 @@
 :is(.odd-view, .im-ui-classic)[class] .im-message[align="right"] .im-message-bubble { background: var(--odd-glass-send); }
 :is(.odd-view, .im-ui-classic)[class] .im-message-bubble header { color: var(--odd-glass-muted); }
 :is(.odd-view, .im-ui-classic)[class] .im-composer {
-    background: var(--odd-glass-content); border-color: var(--odd-glass-edge);
+    background: var(--odd-glass-content); border: 1px solid var(--odd-glass-edge);
+    border-radius: var(--odd-radius-secondary); padding: calc(var(--odd-inset-nested) - 1px);
     box-shadow: var(--odd-glass-shadow);
     backdrop-filter: var(--odd-glass-blur); -webkit-backdrop-filter: var(--odd-glass-blur);
+}
+:is(.odd-view, .im-ui-classic)[class] .im-composer :is(button, textarea) { border-radius: var(--odd-radius-tertiary); }
+:is(.odd-view, .im-ui-classic)[class] .im-composer button { border-radius: var(--odd-radius-pill); }
+/* Reduce the visible send action without shrinking its touch target. */
+:is(.odd-view, .im-ui-classic)[class] .im-composer [data-action="send"] {
+    width: 44px; height: 44px; min-width: 44px; padding: 0;
+    border: 6px solid transparent; border-radius: 50%; background-clip: padding-box;
 }
 :is(.odd-view, .im-ui-classic)[class] .im-composer-emoji {
     border: 1px solid var(--odd-glass-edge); border-radius: var(--odd-radius-panel);

@@ -100,7 +100,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: var(--odd-radius-tertiary);
     font: 12px/1.25 "PingFang SC", "Microsoft YaHei", sans-serif;
     text-align: center;
 }
@@ -151,7 +151,7 @@
 .im-ui-classic .im-contact,
 .im-ui-classic .im-conversation-item {
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--odd-radius-tertiary);
     color: inherit;
     text-align: left;
     background: transparent;
@@ -354,7 +354,7 @@
     height: 44px;
     padding: 8px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--odd-radius-tertiary);
     color: #aab3bf;
     background: transparent;
     cursor: pointer;
@@ -362,7 +362,7 @@
 
 .im-ui-classic .im-composer-tool:not(:disabled):hover {
     color: #fff;
-    background: rgba(255, 255, 255, .07);
+    background-color: rgba(255, 255, 255, .07);
 }
 
 .im-ui-classic .im-composer-tool.primary {
@@ -381,7 +381,7 @@
     padding: 8px;
     flex: 1 1 auto;
     border: 1px solid rgba(255, 255, 255, .10);
-    border-radius: 10px;
+    border-radius: var(--odd-radius-tertiary);
     outline: 0;
     resize: none;
     color: inherit;
@@ -413,7 +413,7 @@
     padding: 8px;
     overflow: auto;
     border: 1px solid rgba(255, 255, 255, .10);
-    border-radius: 10px;
+    border-radius: var(--odd-radius-tertiary);
     background: #202833;
     box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
 }
@@ -426,7 +426,7 @@
     width: 36px;
     height: 36px;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--odd-radius-tertiary);
     background: transparent;
     cursor: pointer;
 }
@@ -526,14 +526,14 @@
 /* Calls remain reachable when the selected conversation/tab changes. */
 .im-wrapper { position: relative; }
 .im-call { position: absolute; inset: 1rem; z-index: 20; overflow: auto; padding: 1rem;
-    border: 1px solid #ccd2dc; border-radius: .75rem; background: #fff; color: #202634;
+    border: 1px solid #ccd2dc; border-radius: var(--odd-radius-primary); background: #fff; color: #202634;
     box-shadow: 0 .5rem 2rem #18233830; }
 .im-call[hidden] { display: none; }
 .im-call h2 { margin: 0 0 .75rem; font-size: 1.1rem; }
 .im-call ul { padding: 0; list-style: none; }
 .im-call li { margin: .5rem 0; overflow-wrap: anywhere; }
 .im-call-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
-.im-call-actions button { padding: .5rem .75rem; border: 1px solid #aab4c5; border-radius: .35rem; cursor: pointer; }
+.im-call-actions button { padding: .5rem .75rem; border: 1px solid #aab4c5; border-radius: var(--odd-radius-pill); cursor: pointer; }
 .im-call-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
 .im-call-media video { width: 100%; max-height: 40vh; background: #121a28; }
 
@@ -554,7 +554,7 @@
     min-height: 48px;
     padding: 4px;
     border: 0;
-    border-radius: 4px;
+    border-radius: var(--odd-radius-tertiary);
     background: transparent;
     color: inherit;
     font: inherit;
@@ -571,7 +571,7 @@
 .im-ui-classic .im-message-retry {
     padding: 5px 9px;
     border: 1px solid rgba(255, 255, 255, .15);
-    border-radius: 6px;
+    border-radius: var(--odd-radius-pill);
     color: inherit;
     background: transparent;
     font: inherit;

@@ -17,7 +17,7 @@
     max-width: 100%;
     padding: .4rem .7rem;
     border: 1px solid var(--odd-line, currentColor);
-    border-radius: .375rem;
+    border-radius: var(--odd-radius-pill);
     font: inherit;
     color: inherit;
     background: var(--odd-surface, transparent);

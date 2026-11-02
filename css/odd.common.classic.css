@@ -127,7 +127,7 @@
     padding: 8px 12px 6px;
     font-size: 10px;
     line-height: 10px;
-    border-radius: 2px;
+    border-radius: var(--odd-radius-tertiary);
     background: #454545;
     left: 0px;
     position: absolute;
@@ -163,7 +163,7 @@
 .pe-ui-classic .pe-select .pe-select-text {
     padding: 3px 12px;
     line-height: 40px;
-    border-radius: 2px;
+    border-radius: var(--odd-radius-pill);
     background: #454545;
 }
 
@@ -179,7 +179,7 @@
 
 .pe-ui-classic .pe-select .pe-select-menu {
     padding: 5px 0;
-    border-radius: 2px;
+    border-radius: var(--odd-radius-secondary);
     bottom: 100%;
     position: absolute;
     background: #454545;
@@ -288,7 +288,7 @@
     display: none;
     overflow: auto;
     border: 1px solid rgba(255, 255, 255, .14);
-    border-radius: 8px;
+    border-radius: var(--odd-radius-tertiary);
     color: #fff;
     background: rgba(35, 35, 35, .96);
     transform: translate(-50%, -50%);
@@ -328,7 +328,7 @@
     height: 34px;
     padding: 0 10px;
     border: 1px solid rgba(255, 255, 255, .14);
-    border-radius: 4px;
+    border-radius: var(--odd-radius-tertiary);
     color: #fff;
     background: #2f2f2f;
 }

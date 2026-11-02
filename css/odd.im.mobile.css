@@ -11,15 +11,12 @@
     .odd-view.odd-view-conversation .im-conversation-messages { margin-inline: -8px; }
     .im-ui-classic .im-conversation > .im-conversation-messages { padding: 12px 4px; }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) {
-        border-radius: var(--odd-radius-sheet);
+        border-radius: var(--odd-radius-secondary);
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) textarea {
         font-size: 16px; line-height: 24px; min-height: 44px; padding: 6px 8px;
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) .im-composer-counter { display: none; }
-    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) [data-action="send"] {
-        border: 4px solid transparent; background-clip: padding-box;
-    }
     .odd-view .im-composer:not([presentation="mini"]) textarea:focus-visible { outline: none; }
     .odd-view .im-composer:not([presentation="mini"]):has(textarea:focus-visible) {
         outline: 2px solid var(--odd-accent); outline-offset: 2px;
@@ -36,7 +33,14 @@
         align-items: center;
         gap: 4px;
         padding: 1px;
-        border-radius: var(--odd-radius-sheet);
+        border-radius: var(--odd-radius-secondary);
+    }
+    /* Keep a 44px touch target inside the 48px compact shell. Its 32px visible
+       fill is inset by 8px in total, concentric with the secondary outer radius. */
+    :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"])[expanded="false"] button {
+        width: 44px; height: 44px; min-width: 44px; padding: 0;
+        border: 6px solid transparent; background-clip: padding-box;
+        border-radius: 50%;
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] > [data-action="expand"] {
         display: inline-flex;
