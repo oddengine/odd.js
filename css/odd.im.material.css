@@ -19,7 +19,7 @@
     border: var(--odd-action-hit-inset) solid transparent; border-radius: 50%; background-clip: padding-box;
 }
 /* The transparent hit border is already spacing. Do not add it to the visual inset. */
-:is(.odd-view, .im-ui-classic)[class] .im-composer:not([expanded="false"]) .im-composer-footer {
+:is(.odd-view, .im-ui-classic)[class] .im-composer .im-composer-footer {
     margin-inline: calc(-1 * var(--odd-action-hit-inset));
     margin-bottom: calc(-1 * var(--odd-action-hit-inset));
 }

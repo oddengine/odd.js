@@ -57,7 +57,7 @@
         clip-path: inset(10px 0);
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] .im-composer-footer {
-        grid-column: 3; gap: 0;
+        grid-column: 3; gap: 0; margin: 0;
     }
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]):not([hidden])[expanded="false"] :is(.im-composer-tools, .im-composer-counter) {
         display: none;
