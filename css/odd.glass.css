@@ -5,6 +5,9 @@
     --odd-radius-secondary: 24px;
     --odd-radius-tertiary: 16px;
     --odd-inset-nested: 8px;
+    --odd-inset-panel: var(--odd-radius-panel);
+    --odd-select-height: 48px;
+    --odd-select-radius: calc(var(--odd-select-height) / 2);
     --odd-action-hit-inset: 6px;
     --odd-radius-small: var(--odd-radius-tertiary);
     --odd-radius-control: var(--odd-radius-tertiary);
@@ -25,6 +28,7 @@
     --odd-glass-media-shadow: inset 0 1px 0 #ffffff52, 0 10px 30px #0000002e;
 }
 :root, [data-theme="light"], .odd-theme-light {
+    --odd-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23526570' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --odd-glass-solid: #f2f6f5;
     --odd-glass-base: rgb(245 248 247 / .44);
     --odd-glass-surface: rgb(255 255 255 / .59);
@@ -38,6 +42,7 @@
     --odd-glass-send: rgb(210 235 211 / .88);
 }
 [data-theme="dark"], .odd-theme-dark {
+    --odd-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23bbccd5' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --odd-glass-solid: #203440;
     --odd-glass-base: rgb(11 27 37 / .82);
     --odd-glass-surface: rgb(27 46 56 / .72);
@@ -49,6 +54,22 @@
     --odd-glass-muted: #bbccd5;
     --odd-glass-selected: rgb(61 96 99 / .88);
     --odd-glass-send: rgb(52 91 81 / .92);
+}
+/* Opt-in host controls and standalone SDK settings share one capsule geometry.
+   Text starts at the left semicircle's diameter; the arrow is centered on the right. */
+:is(.odd-controls, .odd-settings-panel)[class] select:not([multiple]):not([size]),
+:is(.odd-controls, .odd-settings-panel)[class] select:not([multiple])[size="1"] {
+    box-sizing: border-box; appearance: none; -webkit-appearance: none;
+    height: var(--odd-select-height); min-height: var(--odd-select-height); min-width: 0;
+    border-radius: var(--odd-radius-pill);
+    padding-block: 0;
+    padding-inline: calc(var(--odd-select-radius) - 1px) calc(var(--odd-select-radius) + 16px);
+    background-image: var(--odd-select-chevron); background-repeat: no-repeat;
+    background-position: right calc(var(--odd-select-radius) - 8px) center; background-size: 16px 16px;
+    text-align: start; text-overflow: ellipsis;
+}
+@media (forced-colors: active) {
+    :is(.odd-controls, .odd-settings-panel)[class] select { appearance: auto; -webkit-appearance: auto; background-image: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
     :root, [data-theme="light"], .odd-theme-light { --odd-glass-surface: #edf2f1; --odd-glass-content: #f8faf9; --odd-glass-base: #edf2f1; }

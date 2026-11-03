@@ -4,8 +4,8 @@
     :is(.odd-view, .im-ui-classic) {
         --odd-im-message-gap: 8px;
         --odd-im-message-spacing: 12px;
-        --odd-im-bubble-padding: 8px 10px;
-        --odd-im-bubble-radius: var(--odd-radius-message);
+        --odd-im-bubble-inset-block: 8px;
+        --odd-im-bubble-padding: var(--odd-im-bubble-inset-block) 10px;
     }
     :is(.odd-view, .im-ui-classic) :is(.im-contact, .im-conversation-item) { padding-inline: 4px; }
     .odd-view.odd-view-conversation .im-conversation-messages { margin-inline: -8px; }

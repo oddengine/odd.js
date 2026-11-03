@@ -51,9 +51,9 @@
 .odd-view .im-conversation-item[state=on], .odd-view .im-contact[state=on] { background:var(--odd-selected); }
 .odd-view .im-avatar { width:44px; height:44px; border-radius:50%; display:flex; justify-content:center; align-items:center; background:var(--odd-selected); flex:none; }
 .odd-view .im-entry-copy small, .odd-view .im-entry-line time { color:var(--odd-muted); }
-.odd-settings-panel { max-width:880px; padding:28px; border-radius:var(--odd-radius-tertiary); }
+.odd-settings-panel { max-width:880px; padding:var(--odd-inset-panel); border-radius:var(--odd-radius-tertiary); }
 .odd-settings-panel form { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-.odd-settings-panel label { display:grid; gap:10px; }
+.odd-settings-panel label { display:grid; min-width:0; gap:10px; }
 .odd-settings-panel select { min-height:46px; width:100%; border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); color:var(--odd-ink); background:var(--odd-surface); padding:8px; }
 .odd-settings-panel .odd-settings-encodings { min-width:0; display:grid; gap:16px; grid-column:1/-1; margin:0; padding:20px; border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); }
 .odd-settings-panel .odd-settings-encodings legend { padding:0 8px; font-weight:600; }
@@ -64,7 +64,7 @@
 .odd-settings-actions { display:flex; flex-wrap:wrap; gap:12px; grid-column:1/-1; }
 .odd-settings-actions button { border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); background:var(--odd-surface); padding:10px 18px; }
 .odd-settings-actions button:last-child { background:var(--odd-accent); color:var(--odd-onaccent); border-color:var(--odd-accent); }
-@media (max-width:600px) { .odd-settings-panel { padding:18px; } .odd-settings-panel form { grid-template-columns:1fr; } .odd-view-conversation { padding:16px 12px; } }
+@media (max-width:600px) { .odd-settings-panel form { grid-template-columns:1fr; } .odd-view-conversation { padding:16px 12px; } }
 
 /* Read-only conversations keep their composer hidden in every skin. */
 .odd-view .im-composer[hidden] { display: none; }

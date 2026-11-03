@@ -123,6 +123,7 @@
         _this.bind = function (wrapper, activity) {
             if (_wrapper) { return; }
             _wrapper = wrapper; _activity = activity;
+            if (_observer) { _observer.observe(wrapper, { attributes: true, attributeFilter: ['mode'] }); }
             _reveal = utils.createElement('button', 'pe-controls-reveal');
             _reveal.type = 'button'; _reveal.textContent = _labels.show || 'Show controls';
             _reveal.setAttribute('aria-controls', container.id);
@@ -172,6 +173,15 @@
                 label = tooltip && tooltip.textContent || entry.element.getAttribute('aria-label') || _labels[entry.name] || entry.name;
             if (entry.caption.textContent !== label) { entry.caption.textContent = label; }
         }
+        function _overflows() {
+            // Tooltip text is absolutely positioned and may extend scrollWidth
+            // while invisible. Only measure the actual row sections and gaps.
+            var sections = Array.from(content.children).filter(function (element) {
+                return element.getClientRects().length && getComputedStyle(element).display !== 'none';
+            }), gap = parseFloat(getComputedStyle(content).columnGap) || 0,
+                width = sections.reduce(function (sum, element) { return sum + element.getBoundingClientRect().width; }, 0);
+            return width + Math.max(0, sections.length - 1) * gap > content.clientWidth + 1;
+        }
         _this.resize = function () {
             if (_closed) { return; }
             entries.forEach(_caption);
@@ -182,7 +192,7 @@
             if (_this.active()) {
                 // Keep the focused node in place while allowing a newly narrow
                 // window to scroll. Rebalance after focus leaves the controls.
-                content.setAttribute('scrollable', String(content.scrollWidth > content.clientWidth));
+                content.setAttribute('scrollable', String(_overflows()));
                 return;
             }
             entries.forEach(function (entry) {
@@ -193,14 +203,14 @@
             _more.hidden = true;
             var order = (config.module === 'rtc'
                 ? ['sharing', 'settings', 'theater', 'fullscreen']
-                : ['report', 'capture', 'download', 'volume', 'definition', 'comments', 'settings', 'theater', 'layout', 'muted', 'reload', 'stop']);
-            var core = config.module === 'rtc' ? ['microphone', 'camera', 'layout', 'calling'] : ['playing', 'quote', 'time', 'calling', 'fullscreen'];
+                : ['report', 'capture', 'download', 'volume', 'definition', 'comments', 'settings', 'theater', 'layout', 'muted', 'reload', 'stop', 'time']);
+            var core = config.module === 'rtc' ? ['microphone', 'camera', 'layout', 'calling'] : ['playing', 'quote', 'calling', 'fullscreen'];
             var candidates = entries.filter(function (entry) { return core.indexOf(entry.name) < 0; });
             candidates.sort(function (a, b) {
                 var ai = order.indexOf(a.name), bi = order.indexOf(b.name);
                 return (ai < 0 ? -1 : ai) - (bi < 0 ? -1 : bi);
             });
-            for (var i = 0; i < candidates.length && content.scrollWidth > content.clientWidth; i++) {
+            for (var i = 0; i < candidates.length && _overflows(); i++) {
                 var entry = candidates[i];
                 if (!entry.element.getClientRects().length || getComputedStyle(entry.element).display === 'none') { continue; }
                 _more.hidden = false;
@@ -208,7 +218,7 @@
             }
             // A very small embedded window keeps core actions reachable by
             // scrolling; no applicable action is silently discarded.
-            content.setAttribute('scrollable', String(content.scrollWidth > content.clientWidth));
+            content.setAttribute('scrollable', String(_overflows()));
             entries.forEach(function (entry) {
                 if (_body.contains(entry.element)) { return; }
                 var tooltip = typeof entry.component.tooltip === 'function' ? entry.component.tooltip() : null;

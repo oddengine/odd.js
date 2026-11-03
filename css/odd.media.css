@@ -158,9 +158,16 @@
     background-size: 24px;
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.volume { width: 80px; height: 44px; flex: none; margin: 0; }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.timebar { height: 44px; top: -44px; left: 0; z-index: 1; }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-rail,
-.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-thumb { height: 8px; top: auto; bottom: 0; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][mode="vod"] .pe-controls-row { gap: 8px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-label.time { max-width: none; }
+.pe-ui-classic.pe-media-window[controls][kind="player"][mode="vod"] .pe-controlbar .pe-center { flex: 1 0 80px; min-width: 80px; }
+.pe-ui-classic.pe-media-window[controls][kind="player"]:not([mode="vod"]) .pe-center[timeline-only="true"] { display: none; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-slider.timebar { flex: 1; width: 100%; min-width: 80px; height: 44px; position: relative; inset: auto; z-index: 1; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-rail { height: 4px; top: 20px; bottom: auto; border-radius: var(--odd-radius-pill); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-thumb { display: block; height: 12px; top: 16px; bottom: auto; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .pe-slider-thumb span { width: 12px; height: 12px; left: -6px; border-radius: 50%; background: var(--pe-media-ink); }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar .value { bottom: 44px; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-slider.timebar:focus-visible .value { visibility: visible; }
 .pe-ui-classic.pe-media-window[controls][kind="player"][mode="vod"] .pe-controlbar .calling { display: none; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-action-caption { display: none; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controlbar .pe-tooltip {

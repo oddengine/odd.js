@@ -237,16 +237,11 @@
     position: relative;
 }
 
+/* Keep the seek control in the center section, inside the control surface. */
+.pe-ui-classic[kind="player"][mode="vod"] .pe-controlbar .pe-center { flex: 1 0 80px; min-width: 80px; }
+.pe-ui-classic[kind="player"]:not([mode="vod"]) .pe-center[timeline-only="true"] { display: none; }
 .pe-ui-classic[kind="player"] .pe-controlbar .pe-slider.timebar {
-    width: 100%;
-    height: 2px;
-    top: -2px;
-    position: absolute;
-}
-
-.pe-ui-classic[kind="player"] .pe-controlbar:hover .pe-slider.timebar {
-    height: 10px;
-    top: -10px;
+    width: 100%; height: 40px; min-width: 80px; position: relative;
 }
 
 .pe-ui-classic[kind="player"] .pe-controlbar .pe-slider.timebar .preview {

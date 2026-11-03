@@ -65,7 +65,6 @@
         function _buildComponents() {
             _timebar = new components.Slider('timebar', undefined, _logger);
             _timebar.addGlobalListener(_this.forward);
-            _container.appendChild(_timebar.element());
             _this.components['timebar'] = _timebar;
             _timebar.element().setAttribute('aria-label', _this.config.labels.timebar);
 
@@ -81,6 +80,10 @@
                 _regi.lastIndex = 0;
                 while ((arr = _regi.exec(layouts[i])) !== null) {
                     _buildComponent(section, arr[1], arr[2], arr[3]);
+                }
+                if (sections[i] === 'center') {
+                    section.setAttribute('timeline-only', String(!section.children.length));
+                    section.appendChild(_timebar.element());
                 }
                 _content.appendChild(section);
             }
