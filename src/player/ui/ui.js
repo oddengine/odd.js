@@ -261,7 +261,16 @@
             _wrapper.setAttribute('fullscreen', false);
 
             var contextmenu = _this.plugins['ContextMenu'];
-            if (contextmenu && typeof contextmenu.bind === 'function') { contextmenu.bind(_wrapper); }
+            if (contextmenu && typeof contextmenu.bind === 'function') {
+                contextmenu.bind(_wrapper);
+                var dashboard = _this.plugins['Dashboard'], playlist = _this.plugins['Playlist'];
+                if (dashboard && dashboard.components.stats && !contextmenu.config.items.some(function (item) { return item.name === 'stats'; })) {
+                    contextmenu.append({ name: 'stats', text: dashboard.config.labels.stats, handler: function () { _showPanel('stats'); } });
+                }
+                if (playlist && !contextmenu.config.items.some(function (item) { return item.name === 'playlist'; })) {
+                    contextmenu.append({ name: 'playlist', text: playlist.config.title, handler: function () { playlist.show(); } });
+                }
+            }
 
             if (_this.config.autoplay) { _updatePlaylist(); }
 

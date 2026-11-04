@@ -59,12 +59,15 @@
 
             var shell = utils.createElement('section', 'pe-dashboard-sheet');
             shell.hidden = true;
+            shell.setAttribute('data-panel', name);
             shell.setAttribute('aria-label', _this.config.labels[name] || name);
             shell.addEventListener('keydown', _onKeyDown);
 
             var close = utils.createElement('button', 'pe-dashboard-close');
             close.type = 'button';
-            close.textContent = _this.config.labels.close;
+            close.setAttribute('aria-label', _this.config.labels.close);
+            close.title = _this.config.labels.close;
+            close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg>';
             close.onclick = function () { _this.hide(name); };
             shell.appendChild(close);
 

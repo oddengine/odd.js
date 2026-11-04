@@ -203,8 +203,13 @@
             _more.hidden = true;
             var order = (config.module === 'rtc'
                 ? ['sharing', 'settings', 'theater', 'fullscreen']
-                : ['report', 'capture', 'download', 'volume', 'definition', 'comments', 'settings', 'theater', 'layout', 'muted', 'reload', 'stop', 'time']);
+                : ['report', 'capture', 'download', 'volume', 'definition', 'comments', 'settings', 'theater', 'layout', 'muted', 'reload', 'stop', 'time', 'fullscreen']);
             var core = config.module === 'rtc' ? ['microphone', 'camera', 'layout', 'calling'] : ['playing', 'quote', 'calling', 'fullscreen'];
+            // A narrow VOD bar keeps its seek target usable after reserving the
+            // semicircular end caps; fullscreen remains available in More.
+            if (config.module === 'player' && _wrapper && _wrapper.getAttribute('mode') === 'vod') {
+                core = ['playing', 'quote', 'calling'];
+            }
             var candidates = entries.filter(function (entry) { return core.indexOf(entry.name) < 0; });
             candidates.sort(function (a, b) {
                 var ai = order.indexOf(a.name), bi = order.indexOf(b.name);

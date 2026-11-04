@@ -15,6 +15,8 @@
             empty: 'No items in this playlist.',
             untitled: 'Untitled media',
             unavailable: 'Unavailable',
+            close: 'Close playlist',
+            expanded: false,
             items: [],
             visibility: true,
         };
@@ -26,6 +28,9 @@
             _container,
             _list,
             _empty,
+            _body,
+            _toggle,
+            _closeButton,
             _index = NaN,
             _closed = false;
 
@@ -40,24 +45,56 @@
             _container.setAttribute('aria-label', _this.config.title);
             _container.tabIndex = -1;
 
-            var details = utils.createElement('details');
-            details.open = true;
-            _container.appendChild(details);
-            var title = utils.createElement('summary');
+            _container.addEventListener('keydown', _onKeyDown);
+            _toggle = utils.createElement('button', 'pe-playlist-toggle');
+            _toggle.type = 'button';
+            _toggle.setAttribute('aria-label', _this.config.title);
+            _toggle.setAttribute('aria-expanded', 'false');
+            _toggle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>';
+            _toggle.onclick = _this.show;
+            _container.appendChild(_toggle);
+            _body = utils.createElement('div', 'pe-playlist-body');
+            _container.appendChild(_body);
+            var header = utils.createElement('header');
+            _body.appendChild(header);
+            var title = utils.createElement('h3');
             title.textContent = _this.config.title;
-            details.appendChild(title);
+            header.appendChild(title);
+            _closeButton = utils.createElement('button', 'pe-playlist-close');
+            _closeButton.type = 'button';
+            _closeButton.setAttribute('aria-label', _this.config.close);
+            _closeButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg>';
+            _closeButton.onclick = _this.hide;
+            header.appendChild(_closeButton);
 
             _empty = utils.createElement('p');
             _empty.textContent = _this.config.empty;
             _empty.setAttribute('role', 'status');
-            details.appendChild(_empty);
+            _body.appendChild(_empty);
 
             _list = utils.createElement('div');
             _list.setAttribute('role', 'list');
-            details.appendChild(_list);
+            _body.appendChild(_list);
 
             for (var i = 0; i < items.length; i++) { _this.append(items[i]); }
             _updateEmpty();
+            _setOpen(_this.config.expanded, false);
+        }
+
+        function _setOpen(open, focus) {
+            if (_closed) { return; }
+            _container.setAttribute('data-open', String(!!open));
+            _toggle.setAttribute('aria-expanded', String(!!open));
+            _body.inert = !open;
+            _body.setAttribute('aria-hidden', String(!open));
+            if (focus) { (open ? _closeButton : _toggle).focus(); }
+        }
+        _this.show = function () { _setOpen(true, true); };
+        _this.hide = function () { _setOpen(false, true); };
+        function _onKeyDown(event) {
+            if (event.key === 'Escape' && _container.getAttribute('data-open') === 'true') {
+                event.preventDefault(); event.stopPropagation(); _this.hide();
+            }
         }
 
         function _buildItem(item) {
@@ -158,6 +195,8 @@
         _this.destroy = function () {
             if (_closed) { return; }
             _closed = true;
+            _container.removeEventListener('keydown', _onKeyDown);
+            _toggle.onclick = _closeButton.onclick = null;
             for (var i = 0; i < _list.children.length; i++) { _release(_list.children[i]); }
             utils.emptyElement(_list);
             _this.config.items = [];

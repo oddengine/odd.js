@@ -17,6 +17,9 @@
     --odd-radius-large: var(--odd-radius-primary);
     --odd-radius-pill: 999px;
     --odd-controlbar-size: calc(var(--odd-radius-secondary) * 2);
+    --odd-controlbar-cap: var(--odd-radius-secondary);
+    --odd-controlbar-edge: 24px;
+    --odd-controlbar-bottom: 12px;
     /* Keep the established control center even when its painted shell shrinks. */
     --odd-controlbar-reserved-size: 76px;
     --odd-controlbar-offset: calc((var(--odd-controlbar-reserved-size) - var(--odd-controlbar-size)) / 2);
