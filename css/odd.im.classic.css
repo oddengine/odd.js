@@ -534,6 +534,13 @@
 .im-call li { margin: .5rem 0; overflow-wrap: anywhere; }
 .im-call-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
 .im-call-actions button { padding: .5rem .75rem; border: 1px solid #aab4c5; border-radius: var(--odd-radius-pill); cursor: pointer; }
+.im-call-actions:has(> .im-call-answer) { align-items:center; justify-content:center; gap:24px; padding-block:8px; }
+.im-call .im-call-actions .im-call-answer { display:inline-flex; align-items:center; justify-content:center; flex:none; width:56px; height:56px; min-height:56px; padding:16px; border:0; border-radius:50%; color:#fff; background:#168246; }
+.im-call .im-call-answer[data-action='decline'] { background:#d93443; }
+.im-call-answer[data-action='decline'] svg { transform:rotate(135deg); }
+.im-call .im-call-answer:not(:disabled):hover { filter:brightness(.92); }
+.im-call .im-call-answer:disabled { opacity:.55; cursor:wait; }
+.im-call-answer svg { width:24px; height:24px; flex:none; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .im-call-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
 .im-call-media video { width: 100%; max-height: 40vh; background: #121a28; }
 

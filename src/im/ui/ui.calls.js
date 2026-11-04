@@ -9,7 +9,7 @@
             ringing: 'Ringing', connecting: 'Connecting', connected: 'Connected', recovering: 'Reconnecting',
             closing: 'Closing media resources', ended: 'Ended', callEnded: 'Call ended', incoming: 'Incoming call',
             answeredElsewhere: 'Answered on another device', dismiss: 'Dismiss', accept: 'Accept',
-            declineHere: 'Decline here', declineAll: 'Decline on all devices', end: 'End call', leave: 'Leave call',
+            declineAll: 'Decline', end: 'End call', leave: 'Leave call',
             retryPending: 'Retry pending operation', unknown: 'Result unknown. Reconnecting will retry the same operation.',
             retry: 'Retry', disconnected: 'Connection lost. Waiting for authoritative call state.',
             choose: 'Choose participants', calling: 'Calling', callSelected: 'Call selected participants', cancel: 'Cancel',
@@ -37,10 +37,19 @@
             _panel.insertBefore(minimize, _title);
         }
 
-        function button(label, action) {
+        function icon(element, name, label) {
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+            var phone = 'M7 3H4a2 2 0 0 0-2 2c0 9.4 7.6 17 17 17a2 2 0 0 0 2-2v-3l-5-2-2 2a15 15 0 0 1-7-7l2-2-2-5Z';
+            var paths = { accept: [phone], decline: [phone] };
+            paths[name].forEach(function (d) { var path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('d', d); svg.appendChild(path); });
+            element.textContent = ''; element.appendChild(svg); element.setAttribute('aria-label', label); element.title = label;
+        }
+        function button(label, action, name) {
             var element = document.createElement('button');
             element.type = 'button';
             element.textContent = label;
+            if (name) { element.className = 'im-call-answer'; element.setAttribute('data-action', name); icon(element, name, label); }
             element.onclick = function () {
                 element.disabled = true;
                 Promise.resolve().then(action).catch(function (reason) {
@@ -92,9 +101,9 @@
             if (ended || own.state === 'ended' || (!incoming && own.deviceId && !selected)) {
                 button(labels.dismiss, dismiss);
             } else if (incoming && !closing) {
-                button(labels.accept, function () { return im.calls().accept(call.callId); });
-                button(labels.declineHere, function () { return im.calls().reject(call.callId, false); });
-                button(labels.declineAll, function () { return im.calls().reject(call.callId, true); });
+                button(labels.accept, function () { return im.calls().accept(call.callId); }, 'accept');
+                // One decline action ends ringing on all candidate devices.
+                button(labels.declineAll, function () { return im.calls().reject(call.callId, true); }, 'decline');
             } else if (selected && !closing) {
                 button(call.callerId === endpoint.userId ? labels.end : labels.leave, function () {
                     return im.calls().action(call.callId, call.callerId === endpoint.userId ?
