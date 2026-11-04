@@ -29,7 +29,7 @@
     scrollbar-width: thin; scrollbar-color: var(--pe-media-line) var(--pe-media-raised);
 }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item {
-    width: 100%; min-height: 44px; padding: 10px 12px; display: flex; align-items: center; gap: 12px;
+    width: 100%; min-height: 44px; padding: 10px 12px; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 12px;
     border: 0; border-radius: var(--odd-radius-pill); font: inherit; font-size: 14px; line-height: 1.5; text-align: left;
     color: var(--pe-media-ink); background: transparent; white-space: normal; overflow-wrap: anywhere;
 }
@@ -39,9 +39,10 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item:disabled {
     color: var(--pe-media-muted); opacity: .65; cursor: not-allowed;
 }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item .pe-contextmenu-item-text { color: inherit; min-width: 0; }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item-icon { width: 20px; height: 20px; object-fit: contain; margin: 0; padding: 0; border: 0; flex: none; }
-.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item-shortcut { margin-left: auto; font-size: 13px; }
+/* Reserve the icon column even when an item has no icon or its image fails. */
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item .pe-contextmenu-item-text { grid-column: 2; grid-row: 1; color: inherit; min-width: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item-icon { grid-column: 1; grid-row: 1; width: 20px; height: 20px; object-fit: contain; margin: 0; padding: 0; border: 0; }
+.pe-ui-classic.pe-media-window[controls][kind] .pe-contextmenu .pe-contextmenu-item-shortcut { grid-column: 3; grid-row: 1; margin-left: auto; font-size: 13px; }
 .pe-ui-classic.pe-media-window[controls][kind="player"] > .pe-playlist {
     position: absolute; z-index: 10; inset: 0 0 0 auto; width: min(320px, calc(100% - 56px));
     height: 100%; max-height: none; padding: 0; overflow: visible;
