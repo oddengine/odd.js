@@ -1,5 +1,7 @@
 # odd.js
 
+2.5.25：独立 Player／RTC／IM 的产品皮肤与网站已确认配色同步，字号、尺寸、圆角和安全留白保持。加载 `css/odd.products.css` 会自动加载 `odd.brand-tokens.css`，再用 `ui.skin({brand,theme})` 选择品牌／深浅。颜色由相邻 www 的 `scripts/sync-sdk-brand-tokens.mjs` 生成并随本仓提交；独立使用或编译 SDK 不需要 www，也不加载网站背景。详见 [皮肤同步](doc/ui-composition.md#产品皮肤同步)。
+
 Player 新增 [H.265 原生优先与 WASM 回退](doc/player-hevc.md)，FFmpeg 7.0.1 C 源码、scalar/SIMD 产物与可复现脚本随仓库提供。
 
 聚合 App SDK 已移除。产品应用直接组合独立 Player、RTC、IM、Famicom 实例和可选 UI；巨蟹直播、天秤会议、双子通信的业务流程由网站产品层实现。`odd.min.js` 仅是独立 SDK 的合并分发文件，不提供 `odd.App`／`odd.app`。源码构建配方已更新，未重建 release。

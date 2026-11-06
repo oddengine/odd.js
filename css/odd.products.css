@@ -1,4 +1,5 @@
 @import url("odd.glass.css");
+@import url("odd.brand-tokens.css");
 @import url("odd.im.material.css");
 @import url("odd.im.reading.css");
 @import url("odd.safe-area.css");
@@ -6,14 +7,6 @@
 @import url("odd.im.mobile.css");
 /* Independent product skins. Media pixels remain neutral. */
 .odd-view, .odd-settings-panel { box-sizing: border-box; font-family: inherit; color: var(--odd-ink); background: var(--odd-bg); }
-.odd-theme-light { --odd-bg:#F6F4ED; --odd-surface:#FFFEFA; --odd-ink:#172E2B; --odd-muted:#536760; --odd-line:#C3CDC8; --odd-selected:#DDEBE1; --odd-accent:#0D5B50; --odd-onaccent:#fff; }
-.odd-theme-dark { --odd-bg:#142722; --odd-surface:#1D352E; --odd-ink:#F2F4EB; --odd-muted:#BCCEC4; --odd-line:#526B60; --odd-selected:#324E42; --odd-accent:#B8D3B5; --odd-onaccent:#142722; }
-.odd-brand-meeting.odd-theme-light { --odd-bg:#F7F3EA; --odd-surface:#FFFCF5; --odd-ink:#422E24; --odd-muted:#796457; --odd-selected:#E7D9C4; --odd-accent:#6D4430; }
-.odd-brand-meeting.odd-theme-dark { --odd-bg:#251C18; --odd-surface:#35271F; --odd-ink:#F8EFE0; --odd-muted:#CDBAA4; --odd-selected:#594535; --odd-accent:#E7C98F; --odd-onaccent:#39281D; }
-.odd-brand-live.odd-theme-light { --odd-bg:#F8F2EF; --odd-surface:#FFFBF8; --odd-ink:#382A30; --odd-muted:#7B6570; --odd-selected:#F3DFE6; --odd-accent:#762D4F; }
-.odd-brand-live.odd-theme-dark { --odd-bg:#261820; --odd-surface:#37222D; --odd-ink:#FFF1F2; --odd-muted:#D5B8C6; --odd-selected:#583247; --odd-accent:#F0AEC4; --odd-onaccent:#34232B; }
-.odd-brand-paas.odd-theme-light { --odd-bg:#F5F2EA; --odd-surface:#FFFEFA; --odd-ink:#172D42; --odd-muted:#536575; --odd-selected:#E3EAF0; --odd-accent:#173F62; }
-.odd-brand-paas.odd-theme-dark { --odd-bg:#101B27; --odd-surface:#192A3A; --odd-ink:#F4F5EE; --odd-muted:#B8C5CF; --odd-selected:#39463C; --odd-accent:#E7C98F; --odd-onaccent:#172D42; }
 .odd-view { min-width:0; width:100%; height:100%; }
 .odd-view button, .odd-settings-panel button { font:inherit; color:inherit; cursor:pointer; min-height:44px; }
 .odd-view :focus-visible, .odd-settings-panel :focus-visible { outline:3px solid var(--odd-accent); outline-offset:3px; }

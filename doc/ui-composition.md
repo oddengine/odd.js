@@ -165,3 +165,12 @@ insets, while larger horizontal device insets take precedence. The website's
 48px minimum chat header keeps 44px back/detail targets and a centered title;
 its `--im-safe-area-top` override also supports host-provided insets. Composer
 margins, sizes, focus, drafts and navigation behavior are unchanged.
+
+
+## 产品皮肤同步
+
+2.5.25 的 `css/odd.brand-tokens.css` 与网站使用同一推荐配色：paas 普鲁士蓝／暖黄、live 勃艮第红／米灰、meeting 凡戴克棕／奶油白、im 马尔斯绿／浅灰、account 深灰／申布伦黄。各有 light／dark 的强调色、正文、辅助字、面板、选中及玻璃材质角色，普通未指定品牌的主题沿 IM 回退。播放画面、媒体控制条的中性深色、通话语义色与音量水位不变。
+
+基础样式仍加载 `odd.player.classic.css`／`odd.rtc.classic.css`／`odd.im.classic.css`，产品主题另加载 `odd.products.css`，它会导入共享品牌 CSS。Player／RTC 的 setup.skin 仍为字符串 classic，品牌用 ui.skin({brand,theme})；IM 独立 view 的 skin 对象接口不变。皮肤切换只改类，不重建实例。
+
+颜色的维护源为相邻 www/frontend/src/brand-palettes.json。修改后从 www 运行 `node scripts/sync-sdk-brand-tokens.mjs`，检查生成差异并一同提交；网站构建运行 --check 防止漏同步。SDK 消费的是本仓已提交 CSS，本仓编译和运行不读取网站、知识库或背景素材。字体、宽高、边距、圆角及安全区继续由原 CSS 文件负责，生成文件只含颜色与材质变量。
