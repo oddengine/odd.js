@@ -19,7 +19,7 @@
     :is(.odd-view, .im-ui-classic) .im-composer:not([presentation="mini"]) .im-composer-counter { display: none; }
     .odd-view .im-composer:not([presentation="mini"]) textarea:focus-visible { outline: none; }
     .odd-view .im-composer:not([presentation="mini"]):has(textarea:focus-visible) {
-        outline: 2px solid var(--odd-accent); outline-offset: 2px;
+        outline:none;
     }
     .odd-view .im-composer:not([presentation="mini"]) button:not(:disabled):active { transform: scale(.98); }
     .odd-view .im-composer:not([presentation="mini"])[expanded="true"] {

@@ -1,24 +1,26 @@
 # odd.js
 
-2.5.25：独立 Player／RTC／IM 的产品皮肤与网站已确认配色同步，字号、尺寸、圆角和安全留白保持。加载 `css/odd.products.css` 会自动加载 `odd.brand-tokens.css`，再用 `ui.skin({brand,theme})` 选择品牌／深浅。颜色由相邻 www 的 `scripts/sync-sdk-brand-tokens.mjs` 生成并随本仓提交；独立使用或编译 SDK 不需要 www，也不加载网站背景。详见 [皮肤同步](doc/ui-composition.md#产品皮肤同步)。
+详细设计、接口与配置统一维护在[知识库](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/overview.md)及[专题索引](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/catalog.md)。本 README 保留项目与使用入口；带迭代号或旧 schema 的内容仅作历史／兼容参考，部署以现行专题和实际配置为准。
 
-Player 新增 [H.265 原生优先与 WASM 回退](doc/player-hevc.md)，FFmpeg 7.0.1 C 源码、scalar/SIMD 产物与可复现脚本随仓库提供。
+2.5.25：独立 Player／RTC／IM 的产品皮肤与网站已确认配色同步，字号、尺寸、圆角和安全留白保持。加载 `css/odd.products.css` 会自动加载 `odd.brand-tokens.css`，再用 `ui.skin({brand,theme})` 选择品牌／深浅。颜色由相邻 www 的 `scripts/sync-sdk-brand-tokens.mjs` 生成并随本仓提交；独立使用或编译 SDK 不需要 www，也不加载网站背景。详见 [皮肤同步](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/ui-composition.md#设置与外观)。
+
+Player 新增 [H.265 原生优先与 WASM 回退](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/player-hevc.md)，FFmpeg 7.0.1 C 源码、scalar/SIMD 产物与可复现脚本随仓库提供。
 
 聚合 App SDK 已移除。产品应用直接组合独立 Player、RTC、IM、Famicom 实例和可选 UI；巨蟹直播、天秤会议、双子通信的业务流程由网站产品层实现。`odd.min.js` 仅是独立 SDK 的合并分发文件，不提供 `odd.App`／`odd.app`。源码构建配方已更新，未重建 release。
 
-[频道普通消息](doc/channel-messages.md)：具名用户使用稳定设备与持久存储；在线广播和可靠消息沿原消息接口，媒体发现仍使用 events。
+[频道普通消息](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/channel-messages.md)：具名用户使用稳定设备与持久存储；在线广播和可靠消息沿原消息接口，媒体发现仍使用 events。
 
-Shared regional discovery / 共享地域入口：[中文](doc/routing.md) · [English](doc/routing.en.md)。IM、RTC、Player复用公开地域提示；媒体目标、凭据和原子分配保持各自职责。
+Shared regional discovery / 共享地域入口：[接口说明](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/common-connection-routing.md)。IM、RTC、Player复用公开地域提示；媒体目标、凭据和原子分配保持各自职责。
 
-[正常密钥轮转](doc/key-rotation.md)已接入按需重取：HTTP 明确凭据失效最多重试一次；频道 IM 新连接主动取新票据。已建立的连接不因普通换钥断开。
+[正常密钥轮转](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/common-key-rotation.md)已接入按需重取：HTTP 明确凭据失效最多重试一次；频道 IM 新连接主动取新票据。已建立的连接不因普通换钥断开。
 
 IM `fetch(conversationId, cursor, limit)`一次获取一页，默认50、可请求1–64条；不加查询速度／次数限制。页保存后的自动COMMIT同样免于查询限速，连接背压及原存储预算保留。实际页可因编码预算少于请求条数，继续使用nextCursor翻页。
 
-R-075 新增[RTC 产品参与接口](doc/rtc-participation.md)：同一实例多路发布／订阅共享用户凭据与参与生命周期。节点WHIP／WHEP、独立资源管理证明和平台调度回调已有源码接线；可信调度部署、跨节点分发及运行验收仍待完成。
+R-075 新增[RTC 产品参与接口](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/rtc-participation.md)：同一实例多路发布／订阅共享用户凭据与参与生命周期。节点WHIP／WHEP、独立资源管理证明和平台调度回调已有源码接线；调度、分发与运行覆盖按知识库对应专题分别记录。
 
-产品直播的WHIP／WHEP、HTTP-FLV／CMAF已接[新版App凭据与独立媒体证明](doc/live-media.md)，复用既有credentials回调；直播不注册RTC参与，按所属live产品计字节。本次仅源码接线，release未重建。
+产品直播的WHIP／WHEP、HTTP-FLV／CMAF已接[新版App凭据与独立媒体证明](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/media-live.md)，复用既有credentials回调；直播不注册RTC参与，按所属live产品计字节。本次仅源码接线，release未重建。
 
-R-070 的独立视图、共享订阅、AppID 握手绑定与模块设置见 [组合接口](doc/ui-composition.md)。本轮在 dev 分支迭代；网站已运行源代码组合构建和设置页浏览器检查，实时服务联调仍未执行。
+R-070 的独立视图、共享订阅、AppID 握手绑定与模块设置见 [组合接口](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/ui-composition.md)。本轮在 dev 分支迭代；网站已运行源代码组合构建和设置页浏览器检查，实时服务联调仍未执行。
 
 - [Website](https://oddengine.com)
 
@@ -83,4 +85,4 @@ E08a 已接通可选 IndexedDB、分区 UUIDv7、先落盘后确认及原 ID 重
 现有 UI 仍走 M=0。参见[接入及适配器契约](example/im/storage.md)。
 未重建 release，未编译、测试或运行浏览器。
 
-网站审批后的只读呈现：[IM 只读会话](doc/im-readonly.md)。
+网站审批后的只读呈现：[IM 只读会话](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/im-api.md)。

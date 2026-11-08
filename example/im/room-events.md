@@ -210,7 +210,7 @@ silently start a new attempt. RoomRequest results from an obsolete IM connection
 reject with AbortError, which does not mean a server mutation was cancelled.
 
 Only SDK source and this usage document changed; no demo UI, release build,
-browser or runtime test was produced. [中文业务契约](https://github.com/oddengine/odd.x/blob/main/docs/stage.zh-CN.md).
+browser or runtime test was produced. [中文业务契约](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.x/channel-stage.md).
 
 ## R-049 private stage applications
 

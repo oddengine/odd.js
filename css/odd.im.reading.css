@@ -1,36 +1,38 @@
-/* Explicit cloud-history and public-reading controls share the product skin. */
-:is(.odd-view, .im-ui-classic) .im-reading {
-    flex: none;
-    min-width: 0;
-    max-height: 18rem;
-    overflow: auto;
-    padding: .5rem .75rem;
-    border-block: 1px solid var(--odd-line, currentColor);
-    font-size: .875rem;
-    line-height: 1.5;
+/* Compact read counts sit before outgoing bubbles, never below as an action form. */
+:is(.odd-view,.im-ui-classic) .im-message-body { display:flex; align-items:flex-end; gap:2px; min-width:0; max-width:100%; }
+:is(.odd-view,.im-ui-classic) .im-message[align="right"] .im-message-body { align-self:flex-end; }
+:is(.odd-view,.im-ui-classic) .im-message-body .im-message-bubble { min-width:0; }
+:is(.odd-view,.im-ui-classic) .im-message-receipts {
+    display:inline-flex; align-items:center; justify-content:center; flex:none; align-self:flex-end;
+    width:32px; height:32px; min-height:32px; margin:0; padding:4px; border:0; border-radius:50%;
+    color:var(--odd-accent,currentColor); background:transparent; font-family:inherit; font-size:11px; font-weight:500; line-height:1; cursor:pointer;
 }
-:is(.odd-view, .im-ui-classic) .im-reading summary { cursor: pointer; padding: .5rem 0; font-weight: 600; }
-:is(.odd-view, .im-ui-classic) .im-reading p { max-width: 70ch; margin: .5rem 0; overflow-wrap: anywhere; }
-:is(.odd-view, .im-ui-classic) .im-reading-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
-:is(.odd-view, .im-ui-classic) :is(.im-reading button, .im-message-receipts) {
-    min-height: 2.75rem;
-    max-width: 100%;
-    padding: .4rem .7rem;
-    border: 1px solid var(--odd-line, currentColor);
-    border-radius: var(--odd-radius-pill);
-    font: inherit;
-    color: inherit;
-    background: var(--odd-surface, transparent);
-    cursor: pointer;
-    overflow-wrap: anywhere;
+:is(.odd-view,.im-ui-classic) .im-message-receipts > span { display:grid; place-items:center; min-width:20px; height:20px; padding:0 3px; border:1px solid currentColor; border-radius:50%; font-size:11px; font-variant-numeric:tabular-nums; }
+:is(.odd-view,.im-ui-classic) .im-message-receipts svg { width:14px; height:14px; }
+:is(.odd-view,.im-ui-classic) :is(.im-message-receipts,.im-message-retry):is(:hover,:focus-visible) { outline:none; background:var(--odd-selected,#ffffff18); }
+:is(.odd-view,.im-ui-classic) .im-message-retry { display:grid; place-items:center; width:32px; min-height:32px; padding:6px; border:0; background:transparent; color:var(--odd-ink); }
+:is(.odd-view,.im-ui-classic) .im-message-retry svg { width:18px; height:18px; }
+:is(.odd-view,.im-ui-classic) :is(.im-message-receipts,.im-message-retry)[hidden] { display:none; }
+.im-reading {
+    position:fixed; z-index:1400; display:flex; flex-direction:column; box-sizing:border-box;
+    padding:12px; border:1px solid var(--odd-line,#777); border-radius:16px;
+    color:var(--odd-ink,#222); background:var(--odd-glass-solid,#fff); font:14px/1.5 system-ui,sans-serif;
+    overflow:hidden; overscroll-behavior:contain;
 }
-:is(.odd-view, .im-ui-classic) .im-reading button { margin: .2rem .35rem .2rem 0; }
-:is(.odd-view, .im-ui-classic) :is(.im-reading button, .im-message-receipts):hover:not(:disabled) { background: var(--odd-selected, transparent); text-decoration: underline; text-underline-offset: .2em; }
-:is(.odd-view, .im-ui-classic) .im-reading button:disabled { opacity: .55; cursor: default; }
-:is(.odd-view, .im-ui-classic) :is(.im-reading summary, .im-reading button, .im-reading-table, .im-reading-results, .im-message-receipts):focus-visible { outline: 2px solid var(--odd-accent, currentColor); outline-offset: 2px; }
-:is(.odd-view, .im-ui-classic) .im-reading-table { max-width: 100%; overflow: auto; margin-block: 1rem .5rem; }
-:is(.odd-view, .im-ui-classic) .im-reading table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-:is(.odd-view, .im-ui-classic) .im-reading :is(th, td) { padding: .5rem; border-bottom: 1px solid var(--odd-line, currentColor); text-align: start; overflow-wrap: anywhere; }
-:is(.odd-view, .im-ui-classic) .im-reading caption { text-align: start; font-weight: 600; padding-bottom: .5rem; }
-:is(.odd-view, .im-ui-classic) .im-message-receipts { margin-top: .5rem; font-size: .8rem; }
-:is(.odd-view, .im-ui-classic) .im-reading[hidden] { display: none; }
+.im-reading[hidden],.im-reading [hidden] { display:none; }
+.im-reading > header { display:flex; flex:none; align-items:center; gap:4px; margin-bottom:8px; }
+.im-reading h3 { flex:1; margin:0; font-family:inherit; font-weight:600; line-height:1.5; font-size:14px; }
+.im-reading button { display:grid; place-items:center; flex:none; width:32px; height:32px; min-height:32px; padding:7px; border:0; border-radius:50%; background:transparent; color:inherit; cursor:pointer; }
+.im-reading button svg { width:18px; height:18px; }
+.im-reading button:is(:hover,:focus-visible) { background:var(--odd-selected,#8882); outline:none; }
+.im-reading-members { min-height:0; overflow:auto; overscroll-behavior:contain; outline:none; }
+.im-reading-list { position:relative; margin:0; padding:0; list-style:none; }
+.im-reading-list li { position:absolute; display:flex; align-items:center; gap:12px; height:48px; width:100%; }
+.im-reading-list li > span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.im-reading-avatar { display:grid; place-items:center; flex:none; width:32px; height:32px; border-radius:50%; background:var(--odd-selected,#8882); color:var(--odd-accent,currentColor); font-size:12px; }
+.im-reading-status { margin:0; padding:8px 0; color:var(--odd-muted,#666); font-size:13px; }
+.im-reading-status:empty { display:none; }
+@media (pointer:coarse) {
+    :is(.odd-view,.im-ui-classic) .im-message-receipts { width:40px; min-height:44px; height:44px; }
+    .im-reading button { width:44px; height:44px; }
+}

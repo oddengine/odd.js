@@ -69,21 +69,21 @@
             _status.setAttribute('role', 'status');
             _retry = utils.createElement('button', 'im-message-retry');
             _retry.type = 'button';
-            _retry.textContent = '沿原标识重试';
+            _retry.title = '重试发送'; _retry.setAttribute('aria-label', '重试发送');
+            _retry.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M18 18a8 8 0 0 1-13-3"/></svg>';
             _retry.onclick = function () { if (_data.retry) { _data.retry(); } };
             _receipts = utils.createElement('button', 'im-message-receipts');
             _receipts.type = 'button';
-            _receipts.textContent = '阅读记录';
-            _receipts.onclick = function () { if (_data.receipts) { _data.receipts(); } };
+            _receipts.onclick = function () { if (_data.receipts) { _data.receipts(_receipts); } };
             _meta.appendChild(_from);
             _meta.appendChild(_time);
             content.appendChild(_meta);
             _bubble.appendChild(_body);
             _bubble.appendChild(_file);
-            content.appendChild(_bubble);
+            var body = utils.createElement('div', 'im-message-body');
+            body.appendChild(_receipts); body.appendChild(_bubble); content.appendChild(body);
             content.appendChild(_status);
             content.appendChild(_retry);
-            content.appendChild(_receipts);
             _container.appendChild(_avatar.element());
             _container.appendChild(_indicator);
             _container.appendChild(content);
@@ -91,7 +91,7 @@
         }
 
         function fileError(reason) {
-            if (reason && reason.name !== 'AbortError') { _status.hidden = false; _status.textContent = reason.message || '文件暂不可用，请重试。'; }
+            if (reason && reason.name !== 'AbortError') { _status.hidden = false; _status.textContent = (/[\u4e00-\u9fff]/.test(reason.message || '') ? reason.message : '文件暂不可用，请重试。'); }
         }
 
         _this.update = function (value) {
@@ -119,9 +119,23 @@
                 _file.setAttribute('aria-label', '下载文件：' + file.name);
             }
             _this.state(_data.state || State.SENT);
-            _receipts.hidden = !_data.receipts;
+            _this.receipt(_data.receiptSummary);
             _retry.hidden = !_data.retry || (_data.state !== State.UNKNOWN && _data.state !== 'gift-pending');
             return _data;
+        };
+
+        _this.receipt = function (summary) {
+            _data.receiptSummary = summary;
+            _receipts.hidden = !_data.receipts || !summary;
+            _receipts.textContent = '';
+            if (!summary) { return; }
+            var badge = document.createElement('span');
+            if (summary.complete) {
+                badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+            } else { badge.textContent = String(summary.count); }
+            _receipts.appendChild(badge);
+            var label = (summary.complete ? '全部已读' : summary.count + ' 人已读') + '，查看已读成员';
+            _receipts.title = label; _receipts.setAttribute('aria-label', label);
         };
 
         _this.align = function (value) {
@@ -139,10 +153,10 @@
                 _indicator.setAttribute('aria-label', value);
                 _indicator.hidden = value !== State.SENDING && value !== State.FAILED;
                 var labels = { sending: '正在发送', sent: '', failed: '未发送', unknown: '结果待确认',
-                    accepted: '服务端已接收', delivered: '投递完成', settled: '投递责任已完成',
-                    saved: '已保存到本机', read: '本账号已读', expired: '已过期，先前结果可能不可用',
+                    accepted: '已发送', delivered: '已送达', settled: '',
+                    saved: '', read: '', expired: '消息已过期',
                     revoked: '权限已撤销', rejected: '已拒绝', 'gift-pending': '礼物交易已确认，消息待投递' };
-                _status.textContent = _data.reliable ? labels[value] || value : '';
+                _status.textContent = _data.reliable ? (Object.prototype.hasOwnProperty.call(labels, value) ? labels[value] : '') : '';
                 _status.hidden = !_status.textContent;
             }
             return _container.getAttribute('state');

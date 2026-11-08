@@ -9,7 +9,9 @@
 .odd-view, .odd-settings-panel { box-sizing: border-box; font-family: inherit; color: var(--odd-ink); background: var(--odd-bg); }
 .odd-view { min-width:0; width:100%; height:100%; }
 .odd-view button, .odd-settings-panel button { font:inherit; color:inherit; cursor:pointer; min-height:44px; }
-.odd-view :focus-visible, .odd-settings-panel :focus-visible { outline:3px solid var(--odd-accent); outline-offset:3px; }
+.odd-view :focus-visible, .odd-settings-panel :focus-visible { outline:none; }
+:is(.odd-view,.odd-settings-panel) :is(button,a,summary):focus-visible { background:var(--odd-selected); }
+:is(.odd-view,.odd-settings-panel) :is(input,textarea,select):focus { outline:none; box-shadow:none; }
 .odd-view-conversation { display:flex; flex-direction:column; padding:24px; gap:12px; }
 .odd-view .im-history-notice { font-size:14px; color:var(--odd-muted); margin:0; }
 .odd-view .im-history-tools { display:flex; flex-wrap:wrap; gap:8px; }
@@ -45,19 +47,43 @@
 .odd-view .im-avatar { width:44px; height:44px; border-radius:50%; display:flex; justify-content:center; align-items:center; background:var(--odd-selected); flex:none; }
 .odd-view .im-entry-copy small, .odd-view .im-entry-line time { color:var(--odd-muted); }
 .odd-settings-panel { max-width:880px; padding:var(--odd-inset-panel); border-radius:var(--odd-radius-tertiary); }
-.odd-settings-panel form { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.odd-settings-panel form { display:grid; grid-template-columns:minmax(0,1fr); gap:24px; }
 .odd-settings-panel label { display:grid; min-width:0; gap:10px; }
+.odd-settings-panel :is(.odd-settings-quality,.odd-settings-layout),.odd-settings-panel form > p { grid-column:1/-1; }
+.odd-settings-panel form > p { margin:0; font-size:13px; line-height:1.6; color:var(--odd-muted); }
+.odd-settings-beauty { display:grid; grid-template-columns:1fr 1fr; gap:16px 24px; grid-column:1/-1; min-width:0; }
+
+.odd-settings-beauty .odd-settings-toggle,.odd-settings-beauty > p { grid-column:1/-1; }
+.odd-settings-beauty label > span { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px; }
+.odd-settings-beauty output { font-size:12px; font-variant-numeric:tabular-nums; color:var(--odd-muted); }
+.odd-settings-beauty input[type=range] { width:100%; min-width:0; height:32px; margin:0; padding:0; accent-color:var(--odd-accent); box-shadow:none; background:transparent; border:0; }
+.odd-settings-beauty input[type=range]:disabled { opacity:.4; }
+.odd-settings-beauty > p { margin:0; color:var(--odd-muted); font-size:13px; line-height:1.6; }
 .odd-settings-panel select { min-height:46px; width:100%; border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); color:var(--odd-ink); background:var(--odd-surface); padding:8px; }
-.odd-settings-panel .odd-settings-encodings { min-width:0; display:grid; gap:16px; grid-column:1/-1; margin:0; padding:20px; border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); }
-.odd-settings-panel .odd-settings-encodings legend { padding:0 8px; font-weight:600; }
+.odd-settings-panel .odd-settings-group { min-width:0; display:grid; gap:16px; grid-column:1/-1; margin:0; padding:20px; border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); }
+.odd-settings-panel .odd-settings-devices,.odd-settings-panel .odd-settings-beauty { grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 24px; }
+.odd-settings-panel .odd-settings-group legend { padding:0 8px; font-weight:600; }
 .odd-settings-panel .odd-settings-encodings p { margin:0; line-height:1.6; }
 .odd-settings-panel .odd-settings-toggle { min-height:44px; display:flex; align-items:center; gap:12px; cursor:pointer; }
 .odd-settings-panel .odd-settings-toggle input { width:20px; height:20px; margin:0; accent-color:var(--odd-accent); }
-.odd-settings-panel video { width:100%; max-height:280px; background:#14191C; grid-column:1/-1; }
-.odd-settings-actions { display:flex; flex-wrap:wrap; gap:12px; grid-column:1/-1; }
-.odd-settings-actions button { border:1px solid var(--odd-line); border-radius:var(--odd-radius-tertiary); background:var(--odd-surface); padding:10px 18px; }
-.odd-settings-actions button:last-child { background:var(--odd-accent); color:var(--odd-onaccent); border-color:var(--odd-accent); }
-@media (max-width:600px) { .odd-settings-panel form { grid-template-columns:1fr; } .odd-view-conversation { padding:16px 12px; } }
+.odd-settings-panel .odd-settings-preview { grid-column:1/-1; width:100%; min-width:0; }
+.odd-settings-preview-stage { width:100%; max-width:640px; justify-self:center; position:relative; aspect-ratio:16/9; overflow:hidden; border-radius:16px; background:#14191C; color:#e4e8e7; }
+.odd-settings-panel .odd-settings-preview-stage video { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+.odd-settings-preview-placeholder { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:20px; text-align:center; }
+.odd-settings-preview-placeholder svg { width:32px; height:32px; flex:none; margin-bottom:4px; }
+.odd-settings-preview-placeholder strong { font-size:16px; font-weight:600; }
+.odd-settings-preview-placeholder p { max-width:38ch; margin:0; font-size:13px; line-height:1.6; }
+.odd-settings-preview-stage [hidden] { display:none; }
+.odd-settings-preview-actions,.odd-settings-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.odd-settings-preview-actions { justify-content:center; }
+.odd-settings-actions { grid-column:1/-1; justify-content:flex-end; padding-top:20px; border-top:1px solid var(--odd-line); }
+.odd-settings-panel button.odd-settings-action { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; min-height:44px; flex:none; border:1px solid var(--odd-line); border-radius:50%; background:transparent; color:var(--odd-ink); padding:11px; box-shadow:none; }
+.odd-settings-action svg { width:20px; height:20px; flex:none; pointer-events:none; }
+.odd-settings-panel button.odd-settings-action:is(:hover,:focus-visible):not(:disabled) { background:var(--odd-selected); color:var(--odd-accent); outline:none; }
+.odd-settings-panel button.odd-settings-action:disabled { opacity:.4; cursor:default; }
+.odd-settings-panel button.odd-settings-primary { background:var(--odd-accent); color:var(--odd-onaccent); }
+.odd-settings-panel button.odd-settings-primary:is(:hover,:focus-visible):not(:disabled) { background:var(--odd-accent); color:var(--odd-onaccent); filter:brightness(.92); }
+@media (max-width:600px) { .odd-settings-panel .odd-settings-group { padding:16px; } .odd-settings-panel .odd-settings-devices { grid-template-columns:minmax(0,1fr); } .odd-view-conversation { padding:16px 12px; } }
 
 /* Read-only conversations keep their composer hidden in every skin. */
 .odd-view .im-composer[hidden] { display: none; }
@@ -79,3 +105,6 @@
     backdrop-filter: var(--odd-glass-floating-blur); -webkit-backdrop-filter: var(--odd-glass-floating-blur);
 }
 .odd-settings-panel :is(input, select, button), .odd-view .im-tools button { border-radius: var(--odd-radius-pill); }
+
+.odd-settings-device-hints { grid-column:1 / -1; display:grid; gap:6px; }
+.odd-settings-device-hints p { margin:0; font-size:13px; line-height:1.65; color:var(--odd-glass-muted, var(--muted)); }

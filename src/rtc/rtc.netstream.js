@@ -78,6 +78,9 @@
             _candidateBytes = 0,
             _candidatePending = false,
             _negotiated = false,
+            _sdpTask,
+            _sdpOffer,
+            _inputUpdate,
             _saver,
             _writer,
             _stats,
@@ -150,6 +153,11 @@
         };
 
         _this.applyConstraints = function (constraints) {
+            ['audio', 'video'].forEach(function (kind) {
+                if (constraints[kind] && typeof constraints[kind] === 'object' && typeof _this.constraints[kind] !== 'object') {
+                    _this.constraints[kind] = {};
+                }
+            });
             _this.constraints = utils.extendz(_this.constraints, constraints);
             if (_stream) {
                 _stream.getTracks().forEach(function (track) {
@@ -160,12 +168,10 @@
 
         _this.setCamera = async function (deviceId) {
             if (_readyState === State.PUBLISHING && (!_screensharing || _withcamera)) {
-                var constraints = utils.extendz({}, _this.constraints, {
-                    audio: false,
-                    video: {
-                        deviceId: deviceId,
-                    },
-                });
+                var constraints = utils.extendz({}, _this.constraints);
+                constraints.audio = false;
+                constraints.video = utils.extendz({}, typeof _this.constraints.video === 'object' ? _this.constraints.video : Constraints[_this.config.profile].video,
+                    { deviceId: deviceId });
                 var source;
                 try {
                     source = await _this.getUserMedia(constraints);
@@ -195,11 +201,23 @@
                         }
                     }
                 } else {
-                    await _this.replaceTrack(track, true).catch(function (err) {
+                    var nextBeauty;
+                    try {
+                        if (_this.config.beauty && _this.config.beauty.enabled) {
+                            nextBeauty = new Beauty(_logger);
+                            await nextBeauty.enable(source, Beauty.parameters(_this.config.beauty));
+                        }
+                        await _this.replaceTrack(nextBeauty ? nextBeauty.output() : track, true);
+                        var previousCamera = _beauty.input();
+                        if (previousCamera) { _forgetCapture(previousCamera); previousCamera.stop(); }
+                        _beauty.disable();
+                        if (nextBeauty) { _beauty = nextBeauty; }
+                    } catch (err) {
+                        if (nextBeauty) { nextBeauty.disable(); }
                         _forgetCapture(track);
                         track.stop();
                         throw err;
-                    });
+                    }
                 }
             }
             _this.applyConstraints({
@@ -396,7 +414,7 @@
             return sender;
         };
 
-        _this.replaceTrack = function (track, stopprevious) {
+        _this.replaceTrack = async function (track, stopprevious) {
             if (track.kind === 'audio' && !_audioAllowed) { track.enabled = false; }
             var origin;
             if (track.kind === 'audio') {
@@ -407,6 +425,16 @@
             if (origin == undefined) {
                 return Promise.reject(`${track.kind} track not found`);
             }
+            if (track === origin) { return; }
+            var stream = _stream, generation = _generation;
+            if (track.kind === 'video') { track.enabled = origin.enabled; }
+            var senders = _pc.getSenders().filter(function (sender) { return sender.track === origin; });
+            try { await Promise.all(senders.map(function (sender) { return sender.replaceTrack(track); })); }
+            catch (error) {
+                await Promise.all(senders.map(function (sender) { return sender.replaceTrack(origin).catch(function () {}); }));
+                throw error;
+            }
+            if (generation !== _generation || stream !== _stream) { throw { name: 'AbortError', message: 'Track replacement was cancelled.' }; }
 
             origin.removeEventListener('ended', _onEnded);
             origin.removeEventListener('mute', _onMute);
@@ -414,18 +442,137 @@
 
             _stream.removeTrack(origin);
             _stream.addTrack(track);
-
-            _pc.getSenders().forEach(function (sender) {
-                var item = sender.track;
-                if (item && item.kind === track.kind && item.getSettings().deviceId === origin.getSettings().deviceId) {
-                    sender.replaceTrack(track);
-                }
-            });
+            track.addEventListener('ended', _onEnded);
+            track.addEventListener('mute', _onMute);
+            track.addEventListener('unmute', _onUnmute);
             if (stopprevious) {
                 _forgetCapture(origin);
                 origin.stop();
             }
             return Promise.resolve();
+        };
+
+        // Capture only missing inputs. The existing microphone, MediaStream,
+        // PeerConnection, publication ID and participation lease stay alive.
+        _this.updateInputs = function (constraints) {
+            if (_inputUpdate) { return _inputUpdate; }
+            if (_readyState !== State.PUBLISHING || _screensharing || !_stream) {
+                return Promise.reject({ name: 'InvalidStateError', message: 'Input publication is not active.' });
+            }
+            var stream = _stream, added = [], generation = _generation, beautyInput, captured;
+            _inputUpdate = Promise.resolve().then(async function () {
+                // Recover an uncertain previous response with its exact offer.
+                if (_sdpOffer) { await _this.renegotiate(); }
+                var missing = {
+                    audio: constraints.audio && !stream.getAudioTracks().length ? constraints.audio : false,
+                    video: constraints.video && !stream.getVideoTracks().length ? constraints.video : false,
+                };
+                if (!missing.audio && !missing.video) { return _this; }
+                captured = await _this.getUserMedia(missing);
+                if (_readyState !== State.PUBLISHING || generation !== _generation) {
+                    captured.getTracks().forEach(function (track) { _forgetCapture(track); track.stop(); });
+                    throw { name: 'AbortError', message: 'Input update was cancelled.' };
+                }
+                if (captured.getVideoTracks().length && _this.config.beauty && _this.config.beauty.enabled) {
+                    beautyInput = captured.getVideoTracks()[0];
+                    await _prepareBeauty(captured);
+                }
+                captured.getTracks().forEach(function (track) {
+                    stream.addTrack(track);
+                    var item = { track: track };
+                    added.push(item);
+                    item.sender = _this.addTrack(track, stream);
+                });
+                await _this.renegotiate();
+                _audiometer.update(stream);
+                return _this;
+            }).catch(async function (error) {
+                // An unknown result retains the same pending SDP for retry.
+                // Never stop the established audio publication to recover video.
+                added.forEach(function (item) {
+                    item.track.enabled = false;
+                    if (_sdpOffer) { return; }
+                    item.track.removeEventListener('ended', _onEnded);
+                    item.track.removeEventListener('mute', _onMute);
+                    item.track.removeEventListener('unmute', _onUnmute);
+                    if (_pc && item.sender) { _pc.removeTrack(item.sender); }
+                    stream.removeTrack(item.track);
+                    _forgetCapture(item.track);
+                    item.track.stop();
+                });
+                if (beautyInput && !_sdpOffer) {
+                    _forgetCapture(beautyInput); beautyInput.stop(); _beauty.disable();
+                }
+                if (captured && !_sdpOffer) {
+                    captured.getTracks().forEach(function (track) { _forgetCapture(track); track.stop(); });
+                }
+                throw error;
+            }).finally(function () { _inputUpdate = undefined; });
+            return _inputUpdate;
+        };
+
+        _this.renegotiate = function () {
+            if (_sdpTask) { return _sdpTask; }
+            if ((_readyState !== State.PUBLISHING && _readyState !== State.PLAYING) || !_participant || !_location) {
+                return Promise.reject({ name: 'NotSupportedError', message: 'This media endpoint cannot update an existing publication.' });
+            }
+            var pc = _pc, generation = _generation, deadline = Date.now() + _this.config.timeout;
+            _sdpTask = Promise.resolve().then(async function () {
+                if (!_sdpOffer) {
+                    if (_readyState === State.PLAYING) {
+                        ['audio', 'video'].forEach(function (kind) {
+                            var active = pc.getTransceivers().some(function (transceiver) {
+                                return transceiver.receiver.track.kind === kind && !transceiver.stopped &&
+                                    transceiver.direction !== 'stopped' && !(transceiver.mid !== null && transceiver.currentDirection === null);
+                            });
+                            if (!active) { pc.addTransceiver(kind, { direction: 'recvonly' }); }
+                        });
+                        await _setCodecPreferences('receiver');
+                    } else { await _setCodecPreferences('sender'); }
+                    var offer = await pc.createOffer();
+                    offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
+                    await pc.setLocalDescription(offer);
+                    _sdpOffer = offer.sdp;
+                }
+                var response;
+                while (true) {
+                    if (generation !== _generation || _pc !== pc || Date.now() >= deadline) {
+                        throw { name: 'TimeoutError', code: 'sdp_unknown', message: 'Track update is not yet confirmed; retry on this publication.' };
+                    }
+                    try {
+                        response = await _participant.send('PATCH', _location, _sdpOffer,
+                            'application/sdp', _etag, deadline, 1048576);
+                        break;
+                    } catch (error) {
+                        if (generation !== _generation || _pc !== pc) { throw error; }
+                        if ([400, 401, 403, 404, 405, 410, 415, 422, 501].indexOf(error.status) !== -1) {
+                            await pc.setLocalDescription({ type: 'rollback' });
+                            _sdpOffer = undefined;
+                            throw error;
+                        }
+                        if (Date.now() + 250 >= deadline) {
+                            error.code = 'sdp_unknown';
+                            throw error;
+                        }
+                        await new Promise(function (resolve) { setTimeout(resolve, 250); });
+                    }
+                }
+                if (generation !== _generation || _pc !== pc) { throw { name: 'AbortError', message: 'Track update was cancelled.' }; }
+                if (response.status !== 200 || (response.headers.get('Content-Type') || '').split(';')[0].trim() !== 'application/sdp') {
+                    throw { name: 'DataError', code: 'sdp_unknown', message: 'Invalid track update answer.' };
+                }
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: response.body }));
+                _sdpOffer = undefined;
+                _etag = response.headers.get('ETag') || _etag;
+                if (_readyState === State.PUBLISHING) {
+                    // SDP is committed. A sender tuning failure must not undo
+                    // tracks which the server has already accepted.
+                    try { await _setMaxBitrate(); await _checkVideoEncodings(); }
+                    catch (error) { _logger.warn('Track update sender settings: ' + error.message); }
+                }
+                return _this;
+            }).finally(function () { _sdpTask = undefined; _flushCandidates(); });
+            return _sdpTask;
         };
 
         _this.removeTrack = function (sender) {
@@ -526,9 +673,18 @@
             _screensharing = screensharing;
             _withcamera = withcamera;
             _stream = stream;
+            if (!screensharing) { await _prepareBeauty(stream); }
             _audiometer.update(stream);
             return Promise.resolve(stream);
         };
+
+        async function _prepareBeauty(stream) {
+            var input = stream.getVideoTracks()[0], value = _this.config.beauty;
+            if (!input || !value || !value.enabled) { return; }
+            await _beauty.enable(stream, Beauty.parameters(value));
+            if (_readyState === State.CLOSING || _readyState === State.CLOSED) { throw { name: 'AbortError', message: 'Video effects were cancelled.' }; }
+            stream.removeTrack(input); stream.addTrack(_beauty.output());
+        }
 
         _this.preview = async function (screensharing, withcamera, option) {
             if (_readyState === State.CLOSING || _readyState === State.CLOSED) {
@@ -725,7 +881,22 @@
                         return;
                     }
                     if (capabilities && capabilities.codecs) {
-                        capabilities.codecs.forEach(function (codec) {
+                        var available = capabilities.codecs.slice();
+                        if (type === 'sender' && mimeType === 'video/h264') {
+                            // RFC 7742's common browser profile comes first.
+                            // Preserve the caller's codec-family preference and
+                            // keep every supported profile as a fallback.
+                            var baseline = function (codec) {
+                                var match = /(?:^|;)\s*profile-level-id=([0-9a-f]{6})(?:;|$)/i.exec(codec.sdpFmtpLine || '');
+                                if (!match) { return 0; }
+                                var value = parseInt(match[1], 16), id = value >>> 16, flags = value >>> 8 & 255;
+                                return Number((id === 0x42 && (flags & 0x4f) === 0x40) ||
+                                    (id === 0x4d && (flags & 0x8f) === 0x80) ||
+                                    (id === 0x58 && (flags & 0xcf) === 0xc0));
+                            };
+                            available.sort(function (a, b) { return baseline(b) - baseline(a); });
+                        }
+                        available.forEach(function (codec) {
                             if (codec.mimeType.toLowerCase() !== mimeType) {
                                 return;
                             }
@@ -1250,18 +1421,15 @@
 
         _this.beauty = function (enable, constraints) {
             if (enable) {
-                _beauty.enable(_stream, constraints).then(function () {
-                    _this.replaceTrack(_beauty.output(), false).catch(function (err) {
-                        _logger.error(`Failed to replace track: id=${_this.config.id}, stream=${_name}, error=${err}`);
-                    });
-                });
+                return _beauty.enable(_stream, constraints).then(function () {
+                    return _this.replaceTrack(_beauty.output(), false);
+                }).catch(function (err) { _logger.error(`Failed to apply video effects: ${err.message || err}`); });
             } else {
                 var input = _beauty.input();
                 if (input) {
-                    _this.replaceTrack(input, true).catch(function (err) {
+                    return _this.replaceTrack(input, true).then(function () { _beauty.disable(); }).catch(function (err) {
                         _logger.error(`Failed to replace track: id=${_this.config.id}, stream=${_name}, error=${err}`);
                     });
-                    _beauty.disable();
                 }
             }
         };
@@ -1386,13 +1554,13 @@
         }
 
         async function _flushCandidates() {
-            if (!_negotiated || !_location || _candidatePending) {
+            if (!_negotiated || !_location || _candidatePending || _sdpTask) {
                 return;
             }
             _candidatePending = true;
             try {
                 // Serialize PATCH so each request consumes the latest ETag.
-                while (_negotiated && _location && _candidates.length) {
+                while (_negotiated && _location && !_sdpTask && _candidates.length) {
                     var candidate = _candidates.shift();
                     _candidateBytes -= candidate.candidate.length;
                     await _patch(candidate);
@@ -1564,8 +1732,10 @@
                         capture.track.stop();
                     });
                     _captures = [];
+                    _beauty.disable();
                     _generation++;
                     _negotiated = false;
+                    _sdpOffer = undefined;
                     _candidates = [];
                     _candidateBytes = 0;
                     if (_credentialReject) {

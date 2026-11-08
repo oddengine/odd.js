@@ -162,7 +162,14 @@
                 _this.config.deviceId === '00000000-0000-0000-0000-000000000000'))) {
                 return Promise.reject(_error('TypeError', 'Invalid channel profile or device identity.'));
             }
-            if (_this.config.appId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_this.config.appId)) {
+            // Static business identities use configured names. Resource
+            // channels alone require a UUID; both pin the authenticated App.
+            if (typeof _this.config.appId !== 'string' || _this.config.appId !== '' &&
+                !/^[A-Za-z0-9_.-]{1,128}$/.test(_this.config.appId)) {
+                return Promise.reject(_error('TypeError', 'Invalid IM AppID.'));
+            }
+            if (_this.config.profile === 'channel' &&
+                !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(_this.config.appId)) {
                 return Promise.reject(_error('TypeError', 'Invalid product AppID.'));
             }
             if (_this.config.parameters && _this.config.parameters.token) {
@@ -392,10 +399,10 @@
                     throw _error('DataError', 'Invalid authenticated session metadata.');
                 }
                 if (_this.config.appId && (!payload.ext || payload.ext.appId !== _this.config.appId ||
-                    payload.ext.product !== 'im')) {
+                    payload.ext.product !== undefined && payload.ext.product !== 'im')) {
                     throw _error('SecurityError', 'Authenticated session does not belong to the requested IM App.');
                 }
-                if (_this.config.profile === 'channel' && (!payload.ext || payload.ext.profile !== 'channel' ||
+                if (_this.config.profile === 'channel' && (!payload.ext || payload.ext.profile !== 'channel' || payload.ext.product !== 'im' ||
                     payload.ext.stateVersion !== 5 || (payload.principal.id && _this.config.deviceId && payload.deviceId !== _this.config.deviceId))) {
                     throw _error('SecurityError', 'Channel profile or device identity changed.');
                 }

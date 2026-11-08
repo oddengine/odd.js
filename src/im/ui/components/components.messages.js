@@ -76,6 +76,11 @@
             return _data;
         };
 
+        _this.receipt = function (id, summary) {
+            var index = _data.findIndex(function (row) { return row.id === id; });
+            if (index >= 0) { _items[index].receipt(summary); }
+        };
+
         _this.data = function () {
             return _data;
         };

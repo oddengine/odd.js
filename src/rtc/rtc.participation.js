@@ -176,7 +176,8 @@
 
         function _releaseSeat(entry, expected) {
             var seat = expected || entry && entry.seat;
-            if (!seat || !seat.value || seat.releasing || !config.publishSeats) { return Promise.resolve(); }
+            if (!seat || !seat.value || !config.publishSeats) { return Promise.resolve(); }
+            if (seat.releasing) { return seat.releasing; }
             seat.closing = true;
             _seatChanged({ seatId: seat.value.seatId, state: 'ending' });
             var controller = new AbortController(), timer;
@@ -194,6 +195,7 @@
                     throw { name: 'DataError', message: 'Invalid publisher seat release result.' };
                 }
                 seat.value.state = value.state;
+                seat.checkAfter = Date.now() + 1000;
                 _seatChanged(value);
                 if (value.state === 'ended' && entry.seat === seat) { entry.seat = undefined; }
             });
@@ -207,11 +209,26 @@
             return seat.releasing;
         }
 
-        async function _seat(entry, deadline) {
+        async function _seat(entry, deadline, signal) {
             if (!config.publishSeats) { return ''; }
-            if (entry.seat && entry.seat.closing) {
-                await (entry.seat.releasing || _releaseSeat(entry));
-                if (entry.seat) { throw { name: 'InvalidStateError', code: 'seat_releasing', message: 'Publisher seat is still releasing.' }; }
+            // A successful DELETE may acknowledge ending before node inventory
+            // confirms ended. Poll that same seat; never reserve over uncertainty.
+            while (entry.seat && entry.seat.closing) {
+                if (signal.aborted || _closed || entry.releasing) {
+                    throw { name: 'AbortError', message: 'Publisher seat preparation was cancelled.' };
+                }
+                if (Date.now() >= deadline) {
+                    throw { name: 'TimeoutError', code: 'seat_releasing', message: 'Publisher seat is still releasing.' };
+                }
+                var delay = Math.min((entry.seat.checkAfter || 0) - Date.now(), deadline - Date.now());
+                if (delay > 0) {
+                    await new Promise(function (resolve) { setTimeout(resolve, delay); });
+                } else {
+                    await _releaseSeat(entry);
+                }
+            }
+            if (signal.aborted || _closed || entry.releasing || Date.now() >= deadline) {
+                throw { name: 'AbortError', message: 'Publisher seat preparation was cancelled or timed out.' };
             }
             var seat = entry.seat || (entry.seat = { operationId: requestId(), createdAt: String(Date.now()) });
             if (seat.value) {
@@ -316,6 +333,7 @@
             if (member.publishing && !Array.from(_members).some(function (item) { return item.entry === member.entry && item.publishing; })) {
                 _releaseSeat(member.entry).catch(function (error) { logger.warn('Publisher seat release remains pending: ' + error.name); });
             }
+            member.resolveReleased();
             clearTimeout(member.timer);
             member.requests.forEach(function (_, controller) { controller.abort(); });
             if (member.waiting) {
@@ -360,7 +378,6 @@
                         throw { name: 'InvalidStateError', message: 'Invalid RTC media routing operation.' };
                     }
                     member.routing = true;
-                    member.publishing = direction === 'publish';
                     var controller = new AbortController(), timer, expired = false, awaitingSeat = direction === 'publish' && !!config.publishSeats;
                     var until = Math.min(deadline, Date.now() + timeout, entry.credentials.connectBefore * 1000);
                     var request = {
@@ -384,7 +401,20 @@
                             }, { once: true });
                             timer = setTimeout(function () { expired = true; controller.abort(); }, Math.max(1, until - Date.now()));
                         });
-                        var seatBinding = direction === 'publish' ? await Promise.race([_seat(entry, until), cancelled]) : '';
+                        if (direction === 'publish') {
+                            // close() aborts immediately, but releases its member
+                            // only after media DELETE. Do not count a replacement
+                            // as a publisher before that old member can drain.
+                            var closing = Array.from(_members).filter(function (item) {
+                                return item.entry === entry && item.publishing && item.closing;
+                            });
+                            await Promise.race([Promise.all(closing.map(function (item) { return item.released; })), cancelled]);
+                            if (controller.signal.aborted || !_members.has(member) || _closed || entry.releasing) {
+                                throw { name: 'AbortError', message: 'Publisher replacement was cancelled.' };
+                            }
+                            member.publishing = true;
+                        }
+                        var seatBinding = direction === 'publish' ? await Promise.race([_seat(entry, until, controller.signal), cancelled]) : '';
                         awaitingSeat = false;
                         if (controller.signal.aborted || !_members.has(member) || entry.releasing) {
                             throw { name: 'AbortError', message: 'Publisher seat preparation was cancelled.' };
@@ -468,6 +498,7 @@
 
                 },
                 abort: function () {
+                    member.closing = true;
                     member.requests.forEach(function (method, controller) {
                         if (method !== 'DELETE') {
                             controller.abort();
@@ -637,6 +668,7 @@
 
         _this.acquire = function (deadline, stop) {
             var member = { waiting: true, deadline: deadline, stop: stop, requests: new Map() };
+            member.released = new Promise(function (resolve) { member.resolveReleased = resolve; });
             var ticket = {
                 promise: new Promise(function (resolve, reject) { member.resolve = resolve; member.reject = reject; }),
                 cancel: function () { _release(member); },

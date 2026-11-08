@@ -165,12 +165,13 @@
                 return !uuid.test(payload[key]) || payload[key] === '00000000-0000-0000-0000-000000000000';
             }) || payload.appId === payload.channelAppId || !/^[A-Za-z0-9_.-]{1,128}$/.test(payload.userId) || !payload.nodeId ||
                 ['live', 'rtc'].indexOf(payload.product) < 0 || ['WHIP', 'RTMP', 'RTSP'].indexOf(payload.protocol) < 0 ||
-                ['active', 'stopped', 'unknown'].indexOf(payload.state) < 0 || !/^p-[0-9a-f]{64}$/.test(event.entityId)) {
+                ['prepared', 'active', 'stopped', 'unknown'].indexOf(payload.state) < 0 || !/^p-[0-9a-f]{64}$/.test(event.entityId)) {
                 throw _error('DataError', 'Invalid channel publication.');
             }
             if (payload.purpose !== undefined) {
                 if (['audio', 'camera', 'screen'].indexOf(payload.purpose) < 0) { throw _error('DataError', 'Invalid publication purpose.'); }
-                rules.push({ key: 'purpose', type: Type.STRING });
+                // The node encodes the optional purpose before the fixed publication fields.
+                rules.unshift({ key: 'purpose', type: Type.STRING });
             }
         } else if (event.kind === 'media.publication') {
             rules = [{ key: 'publisherGeneration', type: Type.UINT64 }, { key: 'nodeId', type: Type.STRING },

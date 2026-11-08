@@ -28,6 +28,9 @@
             canvas.width = width;
             canvas.height = height;
             var gl = canvas.getContext('webgl');
+            if (!gl || typeof canvas.captureStream !== 'function') {
+                throw { name: 'NotSupportedError', message: 'Video effects are unavailable in this browser.' };
+            }
             var vertexshader = _createShader(gl, gl.VERTEX_SHADER, Beauty.VERTEX_SHADER_SOURCE);
             var fragmentshader = _createShader(gl, gl.FRAGMENT_SHADER, Beauty.FRAGMENT_SHADER_SOURCE);
             if (vertexshader == null || fragmentshader == null) {
@@ -141,6 +144,7 @@
             var video = utils.createElement('video');
             video.autoplay = true;
             video.muted = true;
+            video.playsInline = true;
             video.srcObject = stream;
             video.play().catch(function (err) {
                 _logger.warn(`${err}`);
@@ -205,6 +209,7 @@
         }
 
         _this.applyConstraints = function (constraints) {
+            constraints = utils.extendz({}, constraints);
             if (constraints.hasOwnProperty('brightness')) {
                 constraints.brightness = Math.max(0, constraints.brightness);
                 constraints.brightness = Math.min(constraints.brightness, 1.0);
@@ -242,6 +247,10 @@
                 _ctx.gl.deleteBuffer(_ctx.indicesbuffer);
                 _ctx.gl.deleteShader(_ctx.vertexshader);
                 _ctx.gl.deleteShader(_ctx.fragmentshader);
+                _ctx.gl.deleteTexture(_ctx.texture);
+                _ctx.output.stop();
+                _ctx.video.pause();
+                _ctx.video.srcObject = null;
                 _ctx = undefined;
             }
         };
@@ -265,12 +274,12 @@
         function _onPlaying(e) {
             if (_ctx) {
                 _ctx.video.removeEventListener('playing', _onPlaying);
+                _timer.start();
             }
-            _timer.start();
         }
 
         function _onTimer(e) {
-            if (_ctx) {
+            if (_ctx && _ctx.video.readyState >= 2 && _ctx.output.enabled) {
                 _ctx.update(_constraints);
             }
         }
@@ -281,6 +290,15 @@
     Beauty.prototype = Object.create(EventDispatcher.prototype);
     Beauty.prototype.constructor = Beauty;
     Beauty.prototype.CONF = _default;
+
+    // Saved UI strengths are 0..1. Zero whitening keeps the neutral exposure.
+    Beauty.parameters = function (value) {
+        if (!value || typeof value.enabled !== 'boolean' ||
+            ['whitening', 'smoothing'].some(function (key) { return !Number.isFinite(value[key]) || value[key] < 0 || value[key] > 1; })) {
+            throw { name: 'DataError', message: 'Invalid video effects settings.' };
+        }
+        return { brightness: 0.5 + value.whitening * 0.5, smoothness: value.smoothing };
+    };
 
     RTC.Beauty = Beauty;
 })(odd);

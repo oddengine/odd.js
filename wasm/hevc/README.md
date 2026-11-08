@@ -1,6 +1,6 @@
 # FFmpeg 7.0.1 HEVC 解码器
 
-Player 的 FLV/FMP4 已接入原生优先、WASM 回退、原生音频主时钟和有界 YUV 渲染，接入配置、预算与限制见 [播放说明](../../doc/player-hevc.md)。本目录同时保持独立 C/WASM 构建和验证能力。
+Player 的 FLV/FMP4 已接入原生优先、WASM 回退、原生音频主时钟和有界 YUV 渲染，接入配置、预算与限制见 [播放说明](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/player-hevc.md)。本目录同时保持独立 C/WASM 构建和验证能力。
 
 `decoder.c`/`decoder.h` 封装 FFmpeg send/receive API，只启用 HEVC 解码；不包含 FFmpeg 命令行、网络、文件系统、解封装、转码、音频解码或渲染。`dist` 同时提供 scalar 和 SIMD 两份 ES module/WASM；每个实例单线程、独立内存，无 SharedArrayBuffer 要求。Main/Main10 的像素格式、PTS、时长和色彩元数据由解码器输出。
 

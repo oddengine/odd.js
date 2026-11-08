@@ -14,6 +14,7 @@
         };
         var encodings = odd.RTC && odd.RTC.Encodings;
         if (config.module === 'rtc') { defaults.joinAudio = false; defaults.joinVideo = false; }
+        if (odd.RTC && odd.RTC.Beauty) { defaults.beauty = { enabled: false, whitening: 0.2, smoothing: 0.3 }; }
         if (encodings) {
             defaults.video = { svc: false, encodings: [] };
             var rtcDefaults = config.module === 'rtc' && odd.RTC.UI ? odd.RTC.UI.prototype.CONF : odd.RTC.prototype.CONF;
@@ -27,7 +28,8 @@
         defaults = utils.extendz({}, defaults);
         var values = utils.extendz({}, defaults), version = 0,
             generation = 0, preview = null, closed = false, saving = false,
-            loading = null, refresh = false, unsubscribe, storageError = null;
+            loading = null, refresh = false, unsubscribe, storageError = null,
+            previewOutput = null, beauty = null, beautyGeneration = 0;
 
         _this.describe = function () {
             var profiles = odd.RTC && odd.RTC.Constraints || {};
@@ -36,6 +38,7 @@
                 preview: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
                 devices: !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices),
                 autoJoin: config.module === 'rtc',
+                beauty: !!(odd.RTC && odd.RTC.Beauty),
                 encodings: encodings ? encodings.describe() : null,
                 persistence: config.storage ? 'host' : 'instance', scope: 'next-session' };
         };
@@ -64,6 +67,10 @@
             if (encodings) {
                 try { encodings.validate(result.video, result.codecpreferences); }
                 catch (error) { errors.video = error.message; }
+            }
+            if (description.beauty) {
+                try { odd.RTC.Beauty.parameters(result.beauty); }
+                catch (error) { errors.beauty = error.message; }
             }
             return { value: result, errors: errors };
         };
@@ -175,14 +182,37 @@
             if (video && typeof value.camera === 'string' && value.camera) { video.deviceId = { exact: value.camera }; }
             if (audio && typeof value.microphone === 'string' && value.microphone) { audio.deviceId = { exact: value.microphone }; }
             var stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: audio });
-            function stop() { stream.getTracks().forEach(function (track) { track.stop(); }); if (preview === stream) { preview = null; } }
+            function stop() { if (preview === stream) { _this.cancel(); } else { stream.getTracks().forEach(function (track) { track.stop(); }); } }
             if (closed || current !== generation) { stop(); throw { name: 'AbortError', message: 'Preview was cancelled.' }; }
             preview = stream;
-            return { stream: stream, stop: stop };
+            previewOutput = new MediaStream(stream.getTracks());
+            try { await _this.previewBeauty(value.beauty); }
+            catch (error) { stop(); throw error; }
+            if (closed || current !== generation) { stop(); throw { name: 'AbortError', message: 'Preview was cancelled.' }; }
+            return { stream: previewOutput, stop: stop };
+        };
+        _this.previewBeauty = async function (value) {
+            if (!preview || !previewOutput || !defaults.beauty) { return; }
+            var current = ++beautyGeneration, source = preview, output = previewOutput, camera = source.getVideoTracks()[0];
+            var parameters = odd.RTC.Beauty.parameters(value);
+            if (!camera) { return; }
+            if (value.enabled) {
+                beauty ||= new odd.RTC.Beauty(new utils.Logger('SettingsPreview', { level: 'warn' }));
+                await beauty.enable(source, parameters);
+                if (closed || current !== beautyGeneration || source !== preview) { return; }
+                output.getVideoTracks().forEach(function (track) { output.removeTrack(track); });
+                output.addTrack(beauty.output());
+            } else {
+                output.getVideoTracks().forEach(function (track) { output.removeTrack(track); });
+                output.addTrack(camera);
+                if (beauty) { beauty.disable(); }
+            }
         };
         _this.cancel = function () {
-            generation++;
+            generation++; beautyGeneration++;
+            if (beauty) { beauty.disable(); beauty = null; }
             if (preview) { preview.getTracks().forEach(function (track) { track.stop(); }); preview = null; }
+            previewOutput = null;
         };
         _this.destroy = function () {
             if (closed) { return; }

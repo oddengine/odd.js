@@ -1,179 +1,202 @@
 (function (odd) {
     var UI = odd.IM.UI, Protocol = odd.IM.Protocol;
-
-    // Inline, explicitly operated history and reading controls. The renderer
-    // supplies visible saved rows; this panel never infers reading from arrival.
     function Reading(im, options) {
-        var _this = this, root = document.createElement('details'), heading = document.createElement('summary'),
-            status = document.createElement('p'), explanation = document.createElement('p'),
-            actions = document.createElement('div'), results = document.createElement('section'),
-            channel = null, policy = null, generation = 0, busy = false, cursor = null, more = true,
-            selected = null, snapshot = null, selectedCategory = '', detailCursor = null;
-        root.className = 'im-reading';
-        heading.textContent = '云历史与阅读记录';
-        status.className = 'im-reading-status';
-        status.tabIndex = -1;
-        status.setAttribute('role', 'status');
-        explanation.textContent = '公开阅读需要先开启，再手动标记当前可见消息。关闭后停止新记录，已有记录按保留期保留。';
-        actions.className = 'im-reading-actions';
-        results.className = 'im-reading-results';
-        results.tabIndex = -1;
-        results.setAttribute('aria-label', '消息阅读记录');
-        [heading, status, explanation, actions, results].forEach(function (element) { root.appendChild(element); });
-
+        var _this = this, root = document.createElement('section'), header = document.createElement('header'),
+            heading = document.createElement('h3'), status = document.createElement('p'),
+            results = document.createElement('div'), list = document.createElement('ul'),
+            channel = null, policy = null, generation = 0, cursor = null, more = true,
+            selected = null, snapshot = null, detailCursor = null, detailMore = false,
+            inspected = false, origin = null, historyPending = null, published = new Set(), publishing = false,
+            summaries = new Map(), querying = false, timer = null, members = [], names = new Map(), detailBusy = false, detailGeneration = 0;
+        root.className = 'im-reading'; root.id = 'im-reading-' + odd.utils.guid();
+        root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', '已读成员');
+        heading.textContent = '已读成员'; status.className = 'im-reading-status'; status.setAttribute('role', 'status');
+        results.className = 'im-reading-members'; results.tabIndex = 0; results.setAttribute('aria-label', '已读成员列表');
+        list.className = 'im-reading-list'; results.appendChild(list);
+        function icon(path) {
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+            svg.setAttribute('stroke-width', '1.8'); svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('aria-hidden', 'true');
+            var line = document.createElementNS(svg.namespaceURI, 'path'); line.setAttribute('d', path); svg.appendChild(line); return svg;
+        }
+        function action(label, path, handler) {
+            var button = document.createElement('button'); button.type = 'button'; button.title = label; button.setAttribute('aria-label', label);
+            button.appendChild(icon(path)); button.onclick = handler; return button;
+        }
+        var close = action('关闭已读成员', 'M6 6l12 12M18 6L6 18', function () { dismiss(true); });
+        var retry = action('重新加载已读成员', 'M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M18 18a8 8 0 0 1-13-3', function () { loadMembers(!members.length); });
+        retry.hidden = true; header.appendChild(heading); header.appendChild(retry); header.appendChild(close);
+        root.appendChild(header); root.appendChild(results); root.appendChild(status);
         function current(value) { return channel && generation === value; }
-        function failure(reason) {
-            var labels = {};
-            labels[Protocol.Status.CONFLICT] = '阅读记录或成员身份已变化，请刷新后重试。';
-            labels[Protocol.Status.EXPIRED] = '本次历史页已失效，请重新读取云历史。';
-            labels[Protocol.Status.GONE] = '这条消息的云端记录已过保留期。';
-            labels[Protocol.Status.EXHAUSTED] = '阅读记录达到当前存储或查询上限，请稍后刷新或联系管理员。';
-            labels[Protocol.Status.FORBIDDEN] = '当前没有访问或公开阅读的权限，请刷新状态。';
-            return labels[reason.code] || (reason.name === 'NotSupportedError' ? '当前会话尚未开通这项能力。' :
-                reason.name === 'NotAllowedError' ? '请先开启公开阅读，并选择当前成员期内已保存的消息。' :
-                reason.name === 'NotFoundError' ? '消息尚未保存到本机，请先读取历史后重试。' :
-                '操作结果暂未确认，请刷新状态后再操作。');
+        function update() { root.hidden = !channel || !inspected; }
+        function position() {
+            if (!origin || !origin.isConnected) { dismiss(false); return; }
+            var box = origin.getBoundingClientRect(), viewport = window.visualViewport,
+                left = viewport ? viewport.offsetLeft : 0, top = viewport ? viewport.offsetTop : 0,
+                width = viewport ? viewport.width : window.innerWidth, height = viewport ? viewport.height : window.innerHeight;
+            root.style.width = Math.min(288, width - 24) + 'px';
+            root.style.maxHeight = Math.min(380, height - 24) + 'px';
+            var bounds = root.getBoundingClientRect(), x = box.left - bounds.width - 8;
+            if (x < left + 12) { x = box.right + 8; }
+            root.style.left = Math.max(left + 12, Math.min(x, left + width - bounds.width - 12)) + 'px';
+            root.style.top = Math.max(top + 12, Math.min(box.bottom - bounds.height, top + height - bounds.height - 12)) + 'px';
         }
-        function button(parent, label, work) {
-            var value = document.createElement('button');
-            value.type = 'button'; value.textContent = label;
-            value.onclick = function () { run(work); };
-            parent.appendChild(value);
-            return value;
+        function outside(event) { if (!root.contains(event.target) && !origin?.contains(event.target)) { dismiss(false); } }
+        function escape(event) { if (event.key === 'Escape') { event.preventDefault(); dismiss(true); } }
+        function scrollOutside(event) { if (event.target !== results && !root.contains(event.target)) { dismiss(false); } }
+        function dismiss(focus) {
+            inspected = false; detailGeneration++; detailBusy = false; update();
+            document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape);
+            document.removeEventListener('scroll', scrollOutside, true); window.removeEventListener('resize', position);
+            if (origin) { origin.setAttribute('aria-expanded', 'false'); if (focus && origin.isConnected) { origin.focus(); } }
         }
-        function update() {
-            var capabilities = im.historyCapabilities(), capable = channel && capabilities.history;
-            root.hidden = !channel || channel.room || channel.readOnly;
-            root.setAttribute('aria-busy', busy ? 'true' : 'false');
-            root.querySelectorAll('button').forEach(function (value) { value.disabled = busy || !capable; });
-            cloud.disabled = busy || !capable || !policy || !more;
-            restart.disabled = busy || !capable || !policy;
-            consent.disabled = busy || !capable || !capabilities.publicRead || !policy || (!policy.publicReceipts && !policy.enabled);
-            publish.disabled = busy || !capable || !capabilities.publicRead || !policy || !policy.enabled || !policy.publicReceipts;
-            consent.textContent = policy && policy.enabled ? '关闭公开阅读' : '开启公开阅读';
-            cloud.textContent = cursor ? '更早的云历史' : '读取云历史';
+        _this.hide = function () { dismiss(false); };
+        function key(row) { return row.sequence.high + ':' + row.sequence.low; }
+        function count(row, item) {
+            var value = item && item.state !== 'expired' ? { count: item.read, complete: item.read > 0 && item.unknown === 0 && item.released === 0 } : null;
+            summaries.set(key(row), { value: value, at: Date.now() });
+            while (summaries.size > 256) { summaries.delete(summaries.keys().next().value); }
+            if (options.counts) { options.counts(row.id, value); }
         }
-        async function run(work) {
-            if (!channel || busy) { return; }
-            var version = generation, origin = document.activeElement, failed = false;
-            if (root.contains(origin) && origin.tagName === 'BUTTON') { status.focus(); }
-            busy = true; update();
-            try { await work(version); }
-            catch (reason) { if (current(version)) { failed = true; status.textContent = failure(reason); } }
-            finally {
-                if (current(version)) {
-                    busy = false; update();
-                    if (failed && origin && origin.isConnected && !origin.disabled) { origin.focus(); }
-                }
+        _this.summary = function (row) { return row.sequence ? summaries.get(key(row))?.value : null; };
+        _this.refresh = async function () {
+            if (!_this.supported() || querying || !options.active()) { return; }
+            var version = generation, rows = options.visible().filter(function (row) {
+                var cached = row.sequence && summaries.get(key(row));
+                return !row.incoming && row.reliable && row.sequence && (!cached || Date.now() - cached.at >= 10000);
+            }).slice(0, 50);
+            if (!rows.length) { return; }
+            querying = true;
+            try {
+                var page = await im.receipts(channel.id, 'summary', { sequences: rows.map(function (row) { return row.sequence; }) });
+                if (!current(version)) { return; }
+                rows.forEach(function (row) { count(row, page.records.find(function (item) { return Protocol.compare64(item.sequence, row.sequence) === 0; })); });
+            } catch (reason) {
+                // Unknown is not zero and never a completed-read check mark.
+                if (current(version)) { rows.forEach(function (row) { count(row, null); }); }
+            } finally { if (current(version)) { querying = false; } }
+        };
+        _this.preferences = async function (enabled) {
+            var version = generation, value = channel;
+            if (!value || value.room || value.readOnly || !im.historyCapabilities().publicRead) {
+                throw new DOMException('此聊天不支持已读回执。', 'NotSupportedError');
             }
-        }
-        async function refresh(version) {
-            var value = await im.receipts(channel.id, 'policy');
-            if (!current(version)) { return; }
-            policy = value;
-            status.textContent = '云端保留 ' + value.historyDays + ' 天 · ' +
-                (!im.historyCapabilities().publicRead ? '当前服务未开通公开阅读能力' :
-                    value.publicReceipts ? (value.enabled ? '你已开启公开阅读' : '你尚未开启公开阅读') : '频道未开启公开阅读功能');
-            var hadFocus = results.contains(document.activeElement);
-            results.textContent = ''; selected = snapshot = null; detailCursor = null;
+            if (typeof enabled === 'boolean') { await im.receipt(value.id, enabled ? 'enable' : 'disable'); }
+            var result = await im.receipts(value.id, 'policy');
+            if (!current(version) || channel !== value) { throw new DOMException('聊天已切换。', 'AbortError'); }
+            policy = result;
+            if (!policy.enabled) { published.clear(); }
             if (options.changed) { options.changed(); }
-            if (hadFocus) { results.focus(); }
-            update();
-        }
-        var refreshButton = button(actions, '刷新阅读状态', refresh);
-        async function history(version) {
-            var firstPage = !cursor;
-            var page = await im.history(channel.id, cursor, 32);
-            if (!current(version)) { return; }
-            cursor = page.nextCursor; more = page.hasMore;
-            options.show(page.records, firstPage);
-            var missing = page.records.some(function (record) { return record.kind === 'expired'; });
-            status.textContent = missing ? '本页包含已过保留期的记录，可继续读取更早页面。' :
-                page.records.length ? '历史已保存到本机；查看不会自动公开阅读。' : '当前成员期内没有可读取的云历史。';
-            if (!more) { status.textContent += ' 已到当前成员期的历史起点。'; }
-        }
-        var cloud = button(actions, '读取云历史', history);
-        var restart = button(actions, '重新读取云历史', function (version) {
-            cursor = null; more = true;
-            return history(version);
-        });
-        var consent = button(actions, '开启公开阅读', async function (version) {
-            await im.receipt(channel.id, policy.enabled ? 'disable' : 'enable');
-            if (current(version)) { await refresh(version); }
-        });
-        var publish = button(actions, '公开当前可见消息的阅读', async function (version) {
-            if (document.visibilityState !== 'visible') { return; }
-            var rows = options.visible().filter(function (row) { return row.incoming && row.messageId && row.sequence && row.reliable; }).slice(0, 64);
-            if (!rows.length) { status.textContent = '请先在消息区显示已保存的消息。'; return; }
-            await im.receipt(channel.id, 'read', { messageIds: rows.map(function (row) { return row.messageId; }) });
-            if (current(version)) { status.textContent = '当前可见消息的阅读已公开；后续消息仍需手动标记。'; results.textContent = ''; }
-        });
+            return { enabled: policy.enabled, available: policy.publicReceipts, historyDays: policy.historyDays };
+        };
+        _this.history = function (restart) {
+            if (historyPending) { return historyPending; }
+            if (!channel || channel.room || !im.historyCapabilities().history || (!restart && !more)) { return Promise.resolve(false); }
+            var version = generation, value = channel;
+            if (restart) { cursor = null; more = true; }
+            var pending = im.history(value.id, cursor, 32).then(function (page) {
+                if (!current(version) || channel !== value) { return false; }
+                cursor = page.nextCursor; more = page.hasMore;
+                options.show(page.records);
+                return more;
+            }).catch(function (reason) {
+                if (current(version) && reason.code === Protocol.Status.EXPIRED) { cursor = null; more = true; }
+                throw reason;
+            }).finally(function () { if (historyPending === pending) { historyPending = null; } });
+            historyPending = pending; return pending;
+        };
+        _this.hasMore = function () { return !!channel && !channel.room && im.historyCapabilities().history && more; };
+        _this.seen = async function () {
+            if (!channel || !policy || !policy.enabled || !policy.publicReceipts || publishing || !options.active()) { return; }
+            var version = generation, value = channel;
+            var rows = options.visible().filter(function (row) {
+                return row.incoming && row.messageId && row.sequence && row.reliable && !published.has(row.id);
+            }).slice(0, 64);
+            if (!rows.length) { return; }
+            publishing = true;
+            try {
+                await im.receipt(value.id, 'read', { messageIds: rows.map(function (row) { return row.messageId; }) });
+                if (current(version)) {
+                    rows.forEach(function (row) { published.add(row.id); });
+                    while (published.size > 256) { published.delete(published.values().next().value); }
+                }
+            } catch (reason) {
+                // Consent can be withdrawn on another device. Never turn it
+                // back on, and never infer success from a missing response.
+                if (current(version)) { policy = null; }
+            } finally { if (current(version)) { publishing = false; } }
+        };
 
-        function table(caption, headings) {
-            var wrapper = document.createElement('div'), value = document.createElement('table'), title = document.createElement('caption'),
-                head = document.createElement('thead'), row = document.createElement('tr'), body = document.createElement('tbody');
-            wrapper.className = 'im-reading-table';
-            wrapper.tabIndex = 0; wrapper.setAttribute('role', 'region'); wrapper.setAttribute('aria-label', caption);
-            title.textContent = caption; value.appendChild(title);
-            headings.forEach(function (label) { var cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; row.appendChild(cell); });
-            head.appendChild(row); value.appendChild(head); value.appendChild(body); wrapper.appendChild(value); results.appendChild(wrapper);
-            return body;
-        }
-        async function summary(version) {
-            var row = selected, page = await im.receipts(channel.id, 'summary', { sequences: [row.sequence] });
-            if (!current(version) || selected !== row) { return; }
-            results.textContent = ''; snapshot = page.snapshotRevision; detailCursor = null;
-            var item = page.records[0];
-            if (!item || item.state === 'expired') { status.textContent = '这条消息的云端阅读记录已过保留期。'; results.focus(); return; }
-            var preview = document.createElement('p'); preview.textContent = '消息：' + String(row.text || '').slice(0, 80); results.appendChild(preview);
-            var body = table('所选消息的接收成员', ['阅读情况', '人数', '查看']);
-            [['read', '已公开阅读'], ['unknown', '无公开证据'], ['released', '已退出且无公开证据']].forEach(function (category) {
-                var tr = document.createElement('tr'), label = document.createElement('td'), count = document.createElement('td'), action = document.createElement('td');
-                label.textContent = category[1]; count.textContent = String(item[category[0]]);
-                button(action, '查看成员', async function (version) { selectedCategory = category[0]; detailCursor = null; await details(version); });
-                tr.appendChild(label); tr.appendChild(count); tr.appendChild(action); body.appendChild(tr);
-            });
-            status.textContent = '统计发送当时的接收成员，不含发送者。“无公开证据”不表示未读。';
-            button(results, '刷新此消息的阅读记录', summary);
-            results.focus();
-        }
-        async function details(version) {
-            var row = selected, category = selectedCategory;
-            var page = await im.receipts(channel.id, 'detail', { sequences: [row.sequence], category: category, cursor: detailCursor || undefined, limit: 32 });
-            if (!current(version) || selected !== row || selectedCategory !== category) { return; }
-            if (Protocol.compare64(snapshot, page.snapshotRevision) !== 0) {
-                await summary(version);
-                if (current(version)) { status.textContent = '阅读记录已变化，摘要已刷新，请重新选择成员分类。'; }
-                return;
+        function renderMembers() {
+            // Only the visible rows are DOM nodes; paging remains user driven.
+            var first = Math.max(0, Math.floor(results.scrollTop / 48) - 3), last = Math.min(members.length, first + 18);
+            list.style.height = members.length * 48 + 'px'; list.textContent = '';
+            for (var i = first; i < last; i++) {
+                var id = members[i], name = names.get(id) || '成员', row = document.createElement('li'), avatar = document.createElement('span'), label = document.createElement('span');
+                row.style.top = i * 48 + 'px'; row.setAttribute('aria-posinset', i + 1); row.setAttribute('aria-setsize', members.length);
+                avatar.className = 'im-reading-avatar'; avatar.setAttribute('aria-hidden', 'true'); avatar.textContent = Array.from(name).slice(0, 2).join('');
+                label.textContent = name; label.title = name; row.appendChild(avatar); row.appendChild(label); list.appendChild(row);
             }
-            results.textContent = '';
-            var names = { read: '已公开阅读', unknown: '无公开证据', released: '已退出且无公开证据' };
-            var body = table(names[category] + '的成员', ['用户编号']);
-            page.records.forEach(function (item) { var row = document.createElement('tr'), cell = document.createElement('td'); cell.textContent = item.userId; row.appendChild(cell); body.appendChild(row); });
-            if (!page.records.length) { var empty = document.createElement('p'); empty.textContent = '此分类当前没有成员。'; results.appendChild(empty); }
-            detailCursor = page.nextCursor;
-            button(results, '返回阅读摘要', summary);
-            if (page.hasMore) { button(results, '下一页成员', details); }
-            results.focus();
         }
+        async function loadMembers(reset, retried) {
+            if (!inspected || !channel || detailBusy) { return; }
+            var version = generation, choice = ++detailGeneration, row = selected, id = channel.id;
+            if (reset) { members = []; names.clear(); detailCursor = null; snapshot = null; results.scrollTop = 0; renderMembers(); }
+            detailBusy = true; retry.hidden = true; status.textContent = '正在加载…'; root.setAttribute('aria-busy', 'true');
+            try {
+                var page = await im.receipts(id, 'detail', { sequences: [row.sequence], category: 'read', cursor: detailCursor || undefined, limit: 32 });
+                if (!current(version) || choice !== detailGeneration || !inspected) { return; }
+                if (snapshot && Protocol.compare64(snapshot, page.snapshotRevision) !== 0) {
+                    if (!retried) { detailBusy = false; return loadMembers(true, true); }
+                    throw new Error('Receipt snapshot changed');
+                }
+                snapshot = page.snapshotRevision; detailCursor = page.nextCursor; detailMore = page.hasMore;
+                var added = page.records.map(function (item) { return item.userId; });
+                added.forEach(function (id) { if (members.indexOf(id) < 0 && members.length < 65535) { members.push(id); } });
+                if (options.names && added.length) {
+                    var profiles = await options.names(added).catch(function () { return []; });
+                    if (!current(version) || choice !== detailGeneration || !inspected) { return; }
+                    profiles.forEach(function (value) { if (added.indexOf(value.id) >= 0 && value.name) { names.set(value.id, value.name); } });
+                }
+                heading.textContent = '已读成员' + (detailMore ? '' : ' · ' + members.length);
+                status.textContent = members.length ? '' : '暂无已读成员';
+                renderMembers(); position();
+            } catch (reason) {
+                if (!retried && reason.code === Protocol.Status.CONFLICT && current(version) && choice === detailGeneration && inspected) { detailBusy = false; return loadMembers(true, true); }
+                if (current(version) && choice === detailGeneration && inspected) { status.textContent = '暂时无法加载'; retry.hidden = false; }
+            } finally { if (current(version) && choice === detailGeneration) { detailBusy = false; root.setAttribute('aria-busy', 'false'); } }
+        }
+        results.addEventListener('scroll', function () {
+            renderMembers();
+            if (detailMore && !detailBusy && results.scrollHeight - results.scrollTop - results.clientHeight < 100) { loadMembers(false); }
+        }, { passive: true });
         _this.attach = function (value) {
-            ++generation; channel = value; policy = null; cursor = null; more = true; busy = false;
-            selected = snapshot = null; detailCursor = null; results.textContent = '';
-            status.textContent = im.historyCapabilities().history ? '可刷新状态，查看本会话的保留期限。' : '当前服务尚未开通云历史与公开阅读；仍可翻阅本机记录。';
-            update();
-            if (channel && !channel.room && !channel.readOnly && im.historyCapabilities().history) { return run(refresh); }
+            _this.close(); channel = value; cursor = null; more = true; summaries.clear(); names.clear(); update();
+            timer = setInterval(function () { _this.refresh(); }, 10000);
+            if (channel && !channel.room && !channel.readOnly && im.historyCapabilities().publicRead) { return _this.preferences().catch(function () {}); }
             return Promise.resolve();
         };
-        _this.supported = function () { return !!channel && !channel.room && !channel.readOnly && !!policy && im.historyCapabilities().publicRead; };
-        _this.inspect = function (row) {
-            if (!_this.supported() || busy) { return; }
-            root.open = true; selected = row;
-            results.focus();
-            return run(summary);
+        _this.supported = function () { return !!channel && !channel.room && !channel.readOnly && im.historyCapabilities().publicRead; };
+        _this.inspect = function (row, anchor) {
+            if (!_this.supported() || !anchor) { return; }
+            if (inspected && origin === anchor) { dismiss(true); return; }
+            dismiss(false); inspected = true; selected = row; origin = anchor;
+            var style = getComputedStyle(options.host());
+            ['ink', 'muted', 'accent', 'onaccent', 'line', 'selected', 'glass-solid', 'glass-content'].forEach(function (name) {
+                root.style.setProperty('--odd-' + name, style.getPropertyValue('--odd-' + name));
+            });
+            document.body.appendChild(root); update(); position(); close.focus({ preventScroll: true });
+            origin.setAttribute('aria-haspopup', 'dialog'); origin.setAttribute('aria-controls', root.id); origin.setAttribute('aria-expanded', 'true');
+            document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
+            document.addEventListener('scroll', scrollOutside, true); window.addEventListener('resize', position);
+            return loadMembers(true);
         };
         _this.element = function () { return root; };
-        _this.close = function () { ++generation; channel = null; policy = null; busy = false; results.textContent = ''; update(); };
-        _this.destroy = function () { _this.close(); root.querySelectorAll('button').forEach(function (value) { value.onclick = null; }); root.remove(); };
+        _this.close = function () {
+            dismiss(false); ++generation; clearInterval(timer); timer = null; channel = policy = null;
+            querying = publishing = false; historyPending = null; published.clear(); members = []; list.textContent = ''; update();
+        };
+        _this.destroy = function () { _this.close(); close.onclick = retry.onclick = null; root.remove(); };
         update();
     }
     UI.Reading = Reading;

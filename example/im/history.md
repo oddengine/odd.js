@@ -1,6 +1,6 @@
 # 有限云历史与公开阅读
 
-R-086 仅源码交付，未构建、运行或验证浏览器。服务端配置及完整包定义见 odd.d 的 `docs/im-history-receipts.md`；部署须启用 Messaging/History 及显式容量预算。只支持私聊和持久成员的可靠频道，不用于系统通知、临时直播观众或旧静态 group。
+R-086 仅源码交付，未构建、运行或验证浏览器。服务端配置及完整包定义见 [channel-history-receipts](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/product/channel-history-receipts.md)；部署须启用 Messaging/History 及显式容量预算。只支持私聊和持久成员的可靠频道，不用于系统通知、临时直播观众或旧静态 group。
 
 `im.historyCapabilities()` 返回独立的 `history/publicRead` 能力。会话开启后，`im.receipts(conversationId, 'policy')` 查询保留天数、频道公开开关、本人同意、memberEpoch、policyRevision 和 visibleFrom。频道开关不代表本人同意；所有结果仍受当前会话权限约束。
 

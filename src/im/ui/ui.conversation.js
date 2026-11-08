@@ -16,7 +16,8 @@
             _readyState = State.INITIALIZED, _generation = 0, _channel = null, _selected = null,
             _rows = Object.create(null), _sending = Object.create(null), _gifts = Object.create(null),
             _before = null, _outBefore = null, _loading = null, _opening = Promise.resolve(), _reload = false, _older = false,
-            _read = { high: 0, low: 0 }, _history = UI.History, _loadButton, _readButton, _reading, _group = false;
+            _read = { high: 0, low: 0 }, _history = UI.History, _latestButton, _retryHistory, _reading, _group = false, _localMore = true, _paging = false, _pageError = false,
+            _readTimer = null, _marking = false, _scrollTop = 0, _touchY = 0, _pageAt = 0;
         _this.config = config;
         _this.components = {};
         _notice.setAttribute('role', 'status');
@@ -25,7 +26,8 @@
         function button(label, action) {
             var element = document.createElement('button');
             element.type = 'button';
-            element.textContent = label;
+            element.title = label; element.setAttribute('aria-label', label);
+            element.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="' + (label === '重试' ? 'M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M18 18a8 8 0 0 1-13-3' : 'M12 4v16m-7-7 7 7 7-7') + '"/></svg>';
             element.onclick = function () {
                 element.disabled = true;
                 Promise.resolve().then(action).catch(failure).then(function () { element.disabled = false; });
@@ -37,7 +39,7 @@
         function failure(reason) {
             reason = reason || new Error('操作未完成。');
             if (_readyState !== State.READY || reason.name === 'AbortError') { return; }
-            _notice.textContent = reason.message || String(reason);
+            _notice.textContent = reason.code === Protocol.Status.FORBIDDEN ? '你暂时没有发送权限。' : '操作未完成，请稍后重试。';
             _this.dispatchEvent(Event.ERROR, { name: reason.name || 'OperationError', message: _notice.textContent });
         }
         function contact(id) {
@@ -55,7 +57,7 @@
         function clearRows() {
             _rows = Object.create(null);
             _before = _outBefore = null;
-            _older = false;
+            _older = false; _localMore = true; _pageError = false;
             _room.textContent = '';
             _gifts = Object.create(null);
             render();
@@ -73,7 +75,8 @@
             if (_gifts[row.id]) { row.state = 'gift-pending'; }
             row.from = title(row.from);
             if (row.incoming && row.sequence && Protocol.compare64(row.sequence, _read) <= 0) { row.state = 'read'; }
-            row.receipts = !row.incoming && row.sequence && _reading && _reading.supported() ? function () { _reading.inspect(row); } : null;
+            row.receipts = !row.incoming && row.sequence && _reading && _reading.supported() ? function (anchor) { _reading.inspect(row, anchor); } : null;
+            row.receiptSummary = _reading ? _reading.summary(row) : null;
             row.retry = row.packet && (row.state === 'unknown' || row.state === 'gift-pending') ? function () { retry(row).catch(failure); } : null;
             row.openAttachment = row.attachment && typeof config.openAttachment === 'function' ? function () {
                 return config.openAttachment(row.attachment, { target: _this.target(), incoming: row.incoming });
@@ -81,12 +84,21 @@
             _rows[row.id] = row;
         }
         function render(older) {
+            if (_reading) { _reading.hide(); }
             var rows = Object.keys(_rows).map(function (id) { return _rows[id]; }).sort(_history.compare);
             rows = older ? rows.slice(0, 200) : rows.slice(-200);
             _rows = Object.create(null);
             rows.forEach(function (row) { _rows[row.id] = row; });
             var messages = _this.components.messages;
             if (messages) {
+                var element = messages.element(), previous = messages.data(), anchor = null, offset = 0,
+                    atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+                Array.prototype.some.call(element.children, function (node, index) {
+                    if (node.getBoundingClientRect().bottom > element.getBoundingClientRect().top && previous[index]) {
+                        anchor = previous[index].id; offset = node.getBoundingClientRect().top - element.getBoundingClientRect().top; return true;
+                    }
+                    return false;
+                });
                 messages.update(rows.map(function (row) {
                     row.showSender = _group;
                     if (typeof config.formatMessage !== 'function') { return row; }
@@ -94,11 +106,16 @@
                     copy.text = String(config.formatMessage(row.text, { target: _this.target(), incoming: row.incoming }));
                     return copy;
                 }));
-                messages.element().scrollTop = older ? 0 : messages.element().scrollHeight;
+                var index = rows.findIndex(function (row) { return row.id === anchor; });
+                if ((older || !atBottom) && index >= 0 && element.children[index]) {
+                    element.scrollTop += element.children[index].getBoundingClientRect().top - element.getBoundingClientRect().top - offset;
+                } else if (!older) { element.scrollTop = element.scrollHeight; }
+                _scrollTop = element.scrollTop;
+                scheduleRead();
             }
-            _readButton.hidden = !_channel || _channel.room;
-            _loadButton.hidden = !_channel || !_channel.storage;
-            _tools.hidden = _readButton.hidden && _loadButton.hidden;
+            _latestButton.hidden = !_channel || !_older;
+            _retryHistory.hidden = !_pageError;
+            _tools.hidden = _latestButton.hidden && _retryHistory.hidden;
         }
         function load(older) {
             var channel = _channel, generation = _generation;
@@ -126,8 +143,7 @@
                 values[1].forEach(function (record) { merge(_history.outgoing(record, im.userId())); });
                 if (values[0].length) { _before = { high: values[0][0].high, low: values[0][0].low }; }
                 if (values[1].length) { _outBefore = values[1][0].id; }
-                if (values[3].length) { _notice.textContent = '部分消息已过期或不可用，当前显示本机已保存的记录。'; }
-                else if (older && !values[0].length && !values[1].length) { _notice.textContent = '没有更早的本机记录，云端历史受保留期限限制。'; }
+                _localMore = values[0].length >= 32 || values[1].length >= 32;
                 render(older);
             });
             var pending = _loading;
@@ -140,7 +156,7 @@
             return pending;
         }
         async function open(target, generation) {
-            if (!im.connected()) { _notice.textContent = '连接已断开，重新连接后恢复已保存消息。'; return; }
+            if (!im.connected()) { _notice.textContent = '正在重新连接…'; return; }
             var channelTarget = target.type === 'channel', delivery = channelTarget ? im.messageDelivery() : '',
                 store = im.storage(), room = target.type === 'room' || channelTarget && delivery === 'best-effort',
                 resolved, readOnly = config.readOnly === true || target.type === 'system';
@@ -206,13 +222,14 @@
             if (!current(generation)) { release(channel); return; }
             channel.ready = true;
             if (!room) { _this.dispatchEvent(Event.CHANGE, { name: 'conversation-resolved', conversationId: channel.id }); }
-            if (!room) { _notice.textContent = '消息持久保存后确认收取；已读由你主动标记。'; }
+            if (!room) { _notice.textContent = ''; }
             await load(false);
             if (current(generation)) {
                 await _reading.attach(channel);
                 if (current(generation)) {
                     Object.keys(_rows).forEach(function (id) { merge(_rows[id]); });
                     render();
+                    await pageHistory(false);
                 }
             }
         }
@@ -282,21 +299,65 @@
         }
         async function markRead() {
             var channel = _channel, generation = _generation;
-            if (!channel || !channel.ready || channel.room || !im.connected() || document.visibilityState !== 'visible') { return; }
-            var rows = Object.keys(_rows).map(function (id) { return _rows[id]; }).filter(function (row) { return row.incoming && row.sequence && row.messageId; }).sort(_history.compare),
+            if (!channel || !channel.ready || channel.room || !im.connected() || !activeViewport()) { return; }
+            var rows = _this.components.messages.visible().filter(function (row) { return row.incoming && row.sequence && row.messageId; }).sort(_history.compare),
                 last = rows[rows.length - 1];
             if (!last || Protocol.compare64(last.sequence, _read) <= 0) { return; }
             await im.refresh(channel.target, Action.MESSAGE_READ, true);
-            if (!current(generation) || _channel !== channel || document.visibilityState !== 'visible') { return; }
+            if (!current(generation) || _channel !== channel || !activeViewport()) { return; }
             await im.read(channel.id, last.messageId, last.sequence);
             await channel.storage.saveRead(channel.id, last.sequence);
             if (current(generation)) {
                 _read = last.sequence;
-                _notice.textContent = '已将载入的消息标记为本账号已读。';
-                await load(false);
+                Object.keys(_rows).forEach(function (id) { merge(_rows[id]); });
                 _this.dispatchEvent(Event.CHANGE, { name: 'messages-read', conversationId: channel.id });
             }
         }
+        function activeViewport() {
+            return document.visibilityState === 'visible' && document.hasFocus() && _container.isConnected &&
+                _container.getClientRects().length > 0 && (typeof config.isVisible !== 'function' || config.isVisible());
+        }
+        function scheduleRead() {
+            clearTimeout(_readTimer);
+            if (!activeViewport()) { return; }
+            var generation = _generation;
+            _readTimer = setTimeout(async function () {
+                if (!current(generation) || !activeViewport() || _marking) { return; }
+                _marking = true;
+                _reading.refresh();
+                try { await markRead(); if (current(generation)) { await _reading.seen(); } }
+                catch (reason) { /* Read progress is retried on the next visible interaction. */ }
+                finally { _marking = false; }
+            }, 500);
+        }
+        async function pageHistory(older) {
+            var channel = _channel, generation = _generation;
+            if (!channel || !channel.ready || _paging || !im.connected()) { return; }
+            if (older && !_localMore && !_reading.hasMore()) { return; }
+            _paging = true; _pageAt = Date.now(); _pageError = false;
+            _notice.textContent = '正在加载消息…'; render(_older);
+            try {
+                if (older) { await load(true); }
+                if (!current(generation)) { return; }
+                await _reading.history(!older);
+                if (current(generation)) { _notice.textContent = !_localMore && !_reading.hasMore() ? '没有更早的消息了' : ''; }
+            } catch (reason) {
+                if (current(generation)) { _pageError = true; _notice.textContent = '历史消息暂时无法加载'; }
+            } finally { if (current(generation)) { _paging = false; render(_older); } }
+        }
+        function earlier() {
+            var element = _this.components.messages.element();
+            if (activeViewport() && element.scrollTop < 72 && Date.now() - _pageAt > 600) { pageHistory(true); }
+        }
+        function onScroll() {
+            var top = _this.components.messages.element().scrollTop;
+            if (top < _scrollTop) { earlier(); }
+            _scrollTop = top; scheduleRead();
+        }
+        function onWheel(event) { if (event.deltaY < 0) { earlier(); } }
+        function onTouchStart(event) { _touchY = event.touches[0].clientY; }
+        function onTouchMove(event) { if (event.touches[0].clientY - _touchY > 24) { earlier(); _touchY = event.touches[0].clientY; } }
+        function onHistoryKey(event) { if (['Home', 'PageUp', 'ArrowUp'].indexOf(event.key) >= 0) { earlier(); } }
         function roomState(value) {
             _room.textContent = '';
             var status = document.createElement('p');
@@ -324,7 +385,7 @@
                 // Channel publication snapshots share this holder's connection.
                 if (!value.meta || value.target.type === 'channel') { return; }
                 if (value.meta.conversationId === channel.id) {
-                    if (_older) { _notice.textContent = '有新保存的消息，刷新后查看。'; }
+                    if (_older) { _latestButton.title = '有新消息，回到最新'; _latestButton.setAttribute('aria-label', _latestButton.title); _latestButton.hidden = _tools.hidden = false; }
                     else { load(false).catch(failure); }
                 }
                 return;
@@ -339,7 +400,7 @@
             if (_readyState !== State.READY || !_channel) { return; }
             var value = event.data.payload || {};
             if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && value.target && value.target.id === _channel.id) {
-                _notice.textContent = '订阅已停止：' + value.reason + '。请重新选择会话以请求访问。';
+                _notice.textContent = '聊天暂时不可用，请重新打开。';
                 if (_channel.room && event.data.messaging) {
                     _channel.visit = null;
                     _channel.events = false;
@@ -362,7 +423,8 @@
             ++_generation;
             _channel = null;
             _reading.close();
-            _notice.textContent = '连接已断开。已保存的历史仍在本机，未完成操作的结果待确认。';
+            _paging = _marking = false; clearTimeout(_readTimer);
+            _notice.textContent = '正在重新连接…';
             Object.keys(_rows).forEach(function (id) { if (_rows[id].state === 'sending') { _rows[id].state = 'unknown'; } });
             render();
         }
@@ -377,7 +439,7 @@
                 (!selected || JSON.stringify(selected.target) === JSON.stringify(_this.target()))) { return id; }
             var previous = _channel, previousId = config.active;
             _channel = null;
-            _reading.close();
+            _reading.close(); _paging = _marking = false; clearTimeout(_readTimer);
             config.active = id;
             _container.setAttribute('data-conversation', id);
             _selected = selected || (id === previousId ? _selected : null) || contact(id);
@@ -430,6 +492,8 @@
             return { type: _selected && _selected.type === 'group' ? 'group' : _selected && _selected.type === 'channel' ? 'room' :
                 _selected && _selected.type === 'conversation' || /^c-[0-9a-f]{64}$/.test(config.active) ? 'conversation' : 'user', id: config.active };
         };
+        _this.readingPreferences = function (enabled) { return _reading.preferences(enabled); };
+        _this.readingSupported = function () { return _reading.supported(); };
         _this.presentation = function (value) { return _this.components.composer && _this.components.composer.presentation(value); };
         _this.state = function () { return _readyState; };
         _this.element = function () { return _container; };
@@ -439,7 +503,14 @@
             _channel = null;
             release(previous);
             _readyState = State.CLOSING;
-            _reading.destroy();
+            _reading.destroy(); clearTimeout(_readTimer);
+            var messages = _this.components.messages && _this.components.messages.element();
+            if (messages) {
+                messages.removeEventListener('scroll', onScroll); messages.removeEventListener('wheel', onWheel);
+                messages.removeEventListener('touchstart', onTouchStart); messages.removeEventListener('touchmove', onTouchMove);
+                messages.removeEventListener('keydown', onHistoryKey);
+            }
+            window.removeEventListener('focus', scheduleRead); document.removeEventListener('visibilitychange', scheduleRead);
             ++_generation;
             im.removeEventListener(IMEvent.MESSAGE, onMessage);
             im.removeEventListener(IMEvent.NOTIFY, onNotify);
@@ -452,28 +523,27 @@
             _readyState = State.CLOSED;
         };
 
-        _loadButton = button('更早的本机历史', function () { return load(true); });
-        _readButton = button('清除本账号未读', markRead);
+        _latestButton = button('回到最新消息', async function () {
+            _older = false; await load(false); await pageHistory(false);
+            var element = _this.components.messages.element(); element.scrollTop = element.scrollHeight;
+            _latestButton.title = '回到最新消息'; _latestButton.setAttribute('aria-label', _latestButton.title);
+        });
+        _retryHistory = button('重试', function () { return pageHistory(_older); });
         _reading = new UI.Reading(im, {
-            visible: function () { return _this.components.messages ? _this.components.messages.visible() : []; },
-            changed: function () {
-                var messages = _this.components.messages, position = messages && messages.element().scrollTop;
-                Object.keys(_rows).forEach(function (id) { merge(_rows[id]); });
-                render();
-                if (messages) { messages.element().scrollTop = position; }
+            active: activeViewport,
+            host: function () { return _container; },
+            names: function (ids) { return typeof config.resolveReceiptMembers === 'function' ? config.resolveReceiptMembers(ids) : Promise.resolve([]); },
+            counts: function (id, summary) {
+                if (_rows[id]) { _rows[id].receiptSummary = summary; }
+                if (_this.components.messages) { _this.components.messages.receipt(id, summary); }
             },
-            show: function (records, restart) {
-                if (restart) {
-                    Object.keys(_rows).forEach(function (id) {
-                        var row = _rows[id];
-                        if (row.state !== 'sending' && row.state !== 'unknown' && row.state !== 'gift-pending') { delete _rows[id]; }
-                    });
-                }
-                _older = !restart;
+            visible: function () { return _this.components.messages ? _this.components.messages.visible() : []; },
+            changed: function () { Object.keys(_rows).forEach(function (id) { merge(_rows[id]); }); render(_older); },
+            show: function (records) {
                 records.forEach(function (record) {
                     if (record.kind === 'message') { merge(_history.message({ packet: record.packet }, im.userId())); }
                 });
-                render(!restart);
+                render(_older);
             },
         });
         _container.appendChild(_reading.element());
@@ -488,6 +558,14 @@
             _this.components.composer.update(config.composer);
             _this.components.composer.element().hidden = config.readOnly === true;
         }
+        if (_this.components.messages) {
+            var messages = _this.components.messages.element();
+            messages.tabIndex = 0; messages.setAttribute('aria-label', '聊天消息');
+            messages.addEventListener('scroll', onScroll, { passive: true }); messages.addEventListener('wheel', onWheel, { passive: true });
+            messages.addEventListener('touchstart', onTouchStart, { passive: true }); messages.addEventListener('touchmove', onTouchMove, { passive: true });
+            messages.addEventListener('keydown', onHistoryKey);
+        }
+        window.addEventListener('focus', scheduleRead); document.addEventListener('visibilitychange', scheduleRead);
         _readyState = State.READY;
         im.addEventListener(IMEvent.MESSAGE, onMessage);
         im.addEventListener(IMEvent.NOTIFY, onNotify);

@@ -1082,7 +1082,7 @@
                 [stream, generation[0], generation[1], end[0], end[1]], false, !!before), limit);
         };
 
-        _this.destination = function (conversation, value) {
+        _this.destination = function (conversation, value, remember) {
             _identifier(conversation);
             if (value) {
                 if (!value.target || ['user', 'group', 'conversation', 'channel', 'system'].indexOf(value.target.type) < 0 ||
@@ -1091,10 +1091,17 @@
                 }
                 _identifier(value.target.id);
             }
-            return _transaction(['destinations'], value ? 'readwrite' : 'readonly', function (transaction, result) {
+            return _transaction(remember && value ? ['destinations', 'conversations'] : ['destinations'], value ? 'readwrite' : 'readonly', function (transaction, result) {
                 var store = transaction.objectStore('destinations');
                 if (value) {
                     store.put({ conversationId: conversation, target: value.target, name: value.name, avatar: value.avatar });
+                    if (remember) {
+                        var conversations = transaction.objectStore('conversations'), existing = conversations.get(conversation);
+                        existing.onsuccess = function () {
+                            if (!existing.result) { conversations.put({ conversationId: conversation,
+                                readSequence: { high: 0, low: 0 }, incomingSequence: { high: 0, low: 0 } }); }
+                        };
+                    }
                     result(value);
                 } else {
                     var request = store.get(conversation);

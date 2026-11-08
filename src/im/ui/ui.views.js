@@ -8,7 +8,7 @@
         if (kinds.indexOf(kind) < 0 || !container || container.nodeType !== 1) {
             throw { name: 'DataError', message: '独立窗口需要有效的类型与容器。' };
         }
-        if (kind !== 'Settings' && (!im || typeof im.addEventListener !== 'function' || typeof im.connected !== 'function')) {
+        if (kind !== 'Settings' && kind !== 'Contacts' && (!im || typeof im.addEventListener !== 'function' || typeof im.connected !== 'function')) {
             throw { name: 'DataError', message: '窗口需要借用一个 IM 实例。' };
         }
         var constructor = kind === 'Settings' ? utils.SettingsPanel : UI[kind];

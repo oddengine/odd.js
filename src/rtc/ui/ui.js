@@ -74,7 +74,6 @@
             _inputWanted = { audio: false, video: false },
             _inputRevision = 0,
             _inputTask = null,
-            _restartingInputs = false,
             _meterFrame = 0,
             _meterAt = 0,
             _meters = new Map(),
@@ -451,15 +450,14 @@
                     try {
                         if (_readyState !== State.CONNECTED) { throw { name: 'AbortError', message: 'Meeting closed.' }; }
                         if (!_inputWanted.audio && !_inputWanted.video) {
-                            await _this.hangup();
+                            // Muting both inputs keeps the established publication
+                            // and seat. Explicit hangup/leave owns their teardown.
+                            _enableInputTracks(_calling, _inputWanted);
                         } else {
-                            var stream = _calling && _calling.stream();
-                            if (stream && (_inputWanted.audio && !stream.getAudioTracks().length || _inputWanted.video && !stream.getVideoTracks().length)) {
-                                _restartingInputs = true;
-                                try { await _this.hangup(); } finally { _restartingInputs = false; }
-                            }
                             _inputControls(_inputWanted.audio, _inputWanted.video);
-                            var ns = await _this.call();
+                            var ns = _calling;
+                            if (ns && ns.stream()) { await ns.updateInputs(_constraints); }
+                            else { ns = await _this.call(); }
                             if (_readyState !== State.CONNECTED) { throw { name: 'AbortError', message: 'Meeting closed.' }; }
                             _enableInputTracks(ns, _inputWanted);
                         }
@@ -803,7 +801,7 @@
 
             if (ns === _calling) {
                 _calling = null;
-                if (_this.config.inputPublishing && !_restartingInputs) {
+                if (_this.config.inputPublishing) {
                     _inputWanted = { audio: false, video: false }; _inputRevision++;
                     _inputControls(false, false);
                 }

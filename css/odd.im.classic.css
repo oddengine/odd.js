@@ -390,8 +390,8 @@
     line-height: 24px;
 }
 
-.im-ui-classic .im-composer-tool:focus-visible,
-.im-ui-classic .im-composer-row textarea:focus-visible { outline: 2px solid #00aaee; outline-offset: 2px; }
+.im-ui-classic .im-composer-tool:focus-visible { outline:none; background:var(--odd-selected, #ffffff18); }
+.im-ui-classic .im-composer-row textarea:focus-visible { outline:none; box-shadow:none; }
 
 .im-ui-classic .im-composer-counter[hidden] { display: none; }
 
@@ -572,7 +572,7 @@
 :is(.im-ui-classic, .odd-view-conversation) .im-message-file[hidden] { display: none; }
 :is(.im-ui-classic, .odd-view-conversation) .im-message-file strong { font-size: inherit; font-weight: 500; }
 :is(.im-ui-classic, .odd-view-conversation) .im-message-file small { font-size: 12px; opacity: .7; }
-:is(.im-ui-classic, .odd-view-conversation) .im-message-file:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+:is(.im-ui-classic, .odd-view-conversation) .im-message-file:focus-visible { outline:none; background:var(--odd-selected, #ffffff18); }
 :is(.im-ui-classic, .odd-view-conversation) .im-message-file:disabled { cursor: default; opacity: .65; }
 .im-ui-classic .im-history-tools button,
 .im-ui-classic .im-message-retry {

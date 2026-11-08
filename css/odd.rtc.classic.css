@@ -249,10 +249,6 @@
     pointer-events: none;
 }
 
-.pe-ui-classic[kind="rtc"] .microphone[audio-state="unavailable"] {
-    opacity: .6;
-}
-
 .pe-ui-classic[kind="rtc"] .pe-content video[speaking="true"] {
     border-color: #00aaee;
 }
