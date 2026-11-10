@@ -172,7 +172,7 @@
 
         _this.setCamera = async function (deviceId) {
             var generation = _generation;
-            if (_readyState === State.PUBLISHING && (!_screensharing || _withcamera)) {
+            if ((_readyState === State.CONNECTED || _readyState === State.PUBLISHING) && _stream && _stream.getVideoTracks().length && (!_screensharing || _withcamera)) {
                 var constraints = utils.extendz({}, _this.constraints);
                 constraints.audio = false;
                 constraints.video = utils.extendz({}, typeof _this.constraints.video === 'object' ? _this.constraints.video : Constraints[_this.config.profile].video,
@@ -187,7 +187,7 @@
                 }
 
                 var track = source.getVideoTracks()[0];
-                if (generation !== _generation || _readyState !== State.PUBLISHING) {
+                if (generation !== _generation || (_readyState !== State.CONNECTED && _readyState !== State.PUBLISHING)) {
                     source.getTracks().forEach(function (item) { _forgetCapture(item); item.stop(); });
                     throw { name: 'AbortError', message: 'Camera change was cancelled.' };
                 }
@@ -216,7 +216,7 @@
                             nextBeauty = new Beauty(_logger);
                             await nextBeauty.enable(source, Beauty.parameters(_this.config.beauty));
                         }
-                        if (generation !== _generation || _readyState !== State.PUBLISHING) { throw { name: 'AbortError', message: 'Camera change was cancelled.' }; }
+                        if (generation !== _generation || (_readyState !== State.CONNECTED && _readyState !== State.PUBLISHING)) { throw { name: 'AbortError', message: 'Camera change was cancelled.' }; }
                         await _this.replaceTrack(nextBeauty ? nextBeauty.output() : track, true);
                         var previousCamera = _beauty.input();
                         if (previousCamera) { _forgetCapture(previousCamera); previousCamera.stop(); }
@@ -239,11 +239,11 @@
 
         _this.setMicrophone = async function (deviceId) {
             var constraints = utils.extendz({}, typeof _this.constraints.audio === 'object' ? _this.constraints.audio : {}, { deviceId: deviceId });
-            if (_readyState === State.PUBLISHING && !_screensharing && _stream && _stream.getAudioTracks().length) {
+            if ((_readyState === State.CONNECTED || _readyState === State.PUBLISHING) && !_screensharing && _stream && _stream.getAudioTracks().length) {
                 var generation = _generation, source = await _this.getUserMedia({ audio: constraints, video: false });
                 var track = source.getAudioTracks()[0];
                 try {
-                    if (generation !== _generation || _readyState !== State.PUBLISHING) { throw { name: 'AbortError', message: 'Microphone change was cancelled.' }; }
+                    if (generation !== _generation || (_readyState !== State.CONNECTED && _readyState !== State.PUBLISHING)) { throw { name: 'AbortError', message: 'Microphone change was cancelled.' }; }
                     await _this.replaceTrack(track, true);
                     _audiometer.update(_stream);
                 } catch (error) {
@@ -476,7 +476,7 @@
         // PeerConnection, publication ID and participation lease stay alive.
         _this.updateInputs = function (constraints) {
             if (_inputUpdate) { return _inputUpdate; }
-            if (_readyState !== State.PUBLISHING || _screensharing || !_stream) {
+            if ((_readyState !== State.CONNECTED && _readyState !== State.PUBLISHING) || _screensharing || !_stream) {
                 return Promise.reject({ name: 'InvalidStateError', message: 'Input publication is not active.' });
             }
             var stream = _stream, added = [], generation = _generation, beautyInput, captured;
@@ -489,7 +489,7 @@
                 };
                 if (!missing.audio && !missing.video) { return _this; }
                 captured = await _this.getUserMedia(missing);
-                if (_readyState !== State.PUBLISHING || generation !== _generation) {
+                if ((_readyState !== State.CONNECTED && _readyState !== State.PUBLISHING) || generation !== _generation) {
                     captured.getTracks().forEach(function (track) { _forgetCapture(track); track.stop(); });
                     throw { name: 'AbortError', message: 'Input update was cancelled.' };
                 }
@@ -501,9 +501,17 @@
                     stream.addTrack(track);
                     var item = { track: track };
                     added.push(item);
-                    item.sender = _this.addTrack(track, stream);
+                    if (_readyState === State.PUBLISHING) { item.sender = _this.addTrack(track, stream); }
                 });
-                await _this.renegotiate();
+                if (_readyState === State.PUBLISHING) { await _this.renegotiate(); }
+                if (generation !== _generation || stream !== _stream) { throw { name: 'AbortError', message: 'Input update was cancelled.' }; }
+                ['audio', 'video'].forEach(function (kind) {
+                    if (constraints[kind]) { _this.constraints[kind] = utils.extendz({}, { value: constraints[kind] }).value; }
+                });
+                // Refresh an audio-only element after its first video track arrives.
+                _video.srcObject = null;
+                _video.srcObject = stream;
+                _video.play().catch(function (error) { _logger.warn('Local preview: ' + error.message); });
                 _audiometer.update(stream);
                 return _this;
             }).catch(async function (error) {
@@ -533,7 +541,7 @@
 
         _this.renegotiate = function () {
             if (_sdpTask) { return _sdpTask; }
-            if ((_readyState !== State.PUBLISHING && _readyState !== State.PLAYING) || !_participant || !_location) {
+            if ((_readyState !== State.PUBLISHING && _readyState !== State.PLAYING) || (!_participant && !_media) || !_location) {
                 return Promise.reject({ name: 'NotSupportedError', message: 'This media endpoint cannot update an existing publication.' });
             }
             var pc = _pc, generation = _generation, deadline = Date.now() + _this.config.timeout;
@@ -560,8 +568,9 @@
                         throw { name: 'TimeoutError', code: 'sdp_unknown', message: 'Track update is not yet confirmed; retry on this publication.' };
                     }
                     try {
-                        response = await _participant.send('PATCH', _location, _sdpOffer,
-                            'application/sdp', _etag, deadline, 1048576);
+                        response = _media
+                            ? await _requestLive('PATCH', _location, _sdpOffer, 'application/sdp', _etag, deadline, 1048576)
+                            : await _participant.send('PATCH', _location, _sdpOffer, 'application/sdp', _etag, deadline, 1048576);
                         break;
                     } catch (error) {
                         if (generation !== _generation || _pc !== pc) { throw error; }
@@ -719,14 +728,6 @@
                     return Promise.reject(err);
                 }
             }
-            try {
-                _stream.getTracks().forEach(function (track) {
-                    _this.addTrack(track, _stream);
-                });
-            } catch (err) {
-                _this.close(err.message);
-                return Promise.reject(err);
-            }
             _video.muted = true;
             _video.srcObject = _stream;
             _video.play().catch(function (err) {
@@ -757,6 +758,9 @@
                 _name = streamId;
                 _this.setProperty('stream', streamId);
 
+                // Preview owns capture only. Attach senders with the final
+                // encoding preferences when this stream actually publishes.
+                _stream.getTracks().forEach(function (track) { _this.addTrack(track, _stream); });
                 await _setCodecPreferences('sender');
                 var offer = await _pc.createOffer();
                 offer.sdp = offer.sdp.replace(/a=rtcp-fb:\d+ goog-remb(\n|\r\n)/gi, '');
@@ -1303,7 +1307,8 @@
                     credentials: 'omit', cache: 'no-store', redirect: 'error', mode: 'cors',
                 });
                 if (!response.ok || response.url !== url || response.redirected) {
-                    throw { name: 'NetworkError', message: 'Live media request failed: status=' + response.status + '.',
+                    throw { name: 'NetworkError', status: response.url === url && !response.redirected ? response.status : 0,
+                        message: 'Live media request failed: status=' + response.status + '.',
                         credentialExpired: method === 'POST' && response.url === url && !response.redirected && utils.MediaRequest.expired(response) };
                 }
                 var decoder = new TextDecoder('utf-8', { fatal: true }), text = '', size = 0;
@@ -1324,7 +1329,7 @@
                 if (controller.signal.aborted || Date.now() >= deadline) {
                     throw { name: 'TimeoutError', message: 'Live media request did not finish before its deadline.' };
                 }
-                return { headers: response.headers, body: text + decoder.decode() };
+                return { status: response.status, headers: response.headers, body: text + decoder.decode() };
             } finally {
                 clearTimeout(timer);
                 controller.abort();

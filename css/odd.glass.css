@@ -84,3 +84,29 @@
     [data-theme="dark"], .odd-theme-dark { --odd-glass-surface: #223844; --odd-glass-content: #203440; }
     :root { --odd-glass-media: #18252a; --odd-glass-media-sheet: #1b2830; }
 }
+
+/* Fixed switch geometry also covers selection/acknowledgement checkboxes;
+   their native checkbox semantics and submitted values stay intact. */
+:is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"] {
+    appearance:none; -webkit-appearance:none; position:relative; display:inline-block; box-sizing:border-box;
+    flex:0 0 40px; width:40px; height:24px; min-inline-size:40px; max-inline-size:40px; min-block-size:24px; max-block-size:24px;
+    margin:0; padding:0; border:1px solid var(--pe-media-line, var(--line, var(--odd-line, #808080))); border-radius:999px;
+    background:var(--pe-media-muted, var(--muted, #858585)); box-shadow:none; vertical-align:middle; cursor:pointer;
+    transition:background-color 140ms ease;
+}
+:is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]::after {
+    content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff;
+    transform:translateX(0); transition:transform 140ms ease; box-shadow:0 1px 2px #0003;
+}
+:is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]:checked { background:var(--pe-media-focus, var(--accent, var(--odd-accent, #507d70))); }
+:is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]:checked::after { transform:translateX(16px); }
+:is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]:focus-visible { outline:2px solid var(--pe-media-focus, var(--accent, var(--odd-accent, #507d70))); outline-offset:3px; }
+:is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]:disabled { opacity:.45; cursor:not-allowed; }
+@media(prefers-reduced-motion:reduce) {
+    :is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"],
+    :is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]::after { transition:none; }
+}
+@media(forced-colors:active) {
+    :is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"] { appearance:auto; -webkit-appearance:auto; }
+    :is(.odd-controls, .odd-settings-panel, .odd-view, .pe-wrapper, .im-wrapper)[class] input[type="checkbox"]::after { content:none; }
+}

@@ -156,7 +156,9 @@
         };
 
         _this.hide = function (name) {
-            if (!_closed && _this.components[name]) { _this.components[name].hide(); }
+            if (!_closed && _this.components[name] && _this.components[name].element().getAttribute('aria-busy') !== 'true') {
+                _this.components[name].hide();
+            }
         };
 
         _this.element = function () {

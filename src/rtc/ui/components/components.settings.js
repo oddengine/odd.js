@@ -1,265 +1,270 @@
 (function (odd) {
     var utils = odd.utils,
-        events = odd.events,
-        Event = events.Event,
-        Constraints = odd.RTC.Constraints,
-        components = odd.RTC.UI.components,
+        Event = odd.events.Event,
+        RTC = odd.RTC,
+        Constraints = RTC.Constraints,
+        components = RTC.UI.components,
         Panel = components.Panel,
-
-        CLASS_TITLE = 'pe-settings-title',
-        CLASS_CONTENT = 'pe-settings-content',
-        CLASS_FOOTER = 'pe-settings-footer',
-        CLASS_PREVIEW = 'pe-settings-preview',
-
         _default = {
-            profile: '720P_2',
-            camera: '',
-            microphone: '',
-            joinAudio: false,
-            joinVideo: false,
+            profile: '720P_2', camera: '', microphone: '', joinAudio: false, joinVideo: false,
             beauty: { enabled: false, whitening: 0, smoothing: 0 },
+            video: { svc: false, encodings: [] }, codecpreferences: ['audio/opus', 'video/H264'],
         };
 
     function Settings(name, value, logger, labels) {
         Panel.call(this, name, 'Settings', logger, [Event.CHANGE]);
 
         var _this = this,
-            _labels = utils.extendz({ video: 'Video', audio: 'Audio', profile: 'Profile', camera: 'Camera', microphone: 'Microphone', preview: 'Preview', save: 'Save', systemDefault: 'System default', joinAudio: 'Turn on microphone when joining', joinVideo: 'Turn on camera when joining', beauty: 'Appearance', beautyEnabled: 'Enable video effects', whitening: 'Whitening', smoothing: 'Smoothing', stopPreview: 'Stop preview', previewHint: 'Preview stays on this device', notice: 'Save defaults for the next session.', error: 'Could not apply these settings. Check the selected devices and try again.' }, labels),
-            _container,
-            _profile,
-            _camera,
-            _microphone,
-            _joinAudio,
-            _joinVideo,
-            _video,
-            _previewButton,
-            _previewHint,
-            _beauty = {},
-            _notice;
+            _labels = utils.extendz({ devices: 'Devices', profile: 'Quality', camera: 'Camera', microphone: 'Microphone',
+                systemDefault: 'System default', deviceMissing: 'Saved device (unavailable)', fps: 'fps',
+                beauty: 'Appearance', beautyEnabled: 'Enable video effects', whitening: 'Whitening', smoothing: 'Smoothing',
+                encodings: 'Publishing encoding', codec: 'Video codec', currentCodecs: 'Keep codec preferences',
+                simulcast: 'Simulcast', svc: 'AV1 SVC', scalabilityMode: 'Layer mode', currentModes: 'Keep layer modes',
+                autoJoin: 'Join preferences', joinAudio: 'Turn on microphone when joining', joinVideo: 'Turn on camera when joining',
+                save: 'Save settings', discard: 'Discard changes', unavailable: 'Unavailable',
+                encodingNotice: 'Encoding changes apply to the next publication.',
+                error: 'Could not apply these settings. Check the selected devices and try again.' }, labels),
+            _container, _sections, _inputs = {}, _beauty = {}, _join, _notice, _busy = false,
+            _capability, _originalCodecs, _encodingPreset = false;
 
         function _init() {
-            _this.config = utils.extendz({}, _default);
-
             _container = _this.element();
-
-            _buildVideo();
-            _buildAudio();
+            _this.config = utils.extendz({}, _default);
+            _capability = RTC.Encodings.describe();
+            _sections = utils.createElement('div', 'pe-settings-sections');
+            _container.appendChild(_sections);
+            _buildDevices();
             _buildBeauty();
+            _buildEncodings();
+            _buildJoin();
             _notice = utils.createElement('p', 'pe-settings-notice');
             _notice.setAttribute('role', 'status');
-            _notice.textContent = _labels.notice;
+            _notice.hidden = true;
             _container.appendChild(_notice);
-            _container.appendChild(_container.querySelector('footer'));
+            _buildFooter();
             _this.update(_this.config);
         }
 
-        function _buildVideo() {
-            var title = utils.createElement('h3', CLASS_TITLE);
-            title.textContent = _labels.video;
-            _container.appendChild(title);
-
-            var content = utils.createElement('div', CLASS_CONTENT);
-            _container.appendChild(content);
-
-            _video = utils.createElement('video', CLASS_PREVIEW);
-            _video.setAttribute('playsinline', '');
-            _video.setAttribute('autoplay', '');
-            _video.muted = true;
-            content.appendChild(_video);
-            _previewHint = utils.createElement('p', 'pe-settings-preview-hint');
-            _previewHint.textContent = _labels.previewHint;
-            content.appendChild(_previewHint);
-            _previewButton = utils.createElement('button', 'pe-settings-preview-action');
-            _previewButton.type = 'button'; _previewButton.name = 'preview';
-            _previewButton.textContent = _labels.preview;
-            _previewButton.onclick = _onClick;
-            content.appendChild(_previewButton);
-
-            var label = utils.createElement('label');
-            label.textContent = _labels.profile;
-            content.appendChild(label);
-
-            _profile = utils.createElement('select');
-            _profile.name = 'profile';
-            _profile.onchange = _onChange;
-            label.appendChild(_profile);
-            utils.forEach(Constraints, function (name) {
-                var option = utils.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                _profile.appendChild(option);
-            });
-
-            label = utils.createElement('label');
-            label.textContent = _labels.camera;
-            content.appendChild(label);
-
-            _camera = utils.createElement('select');
-            _camera.name = 'camera';
-            _camera.onchange = _onChange;
-            label.appendChild(_camera);
-            _joinVideo = _joinChoice(content, 'joinVideo');
-
-            var footer = utils.createElement('footer', CLASS_FOOTER);
-            _container.appendChild(footer);
-
-            var button = utils.createElement('button');
-            button.type = 'button';
-            button.name = 'save';
-            button.textContent = _labels.save;
-            button.onclick = _onClick;
-            footer.appendChild(button);
+        function _buildGroup(name) {
+            var group = utils.createElement('section', 'pe-settings-group pe-settings-' + name);
+            var title = utils.createElement('h3', 'pe-settings-title');
+            title.textContent = _labels[name];
+            group.appendChild(title);
+            var content = utils.createElement('div', 'pe-settings-content');
+            group.appendChild(content);
+            _sections.appendChild(group);
+            return content;
         }
 
-        function _buildAudio() {
-            var title = utils.createElement('h3', CLASS_TITLE);
-            title.textContent = _labels.audio;
-            _container.appendChild(title);
-
-            var content = utils.createElement('div', CLASS_CONTENT);
-            _container.appendChild(content);
-
-            var label = utils.createElement('label');
-            label.textContent = _labels.microphone;
+        function _buildSelect(content, name, caption) {
+            var label = utils.createElement('label', 'pe-settings-row');
+            var text = utils.createElement('span');
+            text.textContent = caption || _labels[name];
+            label.appendChild(text);
+            var input = utils.createElement('select');
+            input.name = name;
+            label.appendChild(input);
             content.appendChild(label);
+            _inputs[name] = input;
+            return input;
+        }
 
-            _microphone = utils.createElement('select');
-            _microphone.name = 'microphone';
-            _microphone.onchange = _onChange;
-            label.appendChild(_microphone);
-            _joinAudio = _joinChoice(content, 'joinAudio');
+        function _buildSwitch(content, name) {
+            var label = utils.createElement('label', 'pe-settings-toggle');
+            var text = utils.createElement('span');
+            text.textContent = _labels[name];
+            label.appendChild(text);
+            var input = utils.createElement('input');
+            input.type = 'checkbox'; input.name = name; input.setAttribute('role', 'switch');
+            label.appendChild(input);
+            content.appendChild(label);
+            _inputs[name] = input;
+            return input;
+        }
+
+        function _buildDevices() {
+            var content = _buildGroup('devices');
+            var profile = _buildSelect(content, 'profile');
+            Object.keys(Constraints).forEach(function (name) {
+                var video = Constraints[name].video, option = utils.createElement('option');
+                option.value = name;
+                option.textContent = video.width + ' × ' + video.height + ' · ' + video.frameRate + ' ' + _labels.fps;
+                profile.appendChild(option);
+            });
+            _buildSelect(content, 'camera');
+            _buildSelect(content, 'microphone');
+            ['profile', 'camera', 'microphone'].forEach(function (name) {
+                _inputs[name].onchange = function () {
+                    _this.config[name] = _inputs[name].value;
+                    if (name === 'profile' && _encodingPreset) { _updateEncodings(); }
+                    _this.dispatchEvent(Event.CHANGE, { name: 'settings-preview', value: utils.extendz({}, _this.config) });
+                };
+            });
         }
 
         function _buildBeauty() {
-            var title = utils.createElement('h3', CLASS_TITLE);
-            title.textContent = _labels.beauty;
-            _container.appendChild(title);
-            var content = utils.createElement('div', CLASS_CONTENT + ' pe-settings-beauty');
-            _container.appendChild(content);
-            ['enabled', 'whitening', 'smoothing'].forEach(function (name) {
-                var label = utils.createElement('label', name === 'enabled' ? 'pe-settings-toggle' : 'pe-settings-strength');
+            var content = _buildGroup('beauty');
+            var enabled = _buildSwitch(content, 'beautyEnabled');
+            enabled.onchange = function () {
+                _this.config.beauty.enabled = enabled.checked;
+                _updateBeauty();
+                _this.dispatchEvent(Event.CHANGE, { name: 'settings-preview', value: utils.extendz({}, _this.config) });
+            };
+            ['whitening', 'smoothing'].forEach(function (name) {
+                var label = utils.createElement('label', 'pe-settings-strength');
+                var text = utils.createElement('span'); text.textContent = _labels[name]; label.appendChild(text);
                 var input = utils.createElement('input');
-                input.type = name === 'enabled' ? 'checkbox' : 'range';
-                input.name = name;
-                if (name !== 'enabled') { input.min = 0; input.max = 100; input.step = 1; }
-                var caption = utils.createElement('span');
-                caption.textContent = _labels[name === 'enabled' ? 'beautyEnabled' : name];
-                label.appendChild(caption); label.appendChild(input);
+                input.type = 'range'; input.name = name; input.min = 0; input.max = 100; input.step = 1;
                 var output = utils.createElement('output');
-                output.hidden = name === 'enabled'; label.appendChild(output);
-                input.oninput = function () {
-                    _this.config.beauty[name] = name === 'enabled' ? input.checked : Number(input.value) / 100;
-                    _updateBeauty();
-                    _this.dispatchEvent(Event.CHANGE, { name: 'beauty', value: utils.extendz({}, _this.config.beauty) });
-                };
+                label.appendChild(input); label.appendChild(output); content.appendChild(label);
                 _beauty[name] = { input: input, output: output };
-                content.appendChild(label);
+                input.oninput = function () {
+                    _this.config.beauty[name] = Number(input.value) / 100;
+                    output.textContent = input.value;
+                    _this.dispatchEvent(Event.CHANGE, { name: 'settings-preview', value: utils.extendz({}, _this.config) });
+                };
             });
         }
 
         function _updateBeauty() {
+            _inputs.beautyEnabled.checked = _this.config.beauty.enabled;
             Object.keys(_beauty).forEach(function (name) {
                 var item = _beauty[name];
-                if (name === 'enabled') { item.input.checked = _this.config.beauty.enabled; }
-                else {
-                    item.input.value = Math.round(_this.config.beauty[name] * 100);
-                    item.output.textContent = item.input.value;
-                    item.input.disabled = !_this.config.beauty.enabled;
-                }
+                item.input.value = Math.round(_this.config.beauty[name] * 100);
+                item.output.textContent = item.input.value;
+                item.input.disabled = _busy || !_this.config.beauty.enabled;
             });
         }
 
-        function _joinChoice(content, name) {
-            var label = utils.createElement('label', 'pe-settings-toggle'), input = utils.createElement('input');
-            input.type = 'checkbox'; input.name = name; input.onchange = _onChange;
-            label.appendChild(input); label.appendChild(document.createTextNode(_labels[name])); content.appendChild(label);
-            return input;
+        function _buildEncodings() {
+            var content = _buildGroup('encodings');
+            var codecs = _buildSelect(content, 'codecpreferences', _labels.codec);
+            [['', _labels.currentCodecs], ['video/H264', 'H.264'], ['video/H265', 'H.265'], ['video/AV1', 'AV1']].forEach(function (entry) {
+                var option = utils.createElement('option'); option.value = entry[0]; option.textContent = entry[1]; codecs.appendChild(option);
+            });
+            codecs.onchange = function () {
+                _this.config.codecpreferences = codecs.value
+                    ? _this.config.codecpreferences.filter(function (codec) { return /^audio\//i.test(codec); }).concat(codecs.value)
+                    : _originalCodecs.slice();
+                _renderEncodings();
+            };
+            var switches = utils.createElement('div', 'pe-settings-encoding-switches');
+            content.appendChild(switches);
+            _buildSwitch(switches, 'simulcast').onchange = _updateEncodings;
+            _buildSwitch(switches, 'svc').onchange = _updateEncodings;
+            var modes = _buildSelect(content, 'scalabilityMode');
+            [''].concat(_capability.modes).forEach(function (mode) {
+                var option = utils.createElement('option'); option.value = mode;
+                option.textContent = mode || _labels.currentModes; option.disabled = !mode; modes.appendChild(option);
+            });
+            modes.onchange = _updateEncodings;
+            content.title = _labels.encodingNotice;
         }
 
-        function _onChange(e) {
-            var input = e.currentTarget,
-                value = input.type === 'checkbox' ? input.checked : input.value;
-            _this.config[input.name] = value;
-            _this.dispatchEvent(Event.CHANGE, { name: input.name, value: value });
+        function _updateEncodings() {
+            try {
+                _this.config.video = RTC.Encodings.preset(_this.config.profile, _inputs.simulcast.checked,
+                    _inputs.svc.checked, _inputs.scalabilityMode.value || 'L3T3_KEY');
+                _encodingPreset = true;
+                _this.feedback('');
+            } catch (error) { _this.feedback(_labels[error.name] || _labels.error); }
+            _renderEncodings();
         }
 
-        function _onClick(e) {
-            _this.dispatchEvent(Event.CHANGE, { name: e.currentTarget.name, value: utils.extendz({}, _this.config) });
+        function _renderEncodings() {
+            var video = _this.config.video;
+            var selected = _this.config.codecpreferences.filter(function (codec) { return /^video\//i.test(codec); });
+            _inputs.codecpreferences.value = selected.length === 1
+                ? ['video/H264', 'video/H265', 'video/AV1'].find(function (codec) { return codec.toLowerCase() === selected[0].toLowerCase(); }) || '' : '';
+            _inputs.simulcast.checked = video.simulcast === undefined ? video.encodings.length > 1 : video.simulcast;
+            _inputs.svc.checked = video.svc;
+            var modes = video.encodings.map(function (encoding) { return encoding.scalabilityMode || 'L1T1'; });
+            _inputs.scalabilityMode.value = !video.svc ? 'L1T1' : modes.length && modes.every(function (mode) { return mode === modes[0]; }) ? modes[0] : '';
+            var av1 = selected.some(function (codec) { return codec.toLowerCase() === 'video/av1'; });
+            Array.from(_inputs.codecpreferences.options).forEach(function (option) {
+                option.disabled = _busy || !!option.value && (!_capability.codecs.includes(option.value) || video.svc && option.value !== 'video/AV1');
+            });
+            _inputs.simulcast.disabled = _busy || !_capability.available && !_inputs.simulcast.checked;
+            _inputs.svc.disabled = _busy || !video.svc && (!av1 || !_capability.codecs.includes('video/AV1'));
+            _inputs.scalabilityMode.disabled = _busy || !video.svc;
+        }
+
+        function _buildJoin() {
+            _join = utils.createElement('div', 'pe-settings-join');
+            ['joinAudio', 'joinVideo'].forEach(function (name) {
+                _buildSwitch(_join, name).onchange = function () { _this.config[name] = _inputs[name].checked; };
+            });
+            _container.appendChild(_join);
+        }
+
+        function _buildFooter() {
+            var footer = utils.createElement('footer', 'pe-settings-footer');
+            ['discard', 'save'].forEach(function (name) {
+                var button = utils.createElement('button'); button.type = 'button'; button.name = name;
+                button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                    (name === 'save' ? '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8V3"/>' : '<path d="m9 14-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3"/>') + '</svg>';
+                button.appendChild(document.createTextNode(_labels[name]));
+                button.onclick = function () {
+                    try {
+                        if (name === 'save') { RTC.Encodings.validate(_this.config.video, _this.config.codecpreferences); }
+                        _this.dispatchEvent(Event.CHANGE, { name: name, value: utils.extendz({}, _this.config) });
+                    } catch (error) { _this.feedback(_labels[error.name] || _labels.error); }
+                };
+                footer.appendChild(button);
+            });
+            _container.appendChild(footer);
         }
 
         _this.update = function (data) {
-            data = utils.extendz({}, _default, data);
-            _this.config = {
-                profile: data.profile,
-                camera: data.camera,
-                microphone: data.microphone,
-                joinAudio: !!data.joinAudio,
-                joinVideo: !!data.joinVideo,
-                beauty: utils.extendz({}, data.beauty),
-            };
-            _updateBeauty();
-            _notice.textContent = _labels.notice;
-            _joinAudio.checked = _this.config.joinAudio;
-            _joinVideo.checked = _this.config.joinVideo;
-            _joinAudio.parentNode.hidden = !data.joinPreferences;
-            _joinVideo.parentNode.hidden = !data.joinPreferences;
-
-            _profile.value = _this.config.profile;
-
-            if (data.cameras) {
-                _updateDevices(_camera, data.cameras, _this.config.camera);
-            } else {
-                _camera.value = _this.config.camera;
-            }
-            if (data.microphones) {
-                _updateDevices(_microphone, data.microphones, _this.config.microphone);
-            } else {
-                _microphone.value = _this.config.microphone;
-            }
+            var supplied = {};
+            Object.keys(data || {}).forEach(function (name) {
+                if (data[name] !== undefined) { supplied[name] = data[name]; }
+            });
+            data = utils.extendz({}, _default, supplied);
+            _this.config = utils.extendz({}, _default);
+            Object.keys(_default).forEach(function (name) { _this.config[name] = utils.extendz({}, { value: data[name] }).value; });
+            _originalCodecs = _this.config.codecpreferences.slice();
+            _encodingPreset = false;
+            _inputs.profile.value = data.profile;
+            ['camera', 'microphone'].forEach(function (name) {
+                var input = _inputs[name], devices = data[name === 'camera' ? 'cameras' : 'microphones'];
+                if (devices) {
+                    utils.emptyElement(input);
+                    var option = utils.createElement('option'); option.value = ''; option.textContent = _labels.systemDefault; input.appendChild(option);
+                    devices.forEach(function (device) {
+                        option = utils.createElement('option'); option.value = device.deviceId;
+                        option.textContent = device.label || device.deviceId; input.appendChild(option);
+                    });
+                    if (data[name] && !devices.some(function (device) { return device.deviceId === data[name]; })) {
+                        option = utils.createElement('option'); option.value = data[name]; option.textContent = _labels.deviceMissing; input.appendChild(option);
+                    }
+                }
+                input.value = data[name] || '';
+            });
+            _join.hidden = !data.joinPreferences;
+            _inputs.joinAudio.checked = !!data.joinAudio;
+            _inputs.joinVideo.checked = !!data.joinVideo;
+            _updateBeauty(); _renderEncodings(); _this.feedback('');
             return _this.config;
         };
 
-        function _updateDevices(input, devices, value) {
-            utils.emptyElement(input);
-            var defaultOption = utils.createElement('option');
-            defaultOption.value = ''; defaultOption.textContent = _labels.systemDefault; input.appendChild(defaultOption);
-            utils.forEach(devices, function (_, device) {
-                var option = utils.createElement('option');
-                option.value = device.deviceId;
-                option.textContent = device.label || device.deviceId;
-                input.appendChild(option);
-            });
-            input.value = value;
-        }
-
-        _this.preview = function (element) {
-            _video.srcObject = element ? element.srcObject : null;
-            _previewHint.hidden = !!element;
-            _previewButton.name = element ? 'stop-preview' : 'preview';
-            _previewButton.textContent = element ? _labels.stopPreview : _labels.preview;
-        };
-
         _this.busy = function (value) {
-            _container.setAttribute('aria-busy', String(!!value));
-            Array.from(_container.querySelectorAll('input, select, button')).forEach(function (input) { input.disabled = !!value; });
-            if (!value) { _updateBeauty(); }
+            _busy = !!value;
+            _container.setAttribute('aria-busy', String(_busy));
+            Array.from(_container.querySelectorAll('input, select, button')).forEach(function (input) { input.disabled = _busy; });
+            if (!_busy) { _updateBeauty(); _renderEncodings(); }
         };
-        _this.feedback = function (message) { _notice.textContent = message ? _labels.error : _labels.notice; };
+
+        _this.feedback = function (message) {
+            _notice.textContent = message || '';
+            _notice.hidden = !message;
+        };
 
         _this.destroy = function () {
-            _profile.onchange = null;
-            _camera.onchange = null;
-            _microphone.onchange = null;
-            _joinAudio.onchange = null;
-            _joinVideo.onchange = null;
-            _video.srcObject = null;
-            Object.keys(_beauty).forEach(function (name) { _beauty[name].input.oninput = null; });
-
-            utils.forEach(_container.getElementsByTagName('button'), function (_, button) {
-                button.onclick = null;
+            Array.from(_container.querySelectorAll('input, select, button')).forEach(function (input) {
+                input.onchange = null; input.oninput = null; input.onclick = null;
             });
-
-            _container.innerHTML = '';
+            utils.emptyElement(_container);
         };
 
         _init();
@@ -268,7 +273,6 @@
     Settings.prototype = Object.create(Panel.prototype);
     Settings.prototype.constructor = Settings;
     Settings.prototype.kind = 'Settings';
-
     components.Settings = Settings;
 })(odd);
 
