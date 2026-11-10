@@ -46,6 +46,8 @@ scripts[33]="./src/utils/utils.routing.js"
 scripts[34]="./src/utils/utils.controlmenu.js"
 scripts[35]="./src/utils/utils.mediacontrols.js"
 scripts[36]="./src/utils/utils.vod.js"
+scripts[37]="./src/utils/utils.playbacksession.js"
+scripts[38]="./src/utils/mpd/mpd.manifest.js"
 
 :>./release/odd.common.js
 
@@ -210,6 +212,7 @@ scripts[21]="./src/player/player.model.js"
 scripts[22]="./src/player/player.view.js"
 scripts[23]="./src/player/player.controller.js"
 scripts[24]="./src/player/player.program.js"
+scripts[25]="./src/player/module/module.dash.js"
 
 :>./release/odd.player.js
 

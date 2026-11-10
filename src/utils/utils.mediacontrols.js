@@ -142,8 +142,9 @@
             else { container.tabIndex = -1; container.focus(); }
         }
         function _onFocusIn(event) {
-            // The reveal button stays visible and focused until activation.
-            if (event.target === _reveal) { return; }
+            // Keyboard navigation restores the real controls immediately; no
+            // persistent overlay competes with the video while they are hidden.
+            if (event.target === _reveal) { _onReveal(); return; }
             _this.visible(true); _activity();
         }
         function _onTap(event) {

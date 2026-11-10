@@ -3,7 +3,7 @@
         Event = events.Event, MouseEvent = events.MouseEvent, IMEvent = events.IMEvent,
         IM = odd.IM, UI = IM.UI, Protocol = IM.Protocol, Avatar = UI.components.Avatar,
         _default = { kind: 'Conversations', tab: 'messages', active: '', visibility: true,
-            labels: { refresh: 'Refresh', more: 'More saved conversations' } };
+            labels: { refresh: 'Refresh', more: 'More saved conversations', unknown: 'Conversation' } };
 
     function Conversations(im, config, logger) {
         EventDispatcher.call(this, 'Conversations', { logger: logger }, MouseEvent);
@@ -33,7 +33,11 @@
             var current = _items[id];
             if (current) {
                 if (target) { current.data.target = target; }
-                if (name) { current.data.name = name; current.title.textContent = name; }
+                var changed = name && name !== current.data.name || avatar !== undefined && avatar !== current.data.avatar;
+                if (name && name !== current.data.name) { current.data.name = name; current.title.textContent = name; }
+                if (avatar !== undefined) { current.data.avatar = avatar; }
+                if (changed) { current.avatar.update(current.data); }
+                preview(current);
                 return current.element;
             }
             var ids = Object.keys(_items);
@@ -41,7 +45,7 @@
                 var oldest = ids.filter(function (value) { return value !== config.active; })[0];
                 _this.remove(oldest);
             }
-            var data = { id: id, type: type, name: name || id, avatar: avatar, target: target },
+            var data = { id: id, type: type, name: name || (type === 'conversation' ? config.labels.unknown || 'Conversation' : id), avatar: avatar, target: target },
                 element = utils.createElement('button', 'im-conversation-item'), image = new Avatar('avatar', data, logger),
                 copy = utils.createElement('span', 'im-entry-copy'), line = utils.createElement('span', 'im-entry-line'),
                 title = document.createElement('strong'), date = document.createElement('time'), message = document.createElement('small'),
@@ -50,7 +54,7 @@
             element.setAttribute('data-id', id);
             element.setAttribute('state', config.active === id ? 'on' : 'off');
             element.onclick = onClick;
-            title.textContent = name || id;
+            title.textContent = data.name;
             unread.textContent = '未读';
             unread.hidden = true;
             line.appendChild(title);
@@ -62,7 +66,7 @@
             element.appendChild(unread);
             _container.appendChild(element);
             _items[id] = { data: data, element: element, avatar: image, title: title, date: date, message: message,
-                unread: unread, incoming: { high: 0, low: 0 } };
+                text: '', unread: unread, incoming: { high: 0, low: 0 } };
             return element;
         };
         _this.remove = function (id) {
@@ -75,8 +79,19 @@
         };
         _this.update = function (id, date, message) {
             var item = _items[id];
-            if (item) { item.date.textContent = date || ''; item.message.textContent = message || ''; }
+            if (item) { item.date.textContent = date || ''; item.text = message || ''; preview(item); }
         };
+        function preview(item) {
+            // The target may arrive after a delivery. Do not briefly expose a
+            // system payload as a private-message preview while it is unknown.
+            var unresolved = item.data.type === 'conversation' && (!item.data.target || item.data.target.type === 'conversation'),
+                text = typeof config.formatMessage === 'function' && unresolved ? '' : item.text;
+            if (text && typeof config.formatMessage === 'function') {
+                try { text = config.formatMessage(text, { target: item.data.target, conversationId: item.data.id }); }
+                catch (reason) { text = ''; }
+            }
+            if (item.message.textContent !== text) { item.message.textContent = text; }
+        }
         function onClick(event) {
             var item = _items[event.currentTarget.getAttribute('data-id')];
             if (item) {
@@ -92,7 +107,7 @@
                 if (config.active === alias.data.id) { config.active = id; }
                 _this.remove(alias.data.id);
             }
-            _this.add(id, 'conversation', destination && destination.name || id, destination && destination.avatar,
+            _this.add(id, 'conversation', destination && destination.name !== id ? destination.name : '', destination ? destination.avatar : undefined,
                 destination && destination.target);
             var item = _items[id], incoming = projection.incomingSequence;
             if (Protocol.compare64(item.incoming, incoming) > 0) { incoming = item.incoming; }
@@ -151,7 +166,7 @@
             if (!room && !data.sender) { return; }
             var id = reliable ? data.meta.conversationId : data.target.type === 'user' || data.target.type === 'endpoint' ?
                 data.sender.id === im.userId() ? data.target.id : data.sender.id : data.target.id;
-            if (!_items[id]) { _this.add(id, room ? 'channel' : reliable ? 'conversation' : 'people', id); }
+            if (!_items[id]) { _this.add(id, room ? 'channel' : reliable ? 'conversation' : 'people', reliable ? '' : id); }
             var row = room && data.event ? UI.History.fact(data.event, data.meta) : UI.History.received(data, im.userId());
             _this.update(id, row.time, row.text);
             if (reliable) {

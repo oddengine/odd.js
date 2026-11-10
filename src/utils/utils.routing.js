@@ -215,7 +215,7 @@
                 Number(context.createdAt) < 1000 || String(Number(context.createdAt)) !== context.createdAt ||
                 (credentials.product !== 'live' && credentials.product !== 'rtc') ||
                 (context.direction !== 'publish' && context.direction !== 'play') ||
-                (publishing ? ['WHIP', 'RTMP', 'RTSP'] : ['WHEP', 'HTTP-FLV', 'HTTP-CMAF', 'RTMP', 'RTSP']).indexOf(context.protocol) === -1 ||
+                (publishing ? ['WHIP', 'RTMP', 'RTSP'] : ['WHEP', 'HTTP-FLV', 'HTTP-CMAF', 'HLS', 'HLS-2nd', 'DASH', 'RTMP', 'RTSP']).indexOf(context.protocol) === -1 ||
                 publishing && ['audio', 'camera', 'screen'].indexOf(context.purpose) === -1 ||
                 credentials.product === 'rtc' && (typeof context.nodeId !== 'string' || !ID.test(context.nodeId) ||
                     typeof context.bootId !== 'string' || !UUID.test(context.bootId) || context.bootId === ZERO ||

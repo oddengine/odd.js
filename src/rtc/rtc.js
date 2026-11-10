@@ -114,11 +114,11 @@
             var ns = new RTC.NetStream(_this.config, _logger, _participation);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
-            ns.applyConstraints(constraints);
             ns.audioPolicy(_audioAllowed);
             _pending.push(ns);
 
             try {
+                await ns.applyConstraints(constraints);
                 await ns.attach();
                 await ns.preview(screensharing, withcamera, option);
                 if (_readyState !== State.CONNECTED || ns.state() !== State.CONNECTED) {
@@ -153,11 +153,11 @@
             var ns = new RTC.NetStream(_this.config, _logger, _participation);
             ns.addEventListener(NetStatusEvent.NETSTATUS, _onStatus);
             ns.addEventListener(Event.RELEASE, _onRelease);
-            ns.applyConstraints(constraints);
             ns.audioPolicy(_audioAllowed);
             _pending.push(ns);
 
             try {
+                await ns.applyConstraints(constraints);
                 await ns.attach();
                 await ns.preview(screensharing, withcamera, option);
                 await ns.publish();

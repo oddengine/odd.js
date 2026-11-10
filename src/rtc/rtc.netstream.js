@@ -152,21 +152,26 @@
             }
         };
 
-        _this.applyConstraints = function (constraints) {
+        _this.applyConstraints = async function (constraints) {
+            var next = utils.extendz({}, _this.constraints), stream = _stream, generation = _generation;
             ['audio', 'video'].forEach(function (kind) {
-                if (constraints[kind] && typeof constraints[kind] === 'object' && typeof _this.constraints[kind] !== 'object') {
-                    _this.constraints[kind] = {};
-                }
+                if (constraints[kind] && typeof constraints[kind] === 'object' && typeof next[kind] !== 'object') { next[kind] = {}; }
             });
-            _this.constraints = utils.extendz(_this.constraints, constraints);
-            if (_stream) {
-                _stream.getTracks().forEach(function (track) {
-                    track.applyConstraints(_this.constraints[track.kind]);
-                });
-            }
+            next = utils.extendz(next, constraints);
+            // Initial constraints must be visible before attach/preview starts.
+            if (!stream) { _this.constraints = next; return; }
+            await Promise.all(stream.getTracks().map(function (track) {
+                var value = next[track.kind];
+                // Beauty publishes a canvas track; constrain its camera input.
+                var input = track.kind === 'video' && _beauty.input() || track;
+                return value && typeof value === 'object' ? input.applyConstraints(value) : Promise.resolve();
+            }));
+            if (generation !== _generation || stream !== _stream) { throw { name: 'AbortError', message: 'Constraints change was cancelled.' }; }
+            _this.constraints = next;
         };
 
         _this.setCamera = async function (deviceId) {
+            var generation = _generation;
             if (_readyState === State.PUBLISHING && (!_screensharing || _withcamera)) {
                 var constraints = utils.extendz({}, _this.constraints);
                 constraints.audio = false;
@@ -182,6 +187,10 @@
                 }
 
                 var track = source.getVideoTracks()[0];
+                if (generation !== _generation || _readyState !== State.PUBLISHING) {
+                    source.getTracks().forEach(function (item) { _forgetCapture(item); item.stop(); });
+                    throw { name: 'AbortError', message: 'Camera change was cancelled.' };
+                }
                 if (_screensharing) {
                     if (_withcamera) {
                         var found = false;
@@ -207,6 +216,7 @@
                             nextBeauty = new Beauty(_logger);
                             await nextBeauty.enable(source, Beauty.parameters(_this.config.beauty));
                         }
+                        if (generation !== _generation || _readyState !== State.PUBLISHING) { throw { name: 'AbortError', message: 'Camera change was cancelled.' }; }
                         await _this.replaceTrack(nextBeauty ? nextBeauty.output() : track, true);
                         var previousCamera = _beauty.input();
                         if (previousCamera) { _forgetCapture(previousCamera); previousCamera.stop(); }
@@ -220,28 +230,38 @@
                     }
                 }
             }
-            _this.applyConstraints({
+            await _this.applyConstraints({
                 video: {
                     deviceId: deviceId,
                 },
             });
         };
 
-        _this.setMicrophone = function (deviceId) {
-            _this.applyConstraints({
-                audio: {
-                    deviceId: deviceId,
-                },
-            });
+        _this.setMicrophone = async function (deviceId) {
+            var constraints = utils.extendz({}, typeof _this.constraints.audio === 'object' ? _this.constraints.audio : {}, { deviceId: deviceId });
+            if (_readyState === State.PUBLISHING && !_screensharing && _stream && _stream.getAudioTracks().length) {
+                var generation = _generation, source = await _this.getUserMedia({ audio: constraints, video: false });
+                var track = source.getAudioTracks()[0];
+                try {
+                    if (generation !== _generation || _readyState !== State.PUBLISHING) { throw { name: 'AbortError', message: 'Microphone change was cancelled.' }; }
+                    await _this.replaceTrack(track, true);
+                    _audiometer.update(_stream);
+                } catch (error) {
+                    source.getTracks().forEach(function (item) { _forgetCapture(item); item.stop(); });
+                    throw error;
+                }
+            }
+            _this.constraints.audio = constraints;
         };
 
-        _this.setProfile = function (profile) {
+        _this.setProfile = async function (profile) {
+            if (!Constraints[profile]) { throw { name: 'DataError', message: 'Invalid quality preset.' }; }
+            await _this.applyConstraints(Constraints[profile]);
             _this.config.profile = profile;
-            _this.applyConstraints(Constraints[_this.config.profile]);
         };
 
         _this.setResolution = function (width, height) {
-            _this.applyConstraints({
+            return _this.applyConstraints({
                 video: {
                     width: width,
                     height: height,
@@ -250,7 +270,7 @@
         };
 
         _this.setFramerate = function (fps) {
-            _this.applyConstraints({
+            return _this.applyConstraints({
                 video: {
                     frameRate: fps,
                 },
@@ -258,7 +278,7 @@
         };
 
         _this.setBitrate = function (bitrate) {
-            _this.applyConstraints({
+            return _this.applyConstraints({
                 video: {
                     maxBitrate: bitrate,
                 },
@@ -427,7 +447,7 @@
             }
             if (track === origin) { return; }
             var stream = _stream, generation = _generation;
-            if (track.kind === 'video') { track.enabled = origin.enabled; }
+            track.enabled = origin.enabled && (track.kind !== 'audio' || _audioAllowed);
             var senders = _pc.getSenders().filter(function (sender) { return sender.track === origin; });
             try { await Promise.all(senders.map(function (sender) { return sender.replaceTrack(track); })); }
             catch (error) {
@@ -1419,18 +1439,21 @@
             });
         }
 
-        _this.beauty = function (enable, constraints) {
+        _this.beauty = async function (enable, constraints) {
+            var beauty = _beauty, generation = _generation;
             if (enable) {
-                return _beauty.enable(_stream, constraints).then(function () {
-                    return _this.replaceTrack(_beauty.output(), false);
-                }).catch(function (err) { _logger.error(`Failed to apply video effects: ${err.message || err}`); });
-            } else {
-                var input = _beauty.input();
-                if (input) {
-                    return _this.replaceTrack(input, true).then(function () { _beauty.disable(); }).catch(function (err) {
-                        _logger.error(`Failed to replace track: id=${_this.config.id}, stream=${_name}, error=${err}`);
-                    });
+                if (beauty.enabled()) { beauty.applyConstraints(constraints); return; }
+                try {
+                    await beauty.enable(_stream, constraints);
+                    if (generation !== _generation || _beauty !== beauty) { throw { name: 'AbortError', message: 'Video effects change was cancelled.' }; }
+                    await _this.replaceTrack(beauty.output(), false);
+                } catch (error) {
+                    beauty.disable();
+                    throw error;
                 }
+            } else if (beauty.input()) {
+                await _this.replaceTrack(beauty.input(), true);
+                beauty.disable();
             }
         };
 

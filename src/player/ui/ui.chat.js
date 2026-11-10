@@ -106,9 +106,9 @@
 
         _this.applyConstraints = function (constraints) {
             _this.constraints = utils.extendz(_this.constraints, constraints);
-            utils.forEach(_this.rtc.publishing, function (_, ns) {
-                ns.applyConstraints(_this.constraints);
-            });
+            return Promise.all(Object.keys(_this.rtc.publishing).map(function (id) {
+                return _this.rtc.publishing[id].applyConstraints(_this.constraints);
+            }));
         };
 
         _this.publish = async function () {

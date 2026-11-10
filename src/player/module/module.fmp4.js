@@ -240,7 +240,7 @@
                 _logger.log('Loading selected source.');
 
                 try {
-                    _url.parse(file);
+                    if (file) { _url.parse(file); }
                 } catch (err) {
                     _logger.error('Failed to parse the selected source URL.');
                     _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
@@ -1035,6 +1035,7 @@
             return false;
         }
         for (var source of program.sources) {
+            if (program.type === 'FMP4' && !source.url && typeof source.streamId === 'string') { continue; }
             var url = new utils.URL(source.url);
             if (!url.protocol.match(/^(http|https|ws|wss)\:$/gi)) {
                 return false;

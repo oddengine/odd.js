@@ -24,8 +24,8 @@
         });
 
         var publishing = context.protocol === 'WHIP',
-            suffix = context.protocol === 'HTTP-FLV' ? '.flv' : context.protocol === 'HTTP-CMAF' ? '.mp4' : '';
-        if (['WHIP', 'WHEP', 'HTTP-FLV', 'HTTP-CMAF'].indexOf(context.protocol) === -1 ||
+            suffix = { 'HTTP-FLV': '.flv', 'HTTP-CMAF': '.mp4', HLS: '/v1/index.m3u8', 'HLS-2nd': '/v2/index.m3u8', DASH: '/index.mpd' }[context.protocol] || '';
+        if (['WHIP', 'WHEP', 'HTTP-FLV', 'HTTP-CMAF', 'HLS', 'HLS-2nd', 'DASH'].indexOf(context.protocol) === -1 ||
             context.direction !== (publishing ? 'publish' : 'play') ||
             (publishing && (typeof value.ticket !== 'string' || !value.ticket || value.ticket.length > 16384 ||
                 /[^\x21-\x7e]/.test(value.ticket) || ['audio', 'camera', 'screen'].indexOf(context.purpose) === -1)) ||

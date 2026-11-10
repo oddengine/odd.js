@@ -46,7 +46,10 @@ set scripts[32]=".\src\utils\utils.mediarequest.js"
 set scripts[33]=".\src\utils\utils.routing.js"
 set scripts[34]=".\src\utils\utils.controlmenu.js"
 set scripts[35]=".\src\utils\utils.mediacontrols.js"
-set length=36
+set scripts[36]=".\src\utils\utils.vod.js"
+set scripts[37]=".\src\utils\utils.playbacksession.js"
+set scripts[38]=".\src\utils\mpd\mpd.manifest.js"
+set length=39
 
 cd.>.\release\odd.common.js
 
@@ -259,8 +262,9 @@ set scripts[21]=".\src\player\player.model.js"
 set scripts[22]=".\src\player\player.view.js"
 set scripts[23]=".\src\player\player.controller.js"
 set scripts[24]=".\src\player\player.program.js"
+set scripts[25]=".\src\player\module\module.dash.js"
 
-set length=25
+set length=26
 
 cd.>.\release\odd.player.js
 

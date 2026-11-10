@@ -48,9 +48,11 @@
 
         _this.applyConstraints = function (constraints) {
             _this.constraints = utils.extendz(_this.constraints, constraints);
+            var tasks = [];
             utils.forEach(_api.publishers, function (_, ns) {
-                ns.applyConstraints(_this.constraints);
+                tasks.push(ns.applyConstraints(_this.constraints));
             });
+            return Promise.all(tasks);
         };
 
         _this.publish = async function () {

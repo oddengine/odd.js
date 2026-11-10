@@ -20,6 +20,7 @@
         _instances = {},
         _default = {
             inputPublishing: false,
+            settingsScope: 'next-session',
             speakerLabels: { prefix: 'Speaking: ', unnamed: 'Participant' },
             presentation: 'full', // full, mini, popup
             skin: 'classic',
@@ -65,8 +66,10 @@
             _sharing,
             _preview,
             _previewGeneration = 0,
+            _previewBeautyTask = Promise.resolve(),
             _settingsGeneration = 0,
             _settingsOpen = false,
+            _settingsApplying = false,
             _subscribing,
             _timer,
             _pendingCall,
@@ -428,7 +431,7 @@
         // Opt-in meeting controls: one local publication, serialized changes,
         // no changes to subscriptions or the independent screen share.
         _this.publishInputs = function (audio, video) {
-            if (!_this.config.inputPublishing || _readyState !== State.CONNECTED) {
+            if (!_this.config.inputPublishing || _readyState !== State.CONNECTED || _settingsApplying) {
                 return Promise.reject({ name: 'InvalidStateError', message: 'Input publishing is not ready.' });
             }
             if (audio && !_audioAllowed) { return Promise.reject({ name: 'NotAllowedError', message: '主持人已开启全体静音，暂不能开麦。' }); }
@@ -1088,20 +1091,33 @@
 
         function _onChange(e) {
             switch (e.data.name) {
+                case 'stop-preview':
+                    _releasePreview();
+                    break;
+                case 'beauty':
+                    _updatePreviewBeauty(e.data.value).catch(_settingsError);
+                    break;
                 case 'preview':
                     _previewSettings(e.data.value).catch(function (err) {
-                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        _settingsError(err);
                     });
                     break;
                 case 'save':
                     _saveSettings(e.data.value).catch(function (err) {
-                        _this.dispatchEvent(Event.ERROR, { name: err.name, message: err.message });
+                        _settingsError(err);
                     });
                     break;
                 default:
                     _this.forward(e);
                     break;
             }
+        }
+
+        function _settingsError(error) {
+            if (!_settingsOpen || _readyState !== State.CONNECTED) { return; }
+            var dashboard = _this.plugins['Dashboard'], panel = dashboard && dashboard.components.settings;
+            if (panel) { panel.feedback(error.message || error.name); }
+            _this.dispatchEvent(Event.ERROR, { name: error.name, message: error.message, operation: 'settings', recoverable: true });
         }
 
         function _onDoubleClick(e) {
@@ -1212,14 +1228,15 @@
                 if (_readyState !== State.CONNECTED || generation !== _settingsGeneration) {
                     return;
                 }
-                var preferences = _this.settings().read().effective;
+                var preferences = _this.config.settingsScope === 'session' ? _this.config : _this.settings().read().effective;
                 dashboard.update('settings', {
                     profile: preferences.profile,
                     camera: preferences.camera,
                     microphone: preferences.microphone,
                     joinAudio: preferences.joinAudio,
                     joinVideo: preferences.joinVideo,
-                    joinPreferences: _this.config.inputPublishing,
+                    joinPreferences: _this.config.inputPublishing && _this.config.settingsScope !== 'session',
+                    beauty: preferences.beauty,
                     cameras: devices[0],
                     microphones: devices[1],
                 });
@@ -1236,13 +1253,17 @@
             if (!_settingsOpen || _readyState !== State.CONNECTED) { return Promise.resolve(); }
             var generation = _previewGeneration;
             var config = utils.extendz({}, _this.config, settings);
-            return _api.preview(_getConstraints(config, true), false, false).then(function (ns) {
+            return _api.preview(_getConstraints(config, true), false, false).then(async function (ns) {
                 if (_readyState !== State.CONNECTED || !_settingsOpen || generation !== _previewGeneration) {
                     ns.close('cancelled');
                     return;
                 }
                 _preview = ns;
                 ns.addEventListener(Event.RELEASE, _onStreamRelease);
+                if (settings.beauty && ns.stream().getVideoTracks().length) {
+                    await _updatePreviewBeauty(settings.beauty);
+                }
+                if (_readyState !== State.CONNECTED || !_settingsOpen || generation !== _previewGeneration) { ns.close('cancelled'); return; }
 
                 var dashboard = _this.plugins['Dashboard'];
                 if (dashboard && dashboard.components['settings']) {
@@ -1251,12 +1272,27 @@
                 return ns;
             }).catch(function (err) {
                 if (_readyState !== State.CONNECTED || !_settingsOpen || generation !== _previewGeneration) { return; }
+                _releasePreview();
                 throw err;
             });
         }
 
+        function _updatePreviewBeauty(settings) {
+            var ns = _preview, generation = _previewGeneration, value = utils.extendz({}, settings);
+            // Serialise toggles with the initial preview effect: disabling must
+            // not race the pending replacement of the camera by a canvas track.
+            _previewBeautyTask = _previewBeautyTask.catch(function () {}).then(function () {
+                if (ns !== _preview || generation !== _previewGeneration || !ns || !ns.stream().getVideoTracks().length) { return; }
+                return ns.beauty(value.enabled, RTC.Beauty.parameters(value));
+            }).catch(function (err) {
+                if (ns === _preview && generation === _previewGeneration) { throw err; }
+            });
+            return _previewBeautyTask;
+        }
+
         function _releasePreview() {
             _previewGeneration++;
+            _previewBeautyTask = Promise.resolve();
             var preview = _preview;
             _preview = null;
             var dashboard = _this.plugins['Dashboard'];
@@ -1268,12 +1304,69 @@
         }
 
         async function _saveSettings(settings) {
+            if (_settingsApplying) { return; }
             _releasePreview();
-            var preferences = _this.settings();
-            var result = await preferences.save(settings, { expectedVersion: preferences.read().version, scope: 'next-session' });
-            var dashboard = _this.plugins['Dashboard'];
-            if (dashboard) { dashboard.hide('settings'); }
-            _this.dispatchEvent(Event.CHANGE, { name: 'settings-saved', value: result });
+            var dashboard = _this.plugins['Dashboard'], panel = dashboard && dashboard.components.settings;
+            _settingsApplying = true;
+            if (panel) { panel.busy(true); }
+            try {
+                if (_inputTask) { await _inputTask; }
+                if (_readyState !== State.CONNECTED) { throw { name: 'AbortError', message: 'Session closed.' }; }
+                var result;
+                if (_this.config.settingsScope === 'session') {
+                    await _applySessionSettings(settings);
+                    result = { scope: 'session' };
+                } else {
+                    var preferences = _this.settings();
+                    result = await preferences.save(settings, { expectedVersion: preferences.read().version, scope: 'next-session' });
+                }
+                if (dashboard) { dashboard.hide('settings'); }
+                _this.dispatchEvent(Event.CHANGE, { name: 'settings-saved', value: result });
+            } catch (err) {
+                if (panel && _settingsOpen) { panel.feedback(err.message || err.name); }
+                throw err;
+            } finally {
+                _settingsApplying = false;
+                if (panel && _readyState === State.CONNECTED) { panel.busy(false); }
+            }
+        }
+
+        async function _applySessionSettings(settings) {
+            // Input replacement stays on the existing stream and sender. Commit
+            // each successful setting so a later device failure is retryable.
+            RTC.Beauty.parameters(settings.beauty);
+            if (!Constraints[settings.profile]) { throw { name: 'DataError', message: 'Invalid quality preset.' }; }
+            var ns = _calling, stream = ns && ns.stream(), generation = _settingsGeneration;
+            function check() {
+                if (_readyState !== State.CONNECTED || generation !== _settingsGeneration || ns !== _calling) {
+                    throw { name: 'AbortError', message: 'Settings change was cancelled.' };
+                }
+            }
+            check();
+            if (stream && stream.getVideoTracks().length) {
+                await ns.beauty(settings.beauty.enabled, RTC.Beauty.parameters(settings.beauty));
+            }
+            check();
+            _this.config.beauty = utils.extendz({}, settings.beauty);
+            _api.config.beauty = utils.extendz({}, settings.beauty);
+            if (ns) { ns.config.beauty = utils.extendz({}, settings.beauty); }
+
+            if (stream && settings.profile !== _this.config.profile) { await ns.setProfile(settings.profile); }
+            check();
+            _this.config.profile = settings.profile;
+            _api.config.profile = settings.profile;
+            if (stream && stream.getVideoTracks().length && settings.camera !== _this.config.camera) {
+                await ns.setCamera(settings.camera ? { exact: settings.camera } : '');
+            }
+            check();
+            _this.config.camera = settings.camera;
+            if (stream && stream.getAudioTracks().length && settings.microphone !== _this.config.microphone) {
+                await ns.setMicrophone(settings.microphone ? { exact: settings.microphone } : '');
+            }
+            check();
+            _this.config.microphone = settings.microphone;
+            if (_readyState !== State.CONNECTED) { throw { name: 'AbortError', message: 'Session closed.' }; }
+            _constraints = _getConstraints(_this.config);
         }
 
         function _onError(e) {

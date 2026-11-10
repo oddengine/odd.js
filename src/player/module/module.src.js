@@ -19,6 +19,7 @@
             _source,
             _connectionId,
             _lease,
+            _productSession,
             _loading = false,
             _controller,
             _credentialReject,
@@ -94,13 +95,14 @@
                 return;
             }
             if (program) {
-                if (!program.sources || !program.sources.length || !program.sources[0].url) {
+                if (!program.sources || !program.sources.length || (!program.sources[0].url &&
+                    !(program.sources[0].streamId && ['HLS', 'HLS-2nd'].indexOf(program.sources[0].protocol) !== -1))) {
                     _logger.error('No source provided for SRC playback.');
                     _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'No media source provided.' });
                     return;
                 }
 
-                var file = program.sources[0].url;
+                var source = program.sources[0], file = source.url || source.protocol + ':' + source.streamId;
                 if (file !== _file) {
                     _generation++;
                     _release();
@@ -109,6 +111,10 @@
                     _video.removeAttribute('src');
                     _video.load();
                     _this.dispatchEvent(Event.DURATIONCHANGE, { duration: NaN });
+                    if (source.protocol === 'HLS' || source.protocol === 'HLS-2nd') {
+                        _authorizeProduct(_generation);
+                        return;
+                    }
                     if (_this.config.credentials !== null && _this.config.credentials !== undefined) {
                         _authorize(_generation, false);
                         return;
@@ -141,7 +147,7 @@
                         _this.play();
                         return;
                     }
-                    if (_lease) {
+                    if (_lease || _productSession) {
                         _fail({ name: err.name, message: 'Native playback could not start.' });
                         return;
                     }
@@ -151,6 +157,24 @@
             }
             _video.controls = false;
         };
+
+        async function _authorizeProduct(generation) {
+            _loading = true;
+            var session = new utils.PlaybackSession(_this.config, function (error) {
+                if (!_destroyed && generation === _generation) { _fail(error); }
+            });
+            _productSession = session;
+            try {
+                await session.open(_source);
+                if (_destroyed || generation !== _generation) { session.close(); return; }
+                _video.crossOrigin = 'anonymous';
+                _video.src = session.url;
+                _loading = false;
+                _this.play();
+            } catch (error) {
+                if (!_destroyed && generation === _generation) { _fail(error); }
+            }
+        }
 
         function _uuid() {
             var bytes = new Uint8Array(16),
@@ -363,6 +387,7 @@
         }
 
         function _release() {
+            if (_productSession) { _productSession.close(); _productSession = undefined; }
             clearTimeout(_credentialTimer);
             clearTimeout(_renewTimer);
             clearTimeout(_expiresTimer);
@@ -502,7 +527,7 @@
                 3: { name: 'EncodingError', message: 'The encoding or decoding operation failed.' },
                 4: { name: 'NotSupportedError', message: 'Failed to load because no supported source was found.' },
             }[_video.error.code] || { name: 'OperationError', message: 'Native media playback failed.' };
-            if (_lease || _loading) {
+            if (_lease || _productSession || _loading) {
                 _fail(err);
                 return;
             }
@@ -524,6 +549,10 @@
         var nativeHls = video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('application/x-mpegURL');
         var extensions = ['mp4', 'f4v', 'm4v', 'mov', 'm4a', 'f4a', 'aac', 'ogv', 'ogg', 'mp3', 'oga', 'webm'];
         for (var source of program.sources) {
+            if (source && source.streamId && (source.protocol === 'HLS' || source.protocol === 'HLS-2nd')) {
+                if (!nativeHls || !window.fetch || !window.AbortController) { return false; }
+                continue;
+            }
             if (!source || typeof source.url !== 'string') {
                 return false;
             }

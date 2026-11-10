@@ -11,8 +11,34 @@
             _selected = '',
             _identity = '',
             _failed = '',
+            _line = 'auto',
+            _sourceIdentity = '',
+            _sourceProtocol = '',
+            _failedLines = new Set(),
             _closed = false,
             _selecting = false;
+
+        var formats = { 'HTTP-FLV': 'FLV', 'HTTP-CMAF': 'FMP4', HLS: 'SRC', 'HLS-2nd': 'SRC', DASH: 'DASH' },
+            configured = Array.isArray(config.lines) ? config.lines.slice() : ['HTTP-FLV'];
+
+        _this.lines = function () {
+            return configured.filter(function (protocol, index) {
+                if (!formats[protocol] || configured.indexOf(protocol) !== index) { return false; }
+                return !!odd.Module.get({ type: formats[protocol], vod: false,
+                    sources: [{ streamId: '00000000-0000-4000-8000-000000000001', protocol: protocol }] });
+            });
+        };
+
+        function _protocol() {
+            if (_line !== 'auto') { return _line; }
+            var lines = _this.lines(), mobile = odd.OS.isIOS || odd.OS.isMobile && odd.Browser.isSafari || odd.OS.isMac && navigator.maxTouchPoints > 1,
+                order = mobile ? ['HLS-2nd', 'HLS', 'HTTP-CMAF', 'HTTP-FLV', 'DASH'] : ['HTTP-FLV', 'HTTP-CMAF', 'HLS-2nd', 'HLS', 'DASH'];
+            // MPEG-TS omits WHIP's Opus audio. It remains a manual option, but
+            // must not silently become the automatic fallback for that source.
+            return order.find(function (protocol) {
+                return !(_sourceProtocol === 'WHIP' && protocol === 'HLS') && lines.indexOf(protocol) !== -1 && !_failedLines.has(protocol);
+            }) || '';
+        }
 
         function _original() {
             var payload = _latest && _latest.payload;
@@ -30,12 +56,16 @@
                 mixed = payload && payload.mode === 'pk' && payload.state === 'active' && _failed !== key,
                 original = _original(),
                 source = mixed ? payload : original,
-                identity = source ? mixed ? key : [source.streamId, source.instanceId, source.generation.high, source.generation.low].join(':') : '';
+                sourceIdentity = source ? mixed ? key : [source.streamId, source.instanceId, source.generation.high, source.generation.low].join(':') : '';
+
+            if (sourceIdentity !== _sourceIdentity) { _failedLines.clear(); _sourceIdentity = sourceIdentity; }
+            _sourceProtocol = mixed ? '' : source && source.protocol || '';
+            var protocol = _protocol(), identity = sourceIdentity && protocol ? sourceIdentity + ':' + protocol : '';
 
             if (identity && identity !== _identity) {
                 _identity = identity;
                 _selecting = true;
-                try { player.select({ type: 'FLV', vod: false, sources: [{ streamId: source.streamId, label: mixed ? 'PK 画面' : '直播画面' }] }); }
+                try { player.select({ type: formats[protocol], vod: false, sources: [{ streamId: source.streamId, protocol: protocol, label: mixed ? 'PK 画面' : '直播画面' }] }); }
                 finally { _selecting = false; }
             } else if (!identity && _identity) {
                 // An authoritative snapshot with no original ends playback.
@@ -47,16 +77,22 @@
             }
             if (typeof config.change === 'function') {
                 config.change({ program: payload, streamId: source ? source.streamId : '',
-                    mode: mixed ? 'pk' : 'original', fallback: !!(payload && payload.mode === 'pk' && _failed === key) });
+                    line: _line, protocol: protocol, mode: mixed ? 'pk' : 'original', fallback: !!(payload && payload.mode === 'pk' && _failed === key) });
             }
         }
 
         function _onError(e) {
             if (e && e.data && e.data.recoverable === true && (e.data.operation === 'capture' || e.data.operation === 'record')) { return; }
             var payload = _latest && _latest.payload;
-            if (_closed || _selecting || !payload || payload.mode !== 'pk') { return; }
+            if (_closed || _selecting) { return; }
+            if (e.type === Event.ERROR && _line === 'auto' && _identity && e.data &&
+                ['NotSupportedError', 'EncodingError', 'NetworkError', 'TimeoutError'].indexOf(e.data.name) !== -1) {
+                _failedLines.add(_protocol());
+                if (_protocol()) { _choose(); return; }
+            }
+            if (!payload || payload.mode !== 'pk') { return; }
             var key = payload.pkId + ':' + payload.streamId;
-            if (_failed === key || _identity !== key) { return; }
+            if (_failed === key || _sourceIdentity !== key) { return; }
             _failed = key;
             _choose();
         }
@@ -76,7 +112,13 @@
         };
 
         _this.select = function (streamId) { _selected = streamId; _choose(); };
-        _this.refresh = function () { _failed = ''; _choose(); };
+        _this.line = function (value) {
+            if (value === undefined) { return _line; }
+            if (value !== 'auto' && _this.lines().indexOf(value) === -1) { throw { name: 'NotSupportedError', message: 'Playback line is not supported on this device.' }; }
+            if (value === _line) { return; }
+            _line = value; _failedLines.clear(); _choose();
+        };
+        _this.refresh = function () { _failed = ''; _failedLines.clear(); _identity = ''; _choose(); };
         _this.destroy = function () {
             _closed = true;
             player.removeEventListener(Event.ERROR, _onError);

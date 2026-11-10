@@ -221,9 +221,8 @@
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-slider.volume .pe-action-caption { position: absolute; inset: auto 0 -20px; margin: 0; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-drawer .pe-select { display: flex; align-items: center; gap: 8px; }
 .pe-ui-classic.pe-media-window[controls][kind] .pe-controls-reveal {
-    min-height: 44px; inset: auto 8px 8px auto; position: absolute; z-index: 7; padding: 8px 12px;
-    border: 1px solid var(--pe-media-line); border-radius: var(--odd-radius-control); font: inherit;
-    color: var(--pe-media-ink); background: var(--pe-media-raised); cursor: pointer;
+    position: absolute; width: 1px; height: 1px; padding: 0; border: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
 /* The stage stays the same size while controls are temporarily hidden. */
@@ -362,3 +361,18 @@
     overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
 .pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-toggle.layout[state="hidden"] { background-size: 24px; background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23fff8f2" stroke-width="1.7" stroke-linecap="round"%3E%3Cpath d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.8 5.3A11 11 0 0112 5c6 0 10 7 10 7a20 20 0 01-3.3 3.9M6.6 6.6A22 22 0 002 12s4 7 10 7a11 11 0 005.4-1.4"/%3E%3C/svg%3E'); }
+
+/* Device sheets use a reserved preview, quiet sections and one apply action. */
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-title { font-size:14px; margin:20px 0 10px; padding:0; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-content { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; padding:0; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-content label { display:grid; gap:6px; font-size:13px; margin:0; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-content select { width:100%; min-height:44px; padding:8px 12px; border:1px solid var(--pe-media-line); background:var(--pe-media-raised); color:var(--pe-media-ink); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-preview { display:block; width:100%; height:auto; aspect-ratio:16/9; max-height:200px; object-fit:contain; background:var(--pe-media-stage); margin:0; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] :is(.pe-settings-preview-hint,.pe-settings-notice) { font-size:12px; line-height:1.6; margin:0; opacity:.8; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-preview-action { justify-self:start; min-height:44px; padding:6px 14px; border:1px solid var(--pe-media-line); border-radius:var(--odd-radius-pill); color:var(--pe-media-ink); background:transparent; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-content .pe-settings-strength { display:grid; grid-template-columns:4em minmax(0,1fr) 2.5em; align-items:center; gap:12px; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-strength input { width:100%; accent-color:var(--pe-media-focus); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-strength output { text-align:right; font-variant-numeric:tabular-nums; font-size:12px; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-notice { margin:16px 0; }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-footer { display:flex; justify-content:flex-end; margin-top:16px; padding:16px 0 0; border-top:1px solid var(--pe-media-line); }
+.pe-ui-classic.pe-media-window[controls][kind="rtc"] .pe-settings-footer button { min-height:44px; padding:8px 18px; border:0; color:var(--pe-media-stage); background:var(--pe-media-focus); }
