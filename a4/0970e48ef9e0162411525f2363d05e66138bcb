@@ -1,0 +1,78 @@
+compile.bat
+  s_ce051dd806ff7f::t_5ac3cf734f3d4a 49-52
+  s_ce051dd806ff7f::t_e7b9602fcbe4e5 265,267
+src/utils/utils.mediacontrols.js
+  s_ce051dd806ff7f::t_16ab1fe2b048df 145-147
+src/player/module/module.fmp4.js
+  s_ce051dd806ff7f::t_95cdf27ca2a122 243,1038
+test/player.segmented.js
+  s_ce051dd806ff7f::t_ba8959069ab7f4 1-66
+src/player/module/module.src.js
+  s_ce051dd806ff7f::t_d424a47426e048 22,98-99,105,114-117,150,161-178,390,530,552-555
+src/utils/utils.playbacksession.js
+  s_ce051dd806ff7f::t_20d4a5ccd3579f 17,19,42-46,53,83
+  s_ce051dd806ff7f::t_22e42564101e68 1-16,18,20-41,47-52,54-82,84-160
+test/player.segmented.html
+  s_ce051dd806ff7f::t_ba8959069ab7f4 1
+src/player/player.program.js
+  s_ce051dd806ff7f::t_9f8d174a797a4c 14-15,17,21-33,35,41-42,59-61,63,68,80,87-93,95,115-121
+  s_ce051dd806ff7f::t_8c94479cac8e33 16,34,36-40,62
+css/odd.media.css
+  s_ce051dd806ff7f::t_16ab1fe2b048df 224-225
+  s_ce051dd806ff7f::t_8c94479cac8e33 364-378
+src/rtc/rtc.js
+  s_ce051dd806ff7f::t_e20472a2a341be 121,160
+compile.sh
+  s_ce051dd806ff7f::t_95cdf27ca2a122 50,215
+  s_ce051dd806ff7f::t_d424a47426e048 49
+src/player/module/module.dash.js
+  s_ce051dd806ff7f::t_95cdf27ca2a122 1-192
+  s_ce051dd806ff7f::t_cdfc18d8952359 193-198
+src/rtc/rtc.netstream.js
+  s_ce051dd806ff7f::t_147a3f78e7c120 240-254,450
+  s_ce051dd806ff7f::t_e15d2946da862d 233
+  s_ce051dd806ff7f::t_395cb96de30a9e 155-156,158,160-170,174,190-193,219,257-259,264,273,281,1442-1443,1445-1452,1454-1456
+src/rtc/ui/ui.userlist.js
+  s_ce051dd806ff7f::t_8612423dc1dac4 51,53,55
+src/player/ui/ui.chat.js
+  s_ce051dd806ff7f::t_e20472a2a341be 109-111
+src/im/ui/ui.conversations.js
+  s_ce051dd806ff7f::t_c928d9da2fd70e 87-88,110
+  s_ce051dd806ff7f::t_61b83c95f226da 6,36-40,48,57,69,82,84-86,89-94,169
+src/rtc/ui/ui.js
+  s_ce051dd806ff7f::t_8612423dc1dac4 69,1098,1102,1107,1116-1120,1264,1275,1280-1292,1295,1339-1345,1349,1355,1361,1366
+  s_ce051dd806ff7f::t_e15d2946da862d 23,72,434,1094-1097,1099,1121,1231,1238-1239,1256,1263,1265-1266,1307,1309-1338,1346-1348,1350-1354,1356-1360,1362-1365,1367-1369
+  s_41d6298cfea1a2::t_c344aed1da8e1f 1122
+src/utils/mpd/mpd.manifest.js
+  s_ce051dd806ff7f::t_4351d467e235e1 1-132
+src/rtc/ui/components/components.settings.js
+  s_ce051dd806ff7f::t_08d941d6d265b7 20,27,34-38,47-51,69-76,133-171,198,200-201,237-245,247,256
+src/utils/utils.mediarequest.js
+  s_ce051dd806ff7f::t_8383a34756fb14 27-28
+src/utils/utils.routing.js
+  s_ce051dd806ff7f::t_758599352aa8af 218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a40970e48ef9e0162411525f2363d05e66138bcb",
+  "prompts": {},
+  "sessions": {
+    "s_41d6298cfea1a2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c0561cb2-bfd1-49d3-bd7c-f113729d6ecd",
+        "model": "deepseek-v4.1-flash"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    },
+    "s_ce051dd806ff7f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a71b-f498-7282-899f-ff2e939c362d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
