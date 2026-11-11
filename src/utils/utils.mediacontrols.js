@@ -74,10 +74,20 @@
             _drawer.hidden = !visible;
             _more.setAttribute('aria-expanded', String(visible));
             container.setAttribute('expanded', String(visible));
-            if (visible) { _close.focus(); }
+            if (visible) { _placeDrawer(); _close.focus(); }
             else if (restore !== false && _more.isConnected && !_more.hidden) { _more.focus(); }
             if (!visible) { _schedule(); }
         };
+        function _placeDrawer() {
+            if (!_wrapper || _drawer.hidden) { return; }
+            var anchor = _more.getBoundingClientRect(), bounds = _wrapper.getBoundingClientRect(),
+                bar = container.getBoundingClientRect(), width = _drawer.getBoundingClientRect().width,
+                left = Math.max(bounds.left + 8, Math.min(anchor.right - width, bounds.right - width - 8));
+            // Anchor to More rather than the full bar, and keep short bars or
+            // translated RTC controls from pushing the panel outside the video.
+            _drawer.style.left = (left - bar.left - container.clientLeft) + 'px';
+            _drawer.style.right = 'auto';
+        }
         // Hand off an action's result without leaving focus inside a hidden drawer.
         _this.presentResult = function (target) {
             var focused = container.contains(document.activeElement);
@@ -189,6 +199,7 @@
             if (container.parentNode) {
                 container.style.setProperty('--pe-panel-height', Math.max(24, container.parentNode.clientHeight - container.clientHeight - 24) + 'px');
             }
+            _placeDrawer();
             if (!content.clientWidth) { return; }
             if (_this.active()) {
                 // Keep the focused node in place while allowing a newly narrow

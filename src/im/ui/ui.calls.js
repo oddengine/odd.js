@@ -21,15 +21,19 @@
         var _this = this, _closed = false, _call = null, _selection = 0,
             _panel = document.createElement('section'), _title = document.createElement('h2'),
             _status = document.createElement('p'), _members = document.createElement('ul'),
-            _media = document.createElement('div'), _actions = document.createElement('div'),
+            _stage = document.createElement('div'), _media = document.createElement('div'), _actions = document.createElement('div'),
             _elements = Object.create(null);
-        _panel.className = 'im-call';
+        _panel.className = 'im-call im-ui-classic';
         _panel.hidden = true;
         _panel.setAttribute('aria-label', labels.call);
         _status.setAttribute('role', 'status');
         _media.className = 'im-call-media';
+        _stage.className = 'im-call-stage';
         _actions.className = 'im-call-actions';
-        [_title, _status, _members, _media, _actions].forEach(function (element) { _panel.appendChild(element); });
+        _actions.setAttribute('role', 'group');
+        _actions.setAttribute('aria-label', labels.call);
+        _stage.appendChild(_media); _stage.appendChild(_actions);
+        [_title, _status, _members, _stage].forEach(function (element) { _panel.appendChild(element); });
         if (typeof config.onMinimize === 'function') {
             var minimize = document.createElement('button');
             minimize.type = 'button'; minimize.className = 'im-call-minimize'; minimize.textContent = labels.minimize;
@@ -37,19 +41,14 @@
             _panel.insertBefore(minimize, _title);
         }
 
-        function icon(element, name, label) {
-            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
-            var phone = 'M7 3H4a2 2 0 0 0-2 2c0 9.4 7.6 17 17 17a2 2 0 0 0 2-2v-3l-5-2-2 2a15 15 0 0 1-7-7l2-2-2-5Z';
-            var paths = { accept: [phone], decline: [phone] };
-            paths[name].forEach(function (d) { var path = document.createElementNS(svg.namespaceURI, 'path'); path.setAttribute('d', d); svg.appendChild(path); });
-            element.textContent = ''; element.appendChild(svg); element.setAttribute('aria-label', label); element.title = label;
-        }
         function button(label, action, name) {
             var element = document.createElement('button');
             element.type = 'button';
             element.textContent = label;
-            if (name) { element.className = 'im-call-answer'; element.setAttribute('data-action', name); icon(element, name, label); }
+            if (name) {
+                element.className = 'im-call-answer'; element.setAttribute('data-action', name);
+                element.textContent = ''; element.setAttribute('aria-label', label); element.title = label;
+            }
             element.onclick = function () {
                 element.disabled = true;
                 Promise.resolve().then(action).catch(function (reason) {
@@ -105,10 +104,10 @@
                 // One decline action ends ringing on all candidate devices.
                 button(labels.declineAll, function () { return im.calls().reject(call.callId, true); }, 'decline');
             } else if (selected && !closing) {
-                button(call.callerId === endpoint.userId ? labels.end : labels.leave, function () {
+                button(call.callerId === endpoint.userId ? call.state === 'inviting' ? labels.cancel : labels.end : labels.leave, function () {
                     return im.calls().action(call.callId, call.callerId === endpoint.userId ?
                         (call.state === 'inviting' ? 'cancel' : 'end') : 'leave');
-                });
+                }, 'decline');
             }
             if (closing) { button(labels.retryPending, function () { im.calls().retry(); }); }
         }
@@ -195,7 +194,7 @@
                     var maximum = im.calls().capabilities ? im.calls().capabilities().participants - 1 : 15;
                     if (!invitees.length || invitees.length > maximum) { _status.textContent = labels.chooseLimit.replace('{max}', maximum); return; }
                     return im.calls().invite(target, { mode: mode, invitees: invitees });
-                });
+                }, 'accept');
                 more = button(labels.moreMembers, loadMembers); more.hidden = !cursor;
                 button(labels.cancel, dismiss);
             }

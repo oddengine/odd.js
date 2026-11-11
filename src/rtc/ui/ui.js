@@ -21,6 +21,7 @@
         _default = {
             inputPublishing: false,
             previewOnly: false,
+            publishable: true,
             settingsScope: 'next-session',
             speakerLabels: { prefix: 'Speaking: ', unnamed: 'Participant' },
             presentation: 'full', // full, mini, popup
@@ -79,6 +80,7 @@
             _timer,
             _pendingCall,
             _pendingShare,
+            _inputPublishingSuspended = false,
             _inputWanted = { audio: false, video: false },
             _inputRevision = 0,
             _inputTask = null,
@@ -150,6 +152,7 @@
 
                 _buildPlugins();
                 _setupPlugins();
+                _this.publishable(_this.config.publishable);
                 _this.resize();
                 document.addEventListener('visibilitychange', _onVisibility);
                 _onVisibility();
@@ -288,8 +291,40 @@
             _this.forward(e);
         }
 
+        // A business host may prepare devices before granting publication.
+        // This UI gate never replaces server authorization or changes transport.
+        _this.publishable = function (enable) {
+            if (enable === undefined) { return !_this.config.previewOnly && _this.config.publishable; }
+            if (enable && !_this.config.publishable) { _inputPublishingSuspended = false; }
+            _this.config.publishable = !!enable && !_this.config.previewOnly;
+            var controls = _this.plugins.Controlbar;
+            ['calling', 'sharing'].forEach(function (name) {
+                var component = controls && controls.components[name];
+                if (component) { component.element().disabled = !_this.config.publishable; }
+            });
+            if (!_this.config.publishable) { _this.hangup(); _this.cancel(); }
+            _mediaChanged();
+            return _this.config.publishable;
+        };
+
+        _this.mediaState = function () {
+            return {
+                preview: !!_wrapper && _wrapper.getAttribute('preview') === 'on',
+                publishing: !!_calling, sharing: !!_sharing, capturing: !!_inputTask,
+                audio: !!_wrapper && _wrapper.getAttribute('microphone') === 'on',
+                video: !!_wrapper && _wrapper.getAttribute('camera') === 'on',
+                inputsSelected: _inputRevision > 0, publishable: _this.publishable(),
+            };
+        };
+
+        function _mediaChanged() {
+            if (_readyState === State.CONNECTED) {
+                _this.dispatchEvent(Event.CHANGE, { name: 'media', value: _this.mediaState() });
+            }
+        }
+
         _this.call = function () {
-            if (_readyState !== State.CONNECTED || _this.config.previewOnly || _settingsApplying) {
+            if (_readyState !== State.CONNECTED || !_this.publishable() || _settingsApplying) {
                 return Promise.reject({ name: 'InvalidStateError', message: 'Publishing is not available.' });
             }
             if (_calling) { return Promise.resolve(_calling); }
@@ -317,10 +352,12 @@
                 }
                 _preview = null;
                 _calling = ns;
+                _inputPublishingSuspended = false;
                 ns.element().classList.remove('pe-rtc-preview');
                 ns.element().classList.add('pe-rtc-calling');
                 _wrapper.setAttribute('calling', 'on');
                 if (_this.plugins.Controlbar) { _this.plugins.Controlbar.state('calling', 'on'); }
+                _mediaChanged();
                 return ns;
             }).finally(function () {
                 if (_pendingCall === operation) { _pendingCall = null; }
@@ -330,6 +367,7 @@
         };
 
         _this.hangup = function () {
+            _inputPublishingSuspended = true;
             if (_pendingCall) {
                 _pendingCall.cancelled = true;
                 if (_pendingCall.stream) { _pendingCall.stream.close('cancelled'); }
@@ -337,6 +375,7 @@
             if (_calling) { _api.stop(_calling.name()); }
             _wrapper.setAttribute('calling', 'off');
             if (_this.plugins.Controlbar) { _this.plugins.Controlbar.state('calling', 'off'); }
+            _mediaChanged();
             return Promise.resolve();
         };
 
@@ -371,10 +410,11 @@
         function _previewControls(visible) {
             _wrapper.setAttribute('preview', visible ? 'on' : 'off');
             if (_this.plugins.Controlbar) { _this.plugins.Controlbar.state('preview', visible ? 'on' : 'off'); }
+            _mediaChanged();
         }
 
         _this.share = function () {
-            if (_readyState !== State.CONNECTED || _this.config.previewOnly) {
+            if (_readyState !== State.CONNECTED || !_this.publishable()) {
                 return Promise.reject({ name: 'InvalidStateError', message: 'RTC UI is not ready: state=' + _readyState + '.' });
             }
 
@@ -409,6 +449,7 @@
                 if (controlbar) {
                     controlbar.state('sharing', 'on');
                 }
+                _mediaChanged();
                 return ns;
             }).catch(function (err) {
                 if (operation.cancelled || _readyState !== State.CONNECTED) {
@@ -467,7 +508,7 @@
                 return Promise.reject({ name: 'InvalidStateError', message: 'Input publishing is not enabled.' });
             }
             return _updateInputs(audio, video).then(function () {
-                if (_inputWanted.audio || _inputWanted.video) { return _this.call(); }
+                if (_this.publishable() && (_inputWanted.audio || _inputWanted.video)) { return _this.call(); }
                 return _calling;
             });
         };
@@ -553,18 +594,20 @@
             }).finally(function () {
                 _inputTask = null;
                 if (controls) { controls.element().removeAttribute('aria-busy'); }
+                _mediaChanged();
             });
+            _mediaChanged();
             return _inputTask;
         }
 
         _this.microphone = function (enable) {
             if (enable === undefined) { return _wrapper.getAttribute('microphone') === 'on'; }
-            return _this.config.inputPublishing ? _this.publishInputs(enable, _inputWanted.video) : _updateInputs(enable, _inputWanted.video);
+            return _this.config.inputPublishing && !_inputPublishingSuspended ? _this.publishInputs(enable, _inputWanted.video) : _updateInputs(enable, _inputWanted.video);
         };
 
         _this.camera = function (enable) {
             if (enable === undefined) { return _wrapper.getAttribute('camera') === 'on'; }
-            return _this.config.inputPublishing ? _this.publishInputs(_inputWanted.audio, enable) : _updateInputs(_inputWanted.audio, enable);
+            return _this.config.inputPublishing && !_inputPublishingSuspended ? _this.publishInputs(_inputWanted.audio, enable) : _updateInputs(_inputWanted.audio, enable);
         };
 
         _this.play = async function (name) {
@@ -873,6 +916,7 @@
                 delete _subscribing[ns.name()];
             }
             _layoutVideos();
+            _mediaChanged();
         }
 
         _this.layout = function (state) {
