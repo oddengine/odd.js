@@ -1,0 +1,35 @@
+css/odd.media.css
+  s_1ce716add0403a::t_171f3d199727ea 380
+  s_1ce716add0403a::t_f78918b45e1288 384,387
+  s_1ce716add0403a::t_5554c7472ed8cf 385
+  s_1ce716add0403a::t_09c8b634eabb40 388
+  s_1ce716add0403a::t_47243d309bad7f 410-415,439-443
+  s_1ce716add0403a::t_c451cdd772a77a 55,83,85,89-95,102-103,105,373,375-376,381,396,398-399,402,404,420,422,433
+  s_1ce716add0403a::t_51e95088414ba0 377-379,382-383,386,389-391
+css/odd.im.reading.css
+  s_1ce716add0403a::t_c451cdd772a77a 23
+css/odd.brand-tokens.css
+  s_1ce716add0403a::t_96c15a80e187e8 5,7-28,36,38-39,41-43,46-59,67,69-90,98,100-101,103-105,108-121,129,131-152,160,162-163,165-167,170-183,191,193-214,222,224-225,227-229,232-245,253,255-276,284,286-287,289-291,294-307,318,325-326,328-331,333-338,346,349,356-362,364-369
+src/im/ui/ui.reading.js
+  s_1ce716add0403a::t_0886a8c9042c1a 185
+src/player/ui/ui.dashboard.js
+  s_1ce716add0403a::t_07d5981f4460c8 66-68,78-79
+src/rtc/ui/ui.dashboard.js
+  s_1ce716add0403a::t_797fed1618fc11 67-69,79-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e394d0c52712b2dde669f1757c259d0f9bf722f6",
+  "prompts": {},
+  "sessions": {
+    "s_1ce716add0403a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c48a-463b-73c1-9f75-2b05878d2f9c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
