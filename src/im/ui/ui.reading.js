@@ -182,7 +182,7 @@
             if (inspected && origin === anchor) { dismiss(true); return; }
             dismiss(false); inspected = true; selected = row; origin = anchor;
             var style = getComputedStyle(options.host());
-            ['ink', 'muted', 'accent', 'onaccent', 'line', 'selected', 'glass-solid', 'glass-content'].forEach(function (name) {
+            ['ink', 'muted', 'accent', 'onaccent', 'line', 'selected', 'panel-header', 'glass-solid', 'glass-content'].forEach(function (name) {
                 root.style.setProperty('--odd-' + name, style.getPropertyValue('--odd-' + name));
             });
             document.body.appendChild(root); update(); position(); close.focus({ preventScroll: true });

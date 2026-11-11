@@ -20,7 +20,7 @@
     overflow:hidden; overscroll-behavior:contain;
 }
 .im-reading[hidden],.im-reading [hidden] { display:none; }
-.im-reading > header { display:flex; flex:none; align-items:center; gap:4px; margin-bottom:8px; }
+.im-reading > header { display:flex; flex:none; align-items:center; gap:4px; margin:-12px -12px 8px; padding:8px 12px; background:var(--odd-panel-header,var(--odd-selected,#e9ecea)); border-bottom:1px solid var(--odd-line,#777); }
 .im-reading h3 { flex:1; margin:0; font-family:inherit; font-weight:600; line-height:1.5; font-size:14px; }
 .im-reading button { display:grid; place-items:center; flex:none; width:32px; height:32px; min-height:32px; padding:7px; border:0; border-radius:50%; background:transparent; color:inherit; cursor:pointer; }
 .im-reading button svg { width:18px; height:18px; }
