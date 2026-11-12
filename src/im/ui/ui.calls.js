@@ -79,6 +79,7 @@
             if ((!selected && !incoming || ended) && (!_call || _call.callId !== call.callId)) { return; }
             if (_call && _call.callId !== call.callId && _call.state !== 'ended') { return; }
             _call = call;
+            _media.setAttribute('mode', call.mode);
             _panel.hidden = false;
             _title.textContent = (call.mode === 'video' ? labels.video : labels.voice) + ' · ' + label(call.callerId);
             var states = { invited: labels.waiting, ringing: labels.ringing, accepted: labels.waiting,
