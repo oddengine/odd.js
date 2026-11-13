@@ -374,26 +374,71 @@
 }
 
 .odd-brand-game.odd-theme-light {
-    --odd-accent:#086c86; --odd-onaccent:#fff; --odd-ink:#17343e; --odd-muted:#405e67; --odd-deep:#0c485b;
-    --odd-companion:#d6e8ed; --odd-oncompanion:#174b5a; --odd-companion-soft:#e4f0f3; --odd-oncompanion-soft:#174b5a;
-    --odd-glass-solid:#f3f8f8; --odd-glass-base:rgb(234 244 246 / .4); --odd-glass-surface:rgb(243 248 248 / .75);
-    --odd-glass-content:rgb(243 248 248 / .94); --odd-panel-header:#e4f0f3; --odd-glass-ink:#17343e;
-    --odd-glass-muted:#405e67; --odd-glass-selected:#d6e8ed; --odd-glass-send:#d6e8ed;
-    --odd-glass-line:rgb(23 52 62 / .2); --odd-glass-shadow:0 12px 32px rgb(12 72 91 / .1);
-    --odd-bg:var(--odd-glass-solid); --odd-surface:var(--odd-glass-content); --odd-line:var(--odd-glass-line); --odd-selected:var(--odd-glass-selected);
+    --odd-accent: #4F4F85;
+    --odd-onaccent: #FFFFFF;
+    --odd-ink: #282735;
+    --odd-muted: #514E65;
+    --odd-deep: #272638;
+    --odd-warm: #DBD0E6;
+    --odd-companion: #DBD0E6;
+    --odd-oncompanion: #38344C;
+    --odd-companion-soft: #EAE5F2;
+    --odd-oncompanion-soft: #4F4F85;
+    --odd-glass-blur: blur(24px) saturate(105%);
+    --odd-glass-floating-blur: blur(28px) saturate(105%);
+    --odd-glass-solid: #F4F1F7;
+    --odd-glass-base: rgb(244 241 247 / 0.36);
+    --odd-glass-surface: rgb(244 241 247 / 0.62);
+    --odd-glass-content: rgb(244 241 247 / 0.86);
+    --odd-panel-header: color-mix(in srgb,#E4DDED 70%,#F4F1F7);
+    --odd-glass-ink: #282735;
+    --odd-glass-muted: #514E65;
+    --odd-glass-selected: rgb(228 221 237 / 0.92);
+    --odd-glass-send: rgb(228 221 237 / 0.96);
+    --odd-glass-line: rgb(40 39 53 / 0.23);
+    --odd-glass-edge: rgb(255 255 255 / .85);
+    --odd-glass-shadow: 0 12px 32px rgb(39 38 56 / 0.1), inset 0 1px 0 rgb(255 255 255 / .85);
+    --odd-bg: var(--odd-glass-solid);
+    --odd-surface: var(--odd-glass-content);
+    --odd-line: var(--odd-glass-line);
+    --odd-selected: var(--odd-glass-selected);
 }
+
 .odd-brand-game.odd-theme-dark {
-    --odd-accent:#8bd1e3; --odd-onaccent:#073c4b; --odd-ink:#e1f1f4; --odd-muted:#b3ced5; --odd-deep:#a9deea;
-    --odd-glass-solid:#142c34; --odd-glass-base:rgb(20 44 52 / .7); --odd-glass-surface:rgb(20 44 52 / .88);
-    --odd-glass-content:rgb(20 44 52 / .96); --odd-panel-header:#203e49; --odd-glass-ink:#e1f1f4; --odd-glass-muted:#b3ced5;
-    --odd-glass-selected:#23515e; --odd-glass-line:rgb(179 206 213 / .25);
-    --odd-bg:var(--odd-glass-solid); --odd-surface:var(--odd-glass-content); --odd-line:var(--odd-glass-line); --odd-selected:var(--odd-glass-selected);
+    --odd-accent: #CEC3EA;
+    --odd-onaccent: #29263E;
+    --odd-ink: #F3EEF8;
+    --odd-muted: #CEC4DC;
+    --odd-deep: #161823;
+    --odd-warm: #DBD0E6;
+    --odd-companion: #4F4F85;
+    --odd-oncompanion: #F3EEF8;
+    --odd-companion-soft: #333147;
+    --odd-oncompanion-soft: #DBD0E6;
+    --odd-glass-blur: blur(24px) saturate(105%);
+    --odd-glass-floating-blur: blur(28px) saturate(105%);
+    --odd-glass-solid: #222130;
+    --odd-glass-base: rgb(34 33 48 / 0.36);
+    --odd-glass-surface: rgb(34 33 48 / 0.72);
+    --odd-glass-content: rgb(34 33 48 / 0.92);
+    --odd-panel-header: color-mix(in srgb,#45405D 70%,#222130);
+    --odd-glass-ink: #F3EEF8;
+    --odd-glass-muted: #CEC4DC;
+    --odd-glass-selected: rgb(69 64 93 / 0.92);
+    --odd-glass-send: rgb(69 64 93 / 0.96);
+    --odd-glass-line: rgb(243 238 248 / 0.26);
+    --odd-glass-edge: rgb(206 195 234 / 0.27);
+    --odd-glass-shadow: 0 12px 32px rgb(22 24 35 / 0.18), inset 0 1px 0 rgb(255 255 255 / .12);
+    --odd-bg: var(--odd-glass-solid);
+    --odd-surface: var(--odd-glass-content);
+    --odd-line: var(--odd-glass-line);
+    --odd-selected: var(--odd-glass-selected);
 }
 
 @media (prefers-reduced-transparency:reduce) {
-    .odd-brand-game.odd-theme-light, .odd-brand-game.odd-theme-dark, .odd-theme-light, .odd-theme-dark, .odd-brand-paas.odd-theme-light, .odd-brand-paas.odd-theme-dark, .odd-brand-live.odd-theme-light, .odd-brand-live.odd-theme-dark, .odd-brand-meeting.odd-theme-light, .odd-brand-meeting.odd-theme-dark, .odd-brand-im.odd-theme-light, .odd-brand-im.odd-theme-dark, .odd-brand-account.odd-theme-light, .odd-brand-account.odd-theme-dark { --odd-glass-base:var(--odd-glass-solid); --odd-glass-surface:var(--odd-glass-solid); --odd-glass-content:var(--odd-glass-solid); --odd-glass-blur:none; --odd-glass-floating-blur:none; }
+    .odd-theme-light, .odd-theme-dark, .odd-brand-paas.odd-theme-light, .odd-brand-paas.odd-theme-dark, .odd-brand-live.odd-theme-light, .odd-brand-live.odd-theme-dark, .odd-brand-meeting.odd-theme-light, .odd-brand-meeting.odd-theme-dark, .odd-brand-im.odd-theme-light, .odd-brand-im.odd-theme-dark, .odd-brand-account.odd-theme-light, .odd-brand-account.odd-theme-dark, .odd-brand-game.odd-theme-light, .odd-brand-game.odd-theme-dark { --odd-glass-base:var(--odd-glass-solid); --odd-glass-surface:var(--odd-glass-solid); --odd-glass-content:var(--odd-glass-solid); --odd-glass-blur:none; --odd-glass-floating-blur:none; }
 }
 
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
-    .odd-brand-game.odd-theme-light, .odd-brand-game.odd-theme-dark, .odd-theme-light, .odd-theme-dark, .odd-brand-paas.odd-theme-light, .odd-brand-paas.odd-theme-dark, .odd-brand-live.odd-theme-light, .odd-brand-live.odd-theme-dark, .odd-brand-meeting.odd-theme-light, .odd-brand-meeting.odd-theme-dark, .odd-brand-im.odd-theme-light, .odd-brand-im.odd-theme-dark, .odd-brand-account.odd-theme-light, .odd-brand-account.odd-theme-dark { --odd-glass-base:var(--odd-glass-solid); --odd-glass-surface:var(--odd-glass-solid); --odd-glass-content:var(--odd-glass-solid); --odd-glass-blur:none; --odd-glass-floating-blur:none; }
+    .odd-theme-light, .odd-theme-dark, .odd-brand-paas.odd-theme-light, .odd-brand-paas.odd-theme-dark, .odd-brand-live.odd-theme-light, .odd-brand-live.odd-theme-dark, .odd-brand-meeting.odd-theme-light, .odd-brand-meeting.odd-theme-dark, .odd-brand-im.odd-theme-light, .odd-brand-im.odd-theme-dark, .odd-brand-account.odd-theme-light, .odd-brand-account.odd-theme-dark, .odd-brand-game.odd-theme-light, .odd-brand-game.odd-theme-dark { --odd-glass-base:var(--odd-glass-solid); --odd-glass-surface:var(--odd-glass-solid); --odd-glass-content:var(--odd-glass-solid); --odd-glass-blur:none; --odd-glass-floating-blur:none; }
 }
