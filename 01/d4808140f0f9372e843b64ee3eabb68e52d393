@@ -1,0 +1,19 @@
+css/odd.brand-tokens.css
+  s_ce051dd806ff7f::t_66f372e71ad254 377-404,406,408-435,439,443
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "01d4808140f0f9372e843b64ee3eabb68e52d393",
+  "prompts": {},
+  "sessions": {
+    "s_ce051dd806ff7f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a71b-f498-7282-899f-ff2e939c362d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
