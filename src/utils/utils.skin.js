@@ -1,12 +1,12 @@
 (function (odd) {
-    var brands = ['paas', 'live', 'meeting', 'im', 'account'];
+    var brands = ['paas', 'live', 'game', 'meeting', 'im', 'account'];
     odd.utils.Skin = {
         apply: function (element, value) {
             if (!element || !value || brands.indexOf(value.brand) < 0 || ['light', 'dark'].indexOf(value.theme) < 0) {
                 throw { name: 'DataError', message: '需要有效的产品皮肤与主题。' };
             }
             Array.from(element.classList).forEach(function (name) {
-                if (/^odd-brand-(paas|live|meeting|im|account)$/.test(name) || /^odd-theme-(light|dark)$/.test(name)) {
+                if (/^odd-brand-(paas|live|game|meeting|im|account)$/.test(name) || /^odd-theme-(light|dark)$/.test(name)) {
                     element.classList.remove(name);
                 }
             });

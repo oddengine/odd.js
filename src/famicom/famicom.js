@@ -44,6 +44,7 @@
             volume: 0.8,
             base: `${location.protocol}//${location.host}/famicom`,
             trickle: false,
+            credentials: null,
             loader: {
                 mode: 'cors',        // cors, no-cors, same-origin
                 credentials: 'omit', // omit, include, same-origin
@@ -74,7 +75,9 @@
             _operation,
             _busy,
             _requests,
-            _readyState;
+            _readyState,
+            _inputTimer = null,
+            _inputSequence = 0;
 
         EventDispatcher.call(this, 'Famicom', { id: id, logger: _logger }, Event, MediaEvent, NetStatusEvent);
 
@@ -121,7 +124,7 @@
             _video.setAttribute('webkit-playsinline', 'isiPhoneShowPlaysinline');
             _video.setAttribute('x5-playsinline', '');
             _video.setAttribute('x5-video-player-type', 'h5-page');
-            _video.setAttribute('x5-video-player-fullscreen', true);
+            _video.setAttribute('x5-video-player-fullscreen', 'false');
             _video.setAttribute('t7-video-player-type', 'inline');
             _video.muted = _this.config.muted;
             _video.volume = _this.config.volume;
@@ -468,7 +471,7 @@
             _pc.addTransceiver('audio', { direction: 'recvonly' });
             _pc.addTransceiver('video', { direction: 'recvonly' });
 
-            _channel = _pc.createDataChannel('game-input', {
+            _channel = _pc.createDataChannel('game-input.v1', {
                 ordered: false,
                 maxPacketLifeTime: 20,
             });
@@ -518,11 +521,18 @@
             return new URL(_this.config.base.replace(/\/$/, '') + '/' + action, location.href);
         }
 
-        function _request(method, url, body, type, etag) {
+        async function _request(method, url, body, type, etag) {
+            var operation = _operation;
+            var credential = typeof _this.config.credentials === 'function' ? await _this.config.credentials({
+                reason: 'game-request', method: method, instance: _resource.instance,
+            }) : null;
+            if (operation !== _operation || _readyState === State.CLOSED) {
+                throw { name: 'AbortError', message: 'Game request was cancelled.' };
+            }
             return new Promise(function (resolve, reject) {
-                var token = utils.getCookie('token');
+                var token = credential && credential.token;
                 if (!token) {
-                    reject({ name: 'NotAllowedError', message: 'The application token cookie is missing.', status: 401 });
+                    reject({ name: 'NotAllowedError', message: 'A game admission credential is required.', status: 401 });
                     return;
                 }
 
@@ -546,6 +556,10 @@
                     }
                 };
                 xhr.onload = function () {
+                    if (xhr.responseURL && xhr.responseURL !== url.href) {
+                        reject({ name: 'SecurityError', message: 'Game endpoint redirected the request.' });
+                        return;
+                    }
                     if (xhr.status >= 200 && xhr.status < 300) {
                         resolve(xhr);
                     } else {
@@ -667,6 +681,7 @@
             var pc = e.target;
             _logger.log(`onConnectionStateChange: id=${_this.config.id}, state=${pc.connectionState}`);
 
+            if (pc === _pc) { _this.dispatchEvent(Event.CHANGE, { name: 'connection', value: pc.connectionState }); }
             switch (pc.connectionState) {
                 case 'connected':
                     if (pc === _pc) {
@@ -707,6 +722,10 @@
         }
 
         function _onDataChannelOpen(e) {
+            clearInterval(_inputTimer);
+            _inputTimer = setInterval(function () {
+                _resource.ports.forEach(_sendKeyState);
+            }, 100);
             if (e.target !== _channel) {
                 return;
             }
@@ -726,6 +745,9 @@
         }
 
         function _disconnect() {
+            if (_pc) { _this.dispatchEvent(Event.CHANGE, { name: 'connection', value: 'disconnected' }); }
+            clearInterval(_inputTimer);
+            _inputTimer = null;
             ++_operation;
             _releaseKeys();
             _candidates = [];
@@ -789,6 +811,8 @@
             _sendKeyState(port);
         };
 
+        _this.clearInput = function () { _releaseKeys(); };
+
         _this.ports = function () {
             return _resource.ports.slice();
         };
@@ -808,7 +832,10 @@
         function _sendKeyState(port) {
             if (_resource.ports.indexOf(port) !== -1 && _channel && _channel.readyState === 'open') {
                 try {
-                    var payload = new Uint8Array([port, _keys[port]]);
+                    var payload = new Uint8Array(6);
+                    payload[0] = port;
+                    payload[1] = _keys[port];
+                    new DataView(payload.buffer).setUint32(2, ++_inputSequence >>> 0);
                     _channel.send(payload);
                 } catch (err) {
                     _logger.warn(`Failed to send input: port=${port}, keys=${_keys[port]}, error=${err}`);
@@ -842,6 +869,9 @@
                 freezeCount: 0,
             };
             report.forEach(function (stats) {
+                if (stats.type === 'candidate-pair' && stats.state === 'succeeded' && (stats.selected || stats.nominated)) {
+                    current.rtt = Number.isFinite(stats.currentRoundTripTime) ? stats.currentRoundTripTime * 1000 : null;
+                }
                 if (stats.kind === 'video' && stats.type === 'inbound-rtp') {
                     current.timestamp = stats.timestamp;
                     current.framesPerSecond = stats.framesPerSecond;
@@ -856,6 +886,7 @@
             var elapsed = Math.max((current.timestamp - _stats.timestamp) / 1000, 1);
             _this.dispatchEvent(MediaEvent.STATSCHANGE, {
                 stats: {
+                    rtt: current.rtt === undefined ? null : current.rtt,
                     fps: current.framesPerSecond,
                     decoded: (current.framesDecoded - _stats.framesDecoded) / elapsed,
                     dropped: (current.framesDropped - _stats.framesDropped) / elapsed,

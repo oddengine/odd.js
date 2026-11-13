@@ -156,6 +156,7 @@ done
 
 scripts=()
 scripts[0]="./src/famicom/famicom.js"
+scripts[1]="./src/famicom/famicom.input.js"
 
 :>./release/odd.famicom.js
 

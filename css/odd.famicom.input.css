@@ -1,0 +1,95 @@
+/* Input owns its control surface; the host decides portrait/landscape placement. */
+.odd-famicom-pad {
+    position: relative;
+    width: 100%;
+    height: 190px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.odd-famicom-pad button {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background: var(--odd-glass-content, #f3f8f8);
+    color: var(--odd-ink, #17343e);
+    border: 1px solid var(--odd-glass-line, #adc5cd);
+    box-shadow: 0 5px 12px rgb(8 26 34 / 0.1);
+    font-weight: 650;
+}
+.odd-famicom-pad button.pressed {
+    background: var(--odd-accent, #086c86);
+    color: var(--odd-onaccent, #fff);
+}
+.odd-famicom-pad .game-dpad {
+    position: absolute;
+    width: 144px;
+    height: 144px;
+    left: 0;
+    top: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    touch-action: none;
+}
+.odd-famicom-pad .game-dpad button {
+    border-radius: 10px;
+    width: 100%;
+    height: 100%;
+}
+.odd-famicom-pad .direction-up {
+    grid-area: 1/2;
+}
+.odd-famicom-pad .direction-down {
+    grid-area: 3/2;
+}
+.odd-famicom-pad .direction-left {
+    grid-area: 2/1;
+}
+.odd-famicom-pad .direction-right {
+    grid-area: 2/3;
+}
+.odd-famicom-pad .direction-down svg {
+    rotate: 180deg;
+}
+.odd-famicom-pad .direction-left svg {
+    rotate: -90deg;
+}
+.odd-famicom-pad .direction-right svg {
+    rotate: 90deg;
+}
+.odd-famicom-pad .game-actions {
+    position: absolute;
+    right: 0;
+    top: 22px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+.odd-famicom-pad .game-actions button {
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    font-size: 24px;
+}
+.odd-famicom-pad .game-key-b {
+    margin-top: 32px;
+}
+.odd-famicom-pad .game-system {
+    display: flex;
+    gap: 12px;
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+}
+.odd-famicom-pad .game-system button {
+    width: 68px;
+    min-height: 44px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+}
