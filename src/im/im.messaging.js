@@ -40,8 +40,8 @@
     function Messaging(identity, storage, request, authorize, parse, deliver, changed, failed, eventsEnabled, stateVersion, speakersChanged, messagesEnabled, capabilities) {
         var _this = this, _closed = false, _pending = 0, _queues = Object.create(null),
             _resolved = Object.create(null), _positions = Object.create(null), _recovering = null,
-            _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed, stateVersion, speakersChanged, function (room) {
-                return authorize({ type: 'room', id: room }, Protocol.Action.MESSAGE_SUBSCRIBE, true);
+            _events = eventsEnabled ? new IM.Events(storage, request, deliver, failed, stateVersion, speakersChanged, function (channel) {
+                return authorize({ type: 'room', id: channel }, Protocol.Action.MESSAGE_SUBSCRIBE, true);
             }) : null;
 
         var _messages = stateVersion !== 5 || messagesEnabled === true;
@@ -61,7 +61,7 @@
             return Promise.resolve().then(function () {
                 active();
                 var methods = ['identity', 'open', 'close'];
-                if (stateVersion === 5) { methods = methods.concat(['eventVisit', 'beginEventSnapshot', 'saveEventSnapshot', 'finishEventSnapshot', 'receiveEvents', 'confirmEvents', 'roomState', 'endEvents']); }
+                if (stateVersion === 5) { methods = methods.concat(['eventVisit', 'beginEventSnapshot', 'saveEventSnapshot', 'finishEventSnapshot', 'receiveEvents', 'confirmEvents', 'channelState', 'endEvents']); }
                 if (_messages) { methods = methods.concat(['enqueue', 'pending', 'settle', 'receive', 'position', 'synchronize']); }
                 methods.forEach(function (method) {
                     if (!storage || typeof storage[method] !== 'function') {
@@ -80,7 +80,7 @@
         _this.events = function () {
             active();
             if (!_events) {
-                throw _error('NotSupportedError', 'The server has not enabled reliable room events.');
+                throw _error('NotSupportedError', 'The server has not enabled reliable channel events.');
             }
             return _events;
         };
@@ -140,7 +140,7 @@
                 return settle(id, 'accepted', info).then(function () { active(); return info; });
             }, function (error) {
                 active();
-                // A reconnect may lose current room permission after the same
+                // A reconnect may lose current channel permission after the same
                 // gift was already debited. Only a business result can settle it.
                 if (gift) {
                     throw error;
@@ -406,7 +406,7 @@
                                             });
                                         }
                                         // The business outbox still owns delivery or reconciliation.
-                                        // A new room visit is not a new payment authorization.
+                                        // A new channel visit is not a new payment authorization.
                                         changed({ kind: 'gift', id: record.id, outcome: info });
                                         return info;
                                     }

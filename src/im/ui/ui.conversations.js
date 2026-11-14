@@ -162,12 +162,12 @@
         function onMessage(event) {
             var data = event.data;
             if (_closed || !data.target || data.type === 'room.snapshot') { return; }
-            var room = data.target.type === 'room', reliable = data.messaging && !room;
-            if (!room && !data.sender) { return; }
+            var channel = data.target.type === 'room', reliable = data.messaging && !channel;
+            if (!channel && !data.sender) { return; }
             var id = reliable ? data.meta.conversationId : data.target.type === 'user' || data.target.type === 'endpoint' ?
                 data.sender.id === im.userId() ? data.target.id : data.sender.id : data.target.id;
-            if (!_items[id]) { _this.add(id, room ? 'channel' : reliable ? 'conversation' : 'people', reliable ? '' : id); }
-            var row = room && data.event ? UI.History.fact(data.event, data.meta) : UI.History.received(data, im.userId());
+            if (!_items[id]) { _this.add(id, channel ? 'channel' : reliable ? 'conversation' : 'people', reliable ? '' : id); }
+            var row = channel && data.event ? UI.History.fact(data.event, data.meta) : UI.History.received(data, im.userId());
             _this.update(id, row.time, row.text);
             if (reliable) {
                 var item = _items[id];

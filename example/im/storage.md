@@ -48,12 +48,12 @@ IndexedDB writes require `durability: 'strict'` and resolve only on transaction
 completion. Unsupported storage, quota exhaustion, blocked upgrades and aborted
 transactions fail explicitly. The adapter admits at most 32 outstanding storage
 operations. Database version 5 preserves versions 1–4: outbox, messages, positions, terminal
-ranges, room event visits/facts and CALL snapshots/outbox. It adds a conversation
+ranges, channel event visits/facts and CALL snapshots/outbox. It adds a conversation
 index for the message outbox and a local display/destination mapping store. See
-[room-events.md](room-events.md) for the distinct room responsibility profile.
+[channel-events.md](channel-events.md) for the distinct channel responsibility profile.
 
 IndexedDB 写事务要求 strict 持久性，完成事件才兑现 Promise。存储不足或失败时不会 COMMIT；
-连接关闭会终止未完成事务，迟到回调不能继续确认。v5 保留 v1–4 消息、终止范围、房间访问／事实以及 CALL 快照和发送箱，
+连接关闭会终止未完成事务，迟到回调不能继续确认。v5 保留 v1–4 消息、终止范围、频道访问／事实以及 CALL 快照和发送箱，
 新增消息发送箱的会话索引及本地联系人映射。首次升级游标回填旧发送箱索引，其他页签需关闭旧库连接；
 升级失败明确报错，不跳过旧消息或新建一个空库掩盖失败。
 
@@ -152,9 +152,9 @@ requires the bounded read methods below. No UI read sends COMMIT or READ.
 | Method | Read contract |
 |---|---|
 | history(conversation, before?, limit) | Latest local bodies, exclusive exact sequence cursor, ascending within the page |
-| outgoing(conversationOrRoom, before?, limit) | Outbox by target and original hex client ID; ascending within the page |
+| outgoing(conversationOrChannel, before?, limit) | Outbox by target and original hex client ID; ascending within the page |
 | outboxEntry(clientMessageId) | One exact saved request or null; distinguishes pre-persistence failure from an unknown result |
-| eventHistory(stream, epoch, before?, limit) | Current room visit facts by exact sequence; does not replay a gift animation |
+| eventHistory(stream, epoch, before?, limit) | Current channel visit facts by exact sequence; does not replay a gift animation |
 | destination(conversation, value?) | Read/write local target/name/avatar only; no tokens or permission authority |
 | projection(conversation) | Server account projection combined with this device's confirmed READ lower bound |
 | saveRead(conversation, sequence) | Advance local lower bound only after READ returned OK; does not fabricate server revision |

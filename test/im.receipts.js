@@ -12,7 +12,7 @@
           if(mode==='summary')return {records:data.slice(0,3).map((x,i)=>({sequence:x.sequence,read:i===2?0:17,unknown:i===0?14:0,released:0,state:'retained'}))};
           const offset=args.cursor?32:0;return {records:Array.from({length:32},(_,i)=>({userId:'person-'+(offset+i)})),snapshotRevision:{high:0,low:1},nextCursor:offset?null:new Uint8Array([1]),hasMore:offset===0};}};
     const reading=new odd.IM.UI.Reading(im,{active:()=>active,host:()=>host,visible:()=>data,counts:(id,v)=>messages.receipt(id,v),names:async ids=>ids.map(id=>({id,name:'成员 '+id.split('-')[1]}))});
-    await reading.attach({id:'test',room:false,readOnly:false});
+    await reading.attach({id:'test',broadcast:false,readOnly:false});
     data.forEach(row=>row.receipts=anchor=>reading.inspect(row,anchor));messages.update(data);await reading.refresh();
     const badges=[...rows.querySelectorAll('.im-message-receipts')];
     assert(badges[0].textContent==='17','count before bubble');assert(!!badges[1].querySelector('svg'),'all read uses check');assert(badges[2].textContent==='0'&&!badges[2].querySelector('svg'),'zero is not all read');assert(badges[3].hidden,'unknown count is hidden');

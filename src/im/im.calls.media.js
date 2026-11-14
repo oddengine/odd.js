@@ -59,7 +59,7 @@
                 return;
             }
             var product = call.version === 2;
-            if (product ? !member.prepared || !call.rtcAppId : !member.resourceId || !call.roomId) {
+            if (product ? !member.prepared || !call.rtcAppId : !member.resourceId || !call.channelId) {
                 return;
             }
             var visit = _visits[call.callId];
@@ -81,7 +81,7 @@
                     }
                     var request = odd.utils.extendz({}, context, {
                         streamId: context.direction === 'publish' ? member.resourceId : context.streamId,
-                        callId: call.callId, roomId: call.roomId, grantId: member.grantId,
+                        callId: call.callId, channelId: call.channelId, grantId: member.grantId,
                     });
                     return config.credentials(request);
                 } });

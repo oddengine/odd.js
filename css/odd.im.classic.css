@@ -240,7 +240,7 @@
 .im-ui-classic .im-conversation-title { grid-area: title; }
 .im-ui-classic .im-history-notice { grid-area: notice; }
 .im-ui-classic .im-history-tools { grid-area: tools; }
-.im-ui-classic .im-room-state { grid-area: room; }
+.im-ui-classic .im-channel-state { grid-area: channel; }
 .im-ui-classic .im-reading { grid-area: reading; }
 .im-ui-classic .im-conversation-messages { grid-area: messages; }
 .im-ui-classic .im-conversation > .im-composer { grid-area: composer; }
@@ -596,7 +596,7 @@
 }
 
 .im-ui-classic .im-history-notice,
-.im-ui-classic .im-room-state {
+.im-ui-classic .im-channel-state {
     margin: 0;
     padding: 0 14px;
     color: #9da8b6;
@@ -604,7 +604,7 @@
     overflow-wrap: anywhere;
 }
 
-.im-ui-classic .im-room-state {
+.im-ui-classic .im-channel-state {
     max-height: 100px;
     overflow: auto;
 }

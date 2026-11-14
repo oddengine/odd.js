@@ -16,9 +16,9 @@ var utils = odd.utils,
     _session,
     _renewal,
     _hasIM = !!(IM && odd.im && IM.Protocol),
-    _joinedRoom,
-    _requestedRoom,
-    _roomGeneration = 0,
+    _joinedChannel,
+    _requestedChannel,
+    _channelGeneration = 0,
     _imReady = false,
     _pendingJoin,
     _detected = false,
@@ -32,18 +32,18 @@ function onReady(e) {
     _scheduleRenewal();
     im.logger.log(`onReady: user=${im.userId()}`);
     if (_pendingJoin) {
-        _joinRoom(_pendingJoin);
+        _joinChannel(_pendingJoin);
         _pendingJoin = undefined;
     }
 }
 
 async function onJoinClick(e) {
-    var room = _value('in_room', '');
+    var channel = _value('in_channel', '');
     try {
         _session = await _request('/session');
-        await _request('/rooms/' + encodeURIComponent(room) + '/members/me', 'PUT');
-        if (_setupIM(room) && _imReady) {
-            _joinRoom(room);
+        await _request('/channels/' + encodeURIComponent(channel) + '/members/me', 'PUT');
+        if (_setupIM(channel) && _imReady) {
+            _joinChannel(channel);
         }
     } catch (err) {
         _imError(err);
@@ -52,11 +52,11 @@ async function onJoinClick(e) {
 
 function onLeaveClick(e) {
     rtc.stop();
-    _roomGeneration++;
+    _channelGeneration++;
     _pendingJoin = undefined;
-    var room = _requestedRoom || _joinedRoom;
-    _requestedRoom = _joinedRoom = undefined;
-    if (_imReady && room) { im.unsubscribe({ type: 'room', id: room }).catch(_imError); }
+    var channel = _requestedChannel || _joinedChannel;
+    _requestedChannel = _joinedChannel = undefined;
+    if (_imReady && channel) { im.unsubscribe({ type: 'room', id: channel }).catch(_imError); }
 }
 
 // Explicit AV1/SVC opt-in; browser support is checked by the SDK.
@@ -117,17 +117,17 @@ rtc.setup({
     await getDevices();
 })();
 
-function _setupIM(room) {
+function _setupIM(channel) {
     if (_hasIM === false || !_session || !_session.im) {
         rtc.logger.warn('IM is not available.');
         return false;
     }
     if (im) {
-        if (!_imReady) { _pendingJoin = room; }
+        if (!_imReady) { _pendingJoin = channel; }
         return true;
     }
 
-    _pendingJoin = room;
+    _pendingJoin = channel;
     im = odd.im.create();
     im.addEventListener(Event.READY, onReady);
     im.addEventListener(IMEvent.MESSAGE, onMessage);
@@ -141,7 +141,7 @@ function _setupIM(room) {
                 audience: _session.im.audience,
                 connectionId: context.connectionId,
                 generation: context.generation,
-                roomId: _pendingJoin || _requestedRoom || _joinedRoom || room,
+                channelId: _pendingJoin || _requestedChannel || _joinedChannel || channel,
             });
         },
     }).catch((err) => {
@@ -405,21 +405,21 @@ function _imError(err) {
     rtc.logger.warn(`IM request failed: ${err}`);
 }
 
-function _joinRoom(room) {
-    var generation = ++_roomGeneration, previous = _requestedRoom || _joinedRoom;
-    _requestedRoom = room;
-    _joinedRoom = undefined;
-    if (previous && previous !== room) { im.unsubscribe({ type: 'room', id: previous }).catch(_imError); }
-    im.subscribe({ type: 'room', id: room }, {
+function _joinChannel(channel) {
+    var generation = ++_channelGeneration, previous = _requestedChannel || _joinedChannel;
+    _requestedChannel = channel;
+    _joinedChannel = undefined;
+    if (previous && previous !== channel) { im.unsubscribe({ type: 'room', id: previous }).catch(_imError); }
+    im.subscribe({ type: 'room', id: channel }, {
         actions: IM.Protocol.Action.MESSAGE_SUBSCRIBE | IM.Protocol.Action.MESSAGE_PUBLISH,
     }).then(function () {
-        if (generation !== _roomGeneration || !_imReady) { return; }
-        _joinedRoom = room;
+        if (generation !== _channelGeneration || !_imReady) { return; }
+        _joinedChannel = channel;
         _setValue('in_nick', im.userId());
         // Broadcast subscription has no member snapshot; do not display a fabricated count.
         _setValue('in_online', '—');
-        _request('/rooms/' + encodeURIComponent(room) + '/streams').then(function (result) {
-            rtc.logger.log('Room media resources (enabled does not mean online):', result.items);
+        _request('/channels/' + encodeURIComponent(channel) + '/streams').then(function (result) {
+            rtc.logger.log('Channel media resources (enabled does not mean online):', result.items);
         }).catch(_imError);
     }).catch(_imError);
 }
@@ -430,10 +430,10 @@ function onMessage(e) {
 
 function onNotify(e) {
     if (e.data.event === IM.Protocol.Event.STREAM_PUBLISH_START || e.data.event === IM.Protocol.Event.STREAM_PUBLISH_STOP) {
-        rtc.logger.log('Room media event:', e.data.payload);
+        rtc.logger.log('Channel media event:', e.data.payload);
     }
-    if (e.data.event === IM.Protocol.Event.IM_SUBSCRIBE_STOP && e.data.payload.target.id === _joinedRoom) {
-        _joinedRoom = undefined;
+    if (e.data.event === IM.Protocol.Event.IM_SUBSCRIBE_STOP && e.data.payload.target.id === _joinedChannel) {
+        _joinedChannel = undefined;
         _setValue('in_online', '—');
     }
 }
@@ -441,9 +441,9 @@ function onNotify(e) {
 function onClose(e) {
     if (e.srcElement === im) {
         clearTimeout(_renewal);
-        _roomGeneration++;
+        _channelGeneration++;
         _imReady = false;
-        _requestedRoom = _joinedRoom = undefined;
+        _requestedChannel = _joinedChannel = undefined;
         _setValue('in_online', '—');
         im = undefined;
     }
@@ -567,10 +567,10 @@ async function _request(path, method, body) {
 }
 
 async function _credentials(context) {
-    var room = _value('in_room', ''),
-        generation = _roomGeneration;
-    if (!room) {
-        throw new Error('Sign in and select a room before publishing or playing.');
+    var channel = _value('in_channel', ''),
+        generation = _channelGeneration;
+    if (!channel) {
+        throw new Error('Sign in and select a channel before publishing or playing.');
     }
     var account = await _request('/session');
     if (!account.im || !account.im.media) {
@@ -578,7 +578,7 @@ async function _credentials(context) {
     }
     var stream = context.streamId;
     if (context.direction === 'publish') {
-        var resource = await _request('/rooms/' + encodeURIComponent(room) + '/streams', 'POST', {
+        var resource = await _request('/channels/' + encodeURIComponent(channel) + '/streams', 'POST', {
             requestId: context.connectionId,
             purpose: context.purpose,
             audio: context.audio,
@@ -586,8 +586,8 @@ async function _credentials(context) {
         });
         stream = resource.id;
     }
-    if (generation !== _roomGeneration || room !== _value('in_room', '')) {
-        throw new DOMException('Room selection changed', 'AbortError');
+    if (generation !== _channelGeneration || channel !== _value('in_channel', '')) {
+        throw new DOMException('Channel selection changed', 'AbortError');
     }
     var result = await _request('/streams/' + encodeURIComponent(stream) + '/credentials', 'POST', {
         protocol: context.protocol,
@@ -595,8 +595,8 @@ async function _credentials(context) {
         connectionId: context.connectionId,
         generation: context.generation,
     });
-    if (generation !== _roomGeneration || room !== _value('in_room', '')) {
-        throw new DOMException('Room selection changed', 'AbortError');
+    if (generation !== _channelGeneration || channel !== _value('in_channel', '')) {
+        throw new DOMException('Channel selection changed', 'AbortError');
     }
     return result;
 }

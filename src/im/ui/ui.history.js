@@ -59,23 +59,23 @@
         } else if (event.kind === 'stage.member') {
             text = 'Stage participant: ' + event.entityId + ' · ' + payload.state;
         } else if (event.kind === 'room.state') {
-            text = 'Room: ' + payload.state;
+            text = 'Channel: ' + payload.state;
         } else if (event.kind === 'media.resource') {
             text = 'Media resource: ' + payload.purpose + ' · ' + payload.state;
         } else {
-            text = event.kind === 'media.publication' ? 'Media: ' + payload.state : 'Room permissions or media updated';
+            text = event.kind === 'media.publication' ? 'Media: ' + payload.state : 'Channel permissions or media updated';
         }
         var timestamp = event.occurredAt.high * 4294967296 + event.occurredAt.low;
-        return { id: hex(meta.messageId), from: Protocol.giftEvent(event.kind) ? payload.senderId : 'Room',
+        return { id: hex(meta.messageId), from: Protocol.giftEvent(event.kind) ? payload.senderId : 'Channel',
             text: text, state: 'saved', align: 'left', reliable: true, sequence: meta.messageSequence,
-            messageId: meta.messageId, timestamp: timestamp, time: new Date(timestamp).toLocaleString(), incoming: false, roomEvent: true };
+            messageId: meta.messageId, timestamp: timestamp, time: new Date(timestamp).toLocaleString(), incoming: false, channelEvent: true };
     }
     function event(record) {
         var fields = Protocol.decode(record.packet).fields[1].value, meta = object(fields);
         return fact(object(fields[4].value), meta);
     }
     function compare(left, right) {
-        if (left.roomEvent || right.roomEvent || left.ephemeral || right.ephemeral) {
+        if (left.channelEvent || right.channelEvent || left.ephemeral || right.ephemeral) {
             return left.timestamp - right.timestamp || left.id.localeCompare(right.id);
         }
         if (left.sequence && right.sequence) { return Protocol.compare64(left.sequence, right.sequence); }

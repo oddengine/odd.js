@@ -17,7 +17,7 @@
         busy = false,
         challenge = null,
         creation = null,
-        roomCursor = '',
+        channelCursor = '',
         memberCursor = '',
         restrictionCursor = '',
         moderation = null;
@@ -86,7 +86,7 @@
     });
 
     document.getElementById('reconnect').addEventListener('click', function () { run(connect); });
-    document.getElementById('room-create').addEventListener('submit', function (event) {
+    document.getElementById('channel-create').addEventListener('submit', function (event) {
         event.preventDefault();
         var form = event.currentTarget;
 
@@ -95,21 +95,21 @@
             if (!creation || creation.fingerprint !== fingerprint) {
                 creation = { fingerprint: fingerprint, id: crypto.randomUUID() };
             }
-            var room = await request('/rooms', 'POST', {
+            var channel = await request('/channels', 'POST', {
                 name: form.elements.namedItem('name').value,
                 visibility: form.elements.namedItem('visibility').value,
                 kind: form.elements.namedItem('kind').value,
                 creationId: creation.id,
             });
-            // Keep the key until the form changes: a lost response must not create another room.
-            await enter(room.id);
-            await rooms(false);
+            // Keep the key until the form changes: a lost response must not create another channel.
+            await enter(channel.id);
+            await channels(false);
         });
     });
 
-    document.getElementById('room-join').addEventListener('submit', function (event) {
+    document.getElementById('channel-join').addEventListener('submit', function (event) {
         event.preventDefault();
-        var id = event.currentTarget.elements.namedItem('room').value.trim();
+        var id = event.currentTarget.elements.namedItem('channel').value.trim();
         run(function () { return enter(id); });
     });
     document.getElementById('leave').addEventListener('click', function () {
@@ -118,7 +118,7 @@
             if (!id) {
                 return;
             }
-            await request('/rooms/' + encodeURIComponent(id) + '/members/me', 'DELETE');
+            await request('/channels/' + encodeURIComponent(id) + '/members/me', 'DELETE');
             selected = '';
             if (ui) {
                 try {
@@ -127,19 +127,19 @@
                     disconnect();
                     throw err;
                 }
-                removeRoom(id);
+                removeChannel(id);
             }
-            document.getElementById('room-id').value = '';
+            document.getElementById('channel-id').value = '';
         });
     });
 
-    document.getElementById('close-room').addEventListener('click', function () {
+    document.getElementById('close-channel').addEventListener('click', function () {
         run(async function () {
             if (!selected) {
                 return;
             }
             var id = selected;
-            await request('/rooms/' + encodeURIComponent(id), 'DELETE');
+            await request('/channels/' + encodeURIComponent(id), 'DELETE');
             selected = '';
             if (ui) {
                 try {
@@ -148,14 +148,14 @@
                     disconnect();
                     throw err;
                 }
-                removeRoom(id);
+                removeChannel(id);
             }
-            await rooms(false);
+            await channels(false);
         });
     });
 
-    document.getElementById('refresh-rooms').addEventListener('click', function () { run(function () { return rooms(false); }); });
-    document.getElementById('more-rooms').addEventListener('click', function () { run(function () { return rooms(true); }); });
+    document.getElementById('refresh-channels').addEventListener('click', function () { run(function () { return channels(false); }); });
+    document.getElementById('more-channels').addEventListener('click', function () { run(function () { return channels(true); }); });
     document.getElementById('refresh-members').addEventListener('click', function () { run(function () { return members(false); }); });
     document.getElementById('more-members').addEventListener('click', function () { run(function () { return members(true); }); });
     document.getElementById('member').addEventListener('submit', function (event) {
@@ -164,9 +164,9 @@
 
         run(async function () {
             if (!selected) {
-                throw new Error('Select a room first.');
+                throw new Error('Select a channel first.');
             }
-            await request('/rooms/' + encodeURIComponent(selected) + '/members/' + encodeURIComponent(form.elements.namedItem('userId').value), 'PUT', {
+            await request('/channels/' + encodeURIComponent(selected) + '/members/' + encodeURIComponent(form.elements.namedItem('userId').value), 'PUT', {
                 role: form.elements.namedItem('role').value,
                 state: form.elements.namedItem('state').value,
                 muted: false,
@@ -180,7 +180,7 @@
         var form = event.currentTarget;
         run(async function () {
             if (!selected) {
-                throw new Error('Select a room first.');
+                throw new Error('Select a channel first.');
             }
             var action = form.elements.namedItem('action').value,
                 minutes = Number(form.elements.namedItem('minutes').value),
@@ -207,7 +207,7 @@
             }
             // Retain the ID and exact deadline after a lost reply. A confirmed
             // application starts a new operation on the next explicit submit.
-            await request('/rooms/' + encodeURIComponent(selected) + '/restrictions/' + moderation.id, 'PUT', moderation.change);
+            await request('/channels/' + encodeURIComponent(selected) + '/restrictions/' + moderation.id, 'PUT', moderation.change);
             moderation = null;
             await restrictions(false);
         });
@@ -220,9 +220,9 @@
         var id = event.currentTarget.elements.namedItem('userId').value;
         run(async function () {
             if (!selected) {
-                throw new Error('Select a room first.');
+                throw new Error('Select a channel first.');
             }
-            await request('/rooms/' + encodeURIComponent(selected) + '/owner', 'PUT', { userId: id });
+            await request('/channels/' + encodeURIComponent(selected) + '/owner', 'PUT', { userId: id });
             await members(false);
         });
     });
@@ -327,13 +327,13 @@
             if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && event.data.payload.target.id === joining) {
                 selected = '';
                 disconnect();
-                status.textContent = 'Room permission changed during subscription. Reconnect to continue.';
+                status.textContent = 'Channel permission changed during subscription. Reconnect to continue.';
                 return;
             }
             if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && event.data.payload.target.id === selected) {
-                removeRoom(selected);
+                removeChannel(selected);
                 selected = '';
-                status.textContent = 'Room permission expired or was revoked. Enter the room again to refresh it.';
+                status.textContent = 'Channel permission expired or was revoked. Enter the channel again to refresh it.';
             }
         });
         expiresAt = session.im.admissionVersion === 2 ? Number(session.session.expiresAt) :
@@ -349,16 +349,16 @@
                         generation: context.generation,
                     };
                     if (selected) {
-                        intent.roomId = selected;
+                        intent.channelId = selected;
                     }
                     try {
                         return await request('/session/im-ticket', 'POST', intent);
                     } catch (err) {
-                        if (!intent.roomId || (err.status !== 403 && err.status !== 404)) {
+                        if (!intent.channelId || (err.status !== 403 && err.status !== 404)) {
                             throw err;
                         }
                         // A stale placement hint must not prevent user IM access.
-                        delete intent.roomId;
+                        delete intent.channelId;
                         return request('/session/im-ticket', 'POST', intent);
                     }
                 },
@@ -368,7 +368,7 @@
                 calls: {
                     enabled: session.im.calls === true,
                     members: async function (target) {
-                        var page = await request('/rooms/' + encodeURIComponent(target.id) + '/members?limit=100');
+                        var page = await request('/channels/' + encodeURIComponent(target.id) + '/members?limit=100');
                         return page.items.filter(function (member) { return member.state === 'active'; }).map(function (member) {
                             return { id: member.userId, name: member.name || member.userId };
                         });
@@ -398,12 +398,12 @@
             if (selected) {
                 try {
                     joining = selected;
-                    var room = await request('/rooms/' + encodeURIComponent(joining));
+                    var channel = await request('/channels/' + encodeURIComponent(joining));
                     if (current !== generation || client !== ui) { return; }
-                    if (!room.member || room.member.state !== 'active' || room.state !== 'active') {
+                    if (!channel.member || channel.member.state !== 'active' || channel.state !== 'active') {
                         selected = '';
                     } else {
-                        await showRoom(room);
+                        await showChannel(channel);
                     }
                 } catch (err) {
                     if (err.status !== 403 && err.status !== 404 && err.code !== Protocol.Status.FORBIDDEN &&
@@ -412,14 +412,14 @@
                         throw err;
                     }
                     selected = '';
-                    status.textContent = 'The previous room is no longer available.';
+                    status.textContent = 'The previous channel is no longer available.';
                 } finally {
                     if (current === generation) {
                         joining = '';
                     }
                 }
             }
-            await rooms(false);
+            await channels(false);
             if (current !== generation || ui !== client) {
                 return;
             }
@@ -444,18 +444,18 @@
         joining = id;
 
         try {
-            var room = await request('/rooms/' + encodeURIComponent(id) + '/members/me', 'PUT', {});
+            var channel = await request('/channels/' + encodeURIComponent(id) + '/members/me', 'PUT', {});
             if (current !== generation || client !== ui) {
                 return;
             }
             if (previous && previous !== id) {
-                removeRoom(previous);
+                removeChannel(previous);
             }
             selected = id;
             subscribed = true; // The UI now owns the selected subscription attempt.
-            await showRoom(room);
+            await showChannel(channel);
             if (current !== generation || client !== ui) { return; }
-            if (room.permissions.indexOf('room.members.read') !== -1) {
+            if (channel.permissions.indexOf('room.members.read') !== -1) {
                 await members(false);
             } else {
                 memberCursor = '';
@@ -469,7 +469,7 @@
             if (current === generation && (!client.connected() || subscribed)) {
                 disconnect();
             } else if (current === generation) {
-                err.message += ' The current connection and other rooms remain available.';
+                err.message += ' The current connection and other channels remain available.';
             }
             throw err;
         } finally {
@@ -479,12 +479,12 @@
         }
     }
 
-    function showRoom(room) {
-        document.getElementById('room-id').value = room.id;
+    function showChannel(channel) {
+        document.getElementById('channel-id').value = channel.id;
         var contact = {
-            id: room.id,
+            id: channel.id,
             type: 'channel',
-            name: room.name,
+            name: channel.name,
         };
         ui.plugins['Contacts'].add(contact.id, contact.type, contact.name);
         ui.plugins['Conversations'].add(contact.id, contact.type, contact.name);
@@ -493,7 +493,7 @@
         return opened;
     }
 
-    function removeRoom(id) {
+    function removeChannel(id) {
         if (!ui) {
             return;
         }
@@ -550,17 +550,17 @@
             expiresAt = result.expiresAt.high * 4294967296 + result.expiresAt.low;
             if (selected) {
                 joining = selected;
-                var room = await request('/rooms/' + encodeURIComponent(joining));
-                if (!room.member || room.member.state !== 'active' || room.state !== 'active') {
+                var channel = await request('/channels/' + encodeURIComponent(joining));
+                if (!channel.member || channel.member.state !== 'active' || channel.state !== 'active') {
                     var id = selected;
                     selected = '';
                     await client.unsubscribe({ type: 'room', id: id });
                     if (current !== generation || client !== ui) {
                         return;
                     }
-                    removeRoom(id);
+                    removeChannel(id);
                 } else {
-                    await client.refresh({ type: 'room', id: room.id },
+                    await client.refresh({ type: 'room', id: channel.id },
                         Protocol.Action.MESSAGE_SUBSCRIBE | Protocol.Action.MESSAGE_PUBLISH, false, true);
                 }
             }
@@ -577,23 +577,23 @@
         }
     }
 
-    async function rooms(more) {
+    async function channels(more) {
         if (!more) {
-            roomCursor = '';
-            document.getElementById('rooms').textContent = '';
+            channelCursor = '';
+            document.getElementById('channels').textContent = '';
         }
-        var result = await request('/rooms?limit=50&cursor=' + encodeURIComponent(roomCursor));
-        result.items.forEach(function (room) {
+        var result = await request('/channels?limit=50&cursor=' + encodeURIComponent(channelCursor));
+        result.items.forEach(function (channel) {
             var item = document.createElement('li'),
                 button = document.createElement('button');
             button.type = 'button';
-            button.textContent = room.name + ' · ' + room.visibility;
-            button.addEventListener('click', function () { run(function () { return enter(room.id); }); });
+            button.textContent = channel.name + ' · ' + channel.visibility;
+            button.addEventListener('click', function () { run(function () { return enter(channel.id); }); });
             item.appendChild(button);
-            document.getElementById('rooms').appendChild(item);
+            document.getElementById('channels').appendChild(item);
         });
-        roomCursor = result.cursor;
-        document.getElementById('more-rooms').hidden = !roomCursor;
+        channelCursor = result.cursor;
+        document.getElementById('more-channels').hidden = !channelCursor;
     }
 
     async function restrictions(more) {
@@ -605,7 +605,7 @@
             document.getElementById('restrictions').textContent = '';
         }
         var id = selected,
-            result = await request('/rooms/' + encodeURIComponent(id) + '/restrictions?limit=50&cursor=' + encodeURIComponent(restrictionCursor));
+            result = await request('/channels/' + encodeURIComponent(id) + '/restrictions?limit=50&cursor=' + encodeURIComponent(restrictionCursor));
         if (id !== selected || !ui) {
             return;
         }
@@ -622,7 +622,7 @@
                         if (id !== selected) {
                             return;
                         }
-                        await request('/rooms/' + encodeURIComponent(id) + '/restrictions/' + encodeURIComponent(restriction.id) +
+                        await request('/channels/' + encodeURIComponent(id) + '/restrictions/' + encodeURIComponent(restriction.id) +
                             '?revision=' + encodeURIComponent(restriction.revision), 'DELETE');
                         await restrictions(false);
                     });
@@ -644,7 +644,7 @@
             document.getElementById('members').textContent = '';
         }
         var id = selected,
-            result = await request('/rooms/' + encodeURIComponent(id) + '/members?limit=50&cursor=' + encodeURIComponent(memberCursor));
+            result = await request('/channels/' + encodeURIComponent(id) + '/members?limit=50&cursor=' + encodeURIComponent(memberCursor));
         if (id !== selected || !ui) {
             return;
         }

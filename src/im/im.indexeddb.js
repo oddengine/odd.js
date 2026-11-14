@@ -73,7 +73,7 @@
             maxBytes: options.maxEventBytes === undefined ? 33554432 : options.maxEventBytes,
         };
         if (!_integer(eventLimits.maxRecords, 64, 1000000) || !_integer(eventLimits.maxBytes, 65536, 1073741824)) {
-            throw _error('TypeError', 'Invalid room event storage limits.');
+            throw _error('TypeError', 'Invalid channel event storage limits.');
         }
         var _this = this,
             _name = 'odd.im.v1:' + JSON.stringify([
@@ -102,13 +102,22 @@
                     reject(_error('NotSupportedError', 'IndexedDB is unavailable.'));
                     return;
                 }
-                var request = indexedDB.open(_name, 6), failed = false;
+                var request = indexedDB.open(_name, 7), failed = false;
                 request.onupgradeneeded = function () {
                     if (_closed || failed) {
                         request.transaction.abort();
                         return;
                     }
                     var database = request.result;
+                    // Visits and partially received snapshots are recoverable caches.
+                    // Rebuild their indexes when upgrading the former key name;
+                    // message history, pending sends and call records remain intact.
+                    if (database.objectStoreNames.contains('visits') &&
+                        request.transaction.objectStore('visits').keyPath === 'room') {
+                        ['visits', 'eventSnapshots', 'eventSnapshotVisits'].forEach(function (name) {
+                            if (database.objectStoreNames.contains(name)) { database.deleteObjectStore(name); }
+                        });
+                    }
                     if (!database.objectStoreNames.contains('outbox')) {
                         var outbox = database.createObjectStore('outbox', { keyPath: 'id' });
                         outbox.createIndex('state', 'state');
@@ -146,11 +155,13 @@
                         var events = database.createObjectStore('events', { keyPath: ['stream', 'id'] });
                         events.createIndex('sequence', ['stream', 'epochHigh', 'epochLow', 'high', 'low'], { unique: true });
                         events.createIndex('expiresAt', 'expiresAt');
-                        database.createObjectStore('visits', { keyPath: 'room' });
+                    }
+                    if (!database.objectStoreNames.contains('visits')) {
+                        database.createObjectStore('visits', { keyPath: 'channel' });
                     }
                     if (!database.objectStoreNames.contains('eventSnapshots')) {
-                        database.createObjectStore('eventSnapshots', { keyPath: ['room', 'owner', 'page'] });
-                        database.createObjectStore('eventSnapshotVisits', { keyPath: 'room' });
+                        database.createObjectStore('eventSnapshots', { keyPath: ['channel', 'owner', 'page'] });
+                        database.createObjectStore('eventSnapshotVisits', { keyPath: 'channel' });
                     }
                     if (!database.objectStoreNames.contains('calls')) {
                         var calls = database.createObjectStore('calls', { keyPath: 'callId' });
@@ -528,10 +539,10 @@
             });
         };
 
-        // Room visits contain recovery proof, never a central viewer receipt.
-        _this.eventVisit = function (room) {
+        // Channel visits contain recovery proof, never a central viewer receipt.
+        _this.eventVisit = function (channel) {
             return _transaction(['visits'], 'readonly', function (transaction, result) {
-                var request = transaction.objectStore('visits').get(_identifier(room));
+                var request = transaction.objectStore('visits').get(_identifier(channel));
                 request.onsuccess = function () { result(request.result || null); };
             });
         };
@@ -545,7 +556,7 @@
                 }
                 var key = event.kind + ':' + _identifier(event.entityId), previous = projection[key];
                 _sequence(event.revision);
-                _sequence(Protocol.channelEvent(event.kind) ? event.payload.channelGeneration : event.payload.roomGeneration);
+                _sequence(Protocol.channelEvent(event.kind) ? event.payload.channelGeneration : event.payload.channelGeneration);
                 if (!previous || Protocol.compareEventState(event, previous) > 0) {
                     if (event.kind === 'media.resource' && event.payload.state === 'revoked') {
                         delete projection[key];
@@ -561,26 +572,26 @@
             visit.states = Object.keys(projection).map(function (key) { return projection[key]; });
             if ((visit.stateVersion !== 5 && visit.states.length > 128) ||
                 Protocol.text(JSON.stringify(visit.states)).length > (visit.stateVersion === 5 ? eventLimits.maxBytes : 131072)) {
-                throw _error('QuotaExceededError', 'Public room state exceeds its storage budget.');
+                throw _error('QuotaExceededError', 'Public channel state exceeds its storage budget.');
             }
         }
 
-        _this.roomState = function (room) {
-            return _this.eventVisit(room).then(function (visit) {
+        _this.channelState = function (channel) {
+            return _this.eventVisit(channel).then(function (visit) {
                 return visit ? { owner: visit.owner, head: visit.snapshotHead,
                     ready: visit.snapshotReady, states: visit.states || [] } : null;
             });
         };
 
-        _this.beginEvents = function (room, value, previous, owner, resumed) {
+        _this.beginEvents = function (channel, value, previous, owner, resumed) {
             return Promise.resolve().then(function () {
                 var cursor = _bytes(value.cursor, 256), epoch = _sequence(value.epoch), through = _sequence(value.through);
-                var record = { room: _identifier(room), owner: _identifier(owner), cursor: cursor, stateVersion: value.stateVersion || 1,
+                var record = { channel: _identifier(channel), owner: _identifier(owner), cursor: cursor, stateVersion: value.stateVersion || 1,
                     stream: _identifier(value.stream), epoch: { high: epoch[0], low: epoch[1] },
                     saved: { high: through[0], low: through[1] }, confirmed: { high: through[0], low: through[1] },
                     snapshotHead: value.snapshotHead, snapshotReady: value.snapshotReady, states: [] };
                 _sequence(value.snapshotHead);
-                if (!Array.isArray(value.snapshot)) { throw _error('DataError', 'A room state baseline is required.'); }
+                if (!Array.isArray(value.snapshot)) { throw _error('DataError', 'A channel state baseline is required.'); }
                 project(record, value.snapshot);
                 if (resumed) {
                     if (!previous || (previous.stateVersion || 1) !== record.stateVersion || previous.stream !== record.stream || Protocol.compare64(previous.epoch, record.epoch) !== 0 ||
@@ -590,7 +601,7 @@
                     record.saved = previous.saved;
                 }
                 return _transaction(['visits'], 'readwrite', function (transaction, result, abort) {
-                    var store = transaction.objectStore('visits'), request = store.get(room);
+                    var store = transaction.objectStore('visits'), request = store.get(channel);
                     request.onsuccess = function () {
                         var actual = request.result;
                         if (!!actual !== !!previous || (actual && (actual.owner !== previous.owner || !_same(actual.cursor, previous.cursor)))) {
@@ -605,7 +616,7 @@
                         var count = store.count();
                         count.onsuccess = function () {
                             if (count.result >= 128) {
-                                abort(_error('QuotaExceededError', 'Too many retained room visits.'));
+                                abort(_error('QuotaExceededError', 'Too many retained channel visits.'));
                                 return;
                             }
                             store.put(record);
@@ -616,16 +627,16 @@
             });
         };
 
-        function snapshotRange(room, owner) {
-            return owner ? IDBKeyRange.bound([room, owner, 0], [room, owner, Number.MAX_SAFE_INTEGER]) :
-                IDBKeyRange.bound([room], [room, []]);
+        function snapshotRange(channel, owner) {
+            return owner ? IDBKeyRange.bound([channel, owner, 0], [channel, owner, Number.MAX_SAFE_INTEGER]) :
+                IDBKeyRange.bound([channel], [channel, []]);
         }
 
         // Pages are written separately. The visible visit changes only in the
         // final transaction; interrupted staging is replaced on the next join.
-        _this.beginEventSnapshot = function (room, value, previous, owner, resumed) {
+        _this.beginEventSnapshot = function (channel, value, previous, owner, resumed) {
             return Promise.resolve().then(function () {
-                _identifier(room); _identifier(owner); _sequence(value.snapshotHead); _sequence(value.epoch);
+                _identifier(channel); _identifier(owner); _sequence(value.snapshotHead); _sequence(value.epoch);
                 _sequence(value.through);
                 if (value.stateVersion !== 5 || !value.snapshotReady ||
                     Protocol.compare64(value.through, value.snapshotHead) > 0 ||
@@ -634,32 +645,32 @@
                         Protocol.compare64(previous.saved, value.snapshotHead) > 0))) {
                     throw _error('ConflictError', 'Invalid channel snapshot boundary.');
                 }
-                var record = { room: room, owner: owner, cursor: _bytes(value.cursor, 256), stateVersion: 5,
+                var record = { channel: channel, owner: owner, cursor: _bytes(value.cursor, 256), stateVersion: 5,
                     stream: _identifier(value.stream), epoch: value.epoch, saved: value.snapshotHead,
                     confirmed: value.through, snapshotHead: value.snapshotHead, snapshotReady: true, states: [],
                     page: 0, bytes: 0, count: 0, previous: previous ? { owner: previous.owner, cursor: previous.cursor } : null };
                 return _transaction(['visits', 'eventSnapshots', 'eventSnapshotVisits'], 'readwrite', function (transaction, result, abort) {
-                    var lookup = transaction.objectStore('visits').get(room);
+                    var lookup = transaction.objectStore('visits').get(channel);
                     lookup.onsuccess = function () {
                         var actual = lookup.result;
                         if (!!actual !== !!previous || (actual && (actual.owner !== previous.owner || !_same(actual.cursor, previous.cursor)))) {
                             abort(_error('ConflictError', 'Another connection changed the channel visit.')); return;
                         }
-                        transaction.objectStore('eventSnapshots').delete(snapshotRange(room));
+                        transaction.objectStore('eventSnapshots').delete(snapshotRange(channel));
                         transaction.objectStore('eventSnapshotVisits').put(record);
                     };
                 });
             });
         };
 
-        _this.saveEventSnapshot = function (room, owner, page, events) {
+        _this.saveEventSnapshot = function (channel, owner, page, events) {
             return Promise.resolve().then(function () {
                 if (!_integer(page, 0, Number.MAX_SAFE_INTEGER) || !Array.isArray(events) || events.length > 32) {
                     throw _error('DataError', 'Invalid channel snapshot page.');
                 }
                 var bytes = Protocol.text(JSON.stringify(events)).length;
                 return _transaction(['eventSnapshots', 'eventSnapshotVisits'], 'readwrite', function (transaction, result, abort) {
-                    var visits = transaction.objectStore('eventSnapshotVisits'), lookup = visits.get(room);
+                    var visits = transaction.objectStore('eventSnapshotVisits'), lookup = visits.get(channel);
                     lookup.onsuccess = function () {
                         var visit = lookup.result;
                         if (!visit || visit.owner !== owner || visit.page !== page) {
@@ -669,29 +680,29 @@
                             abort(_error('QuotaExceededError', 'Channel snapshot storage is full.')); return;
                         }
                         visit.page++; visit.bytes += bytes; visit.count += events.length;
-                        transaction.objectStore('eventSnapshots').add({ room: room, owner: owner, page: page, events: events });
+                        transaction.objectStore('eventSnapshots').add({ channel: channel, owner: owner, page: page, events: events });
                         visits.put(visit);
                     };
                 });
             });
         };
 
-        _this.finishEventSnapshot = function (room, owner) {
+        _this.finishEventSnapshot = function (channel, owner) {
             return _transaction(['visits', 'eventSnapshots', 'eventSnapshotVisits'], 'readwrite', function (transaction, result, abort) {
-                var staging = transaction.objectStore('eventSnapshotVisits'), lookup = staging.get(room);
+                var staging = transaction.objectStore('eventSnapshotVisits'), lookup = staging.get(channel);
                 lookup.onsuccess = function () {
                     var record = lookup.result;
                     if (!record || record.owner !== owner || !record.page) {
                         abort(_error('ConflictError', 'The complete channel snapshot is unavailable.')); return;
                     }
-                    var visits = transaction.objectStore('visits'), actual = visits.get(room);
+                    var visits = transaction.objectStore('visits'), actual = visits.get(channel);
                     actual.onsuccess = function () {
                         var previous = record.previous;
                         if (!!actual.result !== !!previous || (actual.result && (actual.result.owner !== previous.owner ||
                             !_same(actual.result.cursor, previous.cursor)))) {
                             abort(_error('ConflictError', 'Another connection changed the visible channel.')); return;
                         }
-                        var pages = transaction.objectStore('eventSnapshots'), all = pages.getAll(snapshotRange(room, owner));
+                        var pages = transaction.objectStore('eventSnapshots'), all = pages.getAll(snapshotRange(channel, owner));
                         all.onsuccess = function () {
                             try {
                                 if (all.result.length !== record.page) { throw _error('DataError', 'Snapshot pages are incomplete.'); }
@@ -703,8 +714,8 @@
                                 project(record, events);
                                 delete record.previous; delete record.page; delete record.bytes; delete record.count;
                                 visits.put(record);
-                                staging.delete(room);
-                                pages.delete(snapshotRange(room, owner));
+                                staging.delete(channel);
+                                pages.delete(snapshotRange(channel, owner));
                             } catch (error) { abort(error); }
                         };
                     };
@@ -712,11 +723,11 @@
             });
         };
 
-        _this.receiveEvents = function (room, owner, page, items) {
+        _this.receiveEvents = function (channel, owner, page, items) {
             return Promise.resolve().then(function () {
-                _identifier(room);
+                _identifier(channel);
                 if (!Array.isArray(items) || !items.length || items.length > 64) {
-                    throw _error('DataError', 'Invalid room event page.');
+                    throw _error('DataError', 'Invalid channel event page.');
                 }
                 var total = 0, epoch = _sequence(page.epoch);
                 var records = items.map(function (item) {
@@ -728,16 +739,16 @@
                         expiresAt: expiry[0] * 4294967296 + expiry[1], packet: packet };
                 });
                 if (total > 65536) {
-                    throw _error('QuotaExceededError', 'The room event page exceeds its storage budget.');
+                    throw _error('QuotaExceededError', 'The channel event page exceeds its storage budget.');
                 }
                 return _transaction(['visits', 'events', 'positions'], 'readwrite', function (transaction, result, abort) {
                     var visits = transaction.objectStore('visits'), events = transaction.objectStore('events'),
-                        positions = transaction.objectStore('positions'), request = visits.get(room), added = [];
+                        positions = transaction.objectStore('positions'), request = visits.get(channel), added = [];
                     request.onsuccess = function () {
                         var visit = request.result;
                         if (!visit || visit.owner !== owner || visit.stream !== page.conversationId ||
                             Protocol.compare64(visit.epoch, page.epoch) !== 0 || Protocol.compare64(visit.saved, page.after) < 0) {
-                            abort(_error('ConflictError', 'The room visit changed or a delivery page is missing.'));
+                            abort(_error('ConflictError', 'The channel visit changed or a delivery page is missing.'));
                             return;
                         }
                         var budget = positions.get(['event-budget', '']);
@@ -782,12 +793,12 @@
                                     var old = lookup.result;
                                     if (old && (old.epochHigh !== record.epochHigh || old.epochLow !== record.epochLow ||
                                         old.high !== record.high || old.low !== record.low || !_same(old.packet, record.packet))) {
-                                        abort(_error('ConflictError', 'A saved room event changed its identity or content.'));
+                                        abort(_error('ConflictError', 'A saved channel event changed its identity or content.'));
                                         return;
                                     }
                                     if (!old) {
                                         if (usage.count >= eventLimits.maxRecords || record.packet.length > eventLimits.maxBytes - usage.bytes) {
-                                            abort(_error('QuotaExceededError', 'Room event history is full; no receipt was acknowledged.'));
+                                            abort(_error('QuotaExceededError', 'Channel event history is full; no receipt was acknowledged.'));
                                             return;
                                         }
                                         events.add(record);
@@ -807,12 +818,12 @@
             });
         };
 
-        _this.confirmEvents = function (room, owner, previous, cursor, through) {
+        _this.confirmEvents = function (channel, owner, previous, cursor, through) {
             return Promise.resolve().then(function () {
                 var bytes = _bytes(cursor, 256), old = _bytes(previous, 256);
                 _sequence(through);
                 return _transaction(['visits'], 'readwrite', function (transaction, result, abort) {
-                    var store = transaction.objectStore('visits'), request = store.get(room);
+                    var store = transaction.objectStore('visits'), request = store.get(channel);
                     request.onsuccess = function () {
                         var visit = request.result;
                         if (!visit || visit.owner !== owner || !_same(visit.cursor, old) ||
@@ -829,20 +840,20 @@
             });
         };
 
-        _this.endEvents = function (room, owner) {
+        _this.endEvents = function (channel, owner) {
             return _transaction(['visits'], 'readwrite', function (transaction, result, abort) {
-                var store = transaction.objectStore('visits'), request = store.get(room);
+                var store = transaction.objectStore('visits'), request = store.get(channel);
                 request.onsuccess = function () {
                     if (request.result && request.result.owner !== owner) {
                         abort(_error('ConflictError', 'Another connection owns this visit.'));
                         return;
                     }
-                    store.delete(room);
+                    store.delete(channel);
                 };
             });
         };
 
-        _this.roomEvents = function (stream, epoch, after, limit) {
+        _this.channelEvents = function (stream, epoch, after, limit) {
             return Promise.resolve().then(function () {
                 _identifier(stream);
                 var version = _sequence(epoch), start = after ? _sequence(after) : [0, 0];

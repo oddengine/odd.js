@@ -12,7 +12,7 @@ var player = odd.player();
 player.setup(container, {
     mode: 'live',
     credentials: async function (context) {
-        var response = await fetch('/api/v1/streams/' + context.streamId + '/credentials', {
+        var response = await fetch('/api/account/streams/' + context.streamId + '/credentials', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },

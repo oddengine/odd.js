@@ -78,7 +78,7 @@
         };
         _this.preferences = async function (enabled) {
             var version = generation, value = channel;
-            if (!value || value.room || value.readOnly || !im.historyCapabilities().publicRead) {
+            if (!value || value.broadcast || value.readOnly || !im.historyCapabilities().publicRead) {
                 throw new DOMException('此聊天不支持已读回执。', 'NotSupportedError');
             }
             if (typeof enabled === 'boolean') { await im.receipt(value.id, enabled ? 'enable' : 'disable'); }
@@ -91,7 +91,7 @@
         };
         _this.history = function (restart) {
             if (historyPending) { return historyPending; }
-            if (!channel || channel.room || !im.historyCapabilities().history || (!restart && !more)) { return Promise.resolve(false); }
+            if (!channel || channel.broadcast || !im.historyCapabilities().history || (!restart && !more)) { return Promise.resolve(false); }
             var version = generation, value = channel;
             if (restart) { cursor = null; more = true; }
             var pending = im.history(value.id, cursor, 32).then(function (page) {
@@ -105,7 +105,7 @@
             }).finally(function () { if (historyPending === pending) { historyPending = null; } });
             historyPending = pending; return pending;
         };
-        _this.hasMore = function () { return !!channel && !channel.room && im.historyCapabilities().history && more; };
+        _this.hasMore = function () { return !!channel && !channel.broadcast && im.historyCapabilities().history && more; };
         _this.seen = async function () {
             if (!channel || !policy || !policy.enabled || !policy.publicReceipts || publishing || !options.active()) { return; }
             var version = generation, value = channel;
@@ -173,10 +173,10 @@
         _this.attach = function (value) {
             _this.close(); channel = value; cursor = null; more = true; summaries.clear(); names.clear(); update();
             timer = setInterval(function () { _this.refresh(); }, 10000);
-            if (channel && !channel.room && !channel.readOnly && im.historyCapabilities().publicRead) { return _this.preferences().catch(function () {}); }
+            if (channel && !channel.broadcast && !channel.readOnly && im.historyCapabilities().publicRead) { return _this.preferences().catch(function () {}); }
             return Promise.resolve();
         };
-        _this.supported = function () { return !!channel && !channel.room && !channel.readOnly && im.historyCapabilities().publicRead; };
+        _this.supported = function () { return !!channel && !channel.broadcast && !channel.readOnly && im.historyCapabilities().publicRead; };
         _this.inspect = function (row, anchor) {
             if (!_this.supported() || !anchor) { return; }
             if (inspected && origin === anchor) { dismiss(true); return; }

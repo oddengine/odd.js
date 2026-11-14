@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="odd-api" content="/api/v1">
-    <title>odd.js IM · Users and rooms</title>
+    <meta name="odd-api" content="/api/account">
+    <title>odd.js IM · Users and channels</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="../../css/odd.im.classic.css">
     <!-- Load the current SDK sources; no release build is required. -->
@@ -114,25 +114,25 @@
             <p id="identity"></p>
             <button id="logout" type="button">Sign out</button>
             <button id="reconnect" type="button">Reconnect IM</button>
-            <form id="room-create">
-                <h2>Create a room</h2>
+            <form id="channel-create">
+                <h2>Create a channel</h2>
                 <label>Name <input name="name" maxlength="128" required></label>
-                <label>Kind <select name="kind"><option value="group">Fixed group</option><option value="live">Live room</option></select></label>
+                <label>Kind <select name="kind"><option value="group">Fixed group</option><option value="live">Live channel</option></select></label>
                 <label>Visibility <select name="visibility"><option value="public">Public</option><option value="private">Private</option></select></label>
                 <button type="submit">Create</button>
             </form>
-            <form id="room-join">
-                <h2>Enter a room</h2>
-                <label>Room ID <input id="room-id" name="room" required></label>
+            <form id="channel-join">
+                <h2>Enter a channel</h2>
+                <label>Channel ID <input id="channel-id" name="channel" required></label>
                 <button type="submit">Enter</button>
                 <button id="leave" type="button">Leave</button>
-                <button id="close-room" type="button">Close room</button>
+                <button id="close-channel" type="button">Close channel</button>
             </form>
-            <button id="refresh-rooms" type="button">Refresh rooms</button>
-            <ul id="rooms"></ul>
-            <button id="more-rooms" type="button" hidden>More rooms</button>
+            <button id="refresh-channels" type="button">Refresh channels</button>
+            <ul id="channels"></ul>
+            <button id="more-channels" type="button" hidden>More channels</button>
             <details>
-                <summary>Manage current room</summary>
+                <summary>Manage current channel</summary>
                 <form id="member">
                     <label>User ID <input name="userId" required></label>
                     <label>Role <input name="role" value="member" required></label>

@@ -9,7 +9,7 @@
     --odd-im-bubble-radius: calc(var(--odd-im-message-size) / 2);
 }
 /* Empty conversation status and controls must not reserve a row or flex gap. */
-:is(.odd-view, .im-ui-classic) :is(.im-history-notice, .im-room-state):empty,
+:is(.odd-view, .im-ui-classic) :is(.im-history-notice, .im-channel-state):empty,
 :is(.odd-view, .im-ui-classic) .im-history-tools[hidden] {
     display: none;
 }

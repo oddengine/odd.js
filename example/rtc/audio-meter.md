@@ -30,6 +30,6 @@ sample allocation. With the current default 1024 samples, 25 reads/second is abo
 browser benchmark. Each measured NetStream has its own AudioContext, so subscribe
 and measure only the streams the application needs.
 
-This is a source repair for the existing API. Room-wide speaker sorting,
+This is a source repair for the existing API. Channel-wide speaker sorting,
 cross-node aggregation, microphone level UI and release builds remain separate.
 No compilation, browser, runtime or functional tests were run.

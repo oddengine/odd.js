@@ -12,7 +12,7 @@
         EventDispatcher.call(this, 'Conversation', { logger: logger }, Event, MouseEvent);
         var _this = this, _container = utils.createElement('div', 'im-conversation'),
             _title = utils.createElement('header', 'im-conversation-title'), _notice = utils.createElement('p', 'im-history-notice'),
-            _tools = utils.createElement('div', 'im-history-tools'), _room = utils.createElement('div', 'im-room-state'),
+            _tools = utils.createElement('div', 'im-history-tools'), _channelState = utils.createElement('div', 'im-channel-state'),
             _readyState = State.INITIALIZED, _generation = 0, _channel = null, _selected = null,
             _rows = Object.create(null), _sending = Object.create(null), _gifts = Object.create(null),
             _before = null, _outBefore = null, _loading = null, _opening = Promise.resolve(), _reload = false, _older = false,
@@ -21,7 +21,7 @@
         _this.config = config;
         _this.components = {};
         _notice.setAttribute('role', 'status');
-        [_title, _notice, _tools, _room].forEach(function (element) { _container.appendChild(element); });
+        [_title, _notice, _tools, _channelState].forEach(function (element) { _container.appendChild(element); });
 
         function button(label, action) {
             var element = document.createElement('button');
@@ -58,7 +58,7 @@
             _rows = Object.create(null);
             _before = _outBefore = null;
             _older = false; _localMore = true; _pageError = false;
-            _room.textContent = '';
+            _channelState.textContent = '';
             _gifts = Object.create(null);
             render();
         }
@@ -122,12 +122,12 @@
             if (!channel || !channel.storage) { return Promise.resolve(); }
             if (_loading) { if (!older) { _reload = true; } return _loading; }
             if (older) { _older = true; }
-            var store = channel.storage, incoming = channel.room ?
+            var store = channel.storage, incoming = channel.broadcast ?
                 channel.visit ? store.eventHistory(channel.visit.conversationId, channel.visit.epoch, older ? _before : null, 32) : Promise.resolve([]) :
                 store.history(channel.id, older ? _before : null, 32);
             _loading = Promise.all([incoming, store.outgoing(channel.id, older ? _outBefore : null, 32),
-                channel.room ? Promise.resolve(null) : store.projection(channel.id),
-                channel.room ? Promise.resolve([]) : store.gaps(channel.id)]).then(function (values) {
+                channel.broadcast ? Promise.resolve(null) : store.projection(channel.id),
+                channel.broadcast ? Promise.resolve([]) : store.gaps(channel.id)]).then(function (values) {
                 if (!current(generation) || _channel !== channel) { return; }
                 if (!older) {
                     var retained = Object.create(null);
@@ -139,7 +139,7 @@
                     _older = false;
                 }
                 if (values[2]) { _read = values[2].readSequence; }
-                values[0].forEach(function (record) { merge(channel.room ? _history.event(record) : _history.message(record, im.userId())); });
+                values[0].forEach(function (record) { merge(channel.broadcast ? _history.event(record) : _history.message(record, im.userId())); });
                 values[1].forEach(function (record) { merge(_history.outgoing(record, im.userId())); });
                 if (values[0].length) { _before = { high: values[0][0].high, low: values[0][0].low }; }
                 if (values[1].length) { _outBefore = values[1][0].id; }
@@ -158,7 +158,7 @@
         async function open(target, generation) {
             if (!im.connected()) { _notice.textContent = '正在重新连接…'; return; }
             var channelTarget = target.type === 'channel', delivery = channelTarget ? im.messageDelivery() : '',
-                store = im.storage(), room = target.type === 'room' || channelTarget && delivery === 'best-effort',
+                store = im.storage(), broadcast = target.type === 'room' || channelTarget && delivery === 'best-effort',
                 resolved, readOnly = config.readOnly === true || target.type === 'system';
             if (channelTarget && !delivery) { throw new Error('节点尚未提供频道消息策略，请更新节点后重新连接。'); }
             if (target.type === 'conversation' && store && typeof store.destination === 'function') {
@@ -168,33 +168,33 @@
                 readOnly = config.readOnly === true || !!(saved && saved.target && saved.target.type === 'system');
             }
             var reads = ['history', 'outgoing', 'outboxEntry', 'projection', 'gaps', 'destination', 'saveRead', 'eventHistory'];
-            if (!room && (!store || reads.some(function (name) { return typeof store[name] !== 'function'; }))) {
+            if (!broadcast && (!store || reads.some(function (name) { return typeof store[name] !== 'function'; }))) {
                 throw new Error('可靠会话需要支持历史记录的持久消息存储。');
             }
-            if (!room) { resolved = await im.resolve(target); }
+            if (!broadcast) { resolved = await im.resolve(target); }
             if (!current(generation)) { return; }
-            var destination = room ? target : { type: 'conversation', id: resolved.conversationId },
-                channel = { id: destination.id, target: destination, room: room, session: store, user: im.userId(), storage: store && reads.every(function (name) { return typeof store[name] === 'function'; }) ? store : null, resolution: resolved, visit: null, events: false, ready: false };
+            var destination = broadcast ? target : { type: 'conversation', id: resolved.conversationId },
+                channel = { id: destination.id, target: destination, broadcast: broadcast, session: store, user: im.userId(), storage: store && reads.every(function (name) { return typeof store[name] === 'function'; }) ? store : null, resolution: resolved, visit: null, events: false, ready: false };
             // Best-effort channel chat has no persisted message history. The
             // host owns channel publication events on its separate subscription.
-            if (channelTarget && room) { channel.storage = null; }
+            if (channelTarget && broadcast) { channel.storage = null; }
             channel.readOnly = readOnly;
             _channel = channel;
             if (_this.components.composer) { _this.components.composer.element().hidden = readOnly; }
-            if (!room && target.type !== 'conversation') {
+            if (!broadcast && target.type !== 'conversation') {
                 var value = _selected || contact(config.active) || {};
                 await store.destination(channel.id, { target: target, name: String(value.name || target.id).slice(0, 128), avatar: String(value.avatar || '').slice(0, 2048) });
             }
             if (!current(generation)) { release(channel); return; }
             if (config.manageSubscriptions !== false) {
-                channel.subscription = UI.Subscriptions.acquire(im, destination, room ? {} : { messaging: true,
+                channel.subscription = UI.Subscriptions.acquire(im, destination, broadcast ? {} : { messaging: true,
                     actions: Action.MESSAGE_SUBSCRIBE | Action.MESSAGE_COMMIT | Action.MESSAGE_READ });
                 await channel.subscription.ready;
             } else {
-                await im.refresh(destination, room ? Action.MESSAGE_SUBSCRIBE : Action.MESSAGE_READ, !room);
+                await im.refresh(destination, broadcast ? Action.MESSAGE_SUBSCRIBE : Action.MESSAGE_READ, !broadcast);
             }
             if (!current(generation)) { release(channel); return; }
-            if (room) {
+            if (broadcast) {
                 if (!readOnly) {
                     try { await im.refresh(destination, Action.MESSAGE_PUBLISH, false); }
                     catch (reason) {
@@ -206,8 +206,8 @@
                 if (channel.storage && config.manageSubscriptions === false && typeof store.eventVisit === 'function') {
                     var visit = await store.eventVisit(target.id);
                     if (visit) { channel.visit = { conversationId: visit.stream, epoch: visit.epoch }; }
-                    var state = await im.roomState(target.id);
-                    if (current(generation)) { roomState(state); }
+                    var state = await im.channelState(target.id);
+                    if (current(generation)) { channelState(state); }
                 }
                 if (channel.storage && config.manageSubscriptions !== false) {
                     try {
@@ -215,14 +215,14 @@
                         channel.visit = await channel.eventSubscription.ready;
                         channel.events = true;
                     } catch (reason) {
-                        if (current(generation)) { _notice.textContent = '房间可靠状态暂不可用：' + reason.message; }
+                        if (current(generation)) { _notice.textContent = '频道可靠状态暂不可用：' + reason.message; }
                     }
                 }
             }
             if (!current(generation)) { release(channel); return; }
             channel.ready = true;
-            if (!room) { _this.dispatchEvent(Event.CHANGE, { name: 'conversation-resolved', conversationId: channel.id }); }
-            if (!room) { _notice.textContent = ''; }
+            if (!broadcast) { _this.dispatchEvent(Event.CHANGE, { name: 'conversation-resolved', conversationId: channel.id }); }
+            if (!broadcast) { _notice.textContent = ''; }
             await load(false);
             if (current(generation)) {
                 await _reading.attach(channel);
@@ -238,18 +238,18 @@
             if (!channel || !channel.ready || !im.connected()) { throw new Error('请先选择已连接的会话。'); }
             if (channel.readOnly) { throw new Error('当前会话仅供接收与查看。'); }
             if (Object.keys(_sending).length >= 8) { throw new Error('请等待正在发送的消息完成。'); }
-            var id = channel.room ? null : Protocol.messageId(channel.resolution.partition, channel.resolution.partitions), key = id ? _history.hex(id) : utils.guid(),
-                row = { id: key, text: text, from: im.userId(), align: 'right', incoming: false, reliable: !channel.room, ephemeral: channel.room,
+            var id = channel.broadcast ? null : Protocol.messageId(channel.resolution.partition, channel.resolution.partitions), key = id ? _history.hex(id) : utils.guid(),
+                row = { id: key, text: text, from: im.userId(), align: 'right', incoming: false, reliable: !channel.broadcast, ephemeral: channel.broadcast,
                     timestamp: Date.now(), time: new Date().toLocaleTimeString(), state: 'sending', clientMessageId: id, attachment: attachment };
             if (!attachment && _this.components.composer) { _this.components.composer.clear(config.active); }
             _sending[key] = true;
             merge(row);
             render();
             try {
-                if (prepared) { prepared({ id: key, reliable: !channel.room }); }
-                await im.refresh(channel.target, Action.MESSAGE_PUBLISH, !channel.room);
+                if (prepared) { prepared({ id: key, reliable: !channel.broadcast }); }
+                await im.refresh(channel.target, Action.MESSAGE_PUBLISH, !channel.broadcast);
                 if (im.storage() !== channel.session || im.userId() !== channel.user) { throw new Error('保存发送前连接已变化。'); }
-                var options = channel.room ? { ext: [{ key: 'clientMessageId', type: Protocol.Type.STRING, value: key }] } :
+                var options = channel.broadcast ? { ext: [{ key: 'clientMessageId', type: Protocol.Type.STRING, value: key }] } :
                     { messaging: true, clientMessageId: id, ext: [] };
                 if (attachment) {
                     options.ext.push({ key: 'attachment', type: Protocol.Type.OBJECT, value: [
@@ -260,10 +260,10 @@
                     ] });
                 }
                 await im.send(channel.target, text, options);
-                row.state = channel.room ? 'sent' : 'accepted';
+                row.state = channel.broadcast ? 'sent' : 'accepted';
             } catch (reason) {
-                row.state = channel.room ? 'failed' : 'unknown';
-                if (!channel.room) {
+                row.state = channel.broadcast ? 'failed' : 'unknown';
+                if (!channel.broadcast) {
                     try {
                         var saved = await channel.storage.outboxEntry(id);
                         if (saved) { row = _history.outgoing(saved, im.userId()); }
@@ -274,8 +274,8 @@
             } finally {
                 delete _sending[key];
                 if (current(generation)) {
-                    if (channel.room || row.local) { merge(row); render(); }
-                    if (!channel.room) { await load(false).catch(failure); }
+                    if (channel.broadcast || row.local) { merge(row); render(); }
+                    if (!channel.broadcast) { await load(false).catch(failure); }
                 }
             }
             return { id: key, state: row.state };
@@ -299,7 +299,7 @@
         }
         async function markRead() {
             var channel = _channel, generation = _generation;
-            if (!channel || !channel.ready || channel.room || !im.connected() || !activeViewport()) { return; }
+            if (!channel || !channel.ready || channel.broadcast || !im.connected() || !activeViewport()) { return; }
             var rows = _this.components.messages.visible().filter(function (row) { return row.incoming && row.sequence && row.messageId; }).sort(_history.compare),
                 last = rows[rows.length - 1];
             if (!last || Protocol.compare64(last.sequence, _read) <= 0) { return; }
@@ -339,7 +339,16 @@
             try {
                 if (older) { await load(true); }
                 if (!current(generation)) { return; }
-                await _reading.history(!older);
+                for (var attempt = 0; ; ++attempt) {
+                    try { await _reading.history(!older); break; }
+                    catch (reason) {
+                        // A newly created channel may still be preparing its
+                        // delivery window. Retry only this transient status.
+                        if (reason.code !== Protocol.Status.NOT_READY || attempt >= 3) { throw reason; }
+                        await new Promise(function (resolve) { setTimeout(resolve, 250 * Math.pow(2, attempt)); });
+                        if (!current(generation) || _channel !== channel || !im.connected()) { return; }
+                    }
+                }
                 if (current(generation)) { _notice.textContent = !_localMore && !_reading.hasMore() ? '没有更早的消息了' : ''; }
             } catch (reason) {
                 if (current(generation)) { _pageError = true; _notice.textContent = '历史消息暂时无法加载'; }
@@ -358,26 +367,26 @@
         function onTouchStart(event) { _touchY = event.touches[0].clientY; }
         function onTouchMove(event) { if (event.touches[0].clientY - _touchY > 24) { earlier(); _touchY = event.touches[0].clientY; } }
         function onHistoryKey(event) { if (['Home', 'PageUp', 'ArrowUp'].indexOf(event.key) >= 0) { earlier(); } }
-        function roomState(value) {
-            _room.textContent = '';
+        function channelState(value) {
+            _channelState.textContent = '';
             var status = document.createElement('p');
-            status.textContent = value.known ? '房间状态已同步' : '房间状态未知，正在等待恢复';
-            _room.appendChild(status);
+            status.textContent = value.known ? '频道状态已同步' : '频道状态未知，正在等待恢复';
+            _channelState.appendChild(status);
             (value.states || []).slice(0, 64).forEach(function (state) {
                 if (['room.state', 'stage.policy', 'stage.member'].indexOf(state.kind) < 0) { return; }
                 var row = document.createElement('p');
-                row.textContent = state.kind === 'room.state' ? '房间：' + state.payload.state : state.kind === 'stage.policy' ?
+                row.textContent = state.kind === 'room.state' ? '频道：' + state.payload.state : state.kind === 'stage.policy' ?
                     '发言模式：' + state.payload.mode + ' · 席位：' + state.payload.capacity :
                     '发言成员：' + state.entityId + ' · ' + state.payload.state;
-                _room.appendChild(row);
+                _channelState.appendChild(row);
             });
         }
         function onMessage(event) {
             var value = event.data, channel = _channel;
             if (_readyState !== State.READY || !channel || !value.target) { return; }
             if (value.messaging && value.target.type === 'room') {
-                if (!channel.room || channel.id !== value.target.id) { return; }
-                if (value.type === 'room.snapshot') { roomState(value.content); return; }
+                if (!channel.broadcast || channel.id !== value.target.id) { return; }
+                if (value.type === 'room.snapshot') { channelState(value.content); return; }
                 if (value.event && value.meta) { merge(_history.fact(value.event, value.meta)); render(_older); }
                 return;
             }
@@ -390,7 +399,7 @@
                 }
                 return;
             }
-            if (channel.room && value.target.id === channel.id && value.sender) {
+            if (channel.broadcast && value.target.id === channel.id && value.sender) {
                 if (value.sender.id === im.userId() && value.ext && value.ext.clientMessageId && _rows[value.ext.clientMessageId]) { return; }
                 merge(_history.received(value, im.userId()));
                 render(_older);
@@ -401,10 +410,10 @@
             var value = event.data.payload || {};
             if (event.data.event === Protocol.Event.IM_SUBSCRIBE_STOP && value.target && value.target.id === _channel.id) {
                 _notice.textContent = '聊天暂时不可用，请重新打开。';
-                if (_channel.room && event.data.messaging) {
+                if (_channel.broadcast && event.data.messaging) {
                     _channel.visit = null;
                     _channel.events = false;
-                    roomState({ known: false, states: [] });
+                    channelState({ known: false, states: [] });
                 } else { _channel.ready = false; _reading.close(); }
                 return;
             }
@@ -478,7 +487,7 @@
             var saved = await channel.storage.destination(target.id);
             if (saved && saved.target) { return saved.target; }
             var candidate = Object.keys(_rows).map(function (id) { return _rows[id]; }).reverse().filter(function (row) {
-                return row.incoming && !row.roomEvent && row.senderId && row.senderId !== im.userId();
+                return row.incoming && !row.channelEvent && row.senderId && row.senderId !== im.userId();
             })[0];
             if (!candidate) { return null; }
             var peer = { type: 'user', id: candidate.senderId }, resolved = await im.resolve(peer);

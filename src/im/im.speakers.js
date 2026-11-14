@@ -31,9 +31,9 @@
         return digits;
     }
 
-    // One optional, ephemeral observer per existing room visit. The reliable
+    // One optional, ephemeral observer per existing channel visit. The reliable
     // projection remains the only source of identity and presentation roles.
-    function Speakers(room, basis, changed, refresh) {
+    function Speakers(channel, basis, changed, refresh) {
         var _this = this, _closed = false, _clock = null, _latest = null, _sequence = null,
             _epoch = '', _subscription = '', _signature = '', _refreshing = false,
             _retryAt = 0, _receivedAt = performance.now(), _wall = Date.now(), _steady = performance.now(),
@@ -52,7 +52,7 @@
             if (_closed) { return; }
             var now = performance.now(), roundtrip = now - started;
             if (info.speakersVersion !== 1 || !_id(info.speakersEpoch) || !_id(info.subscriptionId) ||
-                !info.target || info.target.type !== 'room' || info.target.id !== room ||
+                !info.target || info.target.type !== 'room' || info.target.id !== channel ||
                 roundtrip < 0 || roundtrip > 1000) {
                 _clock = _latest = null;
                 return;
@@ -85,14 +85,14 @@
             if (_closed) { return; }
             Protocol.validateFields(fields, [
                 { key: 'subscriptionId', type: Type.STRING }, { key: 'target', type: Type.OBJECT },
-                { key: 'roomGeneration', type: Type.UINT64 }, { key: 'basisHead', type: Type.UINT64 },
+                { key: 'channelGeneration', type: Type.UINT64 }, { key: 'basisHead', type: Type.UINT64 },
                 { key: 'epoch', type: Type.STRING }, { key: 'sequence', type: Type.UINT64 },
                 { key: 'sampledAt', type: Type.UINT64 }, { key: 'validUntil', type: Type.UINT64 },
                 { key: 'complete', type: Type.BOOL }, { key: 'items', type: Type.ARRAY },
             ]);
             Protocol.validateTarget(fields[1].value);
             var data = _object(fields), time = clock();
-            if (!time || data.target.type !== 'room' || data.target.id !== room ||
+            if (!time || data.target.type !== 'room' || data.target.id !== channel ||
                 data.subscriptionId !== _subscription || data.epoch !== _epoch ||
                 (!data.sequence.high && !data.sequence.low) ||
                 (_sequence && Protocol.compare64(data.sequence, _sequence) <= 0)) {
@@ -128,12 +128,12 @@
 
         _this.view = function () {
             var current = !_closed && basis(), time = clock(), data = _latest,
-                view = { observedAt: performance.now(), roomId: room, known: false, complete: false, validUntil: '0', priority: [], items: [] };
+                view = { observedAt: performance.now(), channelId: channel, known: false, complete: false, validUntil: '0', priority: [], items: [] };
             if (!current || !current.info.snapshotReady) { return view; }
-            var projection = current.projection, state = projection['room.state:' + room];
+            var projection = current.projection, state = projection['room.state:' + channel];
             if (!state || state.payload.state !== 'active') { return view; }
             var fresh = time && data && _time(data.validUntil) > time.upper &&
-                Protocol.compare64(data.roomGeneration, state.payload.roomGeneration) === 0 &&
+                Protocol.compare64(data.channelGeneration, state.payload.channelGeneration) === 0 &&
                 Protocol.compare64(data.basisHead, current.info.head) <= 0;
             var ranks = Object.create(null), people = Object.create(null), members = Object.create(null);
             if (fresh) {

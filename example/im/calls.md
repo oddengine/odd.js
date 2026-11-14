@@ -1,7 +1,7 @@
 # CALL v1
 
 Requires paired odd.d Messaging/Calls and odd.x IM/Calls, business migration 020,
-Stage, reliable room Events/Baseline, v2 media admission and allocation receipts.
+Stage, reliable channel Events/Baseline, v2 media admission and allocation receipts.
 Migration and services are not started by the SDK. Rebuild the source bundles
 through the normal release workflow; this source delivery does not update release/.
 
@@ -28,7 +28,7 @@ await im.calls().end(call.callId);
 `mediaCredentials(context)` uses the prepared `context.streamId` for both publish
 and play. Request `/streams/{streamId}/credentials` with protocol, direction,
 connectionId and generation. Do not create a second stream or grant for a call.
-`roomId`, `callId` and `grantId` are context for the application, not authority.
+`channelId`, `callId` and `grantId` are context for the application, not authority.
 
 `im.calls()` provides invite, accept, reject(id, allDevices), cancel, leave, end,
 inspect, state, current and retry. `im.call('invite', target, options)` delegates to

@@ -27,7 +27,7 @@
             socketFactory: null,
             storageFactory: null,
             channelStateBytes: 8388608,
-            roomRequest: null,
+            channelRequest: null,
             calls: null,
             connectTimeout: 10000,
             requestTimeout: 15000,
@@ -484,7 +484,7 @@
                         { key: 'reason', type: Protocol.Type.STRING },
                     ]);
                     Protocol.validateTarget(fields[0].value);
-                    // A change invalidates the old grant. An active room may
+                    // A change invalidates the old grant. An active channel may
                     // obtain a fresh ordinary grant after a restriction changes.
                     _permissionVersions[_targetKey(payload.target, message.messaging)] = payload;
                     delete _permissions[_targetKey(payload.target, message.messaging)];
@@ -524,7 +524,7 @@
                 }
                 return _this.refresh(change.target, Protocol.Action.MESSAGE_SUBSCRIBE, false).catch(function (err) {
                     if (_attempt === attempt) {
-                        _logger.warn('Failed to refresh changed room permission: ' + err.name + '.');
+                        _logger.warn('Failed to refresh changed channel permission: ' + err.name + '.');
                     }
                 });
             }
@@ -756,7 +756,7 @@
                 }
                 _this.dispatchEvent(NetStatusEvent.NETSTATUS, { code: Protocol.Event.IM_CONNECT_SUCCESS, data: attempt.session });
 
-                // Keep slots stable: a callback may revoke a room, append a
+                // Keep slots stable: a callback may revoke a channel, append a
                 // notification through an adapter, or close this attempt.
                 for (var i = 0; i < attempt.notifications.length; i++) {
                     if (_attempt !== attempt || _readyState !== State.CONNECTED) {
@@ -1069,10 +1069,10 @@
             var joining = intention.topic === 'events' ? attempt.messaging.events().join(intention.target.id, intention.resume && !attempt.ephemeral, function (info) {
                 intention.id = info.subscriptionId;
                 if (_attempt !== attempt || _subscriptions[key] !== intention) {
-                    throw _error('AbortError', 'The room visit was cancelled while joining.');
+                    throw _error('AbortError', 'The channel visit was cancelled while joining.');
                 }
                 if (_targetKey(info.target, true) !== _targetKey(intention.target, true)) {
-                    throw _error('DataError', 'Room visit target mismatch.');
+                    throw _error('DataError', 'Channel visit target mismatch.');
                 }
                 intention.id = info.subscriptionId;
                 _acceptPermission(intention.target, true, info, version);
@@ -1138,7 +1138,7 @@
                     throw _error('TypeError', 'Invalid subscription options.');
                 }
                 if (options.speakers !== undefined && (typeof options.speakers !== 'boolean' || topic !== 'events')) {
-                    throw _error('TypeError', 'Speaker observations require a room event subscription.');
+                    throw _error('TypeError', 'Speaker observations require a channel event subscription.');
                 }
                 if (options.speakers && (!_attempt.session.ext || _attempt.session.ext.speakersVersion !== 1)) {
                     throw _error('NotSupportedError', 'The server has not enabled speaker observations.');
@@ -1209,32 +1209,48 @@
                     throw _error('TypeError', 'Invalid requested actions.');
                 }
                 var key = _targetKey(target, messaging),
-                    requestKey = key + ':' + actions,
+                    channel = _this.config.profile === 'channel',
+                    requestKey = channel ? key : key + ':' + actions,
                     current = _permissions[key];
+                if (channel && _refreshing[requestKey]) {
+                    // REFRESH replaces the channel grant. Serialize additions
+                    // so concurrent send/read requests cannot drop each other.
+                    var pending = _refreshing[requestKey], owner = _attempt;
+                    var resume = function () {
+                        if (_attempt !== owner) { throw _error('AbortError', 'IM session changed while refreshing permission.'); }
+                        return _this.refresh(target, actions, messaging, force);
+                    };
+                    return pending.then(resume, resume);
+                }
                 if (!force && current && _milliseconds(current.expiresAt) > Date.now() &&
                     current.actions.high === 0 && (current.actions.low & actions) === actions) {
                     return current;
+                }
+                if (channel && current && _milliseconds(current.expiresAt) > Date.now() && current.actions.high === 0) {
+                    // Preserve the live subscription/commit/read grant when
+                    // adding publish permission. Revocation clears this cache.
+                    actions |= current.actions.low;
                 }
                 if (_refreshing[requestKey]) {
                     return _refreshing[requestKey];
                 }
                 var attempt = _attempt,
                     version = _permissionVersions[key],
-                    eventRoom = messaging && (target.type === 'room' || target.type === 'channel'),
-                    fields = eventRoom ? [_field('topic', Protocol.Type.STRING, 'events'),
+                    eventChannel = messaging && (target.type === 'room' || target.type === 'channel'),
+                    fields = eventChannel ? [_field('topic', Protocol.Type.STRING, 'events'),
                         _field('target', Protocol.Type.OBJECT, _target(target))] : [
                         _field('target', Protocol.Type.OBJECT, _target(target)),
                         _field('requestedActions', Protocol.Type.UINT64, { high: 0, low: actions }),
                     ];
-                if (eventRoom && attempt.session.ext.stateVersion >= 2) {
+                if (eventChannel && attempt.session.ext.stateVersion >= 2) {
                     fields.push(_field('stateVersion', Protocol.Type.UINT16, target.type === 'channel' ? 5 : Math.min(attempt.session.ext.stateVersion, 4)));
                 }
-                var intention = eventRoom && _subscriptions['events:' + key];
+                var intention = eventChannel && _subscriptions['events:' + key];
                 if (intention && intention.speakers) {
                     fields.push(_field('speakersVersion', Protocol.Type.UINT16, 1));
                 }
                 var started = performance.now();
-                if (eventRoom && actions !== Protocol.Action.MESSAGE_SUBSCRIBE) {
+                if (eventChannel && actions !== Protocol.Action.MESSAGE_SUBSCRIBE) {
                     throw _error('NotAllowedError', 'Gift permission is checked by the business service for each transaction.');
                 }
                 var promise = _this.request(Protocol.Opcode.REFRESH, fields, messaging).then(function (info) {
@@ -1319,12 +1335,12 @@
             });
         };
 
-        _this.gift = function (room, gift, options) {
+        _this.gift = function (channel, gift, options) {
             return Promise.resolve().then(function () {
-                var attempt = _attempt, target = { type: 'room', id: room };
+                var attempt = _attempt, target = { type: 'room', id: channel };
                 options = options || {};
                 if (_readyState !== State.CONNECTED || !attempt || !attempt.messaging) {
-                    throw _error('InvalidStateError', 'Reliable room events are not ready.');
+                    throw _error('InvalidStateError', 'Reliable channel events are not ready.');
                 }
                 return attempt.messaging.identity(target, options.clientMessageId).then(function (id) {
                     if (_attempt !== attempt) {
@@ -1352,45 +1368,44 @@
                 Object.assign({}, options, { topic: 'events', messaging: true, speakers: false }));
         };
 
-        _this.channelState = function () {
-            if (_this.config.profile !== 'channel' || !_attempt || !_attempt.messaging) {
-                return Promise.reject(_error('InvalidStateError', 'Channel discovery is not connected.'));
+        _this.channelState = function (channel) {
+            if (channel === undefined) {
+                if (_this.config.profile !== 'channel' || !_attempt || !_attempt.messaging) {
+                    return Promise.reject(_error('InvalidStateError', 'Channel discovery is not connected.'));
+                }
+                channel = _this.config.appId;
             }
-            return _attempt.messaging.events().state(_this.config.appId);
-        };
-
-        _this.roomState = function (room) {
             if (!_attempt || !_attempt.messaging) {
-                return Promise.resolve({ roomId: room, known: false, states: [] });
+                return Promise.resolve({ channelId: channel, known: false, states: [] });
             }
             var messaging = _attempt.messaging;
             return Promise.resolve().then(function () {
-                return messaging.events().state(room);
+                return messaging.events().state(channel);
             });
         };
 
-        _this.roomSpeakers = function (room) {
+        _this.channelSpeakers = function (channel) {
             if (!_attempt || !_attempt.messaging) {
-                return { roomId: room, known: false, complete: false, validUntil: '0', priority: [], items: [] };
+                return { channelId: channel, known: false, complete: false, validUntil: '0', priority: [], items: [] };
             }
-            return _attempt.messaging.events().speakers(room);
+            return _attempt.messaging.events().speakers(channel);
         };
 
         // Business authentication and HTTP errors stay with the application's
         // request provider. These operations never create another IM transport.
-        function _stage(room, method, suffix, body) {
+        function _stage(channel, method, suffix, body) {
             return Promise.resolve().then(function () {
                 var attempt = _attempt;
                 if (_readyState !== State.CONNECTED || !attempt || !attempt.session || !attempt.session.ext ||
                     [2, 3, 4].indexOf(attempt.session.ext.stateVersion) < 0 ||
-                    typeof _this.config.roomRequest !== 'function') {
-                    throw _error('NotSupportedError', 'Stage operations require state version 2 and a roomRequest provider.');
+                    typeof _this.config.channelRequest !== 'function') {
+                    throw _error('NotSupportedError', 'Stage operations require state version 2 and a channelRequest provider.');
                 }
-                if (typeof room !== 'string' || !/^[0-9a-f-]{36}$/.test(room)) {
-                    throw _error('TypeError', 'A room ID is required.');
+                if (typeof channel !== 'string' || !/^[0-9a-f-]{36}$/.test(channel)) {
+                    throw _error('TypeError', 'A channel ID is required.');
                 }
-                return Promise.resolve(_this.config.roomRequest({ method: method,
-                    path: '/rooms/' + encodeURIComponent(room) + '/stage' + suffix,
+                return Promise.resolve(_this.config.channelRequest({ method: method,
+                    path: '/channels/' + encodeURIComponent(channel) + '/stage' + suffix,
                     body: body === undefined ? undefined : JSON.parse(JSON.stringify(body)) })).then(function (result) {
                     if (_attempt !== attempt) {
                         throw _error('AbortError', 'The connection changed; recover the original stage request before retrying.');
@@ -1400,58 +1415,58 @@
             });
         }
 
-        _this.stage = function (room) {
-            return _stage(room, 'GET', '');
+        _this.stage = function (channel) {
+            return _stage(channel, 'GET', '');
         };
 
-        _this.saveStage = function (room, change) {
-            return _stage(room, 'PUT', '', change);
+        _this.saveStage = function (channel, change) {
+            return _stage(channel, 'PUT', '', change);
         };
 
-        _this.requestStage = function (room, request) {
+        _this.requestStage = function (channel, request) {
             // The caller retains requestId/requestedAt before this call. Unknown
             // outcomes must reuse that intent, never generate a new request ID.
-            return _stage(room, 'POST', '/requests', request);
+            return _stage(channel, 'POST', '/requests', request);
         };
 
-        _this.stageRequests = function (room, options) {
+        _this.stageRequests = function (channel, options) {
             options = options || {};
             var query = '?limit=' + encodeURIComponent(options.limit === undefined ? 50 : options.limit) +
                 '&cursor=' + encodeURIComponent(options.cursor || '') + '&all=' + (options.all === true ? 'true' : 'false');
-            return _stage(room, 'GET', '/requests' + query);
+            return _stage(channel, 'GET', '/requests' + query);
         };
 
-        _this.stageRequest = function (room, request) {
-            return _stage(room, 'GET', '/requests/' + encodeURIComponent(request));
+        _this.stageRequest = function (channel, request) {
+            return _stage(channel, 'GET', '/requests/' + encodeURIComponent(request));
         };
 
-        _this.decideStage = function (room, request, decision) {
-            return _stage(room, 'PUT', '/requests/' + encodeURIComponent(request), decision);
+        _this.decideStage = function (channel, request, decision) {
+            return _stage(channel, 'PUT', '/requests/' + encodeURIComponent(request), decision);
         };
 
-        _this.cancelStage = function (room, request) {
-            return _stage(room, 'DELETE', '/requests/' + encodeURIComponent(request));
+        _this.cancelStage = function (channel, request) {
+            return _stage(channel, 'DELETE', '/requests/' + encodeURIComponent(request));
         };
 
-        _this.stageGrant = function (room, grant) {
-            return _stage(room, 'GET', '/grants/' + encodeURIComponent(grant));
+        _this.stageGrant = function (channel, grant) {
+            return _stage(channel, 'GET', '/grants/' + encodeURIComponent(grant));
         };
 
-        _this.endStage = function (room, grant) {
-            return _stage(room, 'DELETE', '/grants/' + encodeURIComponent(grant));
+        _this.endStage = function (channel, grant) {
+            return _stage(channel, 'DELETE', '/grants/' + encodeURIComponent(grant));
         };
 
-        _this.setStagePresentation = function (room, grant, change) {
+        _this.setStagePresentation = function (channel, grant, change) {
             var attempt = _attempt;
             if (!attempt || !attempt.session || !attempt.session.ext || [3, 4].indexOf(attempt.session.ext.stateVersion) < 0) {
-                return Promise.reject(_error('NotSupportedError', 'Stage presentation requires room state version 3.'));
+                return Promise.reject(_error('NotSupportedError', 'Stage presentation requires channel state version 3.'));
             }
-            return _stage(room, 'PUT', '/grants/' + encodeURIComponent(grant) + '/presentation', change);
+            return _stage(channel, 'PUT', '/grants/' + encodeURIComponent(grant) + '/presentation', change);
         };
 
-        _this.inspectGift = function (room, clientMessageId) {
+        _this.inspectGift = function (channel, clientMessageId) {
             return _this.request(Protocol.Opcode.INSPECT, [
-                _field('target', Protocol.Type.OBJECT, _target({ type: 'room', id: room })),
+                _field('target', Protocol.Type.OBJECT, _target({ type: 'room', id: channel })),
                 _field('clientMessageId', Protocol.Type.BYTES, clientMessageId),
             ], true);
         };

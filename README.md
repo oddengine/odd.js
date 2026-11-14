@@ -1,5 +1,9 @@
 # odd.js
 
+Famicom keyboard / 游戏键位：`odd.Famicom.Input.Keyboard` 提供默认的 `KeyboardEvent.code → Famicom.Key` 映射；`input.keyboard()` 返回副本，`input.keyboard(mapping)` 校验并替换映射，成功返回 `true`，非法映射返回 `false` 且保持原值。替换会清除旧按键状态，须重新按下才生效；宿主负责设置界面与保存偏好。`Input.isKeyboard(mapping)` 可用于加载前校验。默认 Select=G、Start=H、B=J、A=K，方向键与 WASD 均可移动。
+
+`Input.Keyboard` exposes the default code-to-button map. `input.keyboard()` returns a copy; `input.keyboard(map)` validates and replaces it, clears held inputs, and returns a boolean. `Input.isKeyboard(map)` validates persisted mappings. Preferences and the settings UI belong to the host. Browser regression: serve this repository and open `test/famicom.input.html` after `bash compile.sh`.
+
 详细设计、接口与配置统一维护在[知识库](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/overview.md)及[专题索引](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/catalog.md)。本 README 保留项目与使用入口；带迭代号或旧 schema 的内容仅作历史／兼容参考，部署以现行专题和实际配置为准。
 
 2.5.25：独立 Player／RTC／IM 的产品皮肤与网站已确认配色同步，字号、尺寸、圆角和安全留白保持。加载 `css/odd.products.css` 会自动加载 `odd.brand-tokens.css`，再用 `ui.skin({brand,theme})` 选择品牌／深浅。颜色由相邻 www 的 `scripts/sync-sdk-brand-tokens.mjs` 生成并随本仓提交；独立使用或编译 SDK 不需要 www，也不加载网站背景。详见 [皮肤同步](https://github.com/oddengine/odd.skills/blob/main/product-knowledge/references/odd.js/ui-composition.md#设置与外观)。
@@ -41,8 +45,8 @@ BSD 3-Clause License ([NOTICE](https://github.com/oddengine/odd.js/blob/master/N
 ### Signed admission v2
 
 IM accepts short signed tickets as well as legacy opaque tickets. The IM example
-uses /session im.admissionVersion to avoid periodic v1 room renewal in v2; the
-business session still has an expiry. Live-room creation and explicit timed /
+uses /session im.admissionVersion to avoid periodic v1 channel renewal in v2; the
+business session still has an expiry. Live-channel creation and explicit timed /
 permanent restrictions replace the old ambiguous banned/muted member writes.
 An active subscription may request a fresh ordinary grant after a low-frequency
 restriction event; closed subscriptions and media publishers are not resurrected.

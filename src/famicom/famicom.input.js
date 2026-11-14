@@ -16,20 +16,7 @@
             _pad = 0,
             _neutral = true,
             _closed = false,
-            _bindings = {
-                ArrowUp: Key.UP,
-                ArrowDown: Key.DOWN,
-                ArrowLeft: Key.LEFT,
-                ArrowRight: Key.RIGHT,
-                KeyW: Key.UP,
-                KeyS: Key.DOWN,
-                KeyA: Key.LEFT,
-                KeyD: Key.RIGHT,
-                KeyZ: Key.B,
-                KeyX: Key.A,
-                Enter: Key.START,
-                ShiftRight: Key.SELECT,
-            };
+            _bindings = Object.assign({}, Input.Keyboard);
 
         _root.className = 'odd-famicom-pad';
         _root.setAttribute('aria-label', '游戏手柄');
@@ -275,6 +262,18 @@
             _apply();
             _frame = requestAnimationFrame(_poll);
         }
+        _this.keyboard = function (value) {
+            if (value === undefined) {
+                return Object.assign({}, _bindings);
+            }
+            if (!Input.isKeyboard(value)) {
+                return false;
+            }
+            // A held key belongs to the old mapping and must never carry over.
+            _clear();
+            _bindings = Object.assign({}, value);
+            return true;
+        };
         _this.enabled = function (value) {
             if (value === undefined) {
                 return _enabled;
@@ -310,5 +309,19 @@
         document.addEventListener('visibilitychange', _visibility);
         _poll();
     }
+    Input.Keyboard = Object.freeze({
+        ArrowUp: Key.UP, ArrowDown: Key.DOWN,
+        ArrowLeft: Key.LEFT, ArrowRight: Key.RIGHT,
+        KeyW: Key.UP, KeyS: Key.DOWN, KeyA: Key.LEFT, KeyD: Key.RIGHT,
+        KeyG: Key.SELECT, KeyH: Key.START, KeyJ: Key.B, KeyK: Key.A,
+    });
+    Input.isKeyboard = function (value) {
+        return value !== null && typeof value === 'object' &&
+            !Array.isArray(value) && Object.keys(value).length <= 32 &&
+            Object.entries(value).every(function (entry) {
+                return /^(Key[A-Z]|Digit[0-9]|Numpad[0-9]|Arrow(Up|Down|Left|Right)|Enter|NumpadEnter|Space|Shift(Left|Right))$/.test(entry[0]) &&
+                    Object.values(Key).includes(entry[1]);
+            });
+    };
     Famicom.Input = Input;
 })(odd);

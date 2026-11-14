@@ -8,7 +8,7 @@ var utils = odd.utils,
     _api = document.querySelector('meta[name="odd-api"]').content.replace(/\/$/, ''),
     _query = new URLSearchParams(location.search),
     _stream = _query.get('stream'),
-    _room = _query.get('room'),
+    _channel = _query.get('room'),
     _account = new AccountClient(_api),
     _session,
     _renewal,
@@ -19,7 +19,7 @@ im.addEventListener(Event.READY, onReady);
 im.addEventListener(Event.CLOSE, onClose);
 im.addEventListener(IMEvent.NOTIFY, function (e) {
     // Only server notifications describe publication state; chat text cannot change the source.
-    im.logger.log('Room event:', e.data);
+    im.logger.log('Channel event:', e.data);
 });
 
 var ui = odd.player.ui.create({ mode: 'file' });
@@ -92,16 +92,16 @@ window.addEventListener('beforeunload', function () {
     im.close();
 });
 
-if (_stream && _room) {
+if (_stream && _channel) {
     (async function () {
         _session = await _request('/session');
-        await _request('/rooms/' + encodeURIComponent(_room) + '/members/me', 'PUT');
+        await _request('/channels/' + encodeURIComponent(_channel) + '/members/me', 'PUT');
         await im.setup({
             url: _session.im.url,
             credentials: function (context) {
                 return _request('/session/im-ticket', 'POST', {
                     audience: _session.im.audience,
-                    roomId: _room,
+                    channelId: _channel,
                     connectionId: context.connectionId,
                     generation: context.generation,
                 });
@@ -111,7 +111,7 @@ if (_stream && _room) {
 }
 
 function onReady(e) {
-    im.subscribe({ type: 'room', id: _room }).catch(function (err) { im.logger.error(err.message); });
+    im.subscribe({ type: 'room', id: _channel }).catch(function (err) { im.logger.error(err.message); });
     _scheduleRenewal();
 }
 

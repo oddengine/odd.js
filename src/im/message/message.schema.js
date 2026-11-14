@@ -168,7 +168,7 @@
         var gift = type === 'gift';
         if (gift) {
             if (!message.messaging || kind !== 'room' || message.fields.length !== 2 || body.length !== 3 || content.type !== Type.OBJECT) {
-                _fail('NotSupportedError', 'A gift requires the reliable room operation.');
+                _fail('NotSupportedError', 'A gift requires the reliable channel operation.');
             }
             _validateFields(content.value, [
                 { key: 'giftId', type: Type.STRING }, { key: 'count', type: Type.UINT32 },
@@ -379,11 +379,11 @@
                 return _validateEventPage(fields);
             }
         } else {
-            _fail('NotSupportedError', 'Unsupported reliable room operation.');
+            _fail('NotSupportedError', 'Unsupported reliable channel operation.');
         }
         _validateFields(fields, rules);
         if (fields[0].value !== 'events') {
-            _fail('DataError', 'Expected the room event profile.');
+            _fail('DataError', 'Expected the channel event profile.');
         }
         if (opcode === Opcode.RESOLVE || opcode === Opcode.SUBSCRIBE || opcode === Opcode.REFRESH) {
             _validatePartition(fields[2].value, fields[3].value);
@@ -402,7 +402,7 @@
             });
         } else if (opcode === Opcode.PUBLISH || opcode === Opcode.INSPECT) {
             if (_bytes(fields[2].value).length !== 16 || fields[4].value !== 'accepted') {
-                _fail('DataError', 'Invalid durable room event receipt.');
+                _fail('DataError', 'Invalid durable channel event receipt.');
             }
         }
     }
@@ -420,7 +420,7 @@
             { key: 'last', type: Type.UINT64 }, { key: 'items', type: Type.ARRAY },
         ]);
         if (fields[0].value !== 'events' || fields[5].value.length > 64) {
-            _fail('DataError', 'Invalid reliable room page.');
+            _fail('DataError', 'Invalid reliable channel page.');
         }
     }
 
@@ -431,7 +431,7 @@
             { key: 'items', type: Type.ARRAY }, { key: 'page', type: Type.OBJECT, required: false },
         ]);
         if (fields[0].value !== 'event-origins' || fields[4].value.length > (fields[5] ? 32 : 128)) {
-            _fail('DataError', 'Invalid room source identity notice.');
+            _fail('DataError', 'Invalid channel source identity notice.');
         }
         if (fields[5]) {
             _validateFields(fields[5].value, [{ key: 'after', type: Type.STRING }, { key: 'done', type: Type.BOOL }]);
@@ -507,7 +507,7 @@
             return Protocol.compare64(left.payload.channelGeneration, right.payload.channelGeneration) ||
                 Protocol.compare64(left.payload.generation, right.payload.generation) || Protocol.compare64(left.revision, right.revision);
         }
-        return Protocol.compare64(left.payload.roomGeneration, right.payload.roomGeneration) ||
+        return Protocol.compare64(left.payload.channelGeneration, right.payload.channelGeneration) ||
             Protocol.compare64(left.payload.publisherGeneration || zero, right.payload.publisherGeneration || zero) ||
             Protocol.compare64(left.revision, right.revision);
     };

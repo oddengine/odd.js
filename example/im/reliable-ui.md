@@ -5,8 +5,8 @@ Messaging / Events storage path. Release bundles are not rebuilt. Source review
 only: no build, lint, tests, browser run, service start or deployment was performed.
 
 Private contacts and fixed groups resolve to canonical conversations, subscribe
-with publish/receive/commit/read permissions and send M=1. Room ordinary text stays
-M=0; the room's state, stage, media and gift facts come from its M=1 event visit.
+with publish/receive/commit/read permissions and send M=1. Channel ordinary text stays
+M=0; the channel's state, stage, media and gift facts come from its M=1 event visit.
 IM.UI supplies IndexedDB by default. An explicit null factory disables reliable
 conversations; the Core IM default remains unchanged.
 
@@ -29,7 +29,7 @@ Retry uses the stored canonical request and original clientMessageId. Gift retry
 runs the existing recover/inspect path first, so unknown payment never creates a
 replacement gift ID. If storage itself is unreadable, show uncertainty and retain
 the visible text; do not offer an unsafe new-ID retry. Gift request status and
-confirmed room gift records are distinct presentations. Replaying local history
+confirmed channel gift records are distinct presentations. Replaying local history
 never triggers payment or animations.
 
 ## History, unread and read
@@ -39,7 +39,7 @@ and the visible window holds at most 200 messages. “Refresh saved messages and
 results” uses the existing coalesced recover pass, then reads local data. It does
 not add periodic message or media polling. A new device only recovers bodies still
 available under the server's responsibility/retention policy. Expired ranges and
-unknown room state are shown; a server receipt does not promise permanent history.
+unknown channel state are shown; a server receipt does not promise permanent history.
 
 “Mark loaded messages read” is an explicit action in a visible page. It uses the
 last loaded incoming saved message, refreshes READ permission and advances the
@@ -50,14 +50,14 @@ boolean from incoming > read, not head minus read or a fabricated count.
 
 A directory page contains canonical conversation IDs, not original peer/group
 names. A locally resolved contact preserves its target/name; otherwise display the
-canonical identifier. Calls still require a real user/group target. Room snapshots
+canonical identifier. Calls still require a real user/group target. Channel snapshots
 have no sender and render separately from chat bubbles.
 
 ## Integration and ownership
 
 `Conversation.active(id, contact)` remains synchronous selection; `open(id, contact)`
 returns the asynchronous open result, and `ready()` returns the current open promise.
-The bundled examples await that promise instead of creating a second room subscription.
+The bundled examples await that promise instead of creating a second channel subscription.
 Contact metadata uses the existing `people`, `group`, `channel` types; a canonical
 entry uses `conversation` and may carry a validated local `target` for calling.
 
@@ -66,7 +66,7 @@ on switching/destroy and ignores stale display results. Do not share the same
 subscription with another owner: Core subscriptions are not reference counted.
 An integration that owns subscriptions can set `manageSubscriptions: false` in the
 Conversation plugin and establish/remove the required M=1/M=0 topics itself. The
-UI still obtains publish/read permission; room history uses the existing visit
+UI still obtains publish/read permission; channel history uses the existing visit
 and snapshot and never creates or removes that external visit.
 
 IndexedDB v5 preserves v4 CALL stores; see [storage.md](storage.md). Endpoint URLs,
