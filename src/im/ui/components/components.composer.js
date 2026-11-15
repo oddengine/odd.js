@@ -11,12 +11,13 @@
             maxlength: 500,
             placeholder: '输入消息…',
             presentation: 'full',
+            voiceMessages: false,
             tools: ['emoji', 'file', 'video-call', 'voice-call'],
             miniTools: ['emoji'],
             labels: {
                 expand: '展开输入工具',
                 send: '发送',
-                'voice-message': '语音消息（暂未开放）',
+                'voice-message': '录制语音消息',
                 emoji: '表情',
                 file: '文件',
                 'video-call': '视频通话',
@@ -127,10 +128,10 @@
             _send = _button('send', _config.labels.send);
             _send.classList.add('primary', 'mini-visible');
             _send.addEventListener('click', _onSend);
-            // Reserved voice-message entry. Recording and transport are not connected yet.
+            // Hosts opt in when authenticated attachment transport is available.
             _voice = _button('voice-message', _config.labels['voice-message']);
             _voice.classList.add('mini-visible');
-            _voice.disabled = true;
+            _voice.addEventListener('click', _onTool);
             _expand = _button('expand', _config.labels.expand);
             _expand.setAttribute('aria-expanded', 'false');
             _expand.addEventListener('click', _onExpand);
@@ -299,8 +300,8 @@
             _input.setAttribute('aria-label', _config.placeholder);
             _send.title = _config.labels.send;
             _send.setAttribute('aria-label', _config.labels.send);
-            _voice.title = _config.labels['voice-message'];
-            _voice.setAttribute('aria-label', _config.labels['voice-message']);
+            _voice.title = _config.voiceMessages ? _config.labels['voice-message'] : '语音消息（暂未开放）';
+            _voice.setAttribute('aria-label', _voice.title);
             _expand.title = _config.labels.expand;
             _expand.setAttribute('aria-label', _config.labels.expand);
             _container.setAttribute('presentation', _config.presentation);
@@ -343,7 +344,7 @@
 
                 var buttons = _container.querySelectorAll('button');
                 for (var i = 0; i < buttons.length; i++) {
-                    buttons[i].disabled = _input.disabled || buttons[i] === _voice;
+                    buttons[i].disabled = _input.disabled || (buttons[i] === _voice && !_config.voiceMessages);
                 }
             }
             return _container.getAttribute('state');

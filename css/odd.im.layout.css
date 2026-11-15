@@ -76,3 +76,10 @@
 :is(.odd-view, .im-ui-classic) .im-message-content > .im-message-status:not([hidden]) {
     display: block; margin-top: 4px; font-size: 12px; line-height: 16px;
 }
+
+:is(.odd-view, .im-ui-classic) .im-message-voice { display: grid; gap: 6px; min-width: 168px; max-width: 260px; }
+:is(.odd-view, .im-ui-classic) .im-message-voice[hidden] { display: none; }
+:is(.odd-view, .im-ui-classic) .im-voice-play { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 12px; border: 0; border-radius: 20px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+:is(.odd-view, .im-ui-classic) .im-voice-play:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+:is(.odd-view, .im-ui-classic) .im-message-voice progress { width: 100%; height: 3px; accent-color: var(--odd-accent, #57518e); }
+:is(.odd-view, .im-ui-classic) .im-message-voice small { max-width: 240px; white-space: normal; font-size: 12px; }

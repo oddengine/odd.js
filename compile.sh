@@ -73,6 +73,7 @@ scripts[10]="./src/im/im.calls.protocol.js"
 scripts[11]="./src/im/im.calls.media.js"
 scripts[12]="./src/im/im.calls.js"
 scripts[13]="./src/im/im.history.js"
+scripts[14]="./src/im/im.voice.js"
 
 :>./release/odd.im.js
 
@@ -103,6 +104,7 @@ scripts[16]="./src/im/ui/ui.calls.js"
 scripts[17]="./src/im/ui/ui.subscriptions.js"
 scripts[18]="./src/im/ui/ui.views.js"
 scripts[19]="./src/im/ui/ui.reading.js"
+scripts[20]="./src/im/ui/components/components.voice.js"
 
 :>./release/odd.im.ui.js
 

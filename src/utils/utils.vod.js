@@ -342,5 +342,49 @@
         return saved;
     };
 
+    // Bounded in-memory downloads for small private media. Keep authorization,
+    // endpoint recovery and cancellation in the transport, not the host UI.
+    Download.prototype.blob = async function (limit, externalSignal) {
+        var total = Number(this.identity.size);
+        if (!Number.isSafeInteger(limit) || limit <= 0 || total > limit || this.controller) { throw failure('invalid_download'); }
+        var controller = this.controller = new AbortController(), signal = controller.signal,
+            cancel = function () { controller.abort(); }, failures = 0;
+        if (externalSignal) {
+            externalSignal.addEventListener('abort', cancel, { once: true });
+            if (externalSignal.aborted) { cancel(); }
+        }
+        try {
+            while (true) {
+                try {
+                    await this.prepare(signal);
+                    return await this.request('content', 'GET', undefined, {}, signal, async function (response, requestSignal) {
+                        if (response.status !== 200 || !response.body || response.headers.get('Content-Length') !== String(total) || response.headers.get('Content-Encoding')) { throw failure('invalid_download'); }
+                        var reader = response.body.getReader(), chunks = [], bytes = 0;
+                        try {
+                            while (true) {
+                                check(requestSignal);
+                                var next = await reader.read();
+                                if (next.done) { break; }
+                                bytes += next.value.byteLength;
+                                if (bytes > total) { throw failure('invalid_download'); }
+                                chunks.push(next.value);
+                            }
+                        } finally { await reader.cancel().catch(function () {}); reader.releaseLock(); }
+                        if (bytes !== total) { throw failure('download_interrupted', true); }
+                        return new Blob(chunks);
+                    });
+                } catch (reason) {
+                    check(signal);
+                    if (!reason.retryable || ++failures > 3) { throw reason; }
+                    await this.backoff(signal, failures);
+                    await this.recover(signal, reason);
+                }
+            }
+        } finally {
+            if (externalSignal) { externalSignal.removeEventListener('abort', cancel); }
+            this.controller = null;
+        }
+    };
+
     odd.VOD = { Upload: Upload, Download: Download, identity: identity };
 })(odd);

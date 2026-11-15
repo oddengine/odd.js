@@ -81,6 +81,9 @@
             row.openAttachment = row.attachment && typeof config.openAttachment === 'function' ? function () {
                 return config.openAttachment(row.attachment, { target: _this.target(), incoming: row.incoming });
             } : null;
+            row.loadVoice = row.attachment && typeof config.loadVoice === 'function' ? function (signal) {
+                return config.loadVoice(row.attachment, signal);
+            } : null;
             _rows[row.id] = row;
         }
         function render(older) {
@@ -258,6 +261,11 @@
                         { key: 'name', type: Protocol.Type.STRING, value: attachment.name },
                         { key: 'size', type: Protocol.Type.STRING, value: attachment.size }
                     ] });
+                    if (attachment.kind === 'voice') {
+                        options.ext[options.ext.length - 1].value.push(
+                            { key: 'kind', type: Protocol.Type.STRING, value: 'voice' },
+                            { key: 'durationMs', type: Protocol.Type.UINT32, value: attachment.durationMs });
+                    }
                 }
                 await im.send(channel.target, text, options);
                 row.state = channel.broadcast ? 'sent' : 'accepted';
@@ -476,7 +484,7 @@
         _this.ready = function () { return _opening; };
         _this.sendAttachment = function (value, prepared) {
             var file = _history.attachment(value);
-            return file ? send('[文件] ' + file.name, file, typeof prepared === 'function' ? prepared : null) : Promise.reject(new TypeError('文件消息信息无效。'));
+            return file ? send(file.kind === 'voice' ? '[语音] ' + Math.ceil(file.durationMs / 1000) + ' 秒' : '[文件] ' + file.name, file, typeof prepared === 'function' ? prepared : null) : Promise.reject(new TypeError('文件消息信息无效。'));
         };
         // Resolve an incoming private conversation only on a host action. Do
         // not guess a peer from its label or derive business identity in the UI.

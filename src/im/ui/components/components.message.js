@@ -33,6 +33,7 @@
             _body,
             _file,
             _fileName,
+            _voice,
             _fileSize,
             _status,
             _retry,
@@ -52,6 +53,7 @@
             _body = utils.createElement('p');
             _file = utils.createElement('button', 'im-message-file');
             _file.type = 'button';
+            _voice = new components.VoiceMessage();
             _fileName = utils.createElement('strong');
             _fileSize = utils.createElement('small');
             _file.appendChild(_fileName);
@@ -80,6 +82,7 @@
             content.appendChild(_meta);
             _bubble.appendChild(_body);
             _bubble.appendChild(_file);
+            _bubble.appendChild(_voice.element());
             var body = utils.createElement('div', 'im-message-body');
             body.appendChild(_receipts); body.appendChild(_bubble); content.appendChild(body);
             content.appendChild(_status);
@@ -110,7 +113,9 @@
             _body.textContent = _data.text || '';
             var file = odd.IM.UI.History.attachment(_data.attachment);
             _body.hidden = !!file;
-            _file.hidden = !file;
+            _file.hidden = !file || file.kind === 'voice';
+            _voice.element().hidden = !file || file.kind !== 'voice';
+            _voice.update(file && file.kind === 'voice' ? { id: file.id, durationMs: file.durationMs, loadVoice: _data.loadVoice } : {});
             _file.disabled = !_data.openAttachment;
             if (file) {
                 _fileName.textContent = file.name;
@@ -180,6 +185,7 @@
             _retry.onclick = null;
             _receipts.onclick = null;
             _file.onclick = null;
+            _voice.destroy();
             _avatar.destroy();
             _container.innerHTML = '';
         };

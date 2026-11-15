@@ -21,7 +21,14 @@
             !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value.id) ||
             typeof value.name !== 'string' || !value.name.trim() || Array.from(value.name).length > 128 || /[\u0000-\u001f\u007f]/.test(value.name) ||
             typeof value.size !== 'string' || !/^[1-9][0-9]{0,9}$/.test(value.size) || Number(value.size) > 1073741824) { return null; }
-        return { version: 1, id: value.id, name: value.name, size: value.size };
+        var file = { version: 1, id: value.id, name: value.name, size: value.size };
+        if (value.kind !== undefined) {
+            if (value.kind !== 'voice' || !Number.isInteger(value.durationMs) || value.durationMs < 1 || value.durationMs > 60000 ||
+                Number(value.size) < 48 || Number(value.size) > 3840044 || (Number(value.size) - 44) % 4 ||
+                Math.ceil((Number(value.size) - 44) / 64) !== value.durationMs) { return null; }
+            file.kind = 'voice'; file.durationMs = value.durationMs;
+        }
+        return file;
     }
     function received(data, user) {
         var mine = data.sender && data.sender.id === user, meta = data.meta || {}, id = data.clientMessageId;
