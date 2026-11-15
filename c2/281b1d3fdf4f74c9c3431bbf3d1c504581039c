@@ -1,0 +1,24 @@
+test/utils.quality.js
+  s_7a79cc801c28d6::t_9ab04a58fb3085 84
+  s_7a79cc801c28d6::t_2bd805ffd798d2 85-135,138
+  s_7a79cc801c28d6::t_ed8a8a7d5f727a 147
+  s_7a79cc801c28d6::t_1a6d227d9d9b85 136-137
+src/utils/utils.quality.js
+  s_7a79cc801c28d6::t_b9a0b88e3cd674 33,82-84,113,115,308-309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "c2281b1d3fdf4f74c9c3431bbf3d1c504581039c",
+  "prompts": {},
+  "sessions": {
+    "s_7a79cc801c28d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d888-c622-76b1-b80a-c6076ab1198b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
