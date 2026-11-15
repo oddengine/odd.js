@@ -6,7 +6,9 @@
         IOEvent = events.IOEvent,
         MediaEvent = events.MediaEvent,
         SaverEvent = events.SaverEvent,
-        Player = odd.Player;
+        Player = odd.Player,
+        _qualityEvents = [Event.LOADEDMETADATA, Event.LOADEDDATA, Event.PLAYING, Event.WAITING,
+            Event.PAUSE, Event.SEEKING, Event.SEEKED, Event.TIMEUPDATE, Event.ERROR, Event.ENDED];
 
     function Controller(model, view, logger) {
         EventDispatcher.call(this, 'Controller', { logger: logger }, Event, IOEvent);
@@ -21,9 +23,11 @@
             _retrying = false,
             _intent = true,
             _selection = 0,
-            _retryTimer;
+            _retryTimer,
+            _quality = null;
 
         function _init() {
+            _qualityEvents.forEach(function (type) { _view.addEventListener(type, _observeQuality); });
             _view.addEventListener(Event.READY, _onReady);
             _view.addEventListener(Event.PLAY, _onStateChange);
             _view.addEventListener(Event.WAITING, _onStateChange);
@@ -69,7 +73,10 @@
                 }
                 program = _model.program();
             }
+            if (program !== _model.program()) { _endQuality(false); }
+            _beginQuality(program);
             if (!program || utils.typeOf(program.sources) !== 'array' || !program.sources.length) {
+                if (_quality) { _quality.fail(); _endQuality(true); }
                 _this.dispatchEvent(Event.ERROR, { name: 'NotFoundError', message: 'No media source provided.' });
                 return;
             }
@@ -110,6 +117,7 @@
         };
 
         _this.reload = function () {
+            _endQuality(false);
             if (_view) {
                 _view.stop();
                 _this.play(_model.program());
@@ -117,6 +125,7 @@
         };
 
         _this.stop = function () {
+            _endQuality(false);
             _intent = false;
             clearTimeout(_retryTimer);
             _retryTimer = undefined;
@@ -130,12 +139,14 @@
         };
 
         _this.destroy = function () {
+            _endQuality(false);
             _model.config.retry.count = 0;
             clearTimeout(_retryTimer);
             _retryTimer = undefined;
 
             if (_view) {
                 _view.destroy();
+                _qualityEvents.forEach(function (type) { _view.removeEventListener(type, _observeQuality); });
                 _view.removeEventListener(Event.READY, _onReady);
                 _view.removeEventListener(Event.PLAY, _onStateChange);
                 _view.removeEventListener(Event.WAITING, _onStateChange);
@@ -173,6 +184,38 @@
                 _view = undefined;
             }
         };
+
+        function _beginQuality(program) {
+            if (_quality || !odd.quality || !odd.quality.enabled('error')) { return; }
+            _quality = odd.quality.session(program && program.vod ? 'vod' : 'live');
+            document.addEventListener('visibilitychange', _onQualityVisibility);
+        }
+
+        function _endQuality(unexpected) {
+            if (!_quality) { return; }
+            _quality.playback('ended', _view && _view.element());
+            _quality.close(unexpected);
+            _quality = null;
+            document.removeEventListener('visibilitychange', _onQualityVisibility);
+        }
+
+        function _onQualityVisibility() {
+            if (_quality) { _quality.playback('visibilitychange', _view && _view.element()); }
+        }
+
+        function _observeQuality(e) {
+            if (!_quality) { return; }
+            if (e.type === Event.ERROR) {
+                // Capture/record/UI errors don't terminate playback. Report
+                // media failures even when the controller schedules a retry.
+                if (e.data.recoverable === true && ['capture', 'record', 'play', 'seek'].indexOf(e.data.operation) >= 0) { return; }
+                _quality.fail(e.data);
+                _endQuality(true);
+                return;
+            }
+            if (e.type === Event.ENDED) { _endQuality(false); return; }
+            _quality.playback(e.type, _view.element(), e.type === Event.TIMEUPDATE ? e.data : null);
+        }
 
         function _onReady(e) {
             _logger.log(e.data.kind + ' module is ready.');

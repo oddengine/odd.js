@@ -48,6 +48,7 @@ scripts[35]="./src/utils/utils.mediacontrols.js"
 scripts[36]="./src/utils/utils.vod.js"
 scripts[37]="./src/utils/utils.playbacksession.js"
 scripts[38]="./src/utils/mpd/mpd.manifest.js"
+scripts[39]="./src/utils/utils.quality.js"
 
 :>./release/odd.common.js
 

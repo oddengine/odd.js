@@ -1,5 +1,7 @@
 # odd.js
 
+质量采集默认关闭；粒度分为 `basic`（基础）、`standard`（标准）、`detailed`（详细），开关由 `enabled` 独立控制。在创建 SDK 会话前调用 `odd.quality.setup({ enabled: true, level: 'standard', endpoint: '/api/paas/quality/batches', samplePercent: 100 })` 启用 Player直播／点播、游戏、RTC、IM采集。Player复用媒体事件统计播放缓冲，剔除暂停／seek／后台时间；没有呈现帧回调时不伪造首帧。`odd.quality.status()` 返回队列与丢弃计数，`flush()` 尽力推送当前批次，`close()` 停采并丢弃尾量。默认 HTTP 出口不带 Cookie；接收端的 `202` 仅表示内存受理。可用 `setup(config, async (events, signal) => { ... })` 替换批量出口；适配器必须遵守取消信号。源码清单已接入，release 尚未重建。
+
 Famicom keyboard / 游戏键位：`odd.Famicom.Input.Keyboard` 提供默认的 `KeyboardEvent.code → Famicom.Key` 映射；`input.keyboard()` 返回副本，`input.keyboard(mapping)` 校验并替换映射，成功返回 `true`，非法映射返回 `false` 且保持原值。替换会清除旧按键状态，须重新按下才生效；宿主负责设置界面与保存偏好。`Input.isKeyboard(mapping)` 可用于加载前校验。默认 Select=G、Start=H、B=J、A=K，方向键与 WASD 均可移动。
 
 `Input.Keyboard` exposes the default code-to-button map. `input.keyboard()` returns a copy; `input.keyboard(map)` validates and replaces it, clears held inputs, and returns a boolean. `Input.isKeyboard(map)` validates persisted mappings. Preferences and the settings UI belong to the host. Browser regression: serve this repository and open `test/famicom.input.html` after `bash compile.sh`.

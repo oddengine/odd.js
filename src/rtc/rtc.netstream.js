@@ -84,6 +84,7 @@
             _saver,
             _writer,
             _stats,
+            _quality = null,
             _properties = {},
             _readyState;
 
@@ -743,6 +744,7 @@
                 return Promise.reject(_captureFailure || { name: 'AbortError', message: 'RTC stream has been closed.' });
             }
 
+            _quality = odd.quality ? odd.quality.session('rtc') : null;
             _readyState = State.CONNECTING;
 
             try {
@@ -777,6 +779,7 @@
                 _negotiated = true;
                 _flushCandidates();
             } catch (err) {
+                if (_quality && err.name !== 'AbortError') { _quality.fail(err); }
                 _this.close(err.message);
                 _logger.error(`Failed to publish: id=${_this.config.id}, stream=${_name}, error=${err}`);
                 return Promise.reject(_captureFailure || err);
@@ -789,6 +792,7 @@
                 await _setMaxBitrate();
                 await _checkVideoEncodings();
             } catch (err) {
+                if (_quality && err.name !== 'AbortError') { _quality.fail(err); }
                 _this.close();
                 return Promise.reject(_captureFailure || err);
             }
@@ -1471,6 +1475,7 @@
                 return Promise.reject({ name: 'AbortError', message: 'RTC stream has been closed.' });
             }
 
+            _quality = odd.quality ? odd.quality.session('rtc') : null;
             _readyState = State.CONNECTING;
 
             _name = name;
@@ -1494,6 +1499,7 @@
                 _negotiated = true;
                 _flushCandidates();
             } catch (err) {
+                if (_quality && err.name !== 'AbortError') { _quality.fail(err); }
                 _this.close(err.message);
                 _logger.error(`Failed to play: id=${_this.config.id}, stream=${_name}, error=${err}`);
                 return Promise.reject(err);
@@ -1522,6 +1528,7 @@
             if (_video.srcObject !== stream) {
                 _video.srcObject = stream;
             }
+            if (_quality && e.track.kind === 'video') { _quality.video(_video); }
             _video.play().catch(function (err) {
                 if (err.name !== 'AbortError') {
                     _logger.warn(`Failed to play stream: id=${_this.config.id}, stream=${_name}, error=${err}`);
@@ -1542,6 +1549,13 @@
             var pc = e.target;
             _logger.log(`onConnectionStateChange: id=${_this.config.id}, stream=${_name}, state=${pc.connectionState}`);
 
+            if (pc === _pc && _quality) {
+                if (pc.connectionState === 'connected') { _quality.ready(); }
+                _quality.event('transport.state', 'trace', {
+                    state: ['new', 'connecting', 'connected', 'disconnected', 'failed', 'closed'].indexOf(pc.connectionState),
+                });
+                if (pc.connectionState === 'failed' || pc.connectionState === 'closed') { _quality.fail({}); _quality.close(true); }
+            }
             switch (pc.connectionState) {
                 case 'failed':
                 case 'closed':
@@ -1720,7 +1734,9 @@
         };
 
         _this.getStats = async function () {
+            var quality = _quality;
             return await _pc.getStats().then((report) => {
+                if (quality && quality === _quality) { quality.stats(report); }
                 report.forEach((item) => {
                     _stats.parse(item);
                 });
@@ -1754,6 +1770,7 @@
                 case State.PUBLISHING:
                 case State.PLAYING:
                     _readyState = State.CLOSING;
+                    if (_quality) { _quality.close(false); _quality = null; }
                     if (_writer) { _writer.close(); }
                     _captures.forEach(function (capture) {
                         capture.track.removeEventListener('ended', _onCaptureEnded);

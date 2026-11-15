@@ -262,6 +262,7 @@
                 deadline: Date.now() + _this.config.connectTimeout,
                 signal: attempt.controller ? attempt.controller.signal : undefined,
             });
+            attempt.quality = odd.quality ? odd.quality.session('im') : null;
             _attempt = attempt;
             _readyState = State.CONNECTING;
             attempt.deadline = setTimeout(function () {
@@ -746,6 +747,7 @@
                 attempt.deadline = null;
                 _retried = 0;
                 _readyState = State.CONNECTED;
+                if (attempt.quality) { attempt.quality.ready(); }
                 if (attempt.calls) {
                     attempt.calls.start().catch(function (error) { _end(attempt, error); });
                 }
@@ -806,6 +808,11 @@
                 return;
             }
             var connected = _readyState === State.CONNECTED;
+            if (attempt.quality) {
+                var unexpected = !!reason && reason.name !== 'AbortError';
+                if (unexpected) { attempt.quality.fail(reason); }
+                attempt.quality.close(unexpected);
+            }
             _readyState = State.CLOSING;
             _attempt = null;
 
@@ -1298,6 +1305,7 @@
         };
 
         _this.send = function (target, content, options) {
+            var quality = _attempt && _attempt.quality, started = _clock();
             return Promise.resolve().then(function () {
                 options = options || {};
                 var fields = [_field('target', Protocol.Type.OBJECT, _target(target))],
@@ -1332,6 +1340,14 @@
                     });
                 }
                 return _this.request(Protocol.Opcode.PUBLISH, fields, false);
+            }).then(function (result) {
+                if (quality) { quality.event('im.publish', 'info', { durationMs: _clock() - started, outcome: 0 }); }
+                return result;
+            }, function (error) {
+                if (quality) { quality.event('im.publish', 'error', {
+                    durationMs: _clock() - started, outcome: 1, errorCode: Number(error.code),
+                }); }
+                throw error;
             });
         };
 

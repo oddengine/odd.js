@@ -5,6 +5,8 @@
     height: 190px;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
 }
 .odd-famicom-pad button {
     touch-action: none;
@@ -30,27 +32,58 @@
     height: 144px;
     left: 0;
     top: 0;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
+    border-radius: 50%;
+    background: var(--game-stick-track, var(--odd-glass-surface, #e5eeee));
+    box-shadow: inset 0 0 0 1px var(--odd-glass-line, #adc5cd);
     touch-action: none;
 }
 .odd-famicom-pad .game-dpad button {
-    border-radius: 10px;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    border: 0;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--game-stick-ink, var(--odd-ink, #17343e));
+}
+.odd-famicom-pad .game-dpad button.pressed {
+    background: var(--game-stick-active, var(--odd-glass-content, #f3f8f8));
+}
+.odd-famicom-pad .game-dpad button svg {
+    width: 18px;
+    height: 18px;
 }
 .odd-famicom-pad .direction-up {
-    grid-area: 1/2;
+    top: 0;
+    left: calc(50% - 22px);
 }
 .odd-famicom-pad .direction-down {
-    grid-area: 3/2;
+    bottom: 0;
+    left: calc(50% - 22px);
 }
 .odd-famicom-pad .direction-left {
-    grid-area: 2/1;
+    left: 0;
+    top: calc(50% - 22px);
 }
 .odd-famicom-pad .direction-right {
-    grid-area: 2/3;
+    right: 0;
+    top: calc(50% - 22px);
+}
+.odd-famicom-pad .game-stick-thumb {
+    position: absolute;
+    inset: 28%;
+    border-radius: 50%;
+    pointer-events: none;
+    background: var(--game-stick-thumb, var(--odd-glass-content, #f3f8f8));
+    box-shadow: 0 3px 8px rgb(8 26 34 / 0.2), inset 0 0 0 1px var(--odd-glass-line, #adc5cd);
+    transition: transform 120ms ease-out;
+}
+.odd-famicom-pad .game-dpad.is-dragging .game-stick-thumb {
+    transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .odd-famicom-pad .game-stick-thumb { transition: none; }
 }
 .odd-famicom-pad .direction-down svg {
     rotate: 180deg;

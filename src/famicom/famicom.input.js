@@ -8,6 +8,7 @@
         var _this = this,
             _root = document.createElement('div'),
             _pointers = new Map(),
+            _stickPointer = null,
             _keyboard = new Map(),
             _mask = 0,
             _port = -1,
@@ -24,7 +25,7 @@
         var direction = document.createElement('div');
         direction.className = 'game-dpad';
         direction.setAttribute('role', 'group');
-        direction.setAttribute('aria-label', '方向键');
+        direction.setAttribute('aria-label', '方向摇杆');
         _root.appendChild(direction);
         var arrows = [
             ['上', Key.UP, 'up'],
@@ -38,6 +39,10 @@
                 '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="m6 14 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
             direction.appendChild(button);
         });
+        var thumb = document.createElement('span');
+        thumb.className = 'game-stick-thumb';
+        thumb.setAttribute('aria-hidden', 'true');
+        direction.appendChild(thumb);
         var actions = document.createElement('div');
         actions.className = 'game-actions';
         _root.appendChild(actions);
@@ -85,37 +90,46 @@
             button.addEventListener('lostpointercapture', release);
             return button;
         }
-        // The whole D-pad supports sliding between directions and diagonals;
-        // pointers on A/B remain independent of its active touch identifier.
+        // Only the control surface consumes gestures. Page/chat zoom remains
+        // available; non-passive touch handlers also suppress Safari double taps.
+        function _gesture(event) {
+            if (_enabled && event.cancelable) event.preventDefault();
+        }
+        ['touchstart', 'touchmove', 'touchend', 'gesturestart', 'dblclick'].forEach(
+            function (type) { _root.addEventListener(type, _gesture, { passive: false }); },
+        );
+        // One captured pointer drives a circular, eight-way stick. A/B and
+        // keyboard input remain independent; crossing the edge never drops it.
         function _direction(event) {
-            if (!_pointers.has(event.pointerId)) {
+            if (event.pointerId !== _stickPointer) {
                 return;
             }
+            event.preventDefault();
             var bounds = direction.getBoundingClientRect(),
-                x = (event.clientX - bounds.left) / bounds.width - 0.5,
-                y = (event.clientY - bounds.top) / bounds.height - 0.5,
+                x = event.clientX - bounds.left - bounds.width / 2,
+                y = event.clientY - bounds.top - bounds.height / 2,
+                radius = Math.min(bounds.width, bounds.height) * 0.28,
+                distance = Math.hypot(x, y),
+                travel = distance ? Math.min(1, radius / distance) : 0,
                 mask = 0;
-            if (Math.hypot(x, y) > 0.13) {
-                if (x < -0.16) {
-                    mask |= Key.LEFT;
-                } else if (x > 0.16) {
-                    mask |= Key.RIGHT;
-                }
-                if (y < -0.16) {
-                    mask |= Key.UP;
-                } else if (y > 0.16) {
-                    mask |= Key.DOWN;
-                }
+            if (distance > Math.max(6, radius * 0.18)) {
+                var sector = (Math.round(Math.atan2(y, x) / (Math.PI / 4)) + 8) % 8;
+                mask = [Key.RIGHT, Key.RIGHT | Key.DOWN, Key.DOWN,
+                    Key.DOWN | Key.LEFT, Key.LEFT, Key.LEFT | Key.UP,
+                    Key.UP, Key.UP | Key.RIGHT][sector];
             }
+            thumb.style.transform = 'translate(' + x * travel + 'px,' + y * travel + 'px)';
             _pointers.set(event.pointerId, mask);
             _apply();
         }
         direction.addEventListener('pointerdown', function (event) {
-            if (!_enabled || event.button > 0) {
+            if (!_enabled || event.button > 0 || _stickPointer !== null) {
                 return;
             }
             event.preventDefault();
             direction.setPointerCapture(event.pointerId);
+            _stickPointer = event.pointerId;
+            direction.classList.add('is-dragging');
             _pointers.set(event.pointerId, 0);
             _direction(event);
         });
@@ -123,11 +137,22 @@
         ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(
             function (type) {
                 direction.addEventListener(type, function (event) {
+                    if (event.pointerId !== _stickPointer) return;
                     _pointers.delete(event.pointerId);
+                    _resetStick();
                     _apply();
                 });
             },
         );
+        function _resetStick() {
+            var pointer = _stickPointer;
+            _stickPointer = null;
+            direction.classList.remove('is-dragging');
+            thumb.style.transform = '';
+            if (pointer !== null && direction.hasPointerCapture(pointer)) {
+                direction.releasePointerCapture(pointer);
+            }
+        }
         function _apply() {
             var next = _pad,
                 port = api.ports()[0];
@@ -199,6 +224,7 @@
         }
         function _clear() {
             _pointers.clear();
+            _resetStick();
             _keyboard.clear();
             _pad = 0;
             _neutral = false;

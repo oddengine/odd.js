@@ -76,6 +76,7 @@
             _busy,
             _requests,
             _readyState,
+            _quality = null,
             _inputTimer = null,
             _inputSequence = 0;
 
@@ -192,6 +193,7 @@
             var previous = _resource;
             _disconnect();
 
+            _quality = odd.quality ? odd.quality.session('game') : null;
             var operation = _operation;
             _resource = { instance: instance, player: player, ports: [], location: '', etag: '' };
             _busy = true;
@@ -274,10 +276,12 @@
                     }
                 });
                 _readyState = pc.connectionState === 'connected' ? State.PLAYING : State.CONNECTING;
+                if (_quality && _readyState === State.PLAYING) { _quality.ready(); }
                 return resource.player;
             } catch (err) {
                 if (pc === _pc) {
-                    _disconnect();
+                    if (_quality && err.name !== 'AbortError') { _quality.fail(err); }
+                    _disconnect(err.name !== 'AbortError');
                     _resource = previous;
                 }
                 if (resource && resource.player) {
@@ -675,6 +679,7 @@
                 }
             });
             _video.controls = false;
+            if (e.track.kind === 'video' && _quality) { _quality.video(_video); }
         }
 
         function _onConnectionStateChange(e) {
@@ -686,12 +691,14 @@
                 case 'connected':
                     if (pc === _pc) {
                         _readyState = State.PLAYING;
+                        if (_quality) { _quality.ready(); }
                     }
                     break;
                 case 'failed':
                 case 'closed':
                     if (pc === _pc) {
-                        _disconnect();
+                        if (_quality && pc.connectionState === 'failed') { _quality.fail({}); }
+                        _disconnect(true);
                     }
                     break;
             }
@@ -740,11 +747,12 @@
         function _onDataChannelClose(e) {
             _logger.log(`onDataChannelClose: ${e.target.label}`);
             if (e.target === _channel) {
-                _disconnect();
+                _disconnect(true);
             }
         }
 
-        function _disconnect() {
+        function _disconnect(unexpected) {
+            if (_quality) { _quality.close(!!unexpected); _quality = null; }
             if (_pc) { _this.dispatchEvent(Event.CHANGE, { name: 'connection', value: 'disconnected' }); }
             clearInterval(_inputTimer);
             _inputTimer = null;
@@ -859,6 +867,7 @@
                 return;
             }
 
+            if (_quality) { _quality.stats(report); }
             var current = {
                 timestamp: 0,
                 framesPerSecond: 0,
