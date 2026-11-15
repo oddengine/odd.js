@@ -1,0 +1,38 @@
+src/im/ui/ui.conversation.js
+  s_7a79cc801c28d6::t_892315b6955377 84-86,264-268,487
+src/utils/utils.vod.js
+  s_7a79cc801c28d6::t_d96137c82f5984 345-388
+css/odd.im.layout.css
+  s_7a79cc801c28d6::t_01ae54a0b24b46 82
+  s_7a79cc801c28d6::t_892315b6955377 79-81,83-85
+src/im/ui/components/components.message.js
+  s_7a79cc801c28d6::t_892315b6955377 36,56,85,116-118,188
+src/im/ui/components/components.voice.js
+  s_7a79cc801c28d6::t_2fb88505245d59 1-14,21-71
+  s_7a79cc801c28d6::t_01ae54a0b24b46 15-20
+src/im/im.voice.js
+  s_7a79cc801c28d6::t_af1d5180fa230c 112,120,123,137,144
+  s_7a79cc801c28d6::t_784687d3253e6d 1-111,113-119,121-122,124-136,138-143,145-164
+src/im/ui/ui.history.js
+  s_7a79cc801c28d6::t_892315b6955377 24-31
+src/im/ui/components/components.composer.js
+  s_7a79cc801c28d6::t_892315b6955377 14,20,131,134,303-304,347
+compile.sh
+  s_7a79cc801c28d6::t_892315b6955377 76,107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "128b4abd71836b34da7476ea3608a819d34e5fba",
+  "prompts": {},
+  "sessions": {
+    "s_7a79cc801c28d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d888-c622-76b1-b80a-c6076ab1198b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
