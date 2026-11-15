@@ -1,0 +1,45 @@
+test/utils.quality.html
+  s_7a79cc801c28d6::t_20325d6768ecfd 1
+test/utils.quality.js
+  s_7a79cc801c28d6::t_20325d6768ecfd 1-48
+src/famicom/famicom.input.js
+  s_7a79cc801c28d6::t_d4d4f075dfcacc 11,28,42-45,93-102,104,107,109-113,115-119,121,126,131-132,140,142,147-155,227
+css/odd.famicom.input.css
+  s_7a79cc801c28d6::t_d4d4f075dfcacc 8-9,35-37,41-55,58-59,62-63,66-67,70-86
+src/player/player.controller.js
+  s_7a79cc801c28d6::t_db8b951e5906e0 26-27,76-77,79,120,128,142,188-210,212-216,218
+  s_7a79cc801c28d6::t_201fbdcef2027c 211
+  s_7a79cc801c28d6::t_73b33723c72acf 9-11,30,149,217
+  s_7a79cc801c28d6::t_e0c978642f41ea 219
+src/utils/utils.quality.js
+  s_7a79cc801c28d6::t_953e5420ed3a87 175-180,207-209,225-227
+  s_7a79cc801c28d6::t_b55f15a1e69405 12-153,168,171,181-199,201-206,210-217,219-220,231,256,274
+  s_7a79cc801c28d6::t_e8367fe5bd96c5 268-270
+  s_7a79cc801c28d6::t_34e58a0a17facd 1-11,154-167,169-170,172-174,200,218,221-224,228-230,232-255,257-267,271-273,275-297
+README.md
+  s_7a79cc801c28d6::t_07250f12b57364 3-4
+compile.sh
+  s_7a79cc801c28d6::t_2b7b5e7bfbc97a 51
+src/famicom/famicom.js
+  s_7a79cc801c28d6::t_bb63f65436420a 79,196,279,283-284,682,694,700-701,750,754-755,870
+src/im/im.js
+  s_7a79cc801c28d6::t_8d5118c0d3b931 265,750,811-815,1308,1343-1350
+src/rtc/rtc.netstream.js
+  s_7a79cc801c28d6::t_9b6a7c5de62df0 87,747,782,795,1478,1502,1531,1552-1558,1737,1739,1773
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "eee0fe9168704a34ccc296290b38e8221a768342",
+  "prompts": {},
+  "sessions": {
+    "s_7a79cc801c28d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d888-c622-76b1-b80a-c6076ab1198b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
