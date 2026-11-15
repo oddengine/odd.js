@@ -136,6 +136,18 @@
             if (['camera', 'screen', 'audio'].indexOf(payload.purpose) < 0 || ['enabled', 'revoked'].indexOf(payload.state) < 0) {
                 throw _error('DataError', 'Invalid media resource state.');
             }
+        } else if (event.kind === 'channel.game') {
+            rules = ['channelAppId', 'regionId', 'gameChannelId', 'audience', 'state', 'data'].map(function (key) { return { key: key, type: Type.STRING }; })
+                .concat(['channelGeneration', 'channelRevision'].map(function (key) { return { key: key, type: Type.UINT64 }; }));
+            var identifier = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+            var gameState;
+            try { gameState = JSON.parse(payload.data); } catch (_) { throw _error('DataError', 'Invalid game state.'); }
+            if (['channelAppId', 'regionId', 'gameChannelId'].some(function (key) { return !identifier.test(payload[key]); }) ||
+                event.entityId !== 'game-' + payload.gameChannelId || ['region', 'players'].indexOf(payload.audience) < 0 ||
+                ['active', 'stopped'].indexOf(payload.state) < 0 || typeof payload.data !== 'string' || Protocol.text(payload.data).length > 6000 ||
+                !gameState || gameState.id !== payload.gameChannelId || gameState.regionId !== payload.regionId || !/^[1-9][0-9]{0,19}$/.test(gameState.revision || '')) {
+                throw _error('DataError', 'Invalid game state identity.');
+            }
         } else if (event.kind === 'channel.meeting') {
             rules = ['appId', 'channelAppId', 'businessId', 'state', 'audio', 'managers'].map(function (key) { return { key: key, type: Type.STRING }; })
                 .concat(['channelGeneration', 'channelRevision'].map(function (key) { return { key: key, type: Type.UINT64 }; }));
@@ -232,7 +244,7 @@
             delete projection[key];
             delete projection['media.publication:' + event.entityId];
         } else if ((event.kind === 'stage.member' && event.payload.state === 'ended') ||
-            (event.kind === 'channel.publication' && event.payload.state !== 'active')) {
+            ((event.kind === 'channel.publication' || event.kind === 'channel.game') && event.payload.state !== 'active')) {
             delete projection[key];
         } else {
             projection[key] = event;
@@ -309,7 +321,7 @@
                 ]);
                 var item = _object(fields), event = _event(fields[4].value);
                 if (channel !== Protocol.channelEvent(event.kind) ||
-                    (channel && (event.payload.channelAppId !== state.channelId || (event.kind === 'channel.publication' && event.payload.state !== 'active')))) {
+                    (channel && (event.payload.channelAppId !== state.channelId || ((event.kind === 'channel.publication' || event.kind === 'channel.game') && event.payload.state !== 'active')))) {
                     throw _error('DataError', 'Snapshot profile mismatch.');
                 }
                 if (Protocol.giftEvent(event.kind) || ((event.kind === 'room.state' || event.kind === 'stage.policy') && event.entityId !== state.channelId) ||

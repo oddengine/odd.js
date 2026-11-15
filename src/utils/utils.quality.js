@@ -30,7 +30,7 @@
             _config = Object.assign({}, _default),
             _normal = [], _urgent = [], _bytes = 0, _normalBytes = 0,
             _timer = null, _pending = null, _generation = 0, _sequence = 0,
-            _boot = '', _sink = null, _healthAt = 0,
+            _boot = '', _sink = null, _healthAt = 0, _active = 0,
             _counts = { accepted: 0, filtered: 0, sampled: 0, dropped: 0, sent: 0, failed: 0 };
 
         _this.setup = function (config, sink) {
@@ -68,7 +68,6 @@
             _sink = sink;
             if (next.enabled) {
                 _boot = _id();
-                _timer = setInterval(_this.flush, next.flushInterval);
             }
         };
 
@@ -108,7 +107,7 @@
 
         _this.flush = function () {
             if (_pending || !_sink || !_config.enabled) { return; }
-            if (_clock() - _healthAt >= 10000) {
+            if (_active > 0 && _clock() - _healthAt >= 10000) {
                 _healthAt = _clock();
                 var status = _this.status();
                 if (_this.enabled('info') || status.dropped || status.failed) {
@@ -133,7 +132,7 @@
             _pending = pending;
             // A custom sink receives the same cancellation contract. Even if it
             // ignores cancellation, its late result cannot mutate a new setup.
-            return Promise.race([Promise.resolve().then(function () { return sink(batch, controller.signal); }), deadline]).then(function () {
+            pending.done = Promise.race([Promise.resolve().then(function () { return sink(batch, controller.signal); }), deadline]).then(function () {
                 if (generation === _generation) { _counts.sent += batch.length; }
             }, function () {
                 if (generation === _generation) { _counts.failed += batch.length; }
@@ -141,7 +140,24 @@
                 clearTimeout(timeout);
                 if (_pending === pending) { _pending = null; }
             });
+            return pending.done;
         };
+
+        // A collector is shared by products, but its timer belongs to live
+        // sessions. Send at most one final batch after an in-flight request;
+        // idle tabs must not keep producing collector.health traffic.
+        function _finish(generation) {
+            if (generation !== _generation || _active !== 0) { return; }
+            clearInterval(_timer);
+            _timer = null;
+            if (_pending) {
+                _pending.done.finally(function () { _finish(generation); });
+                return;
+            }
+            _this.flush();
+            _counts.dropped += _normal.length + _urgent.length;
+            _normal = []; _urgent = []; _bytes = _normalBytes = 0;
+        }
 
         _this.session = function (component) {
             var generation = _generation, scope = '', selected = false, started = _clock(),
@@ -152,13 +168,14 @@
                 playbackFrames = null, playbackDropped = null;
             if (['game', 'rtc', 'im', 'live', 'vod'].indexOf(component) < 0) { throw new TypeError('Invalid quality component.'); }
             if (_config.enabled) {
+                if (++_active === 1) { _timer = setInterval(_this.flush, _config.flushInterval); }
                 scope = _id();
                 var hash = 2166136261;
                 for (var i = 0; i < scope.length; i++) { hash = Math.imul(hash ^ scope.charCodeAt(i), 16777619) >>> 0; }
                 selected = hash % 100 < _config.samplePercent;
             }
             function record(event, level, metrics) {
-                if ((closed && event !== 'im.publish') || !scope || generation !== _generation) { return; }
+                if (closed || !scope || generation !== _generation) { return; }
                 _record(component, scope, selected, event, level, metrics);
             }
             var session = {
@@ -219,6 +236,7 @@
                     windowAt = now; activeMs = bufferingMs = bufferingStarts = 0;
                 },
                 close: function (unexpected) {
+                    if (closed) { return; }
                     record('session.close', unexpected ? 'warn' : 'info', { durationMs: _clock() - started,
                         outcome: unexpected ? 1 : 0, firstFrame: video ? (first ? 1 : 0) : undefined });
                     closed = true;
@@ -228,6 +246,7 @@
                     frameCallback = null;
                     video = null;
                     previous.clear();
+                    if (scope && generation === _generation && --_active === 0) { _finish(generation); }
                 },
                 stats: function (report) {
                     if (closed || !scope || generation !== _generation || !_this.media() || !selected) { return; }
@@ -281,6 +300,7 @@
             ++_generation;
             clearInterval(_timer);
             _timer = null;
+            _active = 0;
             _counts.dropped += _normal.length + _urgent.length;
             if (_pending) { _counts.dropped += _pending.count; _pending.controller.abort(); }
             _normal = []; _urgent = []; _bytes = _normalBytes = 0;

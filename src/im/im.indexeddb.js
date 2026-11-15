@@ -562,7 +562,7 @@
                         delete projection[key];
                         delete projection['media.publication:' + event.entityId];
                     } else if ((event.kind === 'stage.member' && event.payload.state === 'ended') ||
-                        (event.kind === 'channel.publication' && event.payload.state !== 'active')) {
+                        ((event.kind === 'channel.publication' || event.kind === 'channel.game') && event.payload.state !== 'active')) {
                         delete projection[key];
                     } else {
                         projection[key] = event;
