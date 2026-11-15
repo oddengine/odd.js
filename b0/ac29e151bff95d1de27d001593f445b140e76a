@@ -1,0 +1,23 @@
+src/famicom/famicom.js
+  s_7a79cc801c28d6::t_ff8aedb8e5f109 75,266,619-645,746-752,788
+test/famicom.ice.html
+  s_7a79cc801c28d6::t_1a4d0e8baf557b 1
+test/famicom.ice.js
+  s_7a79cc801c28d6::t_59f534aba1a104 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b0ac29e151bff95d1de27d001593f445b140e76a",
+  "prompts": {},
+  "sessions": {
+    "s_7a79cc801c28d6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d888-c622-76b1-b80a-c6076ab1198b",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Spencer <670292548@qq.com>"
+    }
+  }
+}
