@@ -72,6 +72,7 @@
             _timer,
             _stats,
             _candidates,
+            _candidateTask = null,
             _operation,
             _busy,
             _requests,
@@ -262,10 +263,7 @@
                 }
                 _resource = resource;
 
-                var candidates = _candidates.splice(0);
-                for (var candidate of candidates) {
-                    await _patch(candidate);
-                }
+                await _flushCandidates();
                 if (operation !== _operation) {
                     throw { name: 'AbortError', message: 'The connection was closed.' };
                 }
@@ -618,15 +616,37 @@
             return { instance: instance, player: player, ports: ports, location: url.href, etag: etag };
         }
 
+        // Candidates gathered while POST/SDP is pending and later trickle
+        // events share one FIFO. In particular, end-of-candidates must never
+        // overtake the backlog while an earlier PATCH is awaiting its reply.
+        function _flushCandidates() {
+            if (_candidateTask) {
+                return _candidateTask;
+            }
+            if (!_resource.etag || !_candidates.length) {
+                return Promise.resolve();
+            }
+            var operation = _operation;
+            var task = (async function () {
+                while (_candidates.length) {
+                    if (operation !== _operation) {
+                        throw { name: 'AbortError', message: 'The connection was closed.' };
+                    }
+                    await _patch(_candidates.shift());
+                }
+            })();
+            _candidateTask = task;
+            function finish() {
+                if (_candidateTask === task) { _candidateTask = null; }
+            }
+            task.then(finish, finish);
+            return task;
+        }
+
         async function _patch(candidate) {
             if (!_this.config.trickle) {
                 return;
             }
-            if (!_resource.etag) {
-                _candidates.push(candidate);
-                return;
-            }
-
             var body = 'a=mid:' + (candidate.sdpMid || '0') + '\r\n';
             body += candidate.candidate ? 'a=' + candidate.candidate + '\r\n' : 'a=end-of-candidates\r\n';
             await _request('PATCH', new URL(_resource.location), body, 'application/trickle-ice-sdpfrag', _resource.etag);
@@ -723,7 +743,13 @@
             }
             _logger.log(`onIceCandidate: id=${_this.config.id}, candidate=${candidate.candidate}, mid=${candidate.sdpMid}, mlineindex=${candidate.sdpMLineIndex}`);
 
-            _patch(candidate).catch((err) => {
+            if (_candidates.length >= 64 || candidate.candidate.length > 4096) {
+                _logger.error('ICE candidate queue exceeded its limit.');
+                _disconnect(true);
+                return;
+            }
+            _candidates.push(candidate);
+            _flushCandidates().catch((err) => {
                 _logger.error(`Failed to send candidate: id=${_this.config.id}, error=${err}`);
             });
         }
@@ -759,6 +785,7 @@
             ++_operation;
             _releaseKeys();
             _candidates = [];
+            _candidateTask = null;
             _resource.ports = [];
             delete _resource.revision;
             delete _resource.releasing;
