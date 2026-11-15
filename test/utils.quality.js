@@ -81,6 +81,61 @@
             const resumed = collector.session('game');
             assert(timers.size === 1, 'a subsequent channel starts collection again');
             resumed.close();
+            await collector.flush();
+
+            const clockDescriptor = Object.getOwnPropertyDescriptor(performance, 'now');
+            let now = 60000;
+            Object.defineProperty(performance, 'now', { configurable: true, value: () => now });
+            try {
+                for (const level of ['basic', 'standard', 'detailed']) {
+                    rows = []; uploads = 0;
+                    collector.setup({ enabled: true, level }, batch => { uploads++; rows.push(...batch); });
+                    const idle = collector.session('im');
+                    idle.ready();
+                    await collector.flush();
+                    for (let i = 0; i < 6; i++) { now += 10000; await collector.flush(); }
+                    assert(uploads === 1 && timers.size === 1 && rows.some(row => row.event === 'session.ready'),
+                        level + ': an open idle connection preserves lifecycle telemetry without periodic HTTP');
+                    idle.fail({ code: 503 });
+                    await collector.flush();
+                    assert(uploads === 2 && rows.some(row => row.event === 'session.error' && row.metrics.errorCode === 503),
+                        level + ': an idle connection resumes reporting on a real error');
+                    idle.close(); await collector.flush();
+                }
+
+                rows = [];
+                collector.setup({ enabled: true }, batch => rows.push(...batch));
+                const media = collector.session('game');
+                const report = new Map([['video', { id: 'video', type: 'inbound-rtp', kind: 'video',
+                    timestamp: now, bytesReceived: 1000, framesDecoded: 60 }]]);
+                media.stats(report); await collector.flush();
+                now += 10000;
+                Object.assign(report.get('video'), { timestamp: now, bytesReceived: 5000, framesDecoded: 660 });
+                media.stats(report); await collector.flush();
+                assert(rows.some(row => row.event === 'media.window' && row.metrics.bytes === 4000 && row.metrics.frames === 600),
+                    'active media continues to report its measured window');
+                media.close(); await collector.flush();
+
+                uploads = 0;
+                collector.setup({ enabled: true }, () => { uploads++; throw new Error('offline'); });
+                const failed = collector.session('im');
+                await collector.flush();
+                for (let i = 0; i < 6; i++) { now += 10000; await collector.flush(); }
+                assert(uploads === 1 && collector.status().failed > 0,
+                    'a failed health upload cannot create a periodic retry loop');
+                failed.fail({ code: 500 }); await collector.flush();
+                assert(uploads === 2, 'subsequent real activity still reaches a failing sink');
+
+                uploads = 0; rows = [];
+                collector.setup({ enabled: true, samplePercent: 0 }, batch => { uploads++; rows.push(...batch); });
+                collector.session('im');
+                await collector.flush(); now += 20000; await collector.flush();
+                assert(uploads === 1 && rows.length === 1 && rows[0].event === 'collector.health' && rows[0].metrics.sampled > 0,
+                    'sampled-out activity is summarized once without sustaining idle traffic');
+            } finally {
+                if (clockDescriptor) { Object.defineProperty(performance, 'now', clockDescriptor); }
+                else { delete performance.now; }
+            }
         } finally {
             collector.close();
             window.setInterval = originalInterval; window.clearInterval = originalClear;
@@ -89,5 +144,5 @@
     } finally {
         collector.close();
     }
-})().catch(error => { window.testResult = { passed: false, error: error.stack }; });
+})().catch(error => { window.testResult = { passed: false, error: error.message, stack: error.stack }; });
 

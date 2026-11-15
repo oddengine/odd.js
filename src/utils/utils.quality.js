@@ -30,7 +30,7 @@
             _config = Object.assign({}, _default),
             _normal = [], _urgent = [], _bytes = 0, _normalBytes = 0,
             _timer = null, _pending = null, _generation = 0, _sequence = 0,
-            _boot = '', _sink = null, _healthAt = 0, _active = 0,
+            _boot = '', _sink = null, _healthAt = 0, _healthDirty = false, _active = 0,
             _counts = { accepted: 0, filtered: 0, sampled: 0, dropped: 0, sent: 0, failed: 0 };
 
         _this.setup = function (config, sink) {
@@ -79,6 +79,9 @@
         _this.status = function () { return Object.assign({}, _counts, { queueEvents: _normal.length + _urgent.length, queueBytes: _bytes }); };
 
         function _record(component, scope, selected, event, level, metrics, force) {
+            // Health summarizes new collection activity, not the existence of
+            // a connection. Its own records/uploads must not sustain traffic.
+            if (event !== 'collector.health') { _healthDirty = true; }
             if (!_this.enabled(level)) { _counts.filtered++; return; }
             if (!force && _levels[level] >= _levels.info && !selected) { _counts.sampled++; return; }
             var allowed = _fields[event];
@@ -107,8 +110,9 @@
 
         _this.flush = function () {
             if (_pending || !_sink || !_config.enabled) { return; }
-            if (_active > 0 && _clock() - _healthAt >= 10000) {
+            if (_active > 0 && _healthDirty && _clock() - _healthAt >= 10000) {
                 _healthAt = _clock();
+                _healthDirty = false;
                 var status = _this.status();
                 if (_this.enabled('info') || status.dropped || status.failed) {
                     _record('collector', _boot, true, 'collector.health', _this.enabled('info') ? 'info' : 'error', status, true);
@@ -301,6 +305,8 @@
             clearInterval(_timer);
             _timer = null;
             _active = 0;
+            _healthAt = 0;
+            _healthDirty = false;
             _counts.dropped += _normal.length + _urgent.length;
             if (_pending) { _counts.dropped += _pending.count; _pending.controller.abort(); }
             _normal = []; _urgent = []; _bytes = _normalBytes = 0;
